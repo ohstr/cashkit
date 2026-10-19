@@ -1,0 +1,71 @@
+{
+  "description": "NIP-IC connection keys (platform identity hash) and NIP-CW member connection key pairs.",
+  "source": "nipIC/nipIC.go NewConnectionKey, nipcw/connection_key.go ConnectionKeyFromSecret; nipcash/kat_test.go, nipcw/connection_key_kat_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "newConnectionKey": [
+    {
+      "platform": "github",
+      "externalId": "12345",
+      "key": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+    },
+    {
+      "platform": "x",
+      "externalId": "alice",
+      "key": "b2082d04c1cd6537685f5ef62c4c365093f109f84f3fcac897259dc143b88721"
+    },
+    {
+      "platform": "telegram",
+      "externalId": "",
+      "key": "6a0238a940a9c1e94ffde1615fca5520433f77b4d4bc5e6c6fc029a868d3e497"
+    },
+    {
+      "platform": "",
+      "externalId": "12345",
+      "key": "32eb79f94af0cffcb8a0841b15fd77b222423029780864d97822f0c8fce243e2"
+    },
+    {
+      "platform": "github",
+      "externalId": "a:b",
+      "key": "92b657c9d855b81b9d783368d18764868f85ee32a2e1984c6097330eabe5dc42"
+    },
+    {
+      "platform": "discord",
+      "externalId": "Ünïcødé",
+      "key": "0a255c8abc64023c381a3f8031c5082b66f6ff64be7311ccfddb854a21eaac22"
+    }
+  ],
+  "fromSecret": [
+    {
+      "secret": "1111111111111111111111111111111111111111111111111111111111111111",
+      "pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+    },
+    {
+      "secret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    },
+    {
+      "secret": "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140",
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    },
+    {
+      "secret": "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+      "pubkey": "81aaadc8a5e83f4576df823cf22a5b1969cf704a0d5f6f68bd757410c9917aac"
+    },
+    {
+      "secret": "11111111111111111111111111111111111111111111111111111111111111",
+      "error": "nipcw: connection secret: invalid private key length"
+    },
+    {
+      "secret": "111111111111111111111111111111111111111111111111111111111111111111",
+      "error": "nipcw: connection secret: invalid private key length"
+    },
+    {
+      "secret": "zz11111111111111111111111111111111111111111111111111111111111111",
+      "error": "nipcw: connection secret: encoding/hex: invalid byte: U+007A 'z'"
+    },
+    {
+      "secret": "",
+      "error": "nipcw: connection secret: invalid private key length"
+    }
+  ]
+}

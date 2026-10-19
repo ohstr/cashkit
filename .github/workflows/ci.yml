@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+
+  # The browser adapters in a real Chromium (design §12).
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:browser
+
+  # vectors/ must be exactly what nmilat produces (design §11.1).
+  vectors:
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: "off"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/export-vectors/go.mod
+          cache-dependency-path: tools/export-vectors/go.sum
+
+      - name: Gofmt
+        run: test -z "$(gofmt -l tools/export-vectors)"
+
+      - name: Vet
+        run: go -C tools/export-vectors vet ./...
+
+      - name: Tidy
+        run: |
+          go -C tools/export-vectors mod tidy
+          git diff --exit-code tools/export-vectors/go.mod tools/export-vectors/go.sum
+
+      - name: Regenerate and check for drift
+        run: |
+          go -C tools/export-vectors run . -out ../../vectors
+          git diff --exit-code -- vectors
+          test -z "$(git status --porcelain -- vectors)"

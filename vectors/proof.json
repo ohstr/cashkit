@@ -1,0 +1,512 @@
+{
+  "description": "Item (kind 23192) and bill (kind 23193) proofs: the six bound tags, and verification order, freshness window and kind separation.",
+  "source": "nipcash/transport/proof.go; proof_test.go, proof_window_test.go, bill_proof_test.go, nipcash/proof_binding_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "build": [
+    {
+      "name": "item proof",
+      "kind": "item",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "tags": [
+        [
+          "d",
+          "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        ],
+        [
+          "h",
+          "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"
+        ],
+        [
+          "m",
+          "cash_redeem"
+        ],
+        [
+          "ph",
+          "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+        ],
+        [
+          "en",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "expiration",
+          "1760000060"
+        ]
+      ],
+      "eventKind": 23192
+    },
+    {
+      "name": "bill proof",
+      "kind": "bill",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "tags": [
+        [
+          "d",
+          "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        ],
+        [
+          "h",
+          "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"
+        ],
+        [
+          "m",
+          "cash_redeem"
+        ],
+        [
+          "ph",
+          "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+        ],
+        [
+          "en",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "expiration",
+          "1760000060"
+        ]
+      ],
+      "eventKind": 23193
+    },
+    {
+      "name": "missing target",
+      "kind": "item",
+      "binding": {
+        "target": "",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "error": "transport: item proof is malformed: every binding field is required"
+    },
+    {
+      "name": "missing hub",
+      "kind": "item",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "error": "transport: item proof is malformed: every binding field is required"
+    },
+    {
+      "name": "missing method",
+      "kind": "item",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "error": "transport: item proof is malformed: every binding field is required"
+    },
+    {
+      "name": "missing paramsHash",
+      "kind": "item",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "error": "transport: item proof is malformed: every binding field is required"
+    },
+    {
+      "name": "missing nonce",
+      "kind": "item",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "",
+        "notAfter": 1760000060
+      },
+      "error": "transport: item proof is malformed: every binding field is required"
+    }
+  ],
+  "verify": [
+    {
+      "name": "valid item proof",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+    },
+    {
+      "name": "valid bill proof",
+      "kind": "bill",
+      "proof": "{\"id\":\"d64eeefa0f96985af45639345010b35abdb840e39c4434b4001248c67af33ae2\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"f79d0c46ca47bf571a31e3e62e56a088a245b129ea6ffd6d36de680b2cd47d2afbf5dbbd40e75819cf16b6e2d44bdc3b7f8e560846f04248bfd843e09d676698\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+    },
+    {
+      "name": "an item proof is not a bill proof",
+      "kind": "bill",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: kind 23192, want 23193"
+    },
+    {
+      "name": "a bill proof is not an item proof",
+      "kind": "item",
+      "proof": "{\"id\":\"d64eeefa0f96985af45639345010b35abdb840e39c4434b4001248c67af33ae2\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"f79d0c46ca47bf571a31e3e62e56a088a245b129ea6ffd6d36de680b2cd47d2afbf5dbbd40e75819cf16b6e2d44bdc3b7f8e560846f04248bfd843e09d676698\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: kind 23193, want 23192"
+    },
+    {
+      "name": "wrong target",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is bound to a different wallet: bound to \"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\", item targets \"b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2\""
+    },
+    {
+      "name": "wrong hub",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is bound to a different hub: bound to \"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\""
+    },
+    {
+      "name": "wrong method",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_transfer",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is bound to a different method: bound to \"cash_redeem\", item calls \"cash_transfer\""
+    },
+    {
+      "name": "wrong params",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is bound to different params"
+    },
+    {
+      "name": "wrong envelope",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "2222222222222222222222222222222222222222222222222222222222222222",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is bound to a different envelope"
+    },
+    {
+      "name": "different not_after is not checked",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1
+      },
+      "now": 1760000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+    },
+    {
+      "name": "freshness: created +60s from now",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1759999940,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+    },
+    {
+      "name": "freshness: created -300s from now",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000300,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+    },
+    {
+      "name": "freshness: created -301s from now",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000301,
+      "error": "transport: item proof is outside its freshness window: created_at 2025-10-09T08:53:20Z, now 2025-10-09T08:58:21Z"
+    },
+    {
+      "name": "freshness: created +61s from now",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1759999939,
+      "error": "transport: item proof is outside its freshness window: created_at 2025-10-09T08:53:20Z, now 2025-10-09T08:52:19Z"
+    },
+    {
+      "name": "duplicate m tag",
+      "kind": "item",
+      "proof": "{\"id\":\"d6e8a652ee472430174f23852e8bd51a1de6690c16b32030f0b45f2780c92e7d\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"],[\"m\",\"cash_status\"]],\"content\":\"\",\"sig\":\"ae3ac83480bd5bf694f9ec8c603ae69c55a565fce31837af6bb3cfdcd04288a86d2d40dc6ad83fd7c56c462b9771aa5f334b02186dd75a8e069080293042465e\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: duplicate \"m\" tag"
+    },
+    {
+      "name": "duplicate identical tag",
+      "kind": "item",
+      "proof": "{\"id\":\"d7df8367191bc9b4ea9c3e277e0b565ce501fc53035ea532bb33331aa7d0f70c\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"],[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"]],\"content\":\"\",\"sig\":\"a3df10d9414e4ecc74e2de1cfdae9b241d6abb6bb1ef43931314c8bb9c41e3c098792b91933f0b25aff08d0123bc3625be550c78f537e5a168845c44ba9cb9ed\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: duplicate \"d\" tag"
+    },
+    {
+      "name": "missing ph tag",
+      "kind": "item",
+      "proof": "{\"id\":\"1810953bf1a33e0897d897aba7e743a156bdecd507fa9dfddee8a63633c04869\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"6d0de622993cbcd1f8aa7544e36dad35670d35e749ec1a9513c4746ccd95b71284e57da92f59368cfcacaef0c71a2475980ac8cf7e629820762f4b7d87683965\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: missing \"ph\" tag"
+    },
+    {
+      "name": "empty en tag",
+      "kind": "item",
+      "proof": "{\"id\":\"29ad0946714ee49d97abcef1152048b6414af59b2c8e35931d21b2e290399ca4\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"\"]],\"content\":\"\",\"sig\":\"f1c592e554653d47bb96b3a925ac4f6f3bf50dd2b7235ff2a22e938e6da2491628341f0b5bb22986576c16f221ee4005781b4637f86adfc4cc058edd93457ead\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: missing \"en\" tag"
+    },
+    {
+      "name": "no expiration tag is fine",
+      "kind": "item",
+      "proof": "{\"id\":\"04066916c6affd9e36cd4ccc9c82d0b8c3e6e3a544bbb9db8e321406488725dd\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"]],\"content\":\"\",\"sig\":\"8e9eab78a0f310862b5843d03bb06d057a2662d22b985e1ee89caf179f149192251cf0ea349bc9e13ea72c5d13efc73dea295f22c618218fa5a80f49db0c1457\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+    },
+    {
+      "name": "extra tags are ignored",
+      "kind": "item",
+      "proof": "{\"id\":\"6c28f51d44bd1b9712556357ea5acd7fef0d9d1486583c4b61d23b6bfc5c6a24\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"],[\"x\",\"y\"],[\"d\"]],\"content\":\"\",\"sig\":\"0338c50fb7681ee106ce063f734893d7fd60094bb8393e4a92af442276e0b49e3c68de95c7208d3aa1854adb2a8f1ee4446aa11ccf48cc5ffbfba7e6d695f3c8\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+    },
+    {
+      "name": "bad signature",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e470\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof signature is invalid: invalid signature"
+    },
+    {
+      "name": "uppercase signer pubkey",
+      "kind": "item",
+      "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4D4B6CD1361032CA9BD2AEB9D900AA4D45D9EAD80AC9423374C451A7254D0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: signer pubkey must be 64 lowercase hex characters"
+    },
+    {
+      "name": "not JSON",
+      "kind": "item",
+      "proof": "{",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: unexpected end of JSON input"
+    },
+    {
+      "name": "a JSON string, not an object",
+      "kind": "item",
+      "proof": "\"x\"",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: json: cannot unmarshal string into Go value of type nip01.Event"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - AGENTS.md
+      - CHANGELOG.md
+      - docs/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+jobs:
+  docs:
+    # Granted here, not inside build-docs.yml: a reusable workflow can't
+    # self-grant pages/id-token when called cross-repo.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ohstr/docs-kit/.github/workflows/build-docs.yml@main
+    with:
+      title: cashkit
+      description: A TypeScript SDK for NIP-CASH and NIP-CW wallets.
+      accent-hue: 265 # cashctl's purple, until cashkit has its own brand

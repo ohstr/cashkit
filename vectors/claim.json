@@ -1,0 +1,1775 @@
+{
+  "description": "NIP-IC attestations, cash targets, the claim proofs and new_identity bindings nmilat builds for cash_redeem, cash_transfer and cash_consolidate, and recipient matching.",
+  "source": "nipcash/{identity,proof,claim,cash_redeem,cash_transfer,cash_consolidate}.go, nipIC/attestation.go; nipcash/proof_binding_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "attestation": [
+    {
+      "name": "valid",
+      "event": {
+        "id": "b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "35a0bc6a3a665caf19688e975027495d014cc5c10466c9ce8ccb4c990103bb15544aa40dd335de7e3fb5d8857e42f2aaa85066bbb6f877cb0672fd58eec29559"
+      },
+      "want": {
+        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "platform": "github",
+        "evidence": {
+          "userId": "12345",
+          "username": "alice",
+          "verifiedAt": 1759999000,
+          "evidenceUrl": "https://gist.github.com/alice/1",
+          "challenge": "npv1x",
+          "preAuthCode": "abcd"
+        },
+        "expiresAt": 4102444800
+      }
+    },
+    {
+      "name": "no expiration",
+      "event": {
+        "id": "7c90dd52a6232d023c885a6c6217396decc2c40f7aa5c8e26e1004d44797bd9f",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ]
+        ],
+        "content": "",
+        "sig": "bc4a7ad5baf877108eadff43f1c6abbae63f29e4ad1acca2233584e5609f22b5a706c04a05fdf01876f385b3f81a9716904d9c0541e3dc48f15f1d8c96581e4e"
+      },
+      "want": {
+        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "platform": "github",
+        "evidence": {
+          "userId": "12345",
+          "username": "alice",
+          "verifiedAt": 1759999000,
+          "evidenceUrl": "https://gist.github.com/alice/1",
+          "challenge": "npv1x",
+          "preAuthCode": "abcd"
+        },
+        "expiresAt": null
+      }
+    },
+    {
+      "name": "unparseable expiration is ignored",
+      "event": {
+        "id": "ddc97e4b0d221d7ec20f6514f2fb2e7f8537fc910996e5d91d7b45659e73986e",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "soon"
+          ]
+        ],
+        "content": "",
+        "sig": "fe7515646b7ae8f88f19399f872cef9ff8658f05d1880a6206a2abf99b4de114d2531eea40a9908dc2def56d90987084167589e51028278415d1fb40fc701619"
+      },
+      "want": {
+        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "platform": "github",
+        "evidence": {
+          "userId": "12345",
+          "username": "alice",
+          "verifiedAt": 1759999000,
+          "evidenceUrl": "https://gist.github.com/alice/1",
+          "challenge": "npv1x",
+          "preAuthCode": "abcd"
+        },
+        "expiresAt": null
+      }
+    },
+    {
+      "name": "wrong kind",
+      "event": {
+        "id": "f3f35a5bb24d3f959dd26ab13679e5191a68452abcb0970ef63f25345b465105",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 1,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "a8c83c9516a0fcd7497b6fadf565066e7da0f6bab6dcd0a00667fd76135084a75748c2eacf8b81c52803ac9a71d84c16593c8e486b8691335ce759071cab5214"
+      },
+      "error": "nipIC: unexpected event kind: expected kind 35522, got 1"
+    },
+    {
+      "name": "bad signature",
+      "event": {
+        "id": "b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "35a0bc6a3a665caf19688e975027495d014cc5c10466c9ce8ccb4c990103bb15544aa40dd335de7e3fb5d8857e42f2aaa85066bbb6f877cb0672fd58eec29550"
+      },
+      "error": "nipIC: invalid event signature: invalid signature"
+    },
+    {
+      "name": "missing d",
+      "event": {
+        "id": "45e5d7414c6777be1356c62ae93bfe7303729bed5269fc8b762e049605f17286",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "e5db280fb7a788ffaacd76a7fbda819fa8db34f80653f0e158cf5f9b0da7799fd897b213fb694d6ff5578577558e7b70e9f79706111e3cce492c757afff8f917"
+      },
+      "error": "nipIC: missing required tag: #d tag is required for Kind 35522"
+    },
+    {
+      "name": "empty d",
+      "event": {
+        "id": "d19e5bff11519ddc0fb2be75527c166c9a9782984b5ff7fed89fd1e3640db364",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            ""
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "98629f6949dd3467bab7110306457b7d119d12705c1fada0664b5f1aac9796c6047a76e476f8cdb2fab3f3321656da34707904a46162e03e237d1aa0850f1403"
+      },
+      "error": "nipIC: missing required tag: #d tag is required for Kind 35522"
+    },
+    {
+      "name": "missing p",
+      "event": {
+        "id": "2ea75b164e2af8e0d039fe569732d7b61c6642938103ff8350da05d1f356b321",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "9a8abd61dc8509fbb2b89a45abc531d7b394d04cb5d3d51951198f72b79d6389256bf2eed3a93f278598ae84b75becefcb387dbf300b2fadadd396a67af8859c"
+      },
+      "error": "nipIC: missing required tag: #p tag (user pubkey) is required for Kind 35522"
+    },
+    {
+      "name": "empty p",
+      "event": {
+        "id": "c486a28ab8622005d1b21b14adc9966934589fda46bb765fe44544cbe78406b9",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            ""
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "0491342532d6256d62759d2f67d5f64b4415ceff5a5fb672d52831c9f5f16e029121b15e8e919bd7ebbcbe3b2122fa889fb1e3f4ac75d35c0f8fba57755ccf48"
+      },
+      "error": "nipIC: missing required tag: #p tag (user pubkey) is required for Kind 35522"
+    },
+    {
+      "name": "missing platform",
+      "event": {
+        "id": "3bf5b03308d858e9fd28c2b7429ce3e89c1b073d14c2ec9e3dab7bce724ff614",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "c00899bf7e8dc72ea363ff504c66d5f90b8085466a2394deca390554204b88c77565c5825da761e4eba969fe987be0834df5d90555e54581dcfbb4d76645868c"
+      },
+      "error": "nipIC: missing required tag: #platform tag is required for Kind 35522"
+    },
+    {
+      "name": "empty platform",
+      "event": {
+        "id": "a861dea1d72149a892d5e19d84909bbfa8f1cfaa335e91d3789cc67379135151",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            ""
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "7cdc959cb388fc9e8fa4f2c4a373dc61beef0de5ca9f611a2a6f77f14369e3e918113df5849a0351196257d8c9e6a7d019681e22216e42f5011238b999ae8e09"
+      },
+      "error": "nipIC: missing required tag: #platform tag is required for Kind 35522"
+    },
+    {
+      "name": "missing evidence",
+      "event": {
+        "id": "feba64373c4ff5e98d6290f058c9f9b53b75aef6998bb96ebff522e14a4b08b5",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "9bc0f8fcb20979fb0ea98aa4fc11d61a4631cdda947b93c9558969d7c71851025f79ebe60db2050e21dd360c5ce3b3aaeafd3d956713bf2b8d940fd8aa7fb5f8"
+      },
+      "error": "nipIC: missing required tag: #evidence tag is required for Kind 35522"
+    },
+    {
+      "name": "empty evidence",
+      "event": {
+        "id": "271123f3eee29a03fe1f45f09559306c2659c2e7503d46c92e0d412b61697d1b",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            ""
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "b8d5f493e10700d787b12b5596a8e9713f1df71b09ebb31cf8f0f3f1e56af58eeab547ce75a26326896f54fd1fff9d9cb76da328f572e1d692d97017d9d19213"
+      },
+      "error": "nipIC: missing required tag: #evidence tag is required for Kind 35522"
+    },
+    {
+      "name": "platform-prefixed d",
+      "event": {
+        "id": "e9be4d4bf01c17bfb4eb63b53dd560a131042835c2938a85a0e5df14ded6ead4",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "github:2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "ab780856ce4bc283570b9c410df0bfdce98bf7a5021315a8358cbce6fb44899301bfe834c12f7d6af2c4f246b9dfe93c2c6d2bfdb93dbbf5a9109a4bd5805adf"
+      },
+      "error": "nipIC: #d tag must be a bare ConnectionKey, not platform-prefixed: \"github:2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf\""
+    },
+    {
+      "name": "evidence not JSON",
+      "event": {
+        "id": "4e84d6349857c07eb22bacb218256eeebce89ea76036b1690237e2efb4d477bd",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "147c2ba9f12f56b841288364d8e7dab126084a8bc4f05a08c6ef0dfdce6275674ec710dc9515cfd08d25b675dbfc84aceeedcb489df6f3ebd9f42df2292862cf"
+      },
+      "error": "nipIC: invalid tag: evidence tag is not valid JSON: unexpected end of JSON input"
+    },
+    {
+      "name": "evidence null",
+      "event": {
+        "id": "27c9376238619bc2c343b97656588863f34d0f0af47826610a6aeb5b95dbc351",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "null"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "de23243afd6bae152c11d5ec30c02a73f9253f560080d5ae2a12c42554b0de4a330045f483c4e00e6d528fc0d484556679d1d9dcc8d0963cb0d35e3128924e47"
+      },
+      "want": {
+        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "platform": "github",
+        "evidence": {
+          "userId": "",
+          "username": "",
+          "verifiedAt": 0,
+          "evidenceUrl": "",
+          "challenge": "",
+          "preAuthCode": ""
+        },
+        "expiresAt": 4102444800
+      }
+    },
+    {
+      "name": "evidence an array",
+      "event": {
+        "id": "c8c01c64307a812eaef145aa3e54e6727ec4b51981be6d5aa63af1f09fb07cea",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "[]"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "042b09645a1d98031dc82cfd629034b2016c054583c83753f46bf43d81f89b9858772ddf38713a2d05886ccab8b1c13ff72e5c5e06147941c2ef6a58d986318f"
+      },
+      "error": "nipIC: invalid tag: evidence tag is not valid JSON: json: cannot unmarshal array into Go value of type nipIC.evidenceWire"
+    },
+    {
+      "name": "evidence with a string version",
+      "event": {
+        "id": "9a95c4ae870c172bae200df7b7f2d4a62c7496a951cb17fa34e3a27c4d4ff43e",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":\"1\",\"user_id\":\"x\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "43d47b2ec7f50dbc47af1dcd86f5fd39835be4d7cb1f139cebf5dac1ba9914e667e3ddb90c78814b6af9060c210a44251f6fb202a8531298ea929e696227fcf3"
+      },
+      "error": "nipIC: invalid tag: evidence tag is not valid JSON: json: cannot unmarshal string into Go struct field evidenceWire.version of type int"
+    },
+    {
+      "name": "evidence with a fractional verified_at",
+      "event": {
+        "id": "0db1ee8c949c863be11a897d850d7ae5975472f15cb53a7f06eea0fef490a40d",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"verified_at\":1.5}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "0d46535a90f01f0f8cfd2801c14e67b403ac285f0e3981d627bb8cd565381a55fb9f5e245cb4c50701873ae3bcbc5bfb86d84084ee179d6393688c9d0bc00645"
+      },
+      "error": "nipIC: invalid tag: evidence tag is not valid JSON: json: cannot unmarshal number 1.5 into Go struct field evidenceWire.verified_at of type int64"
+    },
+    {
+      "name": "evidence with unknown fields",
+      "event": {
+        "id": "ecbafbee5eede6eb9bbd4658f499b16cedc5616ff4017d5c43c8a4707e470510",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"user_id\":\"x\",\"extra\":{\"a\":1}}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ]
+        ],
+        "content": "",
+        "sig": "192a0c333f6cdeeebd731f7e353d9872428693c611f4f2a69d83e4294aed00714179848b461c42177780c367b2bcabecab35e21d147ccdbd757a2e435667338b"
+      },
+      "want": {
+        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "platform": "github",
+        "evidence": {
+          "userId": "x",
+          "username": "",
+          "verifiedAt": 0,
+          "evidenceUrl": "",
+          "challenge": "",
+          "preAuthCode": ""
+        },
+        "expiresAt": 4102444800
+      }
+    },
+    {
+      "name": "a repeated tag: the last one wins",
+      "event": {
+        "id": "fd6d4a02a53b18b1208302220eb7fdbff6776cace1b18d5942ea66bb0bd76e93",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ],
+          [
+            "platform",
+            "x"
+          ]
+        ],
+        "content": "",
+        "sig": "dbb2b3b9fb8489feb3ec2354461b7ebbf16851e537264dd3ca859a0a37277780ae5a661996cb82f00b7797ab35c77a2b8dcc66e665dadf0991318bd9b4efa72d"
+      },
+      "want": {
+        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "platform": "x",
+        "evidence": {
+          "userId": "12345",
+          "username": "alice",
+          "verifiedAt": 1759999000,
+          "evidenceUrl": "https://gist.github.com/alice/1",
+          "challenge": "npv1x",
+          "preAuthCode": "abcd"
+        },
+        "expiresAt": 4102444800
+      }
+    },
+    {
+      "name": "one-element tags are skipped",
+      "event": {
+        "id": "2465a8f71761bb0078e0bd0208acabc36309f76dda59b1aa87d69be61bd8d59a",
+        "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+        "created_at": 1760000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+          ],
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"public_post\",\"user_id\":\"12345\",\"username\":\"alice\",\"verified_at\":1759999000,\"evidence_url\":\"https://gist.github.com/alice/1\",\"challenge\":\"npv1x\",\"pre_auth_code\":\"abcd\"}"
+          ],
+          [
+            "expiration",
+            "4102444800"
+          ],
+          [
+            "d"
+          ]
+        ],
+        "content": "",
+        "sig": "037ee811ae3ea9f2d16f8a7f7ec437d9dbc1444b2ef5f84bad1bde4e480f1050ade77e30ae76c305b2ee826c2c28015a5d61ceed5a7651eb76eefcc290e9eba2"
+      },
+      "want": {
+        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "platform": "github",
+        "evidence": {
+          "userId": "12345",
+          "username": "alice",
+          "verifiedAt": 1759999000,
+          "evidenceUrl": "https://gist.github.com/alice/1",
+          "challenge": "npv1x",
+          "preAuthCode": "abcd"
+        },
+        "expiresAt": 4102444800
+      }
+    }
+  ],
+  "cashTarget": [
+    {
+      "secret": "2b981c5ea36d869d57e8f2a3e97eba137458bc1a976cb3cd675e9ce1a38549ce",
+      "commit": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
+    },
+    {
+      "secret": "4344312968c7236698386c9243570a1ec777234202f4d64e8e0fa2ea9a00fa19",
+      "commit": "817d2796179a1a64d5f64bcdbd05c83861852d1caad822542253baf02ae7cca2"
+    }
+  ],
+  "requests": [
+    {
+      "name": "redeem by secret",
+      "method": "cash_redeem",
+      "inputs": {
+        "credential": "secret",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "cash_secret": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0"
+      }
+    },
+    {
+      "name": "redeem by signing",
+      "method": "cash_redeem",
+      "inputs": {
+        "credential": "signing",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "bolt11_hash",
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0"
+      }
+    },
+    {
+      "name": "redeem by connection_key",
+      "method": "cash_redeem",
+      "inputs": {
+        "credential": "connection_key",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "attestation_event": "{\"id\":\"b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081\",\"pubkey\":\"531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337\",\"created_at\":1760000000,\"kind\":35522,\"tags\":[[\"d\",\"2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf\"],[\"p\",\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\"],[\"platform\",\"github\"],[\"evidence\",\"{\\\"version\\\":1,\\\"platform\\\":\\\"github\\\",\\\"auth_type\\\":\\\"public_post\\\",\\\"user_id\\\":\\\"12345\\\",\\\"username\\\":\\\"alice\\\",\\\"verified_at\\\":1759999000,\\\"evidence_url\\\":\\\"https://gist.github.com/alice/1\\\",\\\"challenge\\\":\\\"npv1x\\\",\\\"pre_auth_code\\\":\\\"abcd\\\"}\"],[\"expiration\",\"4102444800\"]],\"content\":\"\",\"sig\":\"35a0bc6a3a665caf19688e975027495d014cc5c10466c9ce8ccb4c990103bb15544aa40dd335de7e3fb5d8857e42f2aaa85066bbb6f877cb0672fd58eec29559\"}",
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "bolt11_hash",
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            [
+              "connection_key",
+              "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+            ],
+            [
+              "e",
+              "b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "connection_key",
+        "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0"
+      }
+    },
+    {
+      "name": "redeem by connection_key_no_att",
+      "method": "cash_redeem",
+      "inputs": {
+        "credential": "connection_key_no_att",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "error": "nipcash: attestation has no expiration, or has already expired"
+    },
+    {
+      "name": "redeem by connection_key_expired",
+      "method": "cash_redeem",
+      "inputs": {
+        "credential": "connection_key_expired",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "error": "nipcash: attestation has no expiration, or has already expired"
+    },
+    {
+      "name": "redeem with an amount",
+      "method": "cash_redeem",
+      "inputs": {
+        "amount": 500000,
+        "credential": "signing",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "amount": 500000,
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "bolt11_hash",
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0"
+      }
+    },
+    {
+      "name": "redeem with a bad invoice",
+      "method": "cash_redeem",
+      "inputs": {
+        "credential": "signing",
+        "invoice": "lnfc1notaninvoice",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "error": "nipcash: decode invoice: invalid bolt11 encoding: invalid character not part of charset: 111"
+    },
+    {
+      "name": "transfer to pubkey",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "0da174a2f5b86e84b32c08e2f2340dd2088e80bd1a1488b2bace690d0c5ca529"
+            ],
+            [
+              "amount_millis",
+              "21000"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "new_identity": {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+        }
+      }
+    },
+    {
+      "name": "transfer to pubkey uppercase",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey uppercase",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "de7594371a4adb3c884513f962bbc86ca2d6fbd1dd0ca8c579b00f7447a3dd84"
+            ],
+            [
+              "amount_millis",
+              "21000"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "new_identity": {
+          "identity_type": "pubkey",
+          "identity_value": "4D4B6CD1361032CA9BD2AEB9D900AA4D45D9EAD80AC9423374C451A7254D0766"
+        }
+      }
+    },
+    {
+      "name": "transfer to connection_key",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "connection_key",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "56b35f63fa86d0a4c7124a4592c9d2133fb6a39c45c084d32180fa9761ac3a90"
+            ],
+            [
+              "amount_millis",
+              "21000"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "new_identity": {
+          "ia_pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+          "identity_type": "connection_key",
+          "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+        }
+      }
+    },
+    {
+      "name": "transfer to connection_key no ia",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "connection_key no ia",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "error": "nipcash: a connection_key identity requires an ia_pubkey"
+    },
+    {
+      "name": "transfer to connection_key no platform",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "connection_key no platform",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "2078f06e21cbfad60cd04352d9d930b721837db5d9e13a64f84fce614ce59d27"
+            ],
+            [
+              "amount_millis",
+              "21000"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "new_identity": {
+          "ia_pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+          "identity_type": "pubkey",
+          "identity_value": "32eb79f94af0cffcb8a0841b15fd77b222423029780864d97822f0c8fce243e2"
+        }
+      }
+    },
+    {
+      "name": "transfer to resolved connection_key",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "resolved connection_key",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "56b35f63fa86d0a4c7124a4592c9d2133fb6a39c45c084d32180fa9761ac3a90"
+            ],
+            [
+              "amount_millis",
+              "21000"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "new_identity": {
+          "ia_pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+          "identity_type": "connection_key",
+          "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+        }
+      }
+    },
+    {
+      "name": "transfer to cash",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "cash",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+            ],
+            [
+              "amount_millis",
+              "21000"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "new_identity": {
+          "identity_type": "cash",
+          "identity_value": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
+        }
+      }
+    },
+    {
+      "name": "transfer by secret",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "secret",
+        "currentAmount": 21000,
+        "to": "pubkey",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "cash_secret": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "new_identity": {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+        }
+      }
+    },
+    {
+      "name": "transfer by connection_key",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "connection_key",
+        "currentAmount": 21000,
+        "to": "pubkey",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "attestation_event": "{\"id\":\"b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081\",\"pubkey\":\"531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337\",\"created_at\":1760000000,\"kind\":35522,\"tags\":[[\"d\",\"2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf\"],[\"p\",\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\"],[\"platform\",\"github\"],[\"evidence\",\"{\\\"version\\\":1,\\\"platform\\\":\\\"github\\\",\\\"auth_type\\\":\\\"public_post\\\",\\\"user_id\\\":\\\"12345\\\",\\\"username\\\":\\\"alice\\\",\\\"verified_at\\\":1759999000,\\\"evidence_url\\\":\\\"https://gist.github.com/alice/1\\\",\\\"challenge\\\":\\\"npv1x\\\",\\\"pre_auth_code\\\":\\\"abcd\\\"}\"],[\"expiration\",\"4102444800\"]],\"content\":\"\",\"sig\":\"35a0bc6a3a665caf19688e975027495d014cc5c10466c9ce8ccb4c990103bb15544aa40dd335de7e3fb5d8857e42f2aaa85066bbb6f877cb0672fd58eec29559\"}",
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "0da174a2f5b86e84b32c08e2f2340dd2088e80bd1a1488b2bace690d0c5ca529"
+            ],
+            [
+              "amount_millis",
+              "21000"
+            ],
+            [
+              "connection_key",
+              "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+            ],
+            [
+              "e",
+              "b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "connection_key",
+        "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+        "new_identity": {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+        }
+      }
+    },
+    {
+      "name": "transfer a split",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "splitAmount": 5000,
+        "to": "cash",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "request": {
+        "amount_millis": 5000,
+        "identity_event": {
+          "content": "",
+          "kind": 23198,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "new_identity_hash",
+              "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+            ],
+            [
+              "amount_millis",
+              "5000"
+            ]
+          ],
+          "valid": true
+        },
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "new_identity": {
+          "identity_type": "cash",
+          "identity_value": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
+        }
+      }
+    },
+    {
+      "name": "consolidate two bills",
+      "method": "cash_consolidate",
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "request": {
+        "new_identity": {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+        },
+        "sources": [
+          {
+            "identity_event": {
+              "content": "",
+              "kind": 23198,
+              "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+              "tags": [
+                [
+                  "d",
+                  "abababababababababababababababababababababababababababababababab"
+                ],
+                [
+                  "new_identity_hash",
+                  "0da174a2f5b86e84b32c08e2f2340dd2088e80bd1a1488b2bace690d0c5ca529"
+                ],
+                [
+                  "amount_millis",
+                  "1000"
+                ]
+              ],
+              "valid": true
+            },
+            "identity_type": "pubkey",
+            "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+            "wallet_pubkey": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "identity_event": {
+              "content": "",
+              "kind": 23198,
+              "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+              "tags": [
+                [
+                  "d",
+                  "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+                ],
+                [
+                  "new_identity_hash",
+                  "0da174a2f5b86e84b32c08e2f2340dd2088e80bd1a1488b2bace690d0c5ca529"
+                ],
+                [
+                  "amount_millis",
+                  "2000"
+                ]
+              ],
+              "valid": true
+            },
+            "identity_type": "pubkey",
+            "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+            "wallet_pubkey": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "consolidate to a cash target",
+      "method": "cash_consolidate",
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "connection_key",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "cash"
+      },
+      "request": {
+        "new_identity": {
+          "identity_type": "cash",
+          "identity_value": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
+        },
+        "sources": [
+          {
+            "identity_event": {
+              "content": "",
+              "kind": 23198,
+              "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+              "tags": [
+                [
+                  "d",
+                  "abababababababababababababababababababababababababababababababab"
+                ],
+                [
+                  "new_identity_hash",
+                  "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+                ],
+                [
+                  "amount_millis",
+                  "1000"
+                ]
+              ],
+              "valid": true
+            },
+            "identity_type": "pubkey",
+            "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+            "wallet_pubkey": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "attestation_event": "{\"id\":\"b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081\",\"pubkey\":\"531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337\",\"created_at\":1760000000,\"kind\":35522,\"tags\":[[\"d\",\"2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf\"],[\"p\",\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\"],[\"platform\",\"github\"],[\"evidence\",\"{\\\"version\\\":1,\\\"platform\\\":\\\"github\\\",\\\"auth_type\\\":\\\"public_post\\\",\\\"user_id\\\":\\\"12345\\\",\\\"username\\\":\\\"alice\\\",\\\"verified_at\\\":1759999000,\\\"evidence_url\\\":\\\"https://gist.github.com/alice/1\\\",\\\"challenge\\\":\\\"npv1x\\\",\\\"pre_auth_code\\\":\\\"abcd\\\"}\"],[\"expiration\",\"4102444800\"]],\"content\":\"\",\"sig\":\"35a0bc6a3a665caf19688e975027495d014cc5c10466c9ce8ccb4c990103bb15544aa40dd335de7e3fb5d8857e42f2aaa85066bbb6f877cb0672fd58eec29559\"}",
+            "identity_event": {
+              "content": "",
+              "kind": 23198,
+              "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+              "tags": [
+                [
+                  "d",
+                  "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+                ],
+                [
+                  "new_identity_hash",
+                  "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+                ],
+                [
+                  "amount_millis",
+                  "2000"
+                ],
+                [
+                  "connection_key",
+                  "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
+                ],
+                [
+                  "e",
+                  "b714a522b83c0bc4936b5bbbab55c76909c49b30a71211ef8f66e0adeba5c081"
+                ]
+              ],
+              "valid": true
+            },
+            "identity_type": "connection_key",
+            "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+            "wallet_pubkey": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "consolidate one bill",
+      "method": "cash_consolidate",
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "error": "nipcash: cash_consolidate requires at least two sources"
+    },
+    {
+      "name": "consolidate a cash-mode bill",
+      "method": "cash_consolidate",
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "secret",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "error": "nipcash: cash_consolidate does not accept a cash-mode source"
+    },
+    {
+      "name": "consolidate the same bill twice",
+      "method": "cash_consolidate",
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "error": "nipcash: cash_consolidate names the same source twice"
+    },
+    {
+      "name": "consolidate to a connection key without ia",
+      "method": "cash_consolidate",
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "connection_key no ia"
+      },
+      "error": "nipcash: a connection_key identity requires an ia_pubkey"
+    }
+  ],
+  "matchClaim": [
+    {
+      "name": "cash row, cash claim",
+      "recipients": [
+        {
+          "identity_type": "cash",
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": true,
+      "asPubkey": "",
+      "matchClaimAmount": 1000,
+      "matchClaimOk": true,
+      "matchClaimAutoIndex": 0
+    },
+    {
+      "name": "claimed cash row is skipped",
+      "recipients": [
+        {
+          "identity_type": "cash",
+          "amount_millis": 1000,
+          "claimed": true,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "cash",
+          "amount_millis": 2000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": true,
+      "asPubkey": "",
+      "matchClaimAmount": 2000,
+      "matchClaimOk": true,
+      "matchClaimAutoIndex": 1
+    },
+    {
+      "name": "pubkey row for us",
+      "recipients": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 3000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": false,
+      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "matchClaimAmount": 3000,
+      "matchClaimOk": true,
+      "matchClaimAutoIndex": 0
+    },
+    {
+      "name": "pubkey row for someone else",
+      "recipients": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "abababababababababababababababababababababababababababababababab",
+          "amount_millis": 3000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": false,
+      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "matchClaimAmount": 0,
+      "matchClaimOk": false,
+      "matchClaimAutoIndex": -1
+    },
+    {
+      "name": "no local identity never matches a pubkey row",
+      "recipients": [
+        {
+          "identity_type": "pubkey",
+          "amount_millis": 3000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": false,
+      "asPubkey": "",
+      "matchClaimAmount": 0,
+      "matchClaimOk": false,
+      "matchClaimAutoIndex": -1
+    },
+    {
+      "name": "bearer is not cash",
+      "recipients": [
+        {
+          "identity_type": "bearer",
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": true,
+      "asPubkey": "",
+      "matchClaimAmount": 0,
+      "matchClaimOk": false,
+      "matchClaimAutoIndex": -1
+    },
+    {
+      "name": "connection_key rows never match",
+      "recipients": [
+        {
+          "identity_type": "connection_key",
+          "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": false,
+      "asPubkey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+      "matchClaimAmount": 0,
+      "matchClaimOk": false,
+      "matchClaimAutoIndex": -1
+    },
+    {
+      "name": "first match wins",
+      "recipients": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 1,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "cash",
+          "amount_millis": 2,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": false,
+      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "matchClaimAmount": 1,
+      "matchClaimOk": true,
+      "matchClaimAutoIndex": 0
+    },
+    {
+      "name": "cash claim ignores pubkey rows",
+      "recipients": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 1,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "cash",
+          "amount_millis": 2,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "isCash": true,
+      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "matchClaimAmount": 2,
+      "matchClaimOk": true,
+      "matchClaimAutoIndex": 0
+    },
+    {
+      "name": "empty roster",
+      "recipients": [],
+      "isCash": true,
+      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "matchClaimAmount": 0,
+      "matchClaimOk": false,
+      "matchClaimAutoIndex": -1
+    }
+  ]
+}

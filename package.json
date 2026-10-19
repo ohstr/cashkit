@@ -1,0 +1,156 @@
+{
+  "name": "@ohstr/cashkit",
+  "version": "0.0.0",
+  "description": "TypeScript SDK for NIP-CASH and NIP-CW wallets",
+  "license": "Unlicense",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohstr/cashkit.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.34.7",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./transport": {
+      "types": "./dist/transport/index.d.ts",
+      "import": "./dist/transport/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    },
+    "./adapters/relay-ws": {
+      "types": "./dist/adapters/relay-ws.d.ts",
+      "import": "./dist/adapters/relay-ws.js"
+    },
+    "./wallet": {
+      "types": "./dist/wallet/index.d.ts",
+      "import": "./dist/wallet/index.js"
+    },
+    "./adapters/storage-memory": {
+      "types": "./dist/adapters/storage-memory.d.ts",
+      "import": "./dist/adapters/storage-memory.js"
+    },
+    "./adapters/vault-none": {
+      "types": "./dist/adapters/vault-none.d.ts",
+      "import": "./dist/adapters/vault-none.js"
+    },
+    "./adapters/lock-memory": {
+      "types": "./dist/adapters/lock-memory.d.ts",
+      "import": "./dist/adapters/lock-memory.js"
+    },
+    "./adapters/storage-sqlite": {
+      "types": "./dist/adapters/storage-sqlite.d.ts",
+      "import": "./dist/adapters/storage-sqlite.js"
+    },
+    "./adapters/storage-indexeddb": {
+      "types": "./dist/adapters/storage-indexeddb.d.ts",
+      "import": "./dist/adapters/storage-indexeddb.js"
+    },
+    "./adapters/vault-passphrase": {
+      "types": "./dist/adapters/vault-passphrase.d.ts",
+      "import": "./dist/adapters/vault-passphrase.js"
+    },
+    "./adapters/vault-device": {
+      "types": "./dist/adapters/vault-device.d.ts",
+      "import": "./dist/adapters/vault-device.js"
+    },
+    "./adapters/lock-weblocks": {
+      "types": "./dist/adapters/lock-weblocks.d.ts",
+      "import": "./dist/adapters/lock-weblocks.js"
+    },
+    "./adapters/sync-broadcast": {
+      "types": "./dist/adapters/sync-broadcast.d.ts",
+      "import": "./dist/adapters/sync-broadcast.js"
+    },
+    "./adapters/signer-nip07": {
+      "types": "./dist/adapters/signer-nip07.d.ts",
+      "import": "./dist/adapters/signer-nip07.js"
+    },
+    "./adapters/signer-nip46": {
+      "types": "./dist/adapters/signer-nip46.d.ts",
+      "import": "./dist/adapters/signer-nip46.js"
+    },
+    "./adapters/relay-nostr-tools": {
+      "types": "./dist/adapters/relay-nostr-tools.d.ts",
+      "import": "./dist/adapters/relay-nostr-tools.js"
+    },
+    "./adapters/relay-ndk": {
+      "types": "./dist/adapters/relay-ndk.d.ts",
+      "import": "./dist/adapters/relay-ndk.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepare": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings src test && depcruise src",
+    "test": "vitest run",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@scure/base": "^2.4.0"
+  },
+  "peerDependencies": {
+    "@nostr-dev-kit/ndk": ">=2",
+    "better-sqlite3": ">=11",
+    "nostr-tools": ">=2",
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "@nostr-dev-kit/ndk": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    },
+    "nostr-tools": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nostr-dev-kit/ndk": "^3.0.3",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
+    "@vitest/browser-playwright": "5.0.5",
+    "dependency-cruiser": "^18.6.0",
+    "fake-indexeddb": "^6.2.6",
+    "jsdom": "^30.1.3",
+    "nostr-tools": "^2.25.2",
+    "oxlint": "^1.88.0",
+    "playwright": "1.62.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsup": "^9.0.0",
+    "typescript": "^6",
+    "vitest": "^5.0.5",
+    "ws": "^8.22.0"
+  }
+}

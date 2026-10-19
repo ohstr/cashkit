@@ -1,0 +1,35 @@
+import { defineConfig } from 'tsup'
+
+export default defineConfig({
+  entry: {
+    index: 'src/index.ts',
+    'core/index': 'src/core/index.ts',
+    'transport/index': 'src/transport/index.ts',
+    'client/index': 'src/client/index.ts',
+    'wallet/index': 'src/wallet/index.ts',
+    'react/index': 'src/react/index.ts',
+    'adapters/relay-ws': 'src/adapters/relay-ws.ts',
+    'adapters/storage-memory': 'src/adapters/storage-memory.ts',
+    'adapters/vault-none': 'src/adapters/vault-none.ts',
+    'adapters/lock-memory': 'src/adapters/lock-memory.ts',
+    'adapters/relay-ndk': 'src/adapters/relay-ndk.ts',
+    'adapters/relay-nostr-tools': 'src/adapters/relay-nostr-tools.ts',
+    'adapters/signer-nip46': 'src/adapters/signer-nip46.ts',
+    'adapters/signer-nip07': 'src/adapters/signer-nip07.ts',
+    'adapters/sync-broadcast': 'src/adapters/sync-broadcast.ts',
+    'adapters/lock-weblocks': 'src/adapters/lock-weblocks.ts',
+    'adapters/vault-device': 'src/adapters/vault-device.ts',
+    'adapters/vault-passphrase': 'src/adapters/vault-passphrase.ts',
+    'adapters/storage-indexeddb': 'src/adapters/storage-indexeddb.ts',
+    'adapters/storage-sqlite': 'src/adapters/storage-sqlite.ts',
+  },
+  format: ['esm'],
+  target: 'es2022',
+  dts: true,
+  clean: true,
+  sourcemap: true,
+  splitting: true,
+  treeshake: true,
+  // node:sqlite exists only with its prefix; keep every node: import as written.
+  removeNodeProtocol: false,
+})

@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": { "correctness": "error", "suspicious": "warn" },
+  "rules": {
+    "no-console": "error"
+  },
+  "overrides": [
+    {
+      "files": ["src/core/**", "src/transport/**", "src/client/**", "src/wallet/**"],
+      "rules": {
+        "no-restricted-globals": ["error", "window", "document", "indexedDB", "localStorage", "sessionStorage", "navigator", "process", "Buffer"]
+      }
+    }
+  ],
+  "ignorePatterns": ["dist", "node_modules"]
+}

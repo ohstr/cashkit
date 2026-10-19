@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version to release (e.g. 0.1.0, no "v" prefix). Leave blank to use
+          the topmost "## [X.Y.Z]" heading in CHANGELOG.md.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+  # npm provenance: the registry checks the package against this run's OIDC token.
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # The same gate as ci.yml: a release is never cut from a state that
+      # wouldn't also pass CI.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+      # As cashctl's: only workflow_dispatch releases, and the notes always
+      # come from CHANGELOG.md, never from GitHub.
+      - name: Resolve version and notes from CHANGELOG.md
+        id: changelog
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+        run: |
+          VERSION="$VERSION_INPUT"
+          if [ -z "$VERSION" ]; then
+            TOP_HEADING=$(grep -m1 -oP '^## \[?\K[^\]\s]+' CHANGELOG.md || true)
+            if [ "$TOP_HEADING" = "Unreleased" ]; then
+              echo "::error::Topmost CHANGELOG.md heading is 'Unreleased' - rename it to the version being released (e.g. '## [0.1.0]') and commit that before running this workflow, or pass the version input explicitly"
+              exit 1
+            fi
+            VERSION="$TOP_HEADING"
+          fi
+          if ! printf '%s' "$VERSION" | grep -qP '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$VERSION' is not a semver version"
+            exit 1
+          fi
+
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > /tmp/notes.raw
+          sed -e '/./,$!d' -e ':a' -e '/^\n*$/{$d;N;ba' -e '}' /tmp/notes.raw > /tmp/release-notes.md
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "::error::No changelog entry found for version $VERSION in CHANGELOG.md (heading missing or section is empty)"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "--- release notes ---"
+          cat /tmp/release-notes.md
+
+      # package.json stays at 0.0.0 on main; the published version is the
+      # CHANGELOG's, set here and nowhere else.
+      - name: Build the package at that version
+        env:
+          VERSION: ${{ steps.changelog.outputs.version }}
+        run: |
+          npm pkg set version="$VERSION"
+          pnpm build
+
+      - name: Tag release
+        env:
+          VERSION: ${{ steps.changelog.outputs.version }}
+          ACTOR: ${{ github.actor }}
+          ACTOR_EMAIL: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
+        run: |
+          git config user.name "$ACTOR"
+          git config user.email "$ACTOR_EMAIL"
+          # A re-run replaces the tag rather than failing.
+          git tag -d "v$VERSION" 2>/dev/null || true
+          git push origin ":refs/tags/v$VERSION" 2>/dev/null || true
+          git tag -a "v$VERSION" -F /tmp/release-notes.md
+          git push origin "v$VERSION"
+
+      # A prerelease (0.1.0-rc.1) goes to the "next" dist-tag, so it never
+      # becomes what `npm install @ohstr/cashkit` picks.
+      - name: Publish to npm with provenance
+        env:
+          VERSION: ${{ steps.changelog.outputs.version }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          TAG=latest
+          case "$VERSION" in *-*) TAG=next ;; esac
+          pnpm publish --no-git-checks --access public --provenance --tag "$TAG"
+
+      - name: GitHub release
+        env:
+          VERSION: ${{ steps.changelog.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PRE=""
+          case "$VERSION" in *-*) PRE="--prerelease" ;; esac
+          gh release delete "v$VERSION" --yes 2>/dev/null || true
+          gh release create "v$VERSION" --title "v$VERSION" --notes-file /tmp/release-notes.md $PRE
+
+      # docs-kit bakes the version badge in from "latest release" at build
+      # time, so rebuild the site now that the release exists.
+      - name: Refresh docs site now that the release is published
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

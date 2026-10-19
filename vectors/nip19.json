@@ -1,0 +1,413 @@
+{
+  "description": "NIP-19 bech32 entities as nmilat encodes and decodes them: npub, nsec, note, nprofile, nevent, naddr.",
+  "source": "nip19/nip19.go; nip19/{nip19,nprofile,pointer,pubkey}_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "decode": [
+    {
+      "name": "npub",
+      "kind": "npub",
+      "input": "npub10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqm6360c",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "npub with extra bytes keeps the first 32",
+      "kind": "npub",
+      "input": "npub10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln7m9z2vu",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "npub shorter than 32 bytes",
+      "kind": "npub",
+      "input": "npub10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70cdh4xl8",
+      "error": "data is less than 32 bytes (31)"
+    },
+    {
+      "name": "npub wrong prefix",
+      "kind": "npub",
+      "input": "nfoo10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqpgfhq0",
+      "error": "unknown tag nfoo"
+    },
+    {
+      "name": "nsec",
+      "kind": "nsec",
+      "input": "nsec10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqhv6mfd",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "nsec with extra bytes keeps the first 32",
+      "kind": "nsec",
+      "input": "nsec10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln7g6de3r",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "nsec shorter than 32 bytes",
+      "kind": "nsec",
+      "input": "nsec10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70crcwl0m",
+      "error": "data is less than 32 bytes (31)"
+    },
+    {
+      "name": "nsec wrong prefix",
+      "kind": "nsec",
+      "input": "nfoo10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqpgfhq0",
+      "error": "unknown tag nfoo"
+    },
+    {
+      "name": "note",
+      "kind": "note",
+      "input": "note10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elq2sj8ks",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "note with extra bytes keeps the first 32",
+      "kind": "note",
+      "input": "note10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln73jm639",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "note shorter than 32 bytes",
+      "kind": "note",
+      "input": "note10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70cjc6twr",
+      "error": "data is less than 32 bytes (31)"
+    },
+    {
+      "name": "note wrong prefix",
+      "kind": "note",
+      "input": "nfoo10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqpgfhq0",
+      "error": "unknown tag nfoo"
+    },
+    {
+      "name": "npub uppercase",
+      "kind": "npub",
+      "input": "NPUB10EL8ULN70EL8ULN70EL8ULN70EL8ULN70EL8ULN70EL8ULN70ELQM6360C",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "npub bad checksum",
+      "kind": "npub",
+      "input": "npub10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqm6360q",
+      "error": "invalid checksum (expected (bech32=m6360c, bech32m=m6360cwxpk26), got m6360q)"
+    },
+    {
+      "name": "npub bech32m",
+      "kind": "npub",
+      "input": "npub10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqwxpk26",
+      "want": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e"
+    },
+    {
+      "name": "nprofile",
+      "kind": "nprofile",
+      "input": "nprofile1qqs8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8ulspppmhxue69uhhyvgpppmhxue69uhhyvszpqx2j",
+      "want": {
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "relays": [
+          "wss://r1",
+          "wss://r2"
+        ]
+      }
+    },
+    {
+      "name": "nprofile unknown types ignored",
+      "kind": "nprofile",
+      "input": "nprofile1pyqhsqpq0el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqyr62mg",
+      "want": {
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "relays": []
+      }
+    },
+    {
+      "name": "nprofile two pubkeys",
+      "kind": "nprofile",
+      "input": "nprofile1qqs8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8ulsqypl8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uj89wqp",
+      "error": "nprofile public key missing or not 32 bytes"
+    },
+    {
+      "name": "nprofile short pubkey",
+      "kind": "nprofile",
+      "input": "nprofile1qq0huln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uku4ep7",
+      "error": "nprofile public key missing or not 32 bytes"
+    },
+    {
+      "name": "nprofile truncated tail ignored",
+      "kind": "nprofile",
+      "input": "nprofile1qqs8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8ulspp9mskl7glc",
+      "want": {
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "relays": []
+      }
+    },
+    {
+      "name": "nprofile wrong prefix",
+      "kind": "nprofile",
+      "input": "nevent1qqs8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uls9lqdhg",
+      "error": "expected nprofile, got nevent"
+    },
+    {
+      "name": "nevent full",
+      "kind": "nevent",
+      "input": "nevent1qqsp68gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gpqamhxue69uhhyq3q0el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqxpqqqp6nqz89s2n",
+      "want": {
+        "id": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "relays": [
+          "wss://r"
+        ],
+        "author": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "kind": 30000
+      }
+    },
+    {
+      "name": "nevent id only",
+      "kind": "nevent",
+      "input": "nevent1qqsp68gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gd24d5f",
+      "want": {
+        "id": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "relays": [],
+        "author": "",
+        "kind": 0
+      }
+    },
+    {
+      "name": "nevent bad author ignored",
+      "kind": "nevent",
+      "input": "nevent1qqsp68gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gzq4l8uln70cpszqg4xw97l",
+      "want": {
+        "id": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "relays": [],
+        "author": "",
+        "kind": 0
+      }
+    },
+    {
+      "name": "nevent duplicate author ignored",
+      "kind": "nevent",
+      "input": "nevent1qqsp68gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gzypl8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uq3q0el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqseev62",
+      "want": {
+        "id": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "relays": [],
+        "author": "",
+        "kind": 0
+      }
+    },
+    {
+      "name": "nevent missing id",
+      "kind": "nevent",
+      "input": "nevent1qyrhwumn8ghj7use5vxgl",
+      "error": "nevent event id missing or not 32 bytes"
+    },
+    {
+      "name": "naddr",
+      "kind": "naddr",
+      "input": "naddr1qqrk67fdd35hxaqpqamhxue69uhhyq3q0el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqxpqqqp6nqmg43pf",
+      "want": {
+        "identifier": "my-list",
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "kind": 30000,
+        "relays": [
+          "wss://r"
+        ]
+      }
+    },
+    {
+      "name": "naddr empty identifier",
+      "kind": "naddr",
+      "input": "naddr1qqqqygr70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70cpsgqqqw5cqsxg9yy",
+      "want": {
+        "identifier": "",
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "kind": 30000,
+        "relays": []
+      }
+    },
+    {
+      "name": "naddr missing kind",
+      "kind": "naddr",
+      "input": "naddr1qqqhsq3q0el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elq5zp7zu",
+      "error": "naddr kind missing or not 4 bytes"
+    },
+    {
+      "name": "naddr missing identifier",
+      "kind": "naddr",
+      "input": "naddr1qgs8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8ulsrqsqqqafs58w739",
+      "error": "naddr identifier missing"
+    },
+    {
+      "name": "naddr two identifiers",
+      "kind": "naddr",
+      "input": "naddr1qqqkzqqpvgpzqln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln7qvzqqqr4xqdruaga",
+      "error": "naddr identifier missing"
+    }
+  ],
+  "encode": [
+    {
+      "name": "npub",
+      "kind": "npub",
+      "fields": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+      "want": "npub10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqm6360c"
+    },
+    {
+      "name": "npub uppercase hex",
+      "kind": "npub",
+      "fields": "7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E",
+      "want": "npub10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqm6360c"
+    },
+    {
+      "name": "npub any length is encoded",
+      "kind": "npub",
+      "fields": "7e7e7e7e7e7e7e7e7e7e",
+      "want": "npub10el8uln70el8uln7963hak"
+    },
+    {
+      "name": "npub non-hex",
+      "kind": "npub",
+      "fields": "zz",
+      "error": "failed to decode public key hex: encoding/hex: invalid byte: U+007A 'z'"
+    },
+    {
+      "name": "nsec",
+      "kind": "nsec",
+      "fields": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+      "want": "nsec10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqhv6mfd"
+    },
+    {
+      "name": "nsec uppercase hex",
+      "kind": "nsec",
+      "fields": "7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E",
+      "want": "nsec10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqhv6mfd"
+    },
+    {
+      "name": "nsec any length is encoded",
+      "kind": "nsec",
+      "fields": "7e7e7e7e7e7e7e7e7e7e",
+      "want": "nsec10el8uln70el8uln79qz76g"
+    },
+    {
+      "name": "nsec non-hex",
+      "kind": "nsec",
+      "fields": "zz",
+      "error": "failed to decode private key hex: encoding/hex: invalid byte: U+007A 'z'"
+    },
+    {
+      "name": "note",
+      "kind": "note",
+      "fields": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+      "want": "note10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elq2sj8ks"
+    },
+    {
+      "name": "note uppercase hex",
+      "kind": "note",
+      "fields": "7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E7E",
+      "want": "note10el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elq2sj8ks"
+    },
+    {
+      "name": "note any length is encoded",
+      "kind": "note",
+      "fields": "7e7e7e7e7e7e7e7e7e7e",
+      "want": "note10el8uln70el8uln75mjglh"
+    },
+    {
+      "name": "note non-hex",
+      "kind": "note",
+      "fields": "zz",
+      "error": "failed to decode event id hex: encoding/hex: invalid byte: U+007A 'z'"
+    },
+    {
+      "name": "nprofile",
+      "kind": "nprofile",
+      "fields": {
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "relays": [
+          "wss://r1",
+          "wss://r2"
+        ]
+      },
+      "want": "nprofile1qqs8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8ulspppmhxue69uhhyvgpppmhxue69uhhyvszpqx2j"
+    },
+    {
+      "name": "nprofile no relays",
+      "kind": "nprofile",
+      "fields": {
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "relays": null
+      },
+      "want": "nprofile1qqs8uln70el8uln70el8uln70el8uln70el8uln70el8uln70el8ulsx93lk4"
+    },
+    {
+      "name": "nprofile short pubkey",
+      "kind": "nprofile",
+      "fields": {
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "relays": null
+      },
+      "error": "public key must be 32 bytes, got 31"
+    },
+    {
+      "name": "nprofile long relay",
+      "kind": "nprofile",
+      "fields": {
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "relays": [
+          "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+        ]
+      },
+      "error": "tlv value for type 1 exceeds 255 bytes (256)"
+    },
+    {
+      "name": "nevent full",
+      "kind": "nevent",
+      "fields": {
+        "id": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "relays": [
+          "wss://r"
+        ],
+        "author": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "kind": 30000
+      },
+      "want": "nevent1qqsp68gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gpqamhxue69uhhyq3q0el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqxpqqqp6nqz89s2n"
+    },
+    {
+      "name": "nevent id only",
+      "kind": "nevent",
+      "fields": {
+        "id": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "relays": null,
+        "author": "",
+        "kind": 0
+      },
+      "want": "nevent1qqsp68gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gd24d5f"
+    },
+    {
+      "name": "nevent bad author",
+      "kind": "nevent",
+      "fields": {
+        "id": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "relays": null,
+        "author": "ab",
+        "kind": 0
+      },
+      "error": "author pubkey must be 32 bytes, got 1"
+    },
+    {
+      "name": "naddr",
+      "kind": "naddr",
+      "fields": {
+        "identifier": "my-list",
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "kind": 30000,
+        "relays": [
+          "wss://r"
+        ]
+      },
+      "want": "naddr1qqrk67fdd35hxaqpqamhxue69uhhyq3q0el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70elqxpqqqp6nqmg43pf"
+    },
+    {
+      "name": "naddr empty identifier",
+      "kind": "naddr",
+      "fields": {
+        "identifier": "",
+        "pubkey": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "kind": 30000,
+        "relays": null
+      },
+      "want": "naddr1qqqqygr70el8uln70el8uln70el8uln70el8uln70el8uln70el8uln70cpsgqqqw5cqsxg9yy"
+    }
+  ]
+}

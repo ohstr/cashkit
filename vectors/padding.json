@@ -1,0 +1,591 @@
+{
+  "description": "Envelope limits: defaults, padded sizes, policy validation (local and announced) and size estimates.",
+  "source": "nipcash/transport/limits.go; limits_test.go, auditB_priv_padding_test.go, auditD_privacy_padding_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "defaults": {
+    "maxEnvelopeBytes": 57344,
+    "maxItems": 32,
+    "padBucketBytes": 8192,
+    "maxVerifyBudget": 200,
+    "maxConsolidateSources": 48
+  },
+  "paddedSize": [
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": -1,
+      "error": "transport: negative size -1"
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 0,
+      "padded": 8192
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 1,
+      "padded": 8192
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 999,
+      "padded": 8192
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 1000,
+      "padded": 8192
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 1001,
+      "padded": 8192
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 8191,
+      "padded": 8192
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 8192,
+      "padded": 8192
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 8193,
+      "padded": 16384
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 57343,
+      "padded": 57344
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 57344,
+      "padded": 57344
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 57345,
+      "error": "transport: envelope exceeds the configured size limit: 57345 bytes pads to 65536, limit 57344"
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 10000,
+      "padded": 16384
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "n": 10001,
+      "padded": 16384
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": -1,
+      "error": "transport: negative size -1"
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 0,
+      "padded": 1000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 1,
+      "padded": 1000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 999,
+      "padded": 1000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 1000,
+      "padded": 1000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 1001,
+      "padded": 2000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 8191,
+      "padded": 9000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 8192,
+      "padded": 9000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 8193,
+      "padded": 9000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 57343,
+      "error": "transport: envelope exceeds the configured size limit: 57343 bytes pads to 58000, limit 10000"
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 57344,
+      "error": "transport: envelope exceeds the configured size limit: 57344 bytes pads to 58000, limit 10000"
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 57345,
+      "error": "transport: envelope exceeds the configured size limit: 57345 bytes pads to 58000, limit 10000"
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 10000,
+      "padded": 10000
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "n": 10001,
+      "error": "transport: envelope exceeds the configured size limit: 10001 bytes pads to 11000, limit 10000"
+    }
+  ],
+  "validate": [
+    {
+      "name": "defaults",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      }
+    },
+    {
+      "name": "small but coherent",
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "validateAnnouncedError": "transport: every envelope limit must be positive: announced pad_bucket_bytes 1000 is below the 2048 floor, which would defeat padding"
+    },
+    {
+      "name": "zero items",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 0,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "validateError": "transport: every envelope limit must be positive: {MaxEnvelopeBytes:57344 MaxItems:0 PadBucketBytes:8192 MaxVerifyBudget:200 MaxConsolidateSources:48}",
+      "validateAnnouncedError": "transport: every envelope limit must be positive: {MaxEnvelopeBytes:57344 MaxItems:0 PadBucketBytes:8192 MaxVerifyBudget:200 MaxConsolidateSources:48}"
+    },
+    {
+      "name": "zero bucket",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 0,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "validateError": "transport: every envelope limit must be positive: {MaxEnvelopeBytes:57344 MaxItems:32 PadBucketBytes:0 MaxVerifyBudget:200 MaxConsolidateSources:48}",
+      "validateAnnouncedError": "transport: every envelope limit must be positive: {MaxEnvelopeBytes:57344 MaxItems:32 PadBucketBytes:0 MaxVerifyBudget:200 MaxConsolidateSources:48}"
+    },
+    {
+      "name": "negative budget",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": -1,
+        "maxConsolidateSources": 48
+      },
+      "validateError": "transport: every envelope limit must be positive: {MaxEnvelopeBytes:57344 MaxItems:32 PadBucketBytes:8192 MaxVerifyBudget:-1 MaxConsolidateSources:48}",
+      "validateAnnouncedError": "transport: every envelope limit must be positive: {MaxEnvelopeBytes:57344 MaxItems:32 PadBucketBytes:8192 MaxVerifyBudget:-1 MaxConsolidateSources:48}"
+    },
+    {
+      "name": "one consolidate source",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 1
+      },
+      "validateError": "transport: MaxConsolidateSources below NIP-CASH's two-source minimum: 1 < 2",
+      "validateAnnouncedError": "transport: MaxConsolidateSources below NIP-CASH's two-source minimum: 1 < 2"
+    },
+    {
+      "name": "100 consolidate sources",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 100
+      },
+      "validateError": "transport: MaxConsolidateSources allows an item too large to encrypt: 100 sources is ~96210 bytes, over the 57344 envelope limit",
+      "validateAnnouncedError": "transport: MaxConsolidateSources allows an item too large to encrypt: 100 sources is ~96210 bytes, over the 57344 envelope limit"
+    },
+    {
+      "name": "58 consolidate sources fits",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 58
+      }
+    },
+    {
+      "name": "59 consolidate sources does not",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 59
+      }
+    },
+    {
+      "name": "envelope at the NIP-44 ceiling",
+      "limits": {
+        "maxEnvelopeBytes": 65535,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      }
+    },
+    {
+      "name": "envelope above the NIP-44 ceiling",
+      "limits": {
+        "maxEnvelopeBytes": 65536,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "validateError": "transport: MaxEnvelopeBytes exceeds NIP-44's plaintext ceiling: 65536 > 65535",
+      "validateAnnouncedError": "transport: MaxEnvelopeBytes exceeds NIP-44's plaintext ceiling: 65536 > 65535"
+    },
+    {
+      "name": "bucket larger than the envelope",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 60000,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "validateError": "transport: PadBucketBytes exceeds MaxEnvelopeBytes: 60000 > 57344",
+      "validateAnnouncedError": "transport: PadBucketBytes exceeds MaxEnvelopeBytes: 60000 > 57344"
+    },
+    {
+      "name": "announced bucket at the floor",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 2048,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      }
+    },
+    {
+      "name": "announced bucket below the floor",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 2047,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "validateAnnouncedError": "transport: every envelope limit must be positive: announced pad_bucket_bytes 2047 is below the 2048 floor, which would defeat padding"
+    },
+    {
+      "name": "announced bucket of 1",
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 1,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "validateAnnouncedError": "transport: every envelope limit must be positive: announced pad_bucket_bytes 1 is below the 2048 floor, which would defeat padding"
+    }
+  ],
+  "maxSourcesForEnvelope": [
+    [
+      0,
+      2
+    ],
+    [
+      1000,
+      2
+    ],
+    [
+      2914,
+      2
+    ],
+    [
+      5000,
+      4
+    ],
+    [
+      57344,
+      59
+    ],
+    [
+      65535,
+      67
+    ]
+  ],
+  "estimatedConsolidateItemBytes": [
+    [
+      -3,
+      1010
+    ],
+    [
+      0,
+      1010
+    ],
+    [
+      2,
+      2914
+    ],
+    [
+      10,
+      10530
+    ],
+    [
+      48,
+      46706
+    ],
+    [
+      100,
+      96210
+    ]
+  ],
+  "estimatedWireBytes": [
+    {
+      "limits": {
+        "maxEnvelopeBytes": 57344,
+        "maxItems": 32,
+        "padBucketBytes": 8192,
+        "maxVerifyBudget": 200,
+        "maxConsolidateSources": 48
+      },
+      "wireBytes": 76548
+    },
+    {
+      "limits": {
+        "maxEnvelopeBytes": 10000,
+        "maxItems": 4,
+        "padBucketBytes": 1000,
+        "maxVerifyBudget": 8,
+        "maxConsolidateSources": 2
+      },
+      "wireBytes": 13420
+    }
+  ],
+  "envelopeSizes": [
+    {
+      "items": 1,
+      "bytes": 8192
+    },
+    {
+      "items": 2,
+      "bytes": 8192
+    },
+    {
+      "items": 4,
+      "bytes": 8192
+    },
+    {
+      "items": 8,
+      "bytes": 8192
+    },
+    {
+      "items": 16,
+      "bytes": 8192
+    },
+    {
+      "items": 32,
+      "bytes": 8192
+    }
+  ]
+}

@@ -1,0 +1,229 @@
+{
+  "description": "NIP-CW create_circle_wallet: the request with its kind 23199 identity proof, and the result with its encrypted wallet details.",
+  "source": "nipcw/{create_circle_wallet,identity,connection_key}.go; nipcw/{create_circle_wallet,connection_key_kat}_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "requests": [
+    {
+      "name": "full",
+      "inputs": {
+        "budgetRenewal": "monthly",
+        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "expirySeconds": 2592000,
+        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+        "maxAmountMillis": 100000
+      },
+      "request": {
+        "budget_renewal": "monthly",
+        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "expiry": 2592000,
+        "identity_event": {
+          "content": "",
+          "kind": 23199,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+            ],
+            [
+              "connection",
+              "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+            ]
+          ],
+          "valid": true
+        },
+        "max_amount": 100000,
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+      }
+    },
+    {
+      "name": "no budget renewal",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "expirySeconds": 0,
+        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+        "maxAmountMillis": 1
+      },
+      "request": {
+        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "expiry": 0,
+        "identity_event": {
+          "content": "",
+          "kind": 23199,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+            ],
+            [
+              "connection",
+              "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+            ]
+          ],
+          "valid": true
+        },
+        "max_amount": 1,
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+      }
+    },
+    {
+      "name": "sub-second expiry truncates",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "expirySeconds": 1,
+        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+        "maxAmountMillis": 0
+      },
+      "request": {
+        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "expiry": 1,
+        "identity_event": {
+          "content": "",
+          "kind": 23199,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+            ],
+            [
+              "connection",
+              "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+            ]
+          ],
+          "valid": true
+        },
+        "max_amount": 0,
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+      }
+    },
+    {
+      "name": "no connection key",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "",
+        "expirySeconds": 0,
+        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+        "maxAmountMillis": 0
+      },
+      "error": "nipcw: create_circle_wallet requires a member-generated connection key"
+    },
+    {
+      "name": "connection key equal to the member key",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "expirySeconds": 0,
+        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+        "maxAmountMillis": 0
+      },
+      "error": "nipcw: the connection key must differ from the requester's own key"
+    }
+  ],
+  "results": [
+    {
+      "name": "full details",
+      "result": "{\"encrypted_details\":\"AjyWShhVWqFdETgckd5mSKZGBfAyjj/Um6ZLPkxFZzd/IpvGCpOZljH0VjEigCr1ZBHGXveMRYQyfGeOJ+cYahlrcBAOL/JXJZudd3PobymKg/o0h+Io7SWcI87NZ759TbIb4Hfhn0+hxJdmDTjjmm9Id+vBFp3we1RKlAiF+WdN3TarOGN50SN88JEHBFAw1ckEPQMkjyAszY+lmAiLzKzWOm1TKEQcQPrqlvak3tQ/p4mqUUHW2x008mPXSCtPrzNgBNwe9lTtyBmeZNGnv5XPxKTiW1S7Jmb+y11UckUhHi01lpMASKi7Vp4TSue95CozxjaaKChFMsgb3q23nESU1XRxQdiB1hTvgkwKjOaypevdgKG7TlRzFoP++6UdQ/7T\"}",
+      "want": {
+        "BudgetRenewal": "monthly",
+        "ExpiresAt": 1800000000,
+        "FeesPpm": 2500,
+        "MaxAmountMillis": 100000,
+        "PairingURI": "nostr+walletconnect://9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a?relay=wss%3A%2F%2Fr1.example&relay=wss%3A%2F%2Fr2.example&secret=1111111111111111111111111111111111111111111111111111111111111111",
+        "Relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
+    },
+    {
+      "name": "minimal details",
+      "result": "{\"encrypted_details\":\"ApQ96m5vCw33/qKp8cV8szfJ+H4Z8EKoONjpu1h0+QZ3JmfFM3kHqAoetS+VhwIkOwAFwe692iSvseKcF2ut/Ru6D0l1R73LdN4CqtYOOLn4yxXBdvifIDSyPvOyYbZ2bdmkqleyRoSNVQuBcdCjH8MJUoCVahvufjkuGZpzGN/1c6bTpMSCuROfjtxKQZ4RNsaNJVPnaBMuZH7FwobeAFL8EuJ7e7NbbkdvFiSgBV3RfUCpXEhbGWGhB18kBkdg8CIR\"}",
+      "want": {
+        "BudgetRenewal": "",
+        "ExpiresAt": 0,
+        "FeesPpm": 0,
+        "MaxAmountMillis": null,
+        "PairingURI": "nostr+walletconnect://9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a?relay=wss%3A%2F%2Fr1.example&secret=1111111111111111111111111111111111111111111111111111111111111111",
+        "Relays": [
+          "wss://r1.example"
+        ],
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
+    },
+    {
+      "name": "blank relays are dropped",
+      "result": "{\"encrypted_details\":\"Aj5dC61Avwh9OQc8MiCwJjGYmKmbOQvFDsVHf8uo2hfXfwJQug+HLmyusxI9APh4FYJTT1da8BT3Mcbc+RwkCeDTG3nS1982/wP+tHY4/JWP5OF+otTOtZVhxrbTpydvo6dhycgAEa/bkBuqoEN4jGRDX1uh1UYRKaEH9pssSvZSxPVuJ4upA+51P0o7dXPpaCOvVarv3DMe0CqpjYEjTJOdBFBrco2PrxR8jukNadN3nyNT2N+k5yq/D2l1dQOmiCi0\"}",
+      "want": {
+        "BudgetRenewal": "",
+        "ExpiresAt": 0,
+        "FeesPpm": 0,
+        "MaxAmountMillis": null,
+        "PairingURI": "nostr+walletconnect://9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a?relay=wss%3A%2F%2Fr1.example&secret=1111111111111111111111111111111111111111111111111111111111111111",
+        "Relays": [
+          "wss://r1.example"
+        ],
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
+    },
+    {
+      "name": "only blank relays",
+      "result": "{\"encrypted_details\":\"Anh6PqD55LDxgwag1lvmMbMn1OijJTFXhmy0RQS5MbW4w2+EEnsHyG7oJJjH+G+F5DJHm8pEyF9H0QMRhuf6Uvf7RL35CkYbypKVBe2ki0vVCuwDkXItpD9BKhE142CLsZmKxtlqmftJeswdTls6yHNSvmweCfpHXj08peqOMe+bbwXt5fghIMFTmevxdj4KwLGi3RmU/71+BC0mfJyuNLMZsGm1M43UYyEL61Xdg2n8TxsqsPlMc7iWOwMap+r26QZF\"}",
+      "error": "nipcw: wallet details carry no usable relay, so the wallet is unreachable"
+    },
+    {
+      "name": "no relays",
+      "result": "{\"encrypted_details\":\"Ar6R1s9faop0ax3PkZe4Jo5JCxUDqGMsOKnTZasgN8KJXD/5cv93M9SpQjbWmeBPgdtkDGplt5MqSUyNdz0LqI4QSU04cLQJa4CoOppYYgvN+U1avOhD3cQOlzdNxiPVKtgcfk9OuqWhr1L1GjM4QhU9hQTVFl0429IylKk+3cPwKdFZAuW4w3GN6y4WAYnouv11SmZ79xouYBCy0/QK7bwF7Q==\"}",
+      "error": "nipcw: wallet details carry no usable relay, so the wallet is unreachable"
+    },
+    {
+      "name": "bad wallet pubkey",
+      "result": "{\"encrypted_details\":\"AgTiqLJpm6mfzRerl0LSMV3OZu4glVMRAgphAwGEM1yCBCAPtr9zHWaYvbmIrP/YK8JeM1uhVbFLquYKjbnhxGN4dXv8I1B7CUbhyqOqHp4rewnB4i/VpFQ+lHYZT4uSvNG7bXrQwmeYN7z5W6e9CoGPG9AIg8sxV/uLe5OADuxv/t8=\"}",
+      "error": "nipcw: wallet details carry no valid wallet_pubkey: invalid key, bad size: 3"
+    },
+    {
+      "name": "uppercase wallet pubkey",
+      "result": "{\"encrypted_details\":\"AgeeWW1mR+y8N3sg4Hqf/BSS3sr6uTBnmizcWzi+Eh9Udeki6D4zw7pYNY3aTntiMi5CbkWl37sHf+XvINbcanGdthnl4KHvmXPRoB0/LSkBSIWMNI9ndPQnU/Cer+OhtQ3g2WPSgNCRmdRYQMk6SIxLYuvfW6fl+2QzCLkfWH8tf7oIWYl3uzb9Qo63G7Cqqamd95RpT05V8N1N1iNsPn0j2KuM3PVtkEXkxc7c1YO3SKjR7iKkBqpRMGCcvVxqVhJ4\"}",
+      "want": {
+        "BudgetRenewal": "",
+        "ExpiresAt": 0,
+        "FeesPpm": 0,
+        "MaxAmountMillis": null,
+        "PairingURI": "nostr+walletconnect://9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A?relay=wss%3A%2F%2Fr&secret=1111111111111111111111111111111111111111111111111111111111111111",
+        "Relays": [
+          "wss://r"
+        ],
+        "WalletPubkey": "9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A"
+      }
+    },
+    {
+      "name": "details not JSON",
+      "result": "{\"encrypted_details\":\"ApXKej81IhUfC3JboJeZ26Q4Aos3+TVPim2FY/PWfDCROWmmdRftwJ4B349rV/HV59oQ6ajd74fIGTQ+3Y05CrdBsT/tRu+YXIImpOqM2awm/eErp2L1jmaO3nTtzv541qay\"}",
+      "error": "nipcw: parse wallet details: invalid character 'o' in literal null (expecting 'u')"
+    },
+    {
+      "name": "max_amount as a string",
+      "result": "{\"encrypted_details\":\"AslpsMX/+gGMLLz5e+v9TgncAjzw94wRF+EWa/co6IdI2cZlmRB+BIIOQjyio71mRbDjaOfpbk9fvzZWIY0uFpYFrsK/dshg2Vzh0deol3Qp88/on78mrIZ+RAGcZtyQslDipRk3W8uK2pCEhushbKQ07vYVtrqQdYUSIHbkd8G8butLBNosjq5OweWu3qVXMWftd9BAqrYpdsbtg8vxVcxjD2O+9vNonCLSEz7KA1OhjBsEUqqbQPknjIsmwicYe8uR\"}",
+      "error": "nipcw: parse wallet details: json: cannot unmarshal string into Go struct field circleWalletDetailsWire.max_amount of type uint64"
+    },
+    {
+      "name": "no encrypted_details",
+      "result": "{}",
+      "error": "nipcw: response carries no encrypted_details"
+    },
+    {
+      "name": "result not JSON",
+      "result": "[",
+      "error": "unexpected end of JSON input"
+    },
+    {
+      "name": "details sealed to someone else",
+      "result": "{\"encrypted_details\":\"AsdG9RCnR7NIA/pmCec5aqIokMw44/RobbGuyE2E8uF9zBve6W9PJvetT0iB/gV7zhLfVsyt8YIZe2TAVgG7+onBiV3gczurxrhY9iS2o2ABZf921Jz/kAs9rLhFQrHIXYHinzF8hBuWe3OvUIxg2D6ywSgw84NT3trN/5CEwr+nFYM+CQHuigzzTjq4vv2cYbe4joa9nxuyUSmxXDh347D2LiAqVyYRyuvSEoFWFXb9Efww6+6Y3oxL0/F9Krxif+bn\"}",
+      "error": "nipcw: decrypt wallet details: invalid MAC"
+    }
+  ]
+}

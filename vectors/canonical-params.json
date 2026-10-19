@@ -1,0 +1,217 @@
+{
+  "description": "The params hash (ph) an item proof binds: sha256 of params with keys sorted by UTF-8 bytes, no whitespace, number literals verbatim and RFC 8785 string escaping. Not stock JCS.",
+  "source": "nipcash/transport/envelope.go CanonicalParamsHash; canonical_jcs_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "hash": [
+    {
+      "name": "full form (TestCanonicalParams_RFC8785Strings)",
+      "params": "{\n\t\t\"z\": \"<>&\",\n\t\t\"q\": \"\\\"\\\\\\b\\t\\n\\f\\r\\u0001\\u001f\\u007f é\",\n\t\t\"n\": 12345678901234567890,\n\t\t\"arr\": [1.50, true, null],\n\t\t\"a\": \"x\u2028y\u2029z\"\n\t}",
+      "canonical": "{\"a\":\"x\u2028y\u2029z\",\"arr\":[1.50,true,null],\"n\":12345678901234567890,\"q\":\"\\\"\\\\\\b\\t\\n\\f\\r\\u0001\\u001f é\",\"z\":\"<>&\"}",
+      "hash": "069de3ad539b89d0ab1afbbce26f1e49fc4afc0f5ddb4bb75342cdd22b823f7b"
+    },
+    {
+      "name": "less-than",
+      "params": "{\"s\":\"<\"}",
+      "canonical": "{\"s\":\"<\"}",
+      "hash": "cb982437bf871d585c30bc39d9ce9259bc963bc866a2a3a3586b989133e05aef"
+    },
+    {
+      "name": "greater-than",
+      "params": "{\"s\":\">\"}",
+      "canonical": "{\"s\":\">\"}",
+      "hash": "f190bc7e33ad6cca729ff335a4fb712de09a6d594c89f9fe67da625831f27a41"
+    },
+    {
+      "name": "ampersand",
+      "params": "{\"s\":\"&\"}",
+      "canonical": "{\"s\":\"&\"}",
+      "hash": "80a55c395f1a0d4ff1f3988c5e7fdab70e4220ee79b76809a8d05c98c70fcbec"
+    },
+    {
+      "name": "U+2028",
+      "params": "{\"s\":\"\u2028\"}",
+      "canonical": "{\"s\":\"\u2028\"}",
+      "hash": "d2dcdddd0f4b645daac78de5e4c6e8eb33b01c4aab0266e49f8c8ccc7f945d99"
+    },
+    {
+      "name": "U+2029 escaped in input",
+      "params": "{\"s\":\"\u2029\"}",
+      "canonical": "{\"s\":\"\u2029\"}",
+      "hash": "2682e063829f3b5c727751e81384399c9378d70f39093b62387d0985ba394e1c"
+    },
+    {
+      "name": "non-ASCII",
+      "params": "{\"s\":\"é😀\"}",
+      "canonical": "{\"s\":\"é😀\"}",
+      "hash": "ce17ae588f9a47bf4913d0bbf9801f86a4fb8d0075248878b9f4d9a3dfe3fd58"
+    },
+    {
+      "name": "escaped slash",
+      "params": "{\"s\":\"\\/\"}",
+      "canonical": "{\"s\":\"/\"}",
+      "hash": "3a21357b943ab7956f071b0904981aac17577986281af33468108795e079946d"
+    },
+    {
+      "name": "key with <",
+      "params": "{\"<k\":1}",
+      "canonical": "{\"<k\":1}",
+      "hash": "2c5a507416ba769af999ab0c6bfc08a0e6a5c5c679678097182d0238fc4c4eb6"
+    },
+    {
+      "name": "backspace",
+      "params": "{\"s\":\"\\u0008\"}",
+      "canonical": "{\"s\":\"\\b\"}",
+      "hash": "1b5a19cf3b9e4ac31f0f208d8586f611bbc4ecef776fc963a411efd23cff7787"
+    },
+    {
+      "name": "form feed",
+      "params": "{\"s\":\"\\u000c\"}",
+      "canonical": "{\"s\":\"\\f\"}",
+      "hash": "8ec25e8fd214a9b0dbeb8e980937667f8c2c1943b4a4522a37134650a7f58d64"
+    },
+    {
+      "name": "other control",
+      "params": "{\"s\":\"\\u000b\"}",
+      "canonical": "{\"s\":\"\\u000b\"}",
+      "hash": "d02e72cd71ab7c3e52ae1c7f8721e6fbecd25b9a1487b947931c62c3d2db3606"
+    },
+    {
+      "name": "escaped surrogate pair",
+      "params": "{\"s\":\"😀\"}",
+      "canonical": "{\"s\":\"😀\"}",
+      "hash": "f9949e1006d1ca22bc0b60ea94f09779f11a8f0a29bae250fc7ab313d879f5e7"
+    },
+    {
+      "name": "lone surrogate becomes U+FFFD",
+      "params": "{\"s\":\"\\ud800\"}",
+      "canonical": "{\"s\":\"�\"}",
+      "hash": "7513ecfd87d7bd3c5671d16e2a24074dc15ea73c79a51ffda3ffc1cd8ede8389"
+    },
+    {
+      "name": "uppercase escape",
+      "params": "{\"s\":\"é\"}",
+      "canonical": "{\"s\":\"é\"}",
+      "hash": "86028b41ba792eaf82aa26a45b218f6734f7f1096a86f1746c8296e088a0ccb4"
+    },
+    {
+      "name": "empty params hash as {}",
+      "params": "",
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "name": "whitespace only",
+      "params": " \n\t",
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "name": "empty object",
+      "params": "{}",
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "name": "nested objects sort at every level",
+      "params": "{\"b\":{\"z\":1,\"a\":[{\"y\":2,\"x\":3}]},\"a\":0}",
+      "hash": "0da757699fcea5f55455b12cf82724e64a53375f04f94a9710cdb5d362aa2ff7"
+    },
+    {
+      "name": "keys sort by UTF-8 bytes",
+      "params": "{\"￿\":1,\"𐀀\":2,\"é\":3,\"z\":4,\"Z\":5,\"\":6}",
+      "hash": "1437ee730f9845eddc6f582c3198c081c1e435d8631e6a49f831dc2724698282"
+    },
+    {
+      "name": "duplicate keys: the last wins",
+      "params": "{\"a\":1,\"a\":2}",
+      "hash": "7e8059f495589fcd981232cc11d00b00da3802c01d688fa1cf1f6bed6e5bb33c"
+    },
+    {
+      "name": "number literals kept: 1.0",
+      "params": "{\"n\":1.0}",
+      "hash": "3b6b06ecd1c968c8e738e0f11c4bb361fca80a9a694de22fe66a05286afbd081"
+    },
+    {
+      "name": "number literals kept: 1e3",
+      "params": "{\"n\":1e3}",
+      "hash": "9481a2ca39ef6a74fdb85d3d6d34af5aa6badae4d3f6ab0e6606de0c7ed48344"
+    },
+    {
+      "name": "number literals kept: 1E+03",
+      "params": "{\"n\":1E+03}",
+      "hash": "d3893872d4b264e37f0408f139f15d782acc05184e78f42964ab3dd54eb4fc2a"
+    },
+    {
+      "name": "number literals kept: -0",
+      "params": "{\"n\":-0}",
+      "hash": "d54829e5b2d6e184fe2005d0b3ee73c1931163e1c1fd461a7449c9f7255ea2d2"
+    },
+    {
+      "name": "number literals kept: 0.1e-2",
+      "params": "{\"n\":0.1e-2}",
+      "hash": "b1af3b6963091b726ff38c7e7a4895197bf4d163a51c7b55090fe5f1d6d83051"
+    },
+    {
+      "name": "number beyond uint64",
+      "params": "{\"n\":123456789012345678901234567890}",
+      "hash": "03b8f78ef5e8a305f4cda82942db0c6accec4046b40457ae19055ea5e4fff2ac"
+    },
+    {
+      "name": "amount millis",
+      "params": "{\"amount_millis\":21000,\"cash_secret\":\"ab\"}",
+      "hash": "1b1613e59cda6b2b7311f0478229ff59b34c6514744732ce056c40d9c6e7d5cd"
+    },
+    {
+      "name": "top-level array",
+      "params": "[3,1,2]",
+      "hash": "51bda7ab4e44726cde71fcb6e4b515357059bb6b6dd5146d1fc50f73f11678c6"
+    },
+    {
+      "name": "top-level string",
+      "params": "\"x\"",
+      "hash": "ba2df4903a2c14e86dc3bcca58911b44ac1d2514b7227bf6eb08cfb978f55a1b"
+    },
+    {
+      "name": "top-level number",
+      "params": "42",
+      "hash": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049"
+    },
+    {
+      "name": "top-level null",
+      "params": "null",
+      "hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "name": "trailing content",
+      "params": "{\"a\":1} {}",
+      "error": "transport: envelope is malformed: params carry trailing content"
+    },
+    {
+      "name": "trailing comma",
+      "params": "{\"a\":1,}",
+      "error": "transport: params are not valid JSON: invalid character '}' looking for beginning of object key string"
+    },
+    {
+      "name": "not JSON",
+      "params": "{a:1}",
+      "error": "transport: params are not valid JSON: invalid character 'a' looking for beginning of object key string"
+    },
+    {
+      "name": "leading zero",
+      "params": "{\"n\":01}",
+      "error": "transport: params are not valid JSON: invalid character '1' after object key:value pair"
+    },
+    {
+      "name": "bare dot number",
+      "params": "{\"n\":.5}",
+      "error": "transport: params are not valid JSON: invalid character '.' looking for beginning of value"
+    },
+    {
+      "name": "unescaped control in string",
+      "params": "{\"s\":\"a\u0001b\"}",
+      "error": "transport: params are not valid JSON: invalid character '\\x01' in string literal"
+    },
+    {
+      "name": "real cash_transfer params",
+      "params": "{\"identity_type\":\"pubkey\",\"identity_value\":\"abababababababababababababababababababababababababababababababab\",\"identity_event\":\"{\\\"kind\\\":23198}\",\"new_identity\":{\"identity_type\":\"cash\",\"identity_value\":\"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\"},\"amount_millis\":5000}",
+      "hash": "99c30518890be45a4a0d3d22f9760983f075000545479e3a52ca7efc4ec64fc7"
+    }
+  ]
+}

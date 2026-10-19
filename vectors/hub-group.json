@@ -1,0 +1,82 @@
+{
+  "description": "Hub-group fingerprint: the first 4 bytes of sha256 over the hub pubkey's hex TEXT, and the grouping rule.",
+  "source": "nipcash/token.go HubGroupFor, SameHubGroup; nipcash/hub_group_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "hubGroupFor": [
+    {
+      "hub": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "group": "3985dac9",
+      "notRawBytes": "7969ec0f"
+    },
+    {
+      "hub": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+      "group": "bd850d10",
+      "notRawBytes": "34da5e39"
+    },
+    {
+      "hub": "4F355BDCB7CC0AF728EF3CCEB9615D90684BB5B2CA5F859AB0F0B704075871AA",
+      "group": "a8dad3c3",
+      "notRawBytes": "34da5e39"
+    },
+    {
+      "hub": "hub-pubkey-aaa",
+      "group": "0f47f999"
+    },
+    {
+      "hub": "hub-a",
+      "group": "fb8cdf12"
+    },
+    {
+      "hub": "hub-b",
+      "group": "edf7e12a"
+    },
+    {
+      "hub": "",
+      "group": "e3b0c442"
+    }
+  ],
+  "sameHubGroup": [
+    {
+      "name": "same group",
+      "a": "fb8cdf12",
+      "b": "fb8cdf12",
+      "same": true
+    },
+    {
+      "name": "different groups",
+      "a": "fb8cdf12",
+      "b": "edf7e12a",
+      "same": false
+    },
+    {
+      "name": "both absent is not a wildcard",
+      "a": null,
+      "b": null,
+      "same": false
+    },
+    {
+      "name": "one absent",
+      "a": "fb8cdf12",
+      "b": null,
+      "same": false
+    },
+    {
+      "name": "other absent",
+      "a": null,
+      "b": "fb8cdf12",
+      "same": false
+    },
+    {
+      "name": "wrong length on both",
+      "a": "0102",
+      "b": "0102",
+      "same": false
+    },
+    {
+      "name": "empty on both",
+      "a": "",
+      "b": "",
+      "same": false
+    }
+  ]
+}

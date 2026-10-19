@@ -1,0 +1,93 @@
+{
+  "description": "NIP-04 encrypt/decrypt as nmilat does it: AES-256-CBC over the shared x-coordinate, PKCS#7, base64 ciphertext ?iv= base64 IV.",
+  "source": "nip04/nip04.go",
+  "nmilat": "v0.5.0-rc.24",
+  "valid": [
+    {
+      "name": "short",
+      "senderSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "receiverPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "receiverSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+      "senderPubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "plaintext": "hello",
+      "payload": "zZUfVuZ572sGK7o2DorMHg==?iv=Ga40ztZNuI8cMAN1up3J2Q=="
+    },
+    {
+      "name": "15 bytes",
+      "senderSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "receiverPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "receiverSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+      "senderPubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "plaintext": "0123456789abcde",
+      "payload": "pO0bOQlGdl0+uatwhNBd9g==?iv=TzL18TDjQz6FKma8g0urgw=="
+    },
+    {
+      "name": "16 bytes (a full block of padding)",
+      "senderSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "receiverPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "receiverSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+      "senderPubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "plaintext": "0123456789abcdef",
+      "payload": "Bg3yvL/RrjUcwTXqlbQY9MiVnhpi2ZtuW2T5llg17x0=?iv=vJW6WxsKstsXYzTXdYqg/w=="
+    },
+    {
+      "name": "unicode",
+      "senderSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "receiverPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "receiverSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+      "senderPubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "plaintext": "ünïcødé 🔑",
+      "payload": "bP9ZACHjYEPDyPi5c/n2RveCeb9Re1qTFBgjrMp5M+c=?iv=85W2I1WfvvEqqNdrzZBnyg=="
+    },
+    {
+      "name": "nwc request",
+      "senderSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "receiverPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "receiverSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+      "senderPubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "plaintext": "{\"method\":\"make_invoice\",\"params\":{\"amount\":21000}}",
+      "payload": "flQUmMmLDDbwKl42T0N2JGTvaU5TbwbOtohg3sFYzwzQ1OC2zWZMRYZwUzdFhOAtkW64Gl/FUrJlf1taXsGSVA==?iv=34x3Z47qIkp8ipED4mojHw=="
+    },
+    {
+      "name": "empty",
+      "senderSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "receiverPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "receiverSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+      "senderPubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "plaintext": "",
+      "payload": "e7kf8WgEMtOzp0D0av6Arg==?iv=H7nYKmVvynwOkltkpxVlNQ=="
+    }
+  ],
+  "invalid": [
+    {
+      "name": "no ?iv= separator",
+      "payload": "AAAAAAAAAAAAAAAAAAAAAA==",
+      "nmilat": "refused"
+    },
+    {
+      "name": "IV not 16 bytes",
+      "payload": "AAAAAAAAAAAAAAAAAAAAAA==?iv=AAAA",
+      "nmilat": "refused"
+    },
+    {
+      "name": "ciphertext not base64",
+      "payload": "!!!?iv=AAAAAAAAAAAAAAAAAAAAAA==",
+      "nmilat": "refused"
+    },
+    {
+      "name": "ciphertext not a whole number of blocks",
+      "payload": "AAAAAAAA?iv=AAAAAAAAAAAAAAAAAAAAAA==",
+      "nmilat": "refused"
+    },
+    {
+      "name": "empty ciphertext",
+      "payload": "?iv=AAAAAAAAAAAAAAAAAAAAAA==",
+      "nmilat": "refused"
+    },
+    {
+      "name": "wrong IV (bad padding)",
+      "payload": "zZUfVuZ572sGK7o2DorMHg==?iv=AQEBAQEBAQEBAQEBAQEBAQ==",
+      "nmilat": "refused"
+    }
+  ]
+}

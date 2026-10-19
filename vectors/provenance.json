@@ -1,0 +1,377 @@
+{
+  "description": "Mint provenance: payload scheme, per-HRP signed-message prefix, and public-key recovery from the 65-byte compact signature over sha256d.",
+  "source": "nipcash/provenance.go; nipcash/kat_test.go, provenance_test.go; lokihub lokicash/lokicash_provenance_adversarial_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "mintPayload": [
+    {
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "amountMillis": "21000",
+      "payload": "lokicash-mint:v1:lokicash:2222222222222222222222222222222222222222222222222222222222222222:21000"
+    },
+    {
+      "hrp": "satscash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "amountMillis": "0",
+      "payload": "lokicash-mint:v1:satscash:2222222222222222222222222222222222222222222222222222222222222222:0"
+    },
+    {
+      "hrp": "xyzcash",
+      "walletPubkey": "2323232323232323232323232323232323232323232323232323232323232323",
+      "amountMillis": "18446744073709551615",
+      "payload": "lokicash-mint:v1:xyzcash:2323232323232323232323232323232323232323232323232323232323232323:18446744073709551615"
+    }
+  ],
+  "signedMessagePrefix": [
+    {
+      "hrp": "lokicash",
+      "prefix": "Flokicoin Lightning Signed Message:"
+    },
+    {
+      "hrp": "satscash",
+      "prefix": "Lightning Signed Message:"
+    },
+    {
+      "hrp": "xyzcash",
+      "prefix": null
+    },
+    {
+      "hrp": "LOKICASH",
+      "prefix": null
+    },
+    {
+      "hrp": "",
+      "prefix": null
+    }
+  ],
+  "verify": [
+    {
+      "name": "kat lokicash",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "20c72cfbb8e8566000d6d90904c0c04fd047ce066dd599ede34c84dfb314f3126709ad9a50800f285c90a9683f8282b268a8bb85f8b7a9599f9b4482cbfd83b508",
+      "attestedAmountMillis": "21000",
+      "minter": "034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+    },
+    {
+      "name": "kat satscash",
+      "hrp": "satscash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1fcae9f6586ffbf8b1ee7e71eb3a531fc605573f2e04934899040d5237ef7280ad0a75647a2ebf91a982a93aaeaba324768e8b3a28e137bec9570d7f7e9d559b6c",
+      "attestedAmountMillis": "21000",
+      "minter": "034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+    },
+    {
+      "name": "valid",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "second token from the same signer",
+      "hrp": "lokicash",
+      "walletPubkey": "2323232323232323232323232323232323232323232323232323232323232323",
+      "mintSignature": "1fbff554397dbe3e0e3640095d3c67e5fcb895fcdbb76ff5b6e95356a613fdb7f9639a7bf9ea390d828aa517b30de2f9584fa5df6e6e5d06f6ca5aa50d71e21719",
+      "attestedAmountMillis": "40000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "satscash under the lnd prefix",
+      "hrp": "satscash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1fb23065a88381afdf27411f3b19ffdeb76c6363280f7dee5e269c94246b0043ef03f644dd4a56495ccc01d105873f7f7c254fc4be53b4ccb0a0a2d4c9f00dcc7f",
+      "attestedAmountMillis": "21000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "satscash signed under the flnd prefix",
+      "hrp": "satscash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1fb72aff39b0504463e9ac0364301e27ad1ff1226539f9f2185aa14829b3b766f563d529a2e920347772ff611941ca641779ff161692543cb243a40cf5646bbed8",
+      "attestedAmountMillis": "21000",
+      "minter": "030e2182dfaf3efebeea4d48805d72bc460dc543055bfd9a5fb0e9c4d01cea419c"
+    },
+    {
+      "name": "lokicash signed under the lnd prefix",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "20903252c99438dceb43fc6639f0bb4dd32710b12a70e85901bd76cb9f80d4c28e1634dd38156d42db82edfb811831374f8b219be6925c885cf9cddc2093d00564",
+      "attestedAmountMillis": "21000",
+      "minter": "028d233bf6a06382c977e5d4d2784a531e6cd732246e88674b0499808b3535266b"
+    },
+    {
+      "name": "zero amount",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "208472b8147ddb25d0dcc78f6dceababb4f292c9fcbb4a243467d6c5bf5313f16e44722bde8a6dede8b3f468e416b87518ace4b4f3b830a2316e7c2c2051b71904",
+      "attestedAmountMillis": "0",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "max amount",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1f15d7d6a9f1e1dda0efd3a90480bafe537822cc5baecbc335acad74d47c5546d81754972a9886cfb78d6786cf44290293c777402459cb5e26eacb4b1e5a812b1d",
+      "attestedAmountMillis": "18446744073709551615",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "uncompressed recovery flag still yields the compressed key",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1bebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "tampered amount (inflate)",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21001",
+      "minter": "036ee418a3c1401f4257ae3e3c51fe64f296056806fcef580724bb4d8993ef08c6"
+    },
+    {
+      "name": "tampered amount (deflate to zero)",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "0",
+      "minter": "02051b407728c6cb970f65cadf34b7b6597ab2a100ead1cc9ea2620e727d4f7ba4"
+    },
+    {
+      "name": "tampered wallet pubkey",
+      "hrp": "lokicash",
+      "walletPubkey": "2323232323232323232323232323232323232323232323232323232323232323",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "03000e1c958d3420abd2db7423cbf7b6aee20775207060364a29d0a1d37d594070"
+    },
+    {
+      "name": "tampered hrp",
+      "hrp": "satscash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "03e049b965fdf5d45a665ae31d7ec014aca8b3badbfbff9f86cb25288169400263"
+    },
+    {
+      "name": "swapped amount between two real tokens",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "40000",
+      "minter": "03e82527d513c390ad7bf85d3907e5b8ae150abe39a6f95de1df9a27959694177e"
+    },
+    {
+      "name": "signature from another node",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1fbf27ae8ce30c462c2ae54343b4607372fc0ba4fcb2912e0fa881ecafa0915a4b7486579b7f9d9f9d8f538e1fd9b9df6aea75f7de6607bf752b11e4ca198fcc43",
+      "attestedAmountMillis": "21000",
+      "minter": "037c3f0429768437a942f1818ef1616c609b7a6d8a8dd245e179c8c0838e7d169d"
+    },
+    {
+      "name": "lowercase wallet pubkey with letters",
+      "hrp": "lokicash",
+      "walletPubkey": "abababababababababababababababababababababababababababababababab",
+      "mintSignature": "1f703bc2f1b757dc460482b47d938ac372b8132c35c7ca45a1b1ff65e9721e101337595ae0a85e70f4f502a9bcabe991e06108af989c3157c3192c58a0874e907d",
+      "attestedAmountMillis": "21000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "uppercase wallet pubkey is signed text, not bytes",
+      "hrp": "lokicash",
+      "walletPubkey": "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+      "mintSignature": "1f703bc2f1b757dc460482b47d938ac372b8132c35c7ca45a1b1ff65e9721e101337595ae0a85e70f4f502a9bcabe991e06108af989c3157c3192c58a0874e907d",
+      "attestedAmountMillis": "21000",
+      "minter": "0243aeed4a520bc1611867043f4d45d8ca87134cd303a240e340ba1b8022c671f1"
+    },
+    {
+      "name": "unknown hrp",
+      "hrp": "xyzcash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "2005b7575ee54679b4d0d25f3cabf3f9d59b1d7edfe9f4e9b56d98d2e669403da322c1ca42f45be70455be839e18e1a161a50a63e9662b98cd371298fb49f444e5",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "uppercase hrp",
+      "hrp": "LOKICASH",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "signature without amount",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": null,
+      "minter": null
+    },
+    {
+      "name": "amount without signature",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": null,
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "neither",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": null,
+      "attestedAmountMillis": null,
+      "minter": null
+    },
+    {
+      "name": "short signature",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312d",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "all-zero signature",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 0",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "00ebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 26",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1aebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 27",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1bebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "header byte 28",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1cebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "0320d3dd192e5b7ce08bef9267543b4a7d08f1c2a62baa3aa9fd6839f463c8bf2e"
+    },
+    {
+      "name": "header byte 29",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1debe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 30",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1eebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 31",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    },
+    {
+      "name": "header byte 32",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "20ebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": "0320d3dd192e5b7ce08bef9267543b4a7d08f1c2a62baa3aa9fd6839f463c8bf2e"
+    },
+    {
+      "name": "header byte 33",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "21ebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 34",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "22ebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 35",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "23ebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "header byte 255",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "ffebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b3559cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "r = 0",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1f000000000000000000000000000000000000000000000000000000000000000059cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "s = 0",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1febe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b350000000000000000000000000000000000000000000000000000000000000000",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "r = 2^256-1",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff59cdf0bcb7ee6c75f2bc6f3ebe6dccdabaa777652911a4867e1f52b830312dc3",
+      "attestedAmountMillis": "21000",
+      "minter": null
+    },
+    {
+      "name": "high s with flipped recovery parity",
+      "hrp": "lokicash",
+      "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+      "mintSignature": "20ebe0058da76ffbca59f6f1b9274473f7970d75f87679e2b543b71a305f612b35a6320f434811938a0d4390c141923324000765818636fbb541b30bd4a005137e",
+      "attestedAmountMillis": "21000",
+      "minter": "02207bba70bc66309baa582a6ac120fd52d68026c51f6326f8ccedcbd2c1b7eb82"
+    }
+  ]
+}

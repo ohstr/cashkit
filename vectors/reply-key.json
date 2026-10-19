@@ -1,0 +1,37 @@
+{
+  "description": "The response key: HKDF-Expand(SHA-256, PRK = request conversation key, info = \"nipcash-reply-v1\" || reply_to hex, L = 32).",
+  "source": "nipcash/transport/response.go DeriveReplyKey; auditC_reply_key_kat_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "derive": [
+    {
+      "conversationKey": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "replyTo": "0000000000000000000000000000000000000000000000000000000000000000",
+      "replyKey": "aede656a94d03cfa382dcc742ec44cec9248ed2be2b71bf0fa92ed48298705da"
+    },
+    {
+      "conversationKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "replyTo": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+      "replyKey": "a0953747794eb0fc06b187bf8a1449f60716b788b850b7adfe82e11753d03a7b"
+    },
+    {
+      "conversationKey": "0e11ac12d17df2ba09c49b400df9aa1cba33288b42a099068bbcf05f6c910741",
+      "replyTo": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "replyKey": "d80410259b62e3676c3a95a9b1ccdd639c8a8c6cbc48ec1d7bc375774f2e16b1"
+    },
+    {
+      "conversationKey": "abababababababababababababababababababababababababababababababab",
+      "replyTo": "DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF",
+      "error": "transport: envelope is malformed: reply_to must be 64 lowercase hex characters"
+    },
+    {
+      "conversationKey": "abababababababababababababababababababababababababababababababab",
+      "replyTo": "00000000000000000000000000000000000000000000000000000000000000",
+      "error": "transport: envelope is malformed: reply_to must be 64 lowercase hex characters"
+    },
+    {
+      "conversationKey": "abababababababababababababababababababababababababababababababab",
+      "replyTo": "zz00000000000000000000000000000000000000000000000000000000000000",
+      "error": "transport: envelope is malformed: reply_to must be 64 lowercase hex characters"
+    }
+  ]
+}

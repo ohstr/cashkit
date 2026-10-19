@@ -1,0 +1,289 @@
+{
+  "description": "bolt11 invoice fields nmilat reads: currency and amount from the HRP, payment hash, description and description hash. The signature is not checked.",
+  "source": "nip57/bolt11.go DecodeBolt11; real invoices from cashctl and nmilat test fixtures",
+  "nmilat": "v0.5.0-rc.24",
+  "decode": [
+    {
+      "name": "real lnbc 10u",
+      "invoice": "lnbc10u1p3pj257pp5yztkwjcz5ftl5laxkav23zmzekaw37zk6kmv80pk4xaev5qhtz7qdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcqca784w",
+      "error": "invalid bolt11 encoding: invalid checksum (expected (bech32=4e824z, bech32m=4e824zq9hxsq), got ca784w)"
+    },
+    {
+      "name": "real lnbc no amount (BOLT 11 example)",
+      "invoice": "lnbc1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq9qrsgq357wnc5r2ueh7ck6q93dj32dlqnls087fxdwk8qakdyafkq3yap9us6v52vjjsrvywa6rt52cm9r9zqt8r2t7mlcwspyetp5h2tztugp9lfyql",
+      "want": {
+        "currency": "bc",
+        "amountMillis": "0",
+        "description": "Please consider supporting this project",
+        "descriptionHash": "",
+        "paymentHash": "0001020304050607080900010203040506070809000102030405060708090102"
+      }
+    },
+    {
+      "name": "real lnfc 10u",
+      "invoice": "lnfc10u1p4dqm55pp55aq08rgfwhrrdpy5z5jhyd0v2p6ddlurxzj6q6gdx0a5j7c5hnyqdqdw3exzmnnvejhycqzeqxqyz5vqrzjq0uu9vvap7vzzlt63829ht853lrzuzuxgw76qe7l6qf6u5fsm2qjlapyqqqqqqqq9cqqqqlgqqqqqeqpjqsp5uv65wj7xp88qlul2pk5uymnfq2wedpn3g4545mswfmj0df4pup7q9qxpqysgqnwdkm8xuwgq4cp5ukw4kfmz6pz0zcwxtr77n05ls0ljk2rsmg46rmfdnfycwl0p26dyk0ufvmtlyxejn9sm4jp2t8ua663qnufqyhxqplfddnp",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "1000000",
+        "description": "transfer",
+        "descriptionHash": "",
+        "paymentHash": "a740f38d0975c636849415257235ec5074d6ff8330a5a0690d33fb497b14bcc8"
+      }
+    },
+    {
+      "name": "amount \"\"",
+      "invoice": "lnfc1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqwta0te",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "0",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"1\"",
+      "invoice": "lnfc11qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdcnv9u",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "100000000000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"25m\"",
+      "invoice": "lnfc25m1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqa73tcw",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "2500000000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"10u\"",
+      "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "1000000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"2500n\"",
+      "invoice": "lnfc2500n1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhz56d7",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "250000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"10p\"",
+      "invoice": "lnfc10p1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2hfqwf",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "1",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"15p\"",
+      "invoice": "lnfc15p1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq7y9gul",
+      "error": "invalid pico bolt11 amount \"15p\": not a multiple of 10"
+    },
+    {
+      "name": "amount \"7x\"",
+      "invoice": "lnfc7x1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3vge2y",
+      "error": "unknown bolt11 amount multiplier \"x\""
+    },
+    {
+      "name": "amount \"u\"",
+      "invoice": "lnfcu1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpdd0t9",
+      "want": {
+        "currency": "fcu",
+        "amountMillis": "0",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"0\"",
+      "invoice": "lnfc01qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3cee99",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "0",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"007u\"",
+      "invoice": "lnfc007u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqwy3yc6",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "700000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "amount \"99999999999\"",
+      "invoice": "lnfc999999999991qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9ljkgl",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "1864711949423024128",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "overflow": true
+    },
+    {
+      "name": "amount \"92233720368547758m\"",
+      "invoice": "lnfc92233720368547758m1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdys62y",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "-8000000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "overflow": true
+    },
+    {
+      "name": "amount \"9223372036854775807p\"",
+      "invoice": "lnfc9223372036854775807p1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9l8rqv",
+      "error": "invalid pico bolt11 amount \"9223372036854775807p\": not a multiple of 10"
+    },
+    {
+      "name": "amount \"99999999999999999999999u\"",
+      "invoice": "lnfc99999999999999999999999u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqds2flv",
+      "error": "invalid bolt11 amount \"99999999999999999999999u\": strconv.ParseInt: parsing \"99999999999999999999999\": value out of range"
+    },
+    {
+      "name": "currency with a digit-free suffix",
+      "invoice": "lnbcrt1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqfxem0l",
+      "want": {
+        "currency": "bcrt",
+        "amountMillis": "0",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "description and its hash",
+      "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qdqsvdhkven9v5sw9xy4hp5mhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwsqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqypzk3v",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "100000",
+        "description": "coffee ☕",
+        "descriptionHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "unknown fields are skipped",
+      "invoice": "lnfc1u1qqqqqqqfqrpzrpp5424242424242424242424242424242424242424242424242424qlqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq4y6mn0",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "100000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "last valid payment hash wins",
+      "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qpp5hwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwasqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2ygrr0",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "100000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    {
+      "name": "short payment hash is skipped",
+      "invoice": "lnfc1u1qqqqqqqppj4242424242424242424242424242424242424242424242424gqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqeg5j35",
+      "error": "bolt11 invoice has no payment_hash tag"
+    },
+    {
+      "name": "short payment hash then a good one",
+      "invoice": "lnfc1u1qqqqqqqppj4242424242424242424242424242424242424242424242424gpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqymzyf9",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "100000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "payment hash with non-zero padding",
+      "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424pqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2nf4l9",
+      "error": "bolt11 invoice has no payment_hash tag"
+    },
+    {
+      "name": "description with bad padding is dropped",
+      "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qdqz0pqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq4yc7cl",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "100000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "no payment hash",
+      "invoice": "lnfc1u1qqqqqqqdqz0qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqt98zu4",
+      "error": "bolt11 invoice has no payment_hash tag"
+    },
+    {
+      "name": "truncated field",
+      "invoice": "lnfc1u1qqqqqqqpp5qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqvwsyn9",
+      "error": "bolt11 tagged field (type 1) truncated"
+    },
+    {
+      "name": "data shorter than timestamp and signature",
+      "invoice": "lnfc1u1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsv5ncz",
+      "error": "bolt11 data part too short (100 words)"
+    },
+    {
+      "name": "not a lightning hrp",
+      "invoice": "lokicash1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9q4flg",
+      "error": "not a lightning invoice hrp: \"lokicash\""
+    },
+    {
+      "name": "bad checksum",
+      "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgff3kq",
+      "error": "invalid bolt11 encoding: invalid checksum (expected (bech32=gff3kk, bech32m=gff3kka4ean5), got gff3kq)"
+    },
+    {
+      "name": "uppercase",
+      "invoice": "LNFC1U1QQQQQQQPP5424242424242424242424242424242424242424242424242424QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQGFF3KK",
+      "want": {
+        "currency": "fc",
+        "amountMillis": "100000",
+        "description": "",
+        "descriptionHash": "",
+        "paymentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ]
+}

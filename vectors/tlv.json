@@ -1,0 +1,2061 @@
+{
+  "description": "Decode and encode of the TLV bech32 strings: cash tokens (any HRP), cashhub1, circlehub1 and nconnection1.",
+  "source": "nipcash/token.go, cashhub_connection.go, nipcw/circlehub_connection.go, nipIC/nconnection.go; cases from decode_tlv_rules_test.go, token_test.go, hub_group_test.go, encode_relay_test.go, kat_test.go, nipcw/circlehub_tlv_rules_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "decode": [
+    {
+      "name": "minimal",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "fields in any order",
+      "kind": "token",
+      "input": "lokicash1qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcppamhxue69uhhytn90psk6urvv5qzqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3z9t4a49",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "two relays",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyg8wumn8ghj7u3j9ejhsctdwpkx2k0jt6s",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          "wss://r2.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "blank relay beside a real one is kept",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqjqj5ysgf",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          " "
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "empty relay beside a real one is kept",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqqrypf99",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          ""
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "unknown types are ignored",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsyqvqsyqcppamhxue69uhhytn90psk6urvvhyqven4w36hyegzyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenx4t9ur6",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "missing pubkey",
+      "kind": "token",
+      "input": "lokicash1qy8hwumn8ghj7u3wv4uxzmtsd3jsygpnxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxv6w3mfl",
+      "error": "nipcash: missing wallet pubkey"
+    },
+    {
+      "name": "missing secret",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv56h7e6k",
+      "error": "nipcash: missing secret"
+    },
+    {
+      "name": "duplicate pubkey",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsqyq3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyqg0waehxw309aezuetcv9khqmr9qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc074dpg",
+      "error": "nipcash: duplicate wallet pubkey entry"
+    },
+    {
+      "name": "duplicate secret",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc47t7mq",
+      "error": "nipcash: duplicate secret entry"
+    },
+    {
+      "name": "short pubkey",
+      "kind": "token",
+      "input": "lokicash1qq0jyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyqg0waehxw309aezuetcv9khqmr9qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcxdnluz",
+      "error": "nipcash: wallet pubkey must be 32 bytes, got 31"
+    },
+    {
+      "name": "long secret",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzzvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqq7k022z",
+      "error": "nipcash: secret must be 32 bytes, got 33"
+    },
+    {
+      "name": "no relay",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygszyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxnwfktj",
+      "error": "nipcash: token carries no usable relay url, so the wallet is unreachable"
+    },
+    {
+      "name": "only blank relays",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspqysqzqgfqgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcqxcv0x",
+      "error": "nipcash: token carries no usable relay url, so the wallet is unreachable"
+    },
+    {
+      "name": "relay of U+0085 only is blank",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspqtpg2q3qxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvesuzytsh",
+      "error": "nipcash: token carries no usable relay url, so the wallet is unreachable"
+    },
+    {
+      "name": "relay of U+3000 only is blank",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspq03cpqqzyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenx69jmur",
+      "error": "nipcash: token carries no usable relay url, so the wallet is unreachable"
+    },
+    {
+      "name": "relay of U+FEFF only is not blank",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspq0hmh0czyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxylr595",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "﻿"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "truncated entry",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqqgzqvsc6thk",
+      "error": "nipcash: truncated TLV entry at offset 51"
+    },
+    {
+      "name": "lone type byte",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenpyushd0g",
+      "error": "nipcash: truncated TLV entry at offset 85"
+    },
+    {
+      "name": "empty payload",
+      "kind": "token",
+      "input": "lokicash1afmp9f",
+      "error": "nipcash: missing wallet pubkey"
+    },
+    {
+      "name": "minimal",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxwk7mz",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "fields in any order",
+      "kind": "cashhub",
+      "input": "cashhub1qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcppamhxue69uhhytn90psk6urvv5qzqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3z0ed2ve",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "two relays",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyg8wumn8ghj7u3j9ejhsctdwpkx2vj6g0y",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          "wss://r2.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "blank relay beside a real one is kept",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqjqrhgqtt",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          " "
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "empty relay beside a real one is kept",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqqg9950k",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          ""
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "unknown types are ignored",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsyqvqsyqcppamhxue69uhhytn90psk6urvvhyqven4w36hyegzyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenx0f7w3l",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "missing pubkey",
+      "kind": "cashhub",
+      "input": "cashhub1qy8hwumn8ghj7u3wv4uxzmtsd3jsygpnxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvzn9hcu",
+      "error": "nipcash: missing wallet pubkey"
+    },
+    {
+      "name": "missing secret",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5z224t4",
+      "error": "nipcash: missing secret"
+    },
+    {
+      "name": "duplicate pubkey",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsqyq3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyqg0waehxw309aezuetcv9khqmr9qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcmul82n",
+      "error": "nipcash: duplicate wallet pubkey entry"
+    },
+    {
+      "name": "duplicate secret",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcpup5sm",
+      "error": "nipcash: duplicate secret entry"
+    },
+    {
+      "name": "short pubkey",
+      "kind": "cashhub",
+      "input": "cashhub1qq0jyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyqg0waehxw309aezuetcv9khqmr9qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcl3zl2d",
+      "error": "nipcash: wallet pubkey must be 32 bytes, got 31"
+    },
+    {
+      "name": "long secret",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzzvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqqagzlsf",
+      "error": "nipcash: secret must be 32 bytes, got 33"
+    },
+    {
+      "name": "no relay",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygszyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxr0tpmt",
+      "error": "nipcash: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "only blank relays",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspqysqzqgfqgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3l520e",
+      "error": "nipcash: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "relay of U+0085 only is blank",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspqtpg2q3qxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvesfa3laa",
+      "error": "nipcash: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "relay of U+3000 only is blank",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspq03cpqqzyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxzdca3c",
+      "error": "nipcash: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "relay of U+FEFF only is not blank",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspq0hmh0czyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxuhfjg0",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "﻿"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "truncated entry",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqqgzqv6l69vl",
+      "error": "nipcash: truncated TLV entry at offset 51"
+    },
+    {
+      "name": "lone type byte",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenpylw6c4r",
+      "error": "nipcash: truncated TLV entry at offset 85"
+    },
+    {
+      "name": "empty payload",
+      "kind": "cashhub",
+      "input": "cashhub1d0f7l2",
+      "error": "nipcash: missing wallet pubkey"
+    },
+    {
+      "name": "minimal",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxven4thu0y",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "fields in any order",
+      "kind": "circlehub",
+      "input": "circlehub1qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcppamhxue69uhhytn90psk6urvv5qzqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zuuvgcl",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "two relays",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyg8wumn8ghj7u3j9ejhsctdwpkx20xc2ku",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          "wss://r2.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "blank relay beside a real one is kept",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqjq6tcva4",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          " "
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "empty relay beside a real one is kept",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqq66adcx",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          ""
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "unknown types are ignored",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsyqvqsyqcppamhxue69uhhytn90psk6urvvhyqven4w36hyegzyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxudmf72",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "missing pubkey",
+      "kind": "circlehub",
+      "input": "circlehub1qy8hwumn8ghj7u3wv4uxzmtsd3jsygpnxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvq04nc5",
+      "error": "nipcw: missing wallet pubkey"
+    },
+    {
+      "name": "missing secret",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5qk63ta",
+      "error": "nipcw: missing secret"
+    },
+    {
+      "name": "duplicate pubkey",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsqyq3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyqg0waehxw309aezuetcv9khqmr9qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvchuar0k",
+      "error": "nipcw: duplicate wallet pubkey entry"
+    },
+    {
+      "name": "duplicate secret",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcdurs47",
+      "error": "nipcw: duplicate secret entry"
+    },
+    {
+      "name": "short pubkey",
+      "kind": "circlehub",
+      "input": "circlehub1qq0jyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyqg0waehxw309aezuetcv9khqmr9qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvczmwy0q",
+      "error": "nipcw: wallet pubkey must be 32 bytes, got 31"
+    },
+    {
+      "name": "long secret",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzzvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqqedhnts",
+      "error": "nipcw: secret must be 32 bytes, got 33"
+    },
+    {
+      "name": "no relay",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygszyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxjas583",
+      "error": "nipcw: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "only blank relays",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspqysqzqgfqgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcclxr38",
+      "error": "nipcw: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "relay of U+0085 only is blank",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspqtpg2q3qxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvestpeuff",
+      "error": "nipcw: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "relay of U+3000 only is blank",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspq03cpqqzyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxdq62k4",
+      "error": "nipcw: hub connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "relay of U+FEFF only is not blank",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspq0hmh0czyqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxn6t90z",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "﻿"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "truncated entry",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqqgzqvnkp46f",
+      "error": "nipcw: truncated TLV entry at offset 51"
+    },
+    {
+      "name": "lone type byte",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenpymt05w6",
+      "error": "nipcw: truncated TLV entry at offset 85"
+    },
+    {
+      "name": "empty payload",
+      "kind": "circlehub",
+      "input": "circlehub1sjuq6y",
+      "error": "nipcw: missing wallet pubkey"
+    },
+    {
+      "name": "hrp satscash",
+      "kind": "token",
+      "input": "satscash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvens302ag",
+      "want": {
+        "hrp": "satscash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "hrp xyzcash",
+      "kind": "token",
+      "input": "xyzcash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxven394un4",
+      "want": {
+        "hrp": "xyzcash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "hrp a",
+      "kind": "token",
+      "input": "a1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxven8653am",
+      "want": {
+        "hrp": "a",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "identity_required 1",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqsz6e0p8m",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": true,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "identity_required 0",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqsqfuwz5k",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": false,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "identity_required two bytes",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvpqqqgk54y2e",
+      "error": "nipcash: identity_required must be 1 byte, got 2"
+    },
+    {
+      "name": "identity_required empty",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqqn5m4j6",
+      "error": "nipcash: identity_required must be 1 byte, got 0"
+    },
+    {
+      "name": "identity_required value 2",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqsyxkvymv",
+      "error": "nipcash: identity_required must be 0 or 1, got 2"
+    },
+    {
+      "name": "identity_required duplicate",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqszqcpqy9y8d5j",
+      "error": "nipcash: duplicate identity_required entry"
+    },
+    {
+      "name": "provenance pair",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvzqqqqqqqqqq2gyqdqsxkj",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "21000",
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "provenance amount before signature",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqcyqqqqqqqqqq5sgq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqskmaz87",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "21000",
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "provenance max amount",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvz8llllllllllllsfpvr7y",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "18446744073709551615",
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "provenance zero amount",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvzqqqqqqqqqqqqqqxuwmcu",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "0",
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous provenance is dropped: signature alone",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs0my852",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous provenance is dropped: amount alone",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqcyqqqqqqqqqq5sgn6yxqj",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous provenance is dropped: short signature",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qqzqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyrqsqqqqqqqqqzjpqmpruc9",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous provenance is dropped: long signature",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4pqzqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszpsgqqqqqqqqqpfqs27zeex",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous provenance is dropped: short amount",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvpcqqqqqqqqq2gkea5dg",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous provenance is dropped: duplicate signature",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs2sgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgxpqqqqqqqqqq9yzqf39d68",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous provenance is dropped: duplicate amount",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvzqqqqqqqqqq2gyqvzqqqqqqqqqq2gyqjydqr6",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "hub group",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenquzrnpw6eyhl9cv8",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": "3985dac9"
+      }
+    },
+    {
+      "name": "hub group with provenance",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvzqqqqqqqqqq2gyqwppeshdvj47npxj",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "21000",
+        "hubGroup": "3985dac9"
+      }
+    },
+    {
+      "name": "anomalous hub group is dropped: too short",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenquqszsxwln5",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous hub group is dropped: three bytes beside provenance",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvzqqqqqqqqqq2gyqwqcpqgpstfwlrr",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "21000",
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous hub group is dropped: too long",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenquyqzqgpqyqszqgpqlvs34",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous hub group is dropped: empty",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenquqq6axy4d",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "anomalous hub group is dropped: duplicated",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenquzrnpw6eyrsgwv9mtysdlwv4s",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "cashhub label read as a token",
+      "kind": "token",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqkzqxglhd",
+      "error": "nipcash: identity_required must be 0 or 1, got 97"
+    },
+    {
+      "name": "cashhub label byte 1 read as a token",
+      "kind": "token",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqszt6r3ye",
+      "want": {
+        "hrp": "cashhub",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": true,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "label",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqv9yvctdd9k8jgrgw43q2wcwyv",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "Family hub"
+      }
+    },
+    {
+      "name": "utf-8 label",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvy5xctxcw5jpc5cj5chme66",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "Café ☕"
+      }
+    },
+    {
+      "name": "empty label",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqqc4lgcf",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "255-byte label",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq0lkcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kqugkeg7",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+      }
+    },
+    {
+      "name": "duplicate label",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqkzqcpvg3q9fq8",
+      "error": "nipcash: duplicate label entry"
+    },
+    {
+      "name": "duplicate empty label",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqqxqqtxhhy9",
+      "error": "nipcash: duplicate label entry"
+    },
+    {
+      "name": "wrong hrp",
+      "kind": "cashhub",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7",
+      "error": "nipcash: unexpected hrp \"lokicash\", want \"cashhub\""
+    },
+    {
+      "name": "other hub hrp",
+      "kind": "cashhub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxven4thu0y",
+      "error": "nipcash: unexpected hrp \"circlehub\", want \"cashhub\""
+    },
+    {
+      "name": "uppercase",
+      "kind": "cashhub",
+      "input": "CASHHUB1QQSZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYGSPPAMHXUE69UHHYTN90PSK6URVV5PZQVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXWK7MZ",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "bech32m checksum",
+      "kind": "cashhub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvennjxj7q",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "label",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqv9yvctdd9k8jgrgw43q835eu0",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "Family hub"
+      }
+    },
+    {
+      "name": "utf-8 label",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvy5xctxcw5jpc5cj5cdwkm6",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "Café ☕"
+      }
+    },
+    {
+      "name": "empty label",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqq22830e",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "255-byte label",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq0lkcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kqu4zn68",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+      }
+    },
+    {
+      "name": "duplicate label",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqkzqcpvglj7lud",
+      "error": "nipcw: duplicate label entry"
+    },
+    {
+      "name": "duplicate empty label",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqqxqq4r9s44",
+      "error": "nipcw: duplicate label entry"
+    },
+    {
+      "name": "wrong hrp",
+      "kind": "circlehub",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7",
+      "error": "nipcw: unexpected hrp \"lokicash\", want \"circlehub\""
+    },
+    {
+      "name": "other hub hrp",
+      "kind": "circlehub",
+      "input": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxwk7mz",
+      "error": "nipcw: unexpected hrp \"cashhub\", want \"circlehub\""
+    },
+    {
+      "name": "uppercase",
+      "kind": "circlehub",
+      "input": "CIRCLEHUB1QQSZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYGSPPAMHXUE69UHHYTN90PSK6URVV5PZQVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVEN4THU0Y",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "bech32m checksum",
+      "kind": "circlehub",
+      "input": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqh8s2x",
+      "want": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      }
+    },
+    {
+      "name": "key only",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qcu06v8",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "key, relays and platform",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qppamhxue69uhhytn90psk6urvv5q3qamnwvaz7tmjxghx27rpd4cxcegzqenkjargw43qpljkj2",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          "wss://r.example",
+          "wss://r2.example"
+        ],
+        "platform": "github"
+      }
+    },
+    {
+      "name": "platform before key",
+      "kind": "nconnection",
+      "input": "nconnection1qgqhsqpqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zq07636l",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": "x"
+      }
+    },
+    {
+      "name": "unknown types are ignored",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qfqylsphhgr9",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "missing key",
+      "kind": "nconnection",
+      "input": "nconnection1qy8hwumn8ghj7u3wv4uxzmtsd3jsp5skca",
+      "error": "nipIC: nconnection missing ConnectionKey"
+    },
+    {
+      "name": "short key",
+      "kind": "nconnection",
+      "input": "nconnection1qq05g3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg5ugspl",
+      "error": "nipIC: ConnectionKey must be 32 bytes, got 31"
+    },
+    {
+      "name": "duplicate key, last wins",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qqyp242424242424242424242424242424242424242424242424242f27dxm",
+      "want": {
+        "connectionKey": "5555555555555555555555555555555555555555555555555555555555555555",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "duplicate platform, last wins",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qzqenkjargw43qyqtcxewuzw",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": "x"
+      }
+    },
+    {
+      "name": "blank relay is kept",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qpqqw7tydn",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          ""
+        ],
+        "platform": ""
+      }
+    },
+    {
+      "name": "truncated tail is ignored",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qpypmhxxdmqnk",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "lone trailing byte is ignored",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qp2vzdsa",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "truncated key",
+      "kind": "nconnection",
+      "input": "nconnection1qqsqzqsjwgs77",
+      "error": "nipIC: nconnection missing ConnectionKey"
+    },
+    {
+      "name": "wrong prefix",
+      "kind": "nconnection",
+      "input": "lokicash1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qac23v4",
+      "error": "nipIC: expected prefix \"nconnection\", got \"lokicash\""
+    },
+    {
+      "name": "uppercase",
+      "kind": "nconnection",
+      "input": "NCONNECTION1QQSYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3QCU06V8",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "bech32m checksum",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qdqlkf9",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "framing: uppercase",
+      "kind": "token",
+      "input": "LOKICASH1QQSZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYGSPPAMHXUE69UHHYTN90PSK6URVV5PZQVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENXVENVUWFZ7",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "framing: bech32m checksum",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxveneq798u",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "framing: bad checksum",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfzq",
+      "error": "nipcash: invalid bech32: invalid checksum (expected (bech32=vuwfz7, bech32m=vuwfz7eq798u), got vuwfzq)"
+    },
+    {
+      "name": "framing: mixed case",
+      "kind": "token",
+      "input": "Lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7",
+      "error": "nipcash: invalid bech32: string not all lowercase or all uppercase"
+    },
+    {
+      "name": "framing: character outside the charset",
+      "kind": "token",
+      "input": "lokicash1qqsbyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7",
+      "error": "nipcash: invalid bech32: invalid character not part of charset: 98"
+    },
+    {
+      "name": "framing: character outside printable ASCII",
+      "kind": "token",
+      "input": " okicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7",
+      "error": "nipcash: invalid bech32: invalid character in string: ' '"
+    },
+    {
+      "name": "framing: no separator",
+      "kind": "token",
+      "input": "lokicashqqqqqqqqqq",
+      "error": "nipcash: invalid bech32: invalid separator index -1"
+    },
+    {
+      "name": "framing: empty hrp",
+      "kind": "token",
+      "input": "1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7",
+      "error": "nipcash: invalid bech32: invalid separator index 0"
+    },
+    {
+      "name": "framing: shorter than 8",
+      "kind": "token",
+      "input": "a1qqqqq",
+      "error": "nipcash: invalid bech32: invalid bech32 string length 7"
+    },
+    {
+      "name": "framing: data shorter than the checksum",
+      "kind": "token",
+      "input": "lokicash1qqqqq",
+      "error": "nipcash: invalid bech32: invalid separator index 8"
+    },
+    {
+      "name": "framing: hrp only, empty data",
+      "kind": "token",
+      "input": "lokicash1afmp9f",
+      "error": "nipcash: missing wallet pubkey"
+    },
+    {
+      "name": "framing: hrp containing 1",
+      "kind": "token",
+      "input": "loki1cash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenzd25k5",
+      "want": {
+        "hrp": "loki1cash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    },
+    {
+      "name": "framing: non-zero padding bits",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqh3q3z5wk",
+      "error": "nipcash: failed to convert bits: invalid incomplete group"
+    },
+    {
+      "name": "framing: excess padding group",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqyqhsq7lm5u8",
+      "error": "nipcash: failed to convert bits: invalid incomplete group"
+    },
+    {
+      "name": "framing: leading and trailing space",
+      "kind": "token",
+      "input": " lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7 ",
+      "error": "nipcash: invalid bech32: invalid character in string: ' '"
+    },
+    {
+      "name": "framing: empty string",
+      "kind": "token",
+      "input": "",
+      "error": "nipcash: invalid bech32: invalid bech32 string length 0"
+    },
+    {
+      "name": "framing: longer than bech32's 90-character limit",
+      "kind": "token",
+      "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq8lhyunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfeqrlmnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxumnwdehxucpla68gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5w368gar5ws3hdcgl",
+      "want": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example",
+          "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      }
+    }
+  ],
+  "encode": [
+    {
+      "name": "token minimal",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7"
+    },
+    {
+      "name": "token satscash",
+      "kind": "token",
+      "fields": {
+        "hrp": "satscash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "satscash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvens302ag"
+    },
+    {
+      "name": "token uppercase hrp is lowercased",
+      "kind": "token",
+      "fields": {
+        "hrp": "LOKICASH",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7"
+    },
+    {
+      "name": "token uppercase hex",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7"
+    },
+    {
+      "name": "token identity_required true",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": true,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqsz6e0p8m"
+    },
+    {
+      "name": "token identity_required false",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": false,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqvqsqfuwz5k"
+    },
+    {
+      "name": "token every field",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "identityRequired": true,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "21000",
+        "hubGroup": "3985dac9"
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspzpmhxue69uhhyvfwv4uxzmtsd3jszyrhwden5te0wgezuetcv9khqmr9qgsrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvcrqyqs2sgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgxpqqqqqqqqqq9yzq8qsuctkkfh2e4re"
+    },
+    {
+      "name": "token max amount",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "18446744073709551615",
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq4qszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqsvz8llllllllllllsfpvr7y"
+    },
+    {
+      "name": "token blank relays are skipped",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "",
+          "wss://r.example",
+          "  "
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenvuwfz7"
+    },
+    {
+      "name": "token 255-byte relay",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "output": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsplae8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwfe8yunjwgpzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenx28m5x"
+    },
+    {
+      "name": "token 256-byte relay",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "error": "nipcash: relay url exceeds 255 bytes: \"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\""
+    },
+    {
+      "name": "token no relays",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": null,
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "error": "nipcash: a cash token needs at least one non-empty relay url, or nobody can reach the wallet"
+    },
+    {
+      "name": "token only blank relays",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          " ",
+          ""
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "error": "nipcash: a cash token needs at least one non-empty relay url, or nobody can reach the wallet"
+    },
+    {
+      "name": "token signature without amount",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "error": "nipcash: mint signature and attested amount must be set together"
+    },
+    {
+      "name": "token amount without signature",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": "21000",
+        "hubGroup": null
+      },
+      "error": "nipcash: mint signature and attested amount must be set together"
+    },
+    {
+      "name": "token 64-byte signature",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": "01010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "attestedAmountMillis": "21000",
+        "hubGroup": null
+      },
+      "error": "nipcash: mint signature must be 65 bytes, got 64"
+    },
+    {
+      "name": "token 2-byte hub group",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": "0102"
+      },
+      "error": "nipcash: hub group must be 4 bytes, got 2"
+    },
+    {
+      "name": "token short pubkey",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "22222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "error": "nipcash: wallet pubkey must be 32 bytes, got 31"
+    },
+    {
+      "name": "token non-hex secret",
+      "kind": "token",
+      "fields": {
+        "hrp": "lokicash",
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "zz33333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "identityRequired": null,
+        "mintSignature": null,
+        "attestedAmountMillis": null,
+        "hubGroup": null
+      },
+      "error": "nipcash: invalid secret hex: encoding/hex: invalid byte: U+007A 'z'"
+    },
+    {
+      "name": "cashhub minimal",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      },
+      "output": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxwk7mz"
+    },
+    {
+      "name": "cashhub label",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "Family hub"
+      },
+      "output": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqv9yvctdd9k8jgrgw43q2wcwyv"
+    },
+    {
+      "name": "cashhub 255-byte label",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+      },
+      "output": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq0lkcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kqugkeg7"
+    },
+    {
+      "name": "cashhub 256-byte label",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+      },
+      "error": "nipcash: label exceeds 255 bytes"
+    },
+    {
+      "name": "cashhub blank relays are skipped",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "",
+          "wss://r.example",
+          "  "
+        ],
+        "label": ""
+      },
+      "output": "cashhub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxwk7mz"
+    },
+    {
+      "name": "cashhub no relays",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": null,
+        "label": ""
+      },
+      "error": "nipcash: a cash hub connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "cashhub 256-byte relay",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+        ],
+        "label": ""
+      },
+      "error": "nipcash: relay url exceeds 255 bytes: \"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\""
+    },
+    {
+      "name": "cashhub short secret",
+      "kind": "cashhub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "33333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      },
+      "error": "nipcash: secret must be 32 bytes, got 31"
+    },
+    {
+      "name": "circlehub minimal",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      },
+      "output": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxven4thu0y"
+    },
+    {
+      "name": "circlehub label",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "Family hub"
+      },
+      "output": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenqv9yvctdd9k8jgrgw43q835eu0"
+    },
+    {
+      "name": "circlehub 255-byte label",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+      },
+      "output": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenq0lkcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrvd3kqu4zn68"
+    },
+    {
+      "name": "circlehub 256-byte label",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": "llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+      },
+      "error": "nipcw: label exceeds 255 bytes"
+    },
+    {
+      "name": "circlehub blank relays are skipped",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "",
+          "wss://r.example",
+          "  "
+        ],
+        "label": ""
+      },
+      "output": "circlehub1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxven4thu0y"
+    },
+    {
+      "name": "circlehub no relays",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": null,
+        "label": ""
+      },
+      "error": "nipcw: a circle hub connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "circlehub 256-byte relay",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+        ],
+        "label": ""
+      },
+      "error": "nipcw: relay url exceeds 255 bytes: \"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\""
+    },
+    {
+      "name": "circlehub short secret",
+      "kind": "circlehub",
+      "fields": {
+        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
+        "secret": "33333333333333333333333333333333333333333333333333333333333333",
+        "relays": [
+          "wss://r.example"
+        ],
+        "label": ""
+      },
+      "error": "nipcw: secret must be 32 bytes, got 31"
+    },
+    {
+      "name": "nconnection key only",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      },
+      "output": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qcu06v8"
+    },
+    {
+      "name": "nconnection relays and platform",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "platform": "github"
+      },
+      "output": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qpzpmhxue69uhhyvfwv4uxzmtsd3jszyrhwden5te0wgezuetcv9khqmr9qgrxw6t5dp6ky07t4ku"
+    },
+    {
+      "name": "nconnection blank relay is written",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          ""
+        ],
+        "platform": ""
+      },
+      "output": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qpqqw7tydn"
+    },
+    {
+      "name": "nconnection short key",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "44444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      },
+      "error": "nipIC: ConnectionKey must be 32 bytes, got 31"
+    }
+  ]
+}

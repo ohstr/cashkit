@@ -1,0 +1,888 @@
+{
+  "description": "NIP-47: pairing URIs, info events, and nip44_v2 request and response events as nmilat builds and parses them.",
+  "source": "nip47/{pairing,events,methods}.go; nip47/{pairing,events,events_response_fallback}_test.go",
+  "nmilat": "v0.5.0-rc.24",
+  "pairingBuild": [
+    {
+      "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+      "relays": [
+        "wss://r1.example",
+        "wss://r2.example"
+      ],
+      "secret": "0404040404040404040404040404040404040404040404040404040404040404",
+      "extra": {},
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss%3A%2F%2Fr1.example&relay=wss%3A%2F%2Fr2.example&secret=0404040404040404040404040404040404040404040404040404040404040404"
+    },
+    {
+      "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+      "relays": [
+        "wss://r.example/path?x=1&y=2"
+      ],
+      "secret": "0404040404040404040404040404040404040404040404040404040404040404",
+      "extra": {
+        "budget": [
+          "1 000"
+        ],
+        "lud16": [
+          "a@b.example"
+        ]
+      },
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?budget=1+000&lud16=a%40b.example&relay=wss%3A%2F%2Fr.example%2Fpath%3Fx%3D1%26y%3D2&secret=0404040404040404040404040404040404040404040404040404040404040404"
+    },
+    {
+      "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+      "relays": [],
+      "secret": "s p+a/c~e",
+      "extra": {},
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?secret=s+p%2Ba%2Fc~e"
+    }
+  ],
+  "pairingParse": [
+    {
+      "name": "built URI",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss%3A%2F%2Fr1.example&relay=wss%3A%2F%2Fr2.example&secret=0404040404040404040404040404040404040404040404040404040404040404",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "secret": "0404040404040404040404040404040404040404040404040404040404040404",
+        "extra": {}
+      }
+    },
+    {
+      "name": "extra parameters kept",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?budget=1+000&lud16=a%40b.example&relay=wss%3A%2F%2Fr.example%2Fpath%3Fx%3D1%26y%3D2&secret=0404040404040404040404040404040404040404040404040404040404040404",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r.example/path?x=1&y=2"
+        ],
+        "secret": "0404040404040404040404040404040404040404040404040404040404040404",
+        "extra": {
+          "budget": [
+            "1 000"
+          ],
+          "lud16": [
+            "a@b.example"
+          ]
+        }
+      }
+    },
+    {
+      "name": "unescaped relay",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r.example&secret=0404040404040404040404040404040404040404040404040404040404040404",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r.example"
+        ],
+        "secret": "0404040404040404040404040404040404040404040404040404040404040404",
+        "extra": {}
+      }
+    },
+    {
+      "name": "plus is a space",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=a+b",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "a b",
+        "extra": {}
+      }
+    },
+    {
+      "name": "repeated secret: the first wins",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=one&secret=two",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "one",
+        "extra": {}
+      }
+    },
+    {
+      "name": "uppercase scheme",
+      "uri": "NOSTR+WALLETCONNECT://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=s",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "uppercase pubkey",
+      "uri": "nostr+walletconnect://62C0A046DACCE86DDD0343C6D3C7C79C2208BA0D9C9CF24A6D046D21D21F90F7?relay=wss://r&secret=s",
+      "want": {
+        "walletPubkey": "62C0A046DACCE86DDD0343C6D3C7C79C2208BA0D9C9CF24A6D046D21D21F90F7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "no slashes (opaque)",
+      "uri": "nostr+walletconnect:62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=s",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "a fragment is dropped",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=s#frag",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "a path is ignored",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7/path?relay=wss://r&secret=s",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "userinfo before the pubkey",
+      "uri": "nostr+walletconnect://user@62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=s",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "a port",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7:443?relay=wss://r&secret=s",
+      "error": "invalid wallet pubkey in pairing uri: invalid key, bad size: 68"
+    },
+    {
+      "name": "semicolon separator",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r;secret=s",
+      "error": "pairing uri missing relay parameter"
+    },
+    {
+      "name": "a bad escape drops that pair",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=s&x=%zz",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "a bad escape in the secret",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=%zz",
+      "error": "pairing uri missing secret parameter"
+    },
+    {
+      "name": "empty relay value",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=&secret=s",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          ""
+        ],
+        "secret": "s",
+        "extra": {}
+      }
+    },
+    {
+      "name": "missing relay",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?secret=s",
+      "error": "pairing uri missing relay parameter"
+    },
+    {
+      "name": "missing secret",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r",
+      "error": "pairing uri missing secret parameter"
+    },
+    {
+      "name": "empty secret",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=",
+      "error": "pairing uri missing secret parameter"
+    },
+    {
+      "name": "wrong scheme",
+      "uri": "nostr+walletconnec://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=s",
+      "error": "invalid pairing uri scheme \"nostr+walletconnec\", expected \"nostr+walletconnect\""
+    },
+    {
+      "name": "short pubkey",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90?relay=wss://r&secret=s",
+      "error": "invalid wallet pubkey in pairing uri: invalid key, bad size: 62"
+    },
+    {
+      "name": "space in the URI",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r&secret=a b",
+      "want": {
+        "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "relays": [
+          "wss://r"
+        ],
+        "secret": "a b",
+        "extra": {}
+      }
+    },
+    {
+      "name": "control character",
+      "uri": "nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r\u0001&secret=s",
+      "error": "invalid pairing uri: parse \"nostr+walletconnect://62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7?relay=wss://r\\x01&secret=s\": net/url: invalid control character in URL"
+    },
+    {
+      "name": "not a URI",
+      "uri": "%",
+      "error": "invalid pairing uri: parse \"%\": invalid URL escape \"%\""
+    }
+  ],
+  "info": [
+    {
+      "name": "methods, encryption and notifications",
+      "event": {
+        "id": "641e20808a3fdc4d07345abd56b572cb7d16c74865e7dd96fd93a28b10c5d096",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 13194,
+        "tags": [
+          [
+            "encryption",
+            "nip44_v2 nip04"
+          ],
+          [
+            "notifications",
+            "payment_received  payment_sent"
+          ]
+        ],
+        "content": "pay_invoice get_balance  get_info",
+        "sig": "7d344e6786508ecb4aca50be9be358b8dbba36ec9d7cf08f0b97beb5996d58f65d54fde4e275b6314f37e8331c41b703a58e12431c58d17feb80d9cdfb0bd059"
+      },
+      "want": {
+        "methods": [
+          "pay_invoice",
+          "get_balance",
+          "get_info"
+        ],
+        "notificationTypes": [
+          "payment_received",
+          "payment_sent"
+        ],
+        "supportedEncryptions": [
+          "nip44_v2",
+          "nip04"
+        ]
+      }
+    },
+    {
+      "name": "no encryption tag means nip04 only",
+      "event": {
+        "id": "1d6a79cf8de59b4e12d86dc944a01c1583e4fd0cbb13a41eb79654ccd8ed6d4e",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 13194,
+        "tags": null,
+        "content": "get_info",
+        "sig": "470532d63b27100d3571a161c908c7bb71fdc8218034941b45f38cad5329f26f3c188ad11b1be96386e78661b9791991a711793578fc687fb73976c3637e53a9"
+      },
+      "want": {
+        "methods": [
+          "get_info"
+        ],
+        "notificationTypes": [],
+        "supportedEncryptions": [
+          "nip04"
+        ]
+      }
+    },
+    {
+      "name": "empty content",
+      "event": {
+        "id": "a1bd3aefced75b4c95550bc5f1892acfc9315920227ff46c68facd76a6d634da",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 13194,
+        "tags": [
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "",
+        "sig": "94663bdd3e95921ffec4d3ded2b1760459d5948552b2b3ba1337f5b11b41a11728d6ff615f479f4e7742d66d49bb0fe379cfacf48847caff4b5e927f48729dd1"
+      },
+      "want": {
+        "methods": [],
+        "notificationTypes": [],
+        "supportedEncryptions": [
+          "nip44_v2"
+        ]
+      }
+    },
+    {
+      "name": "duplicate encryption tag is ignored",
+      "event": {
+        "id": "48cc5600b26e9ce39fbddfba0d44a2af713fd1e258eb7018e08c51db658f895d",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 13194,
+        "tags": [
+          [
+            "encryption",
+            "nip44_v2"
+          ],
+          [
+            "encryption",
+            "nip04"
+          ]
+        ],
+        "content": "get_info",
+        "sig": "03e9aef35903cc5454210cb35b1f1ee8b3d984a2f212f21579fb557bccad9942df3951bb0f252e19671a36d1524508ffc253b21050631e48701454602e029869"
+      },
+      "want": {
+        "methods": [
+          "get_info"
+        ],
+        "notificationTypes": [],
+        "supportedEncryptions": [
+          "nip04"
+        ]
+      }
+    },
+    {
+      "name": "empty encryption value keeps the default",
+      "event": {
+        "id": "b4c7017ffb8a059962019d50bba5d2146cd35e00447188e621d1db8b0cd92d8b",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 13194,
+        "tags": [
+          [
+            "encryption",
+            ""
+          ]
+        ],
+        "content": "get_info",
+        "sig": "7416cbfee468d215b9995dd19f911efbdd8c6972f1bbd6740bcdd44390f676d1b6cb867425f1600d70cd296210acc060fe2073fe491cf5729d15b84ee61d9461"
+      },
+      "want": {
+        "methods": [
+          "get_info"
+        ],
+        "notificationTypes": [],
+        "supportedEncryptions": [
+          "nip04"
+        ]
+      }
+    },
+    {
+      "name": "wrong kind",
+      "event": {
+        "id": "934549e2b2e8d7ce7a1f485c7c744b4b3d34bdb2ad60393e2f1eebc156a6111a",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 1,
+        "tags": null,
+        "content": "get_info",
+        "sig": "dd13ec50b95a6880d8400c028baf5a8e463b5a9e058ee2b12cfe4d2f187654a89a3fb379dd903e7589d107e90639cc243a3c6889f7a933debab053b849bd28c1"
+      },
+      "error": "invalid kind 1, expected 13194"
+    }
+  ],
+  "requests": [
+    {
+      "name": "get_info, no params",
+      "method": "get_info",
+      "params": null,
+      "event": {
+        "id": "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231",
+        "pubkey": "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b",
+        "created_at": 1760000000,
+        "kind": 23194,
+        "tags": [
+          [
+            "p",
+            "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "AjYK+dUMXBr7A9sv3cY4/QP1JH2KHexD6CX9xXUY4PwQ/CfCYEyk1PMnl4FeNMLwAEcg9njRlT+dVc7k22i4s5C7WIoVve8A++uKCo/7zV0B1WCKgzC/24MjqZLGfOM2eQqu",
+        "sig": "11e1437fad9a60f85b132d6938961a23db3c6b44affc93e1d26df0d108de027c68f73b8eed035d7fee30bd189a91576c16c8c515c0c2dd8565da60b76300a26f"
+      },
+      "plaintext": "{\"method\":\"get_info\"}"
+    },
+    {
+      "name": "get_balance",
+      "method": "get_balance",
+      "params": null,
+      "event": {
+        "id": "e67a71581ae5a2efc97e4679e959a99efaec29926716b8a8caf0bce3de3db386",
+        "pubkey": "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b",
+        "created_at": 1760000000,
+        "kind": 23194,
+        "tags": [
+          [
+            "p",
+            "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "AvX+GI4CyATE5Il5mTKyZ9PVyX+WOVkCqsIUq7gM6cU81FySRNIzYLrd6537wMDqAqWkCccM4nK01KlIJFLKeH2H3vmMfsoTdwW4nny9nbK1GwRvxZEW94h3nRqqsJImsCFN",
+        "sig": "366bb62d4fd5d4176744cfadf1aed4bb038338dee9656c1d7d23891371f91556304d4088929a89593c954b88761a11fe5ba97debbfa298d651c3bae0896f4539"
+      },
+      "plaintext": "{\"method\":\"get_balance\"}"
+    },
+    {
+      "name": "pay_invoice",
+      "method": "pay_invoice",
+      "params": {
+        "invoice": "lnfc10u1x"
+      },
+      "event": {
+        "id": "0287a1f64a51cc6a707d7615ff7ae01ad05fd3f00d53ab84f9b96e8f413a8097",
+        "pubkey": "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b",
+        "created_at": 1760000000,
+        "kind": 23194,
+        "tags": [
+          [
+            "p",
+            "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "AhqANXJv1PXE6KauzNj/klJPnmRT8kjH9B47wA5vVomy1HTHhCWDARYFeibttslY1XyN/g1GAPzH+mosD7tAuCJm72ubFtAl+M96R6E/rBuRvbBOxKDMnRS/dCjURQV/VL/JLBKBojMU2ZdlhjjrSrAVUMPbVCYjO+4dtyHWyEu0avc=",
+        "sig": "cb2b1f4a1079f0432ffd5fb392958e704562656f02e3fd23711dc00bbbc71fb012b1f55f53a746c1599b198a44b5cf9b9d2ba11038c988d3fb305e2f8e081845"
+      },
+      "plaintext": "{\"method\":\"pay_invoice\",\"params\":{\"invoice\":\"lnfc10u1x\"}}"
+    },
+    {
+      "name": "make_invoice",
+      "method": "make_invoice",
+      "params": {
+        "amount": 21000,
+        "description": "coffee"
+      },
+      "event": {
+        "id": "e16ba0b3090362783e5cd5c53cbc9a2a4c9abcac667fdbe014d82bd39815b24b",
+        "pubkey": "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b",
+        "created_at": 1760000000,
+        "kind": 23194,
+        "tags": [
+          [
+            "p",
+            "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "AgWJtB3cXrj9HQs8f1a4k5Db5+ujTR9kHFTgZpHN1quYhF0m/SuHxEQcwMdqLEKvGSHZ8fX5ehcdkHHYQEudW/yBJicR4XCXy2DfWtOglZ6uDhBUmKPALVG5HCv/NZGuZaWbfkvuucsRBSrId2PbxUV0wArUPGSBZ3I2XGEbkvRMehjrxXMH2cmAW9KIxV81L6ReAnYwNGcp/5Q55LAyiQCWCg==",
+        "sig": "ba95732c1e37a5db8566be1cd58ff386e2cc35b08180725a099f94e3c4748c28d679a08042a6d6644d2a3e62d9a973c490cd317b3abcf4f5de8576c0cf6ec353"
+      },
+      "plaintext": "{\"method\":\"make_invoice\",\"params\":{\"amount\":21000,\"description\":\"coffee\"}}"
+    },
+    {
+      "name": "list_transactions",
+      "method": "list_transactions",
+      "params": {
+        "limit": 10,
+        "unpaid": true
+      },
+      "event": {
+        "id": "b9a0541e700e05b61910aba98d63533b1f0c5a5202c38a629ba9358e41d31661",
+        "pubkey": "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b",
+        "created_at": 1760000000,
+        "kind": 23194,
+        "tags": [
+          [
+            "p",
+            "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "Ag2y3SGkYm3o7Jr+OokQ6kdp6EdNKNTkiCNSAM+w42VBbITE6N5Ed4BzwrGLHXhsMM7BL0toG5ZShWp+pzinWLLpeQXqJ+HdWepnJBF9y869An5OfCxVixaXV3gcFQcZ0EKCTHoY9R4LFJ2kEmDxwaXa21GkmzDGbArK9UUp7nsJ94hNACceSyxypejegnmYFO9Q8+zdKDUKVOQioPvt5+05GQ==",
+        "sig": "8cb8df998fc37b774a65b32bfd55d4196112d63fba5743c7d011f63cdd5d9941db8b3d3dd2d69374f2363525974bd290638654aa82d3b7a470cf0b6529b5e4ca"
+      },
+      "plaintext": "{\"method\":\"list_transactions\",\"params\":{\"limit\":10,\"unpaid\":true}}"
+    }
+  ],
+  "responses": [
+    {
+      "name": "result",
+      "event": {
+        "id": "b69d8236bf6a6644c375caa016187b39c193ac49f586d3871ee81a0ee7d1115e",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "Ap/G5IY+2DTFNpPRUdel2oGNNdHdjhgL7CjFZMP8Q67Moa7wrTdqrHRUfNrQWZIdtWGmicZnNy7nl0piC6+9o34Oznud7D4WWzb5K/kQnVH6n2S6M9GYaRGsyCh6LW+WZMl/zq0P3Q/WFlIJNb6WVniJw1QCZIJmQBZhaPW4qJpkTUI=",
+        "sig": "a719f7d081f32be24dc78e7629e81ecfe954911ae12f0ac8d84194eaffbf6f3f90e07dc61b8438452e2f7ae7728457e263829633e16c780d382d578710122554"
+      },
+      "fallback": "nip44_v2",
+      "want": {
+        "request_event_id": "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231",
+        "result": {
+          "balance": 21000
+        },
+        "result_type": "get_balance",
+        "sub_payment_id": ""
+      }
+    },
+    {
+      "name": "error",
+      "event": {
+        "id": "9920950ccd74eb9ecaf7d750f639eff148ee05afc9a301e3373b336150f8ad63",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "AgVVPyOZYwCumFAcYmpoQDAKEx8PchCCnvu2gh4n1dOOlHKjpQeCopJFriHkKWayyNp9aw83OJKqHzdm8qh9h9GQ+UqzEl+hHtBa7KxC4PARCcuZLJrQ9ZwN93ypBEY7pQP0H9cZf3u36rTgzs7wXP6UvEnNnZLnu2EAb/g0oXsfEo5SAjXahKhO1WfXCniqwV6zWOx8DsMQvnQLPg3J/txM6g==",
+        "sig": "be674ef1611854b67d472d072c54a5b24a081f20212a557bfa023725b9a6dca8aa0b2e4822ce077311d093684af9800c93c5ed36053b712767f9a28e18cd219d"
+      },
+      "fallback": "nip44_v2",
+      "want": {
+        "error": {
+          "code": "INSUFFICIENT_BALANCE",
+          "message": "not enough"
+        },
+        "request_event_id": "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231",
+        "result_type": "pay_invoice",
+        "sub_payment_id": ""
+      }
+    },
+    {
+      "name": "sub-payment d tag",
+      "event": {
+        "id": "c545d66b7e614de5034c25a911e170c7ade3017ca6fdd0f814e016d7009210ee",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ],
+          [
+            "d",
+            "sub-1"
+          ]
+        ],
+        "content": "Ahu8pojN2WXvzsvIgm/9mh1c0PfeJY/D0nMWrGcxeXW5yULZK3v2Ql5W5FH0o5P+th9VkmsmdUuP0jShmdhYdO39xdBUusY6SBBu58Ds120leGKicQ7zvJtUT+VA01zMEoyJKvN5u6OlBqNOc+hiMYv3VUC0Ki8LBjAKU0N0I6CoqpQ=",
+        "sig": "644a52b86b2af3acae658b70c7b92d3e465c5c840b0b37990eb85f2840ae767c6295f66846cf9158842f72fbed42ebf8fd78965cb9e0d91519e36ac9e9c23fac"
+      },
+      "fallback": "nip44_v2",
+      "want": {
+        "request_event_id": "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231",
+        "result": {
+          "preimage": "ff"
+        },
+        "result_type": "multi_pay_invoice",
+        "sub_payment_id": "sub-1"
+      }
+    },
+    {
+      "name": "untagged nip44 response with a nip44 fallback",
+      "event": {
+        "id": "022c52510305d2d974ee9ea26c98ffce05802b284bca08dd2fe480fe87952f4c",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ]
+        ],
+        "content": "AlidEmq+33CUX/6YwIWiECOzloH8opIaAhX3WfcWw08jpoXe76fOdoRcMPKlhlXrVxss6ikCQERqUz8HPqCEAXsA67aEwMmopvFcL3nC7G7BPBG9OoO7rUWTxB9T0Vs53p5nIel/N0Bo4yXR1XdNYngCU9T4i0UMYHjXtfXfnR8XEwA=",
+        "sig": "c02ec1650ea142e318adcfa73ef8f1c17ff4d7c7eb77ac96b7903472133480b63a41113fabedfae915c1bfb1d82ccbea79adcca1b210330cbe3ae041bf5001b2"
+      },
+      "fallback": "nip44_v2",
+      "want": {
+        "request_event_id": "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231",
+        "result": {
+          "methods": [
+            "get_info"
+          ]
+        },
+        "result_type": "get_info",
+        "sub_payment_id": ""
+      }
+    },
+    {
+      "name": "no e tag",
+      "event": {
+        "id": "7d8f52dc9ebc65dc8095b94ca0eafe8d5217ce638be7299a44205a6508f3dd38",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "Aol8L8Hg7FD7GxC79dMyj3uSDIs7/bdZCdTxhb3B6Z8oRhBMwWDVSVRnVRNkaV9KDMjEoYFS2XBuTkJZsZdd/QDiR9lAk2PBpFk1qGdrRAbaWtjd/MueYTjlDRupMHtB+i/+",
+        "sig": "d782bc78dd5482cb5236dc4ca3ca2ad4650f7e66f1d6983bec640e30862659af2a9a2db54d6878db024a072b465b8308c794fb27f1c1364b7270b79416daa88a"
+      },
+      "fallback": "nip44_v2",
+      "error": "response e tag: tag not found"
+    },
+    {
+      "name": "two e tags",
+      "event": {
+        "id": "2a8c975b6cc2726eaaf66a1fda9c520ede3ac106084e75aac5c898a7cac1ca59",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ],
+          [
+            "e",
+            "other"
+          ]
+        ],
+        "content": "ArO+G0qsSUEBhFaAGaYb5HPxE9H3Rl+jXqlvrybM0PO2655gZ5uxB9sb80uCDsAH7WCoNxql71cwgfNpbG0CIcKmyGJkhEqImv9OhBTbdOVoFc4EbukSB+CANlPS9GU4DBIG",
+        "sig": "dca08d06b31570c293f5aeb4b88fd8d8ac5e880ca9066bfbbad0fa27d54ee2bd415515815c988fe53b9d434ad5ae5115e23ec3254bb06679e8f1174a398c2194"
+      },
+      "fallback": "nip44_v2",
+      "error": "response e tag: multiple tags with the same name found"
+    },
+    {
+      "name": "two d tags",
+      "event": {
+        "id": "e1207657ba4850d8338d1a7cf8a55ac3cb0fe180fc278902ec499f5a2185ac4b",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ],
+          [
+            "d",
+            "1"
+          ],
+          [
+            "d",
+            "2"
+          ]
+        ],
+        "content": "Al0pJ1P93vad+TWM+CFqFTFvNdr2Ue10Yiag/LqheIT//ZTne4jD5D2QSrd5MxQ0cEiWR8Am4Xe5mQX8y3BuJ/Tl4MSLDxB6bzQSNXdwqT1YXgFbIUEhdcdtfReCoT5uqDXV",
+        "sig": "d7f14943ea3f3d77f419f8d6136b3a688720a8ae98a15df1e2ca3fab391af063013137b5abfa813cb81fed964fa148ff4ad01bcb070b9176bc27a4eb05b89ae8"
+      },
+      "fallback": "nip44_v2",
+      "error": "response d tag: multiple tags with the same name found"
+    },
+    {
+      "name": "wrong kind",
+      "event": {
+        "id": "aa832853cb592b16ff1b75e70bccccc2414ea4f0d27db82e4917d0770869f06d",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23194,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "Au+zrWQlptw2+yYOBuTQGw10O+tYdttj7Y8gwlg/JD2DIvwegMrbosXjeKX31z7OuOJc9UWIo2DaqK/q29ngVP1KiytuONoPjRD7pescfIEH2PGwuMcNRVfUEJtIWRn34VbG",
+        "sig": "5ce59f3c51b64d866754050ab45182998ebe940d116f14409b49f6ecabc44dbafa582bec5e9a64bd34b4f77a161ac3cabd1408beb347e7613bac0f2a5d94e832"
+      },
+      "fallback": "nip44_v2",
+      "error": "invalid kind 23194, expected 23195"
+    },
+    {
+      "name": "undecryptable content",
+      "event": {
+        "id": "e103074db632d597af817313879b17be09e11026f9ec53b4a07f7e612dc5c087",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "AlZSFLHgeHNorC7B52FBHbbd2k+2N7gBesxNp5+gWbiPM5/3FEe2P1NvTrw6P/mi1nhzF62ERQDZp3cMluVh0by3p7a0SUg1JlCU/Ef+JVSAWu+XajdM5gwT3pAyAAAAAAA=",
+        "sig": "e23707ecdd71267de8b35cb207c05eb1696294ed316ffee125373ee84fa5c473ce8d3c0982c4297b129ad1fdee5e68b5048ad3032d241402de75b2ac6de78f49"
+      },
+      "fallback": "nip44_v2",
+      "error": "decrypt response: invalid MAC"
+    },
+    {
+      "name": "content is not JSON",
+      "event": {
+        "id": "7f6ee43999cdedf12694eca6d7c96aae0e16dd5902550e8ccbf0465e96b0dea4",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ]
+        ],
+        "content": "Arc312+h2OHQ2/6PgEWy/mkL4l5um8a7U2vXsm6W3iVOy6Pf8O0shI6P3yfDw0jFBQO5tygJP+wASxmGqTDBaRm9x6/xJLKpJ3K8yyH6xREjdNn3kbeoDUx0EzYNznJSLMHi",
+        "sig": "18f6d33def916a36b266f806c2ad5ded3553ef586e9041423008003acfc00e03ea64426597cc573e81c8b85524ff011a8a471482556a4d37bebafd882768cfd3"
+      },
+      "fallback": "nip44_v2",
+      "error": "unmarshal response: invalid character 'o' in literal null (expecting 'u')"
+    },
+    {
+      "name": "unknown encryption tag",
+      "event": {
+        "id": "2eb67afba17d6f4a791896ac1aed14f41e7eee07d4e0e0aad111483554b166b4",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23195,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ],
+          [
+            "e",
+            "8777ae86ad4fcb0bf2358d60d4f62381d28017d8bbb4caa7e7912af5a918a231"
+          ],
+          [
+            "encryption",
+            "rot13"
+          ]
+        ],
+        "content": "AvbO88+K3c/AF7u4THUzIOfe5JoQihucvAkdsNOLcMlMXJEKp58hiuGHiVNJ9FkVyoQbTYTMUluO881n3hHJxRYODFAkqaZqLwBV1G1jkqeKXVdL8g2o0W7wCwY8cC6aZITo",
+        "sig": "8bd08dc9e6b913f19b9dd91a524fc14d1af2db9d72a65b9e5601197e6df5628b5236e609a10dac7f99d7a3605d8523aca9826234b3f49f4dea13fce94c673125"
+      },
+      "fallback": "nip44_v2",
+      "error": "decrypt response: unsupported encryption \"rot13\", must be \"nip04\" or \"nip44_v2\""
+    }
+  ]
+}
