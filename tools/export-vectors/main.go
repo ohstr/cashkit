@@ -44,6 +44,7 @@ var files = []vectorFile{
 	{"envelope.json", buildEnvelope},
 	{"proof.json", buildProofVectors},
 	{"announcement.json", buildAnnouncement},
+	{"private-join.json", buildPrivateJoin},
 }
 
 // header opens every vector file so a reader can tell where it came from.

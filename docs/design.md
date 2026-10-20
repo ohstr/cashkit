@@ -934,6 +934,7 @@ drift. Coverage:
 | `padding.json` | `transport/auditB_priv_padding_test.go`, `auditD_privacy_padding_test.go`, `limits_test.go` |
 | `envelope.json` | `transport/envelope_test.go`, `response_test.go`, `auditB_duplicate_item_test.go` |
 | `nip44.json` | `nip44/auditC_qa_kat_test.go` plus the upstream NIP-44 vectors |
+| `private-join.json` | `nipcw/private_join_test.go`, `nipcash/client/batch_circle_join_test.go` |
 
 Vectors with fixed randomness produce byte-identical envelopes, which is
 why the Go-compatible escaping in §2.2 is a SHOULD.
