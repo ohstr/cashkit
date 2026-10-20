@@ -56,9 +56,10 @@ describe('nip01', () => {
     const s = serializeEvent({ pubkey: 'AB'.repeat(32), created_at: 1, kind: 1, tags: [], content: '' })
     expect(s).toBe(`[0,"${'ab'.repeat(32)}",1,1,[],""]`)
   })
-  test('escaping: tags escape U+2028 and content does not; controls become \\u00xx', () => {
-    const s = serializeEvent({ pubkey: 'ab'.repeat(32), created_at: 1, kind: 1, tags: [['t', 'a \u0001']], content: 'a \u0001"\\' })
-    expect(s).toBe(`[0,"${'ab'.repeat(32)}",1,1,[["t","a\\u2028\\u0001"]],"a \\u0001\\"\\\\"]`)
+  // nmilat TestHashID_TagsEscapeLikeNostrTools: tags escape exactly like the content.
+  test('escaping: tags and content alike; U+2028 stays raw; controls become \\u00xx', () => {
+    const s = serializeEvent({ pubkey: 'ab'.repeat(32), created_at: 1, kind: 1, tags: [['t', 'a\u2028\u0001']], content: 'a\u2028\u0001"\\' })
+    expect(s).toBe(`[0,"${'ab'.repeat(32)}",1,1,[["t","a\u2028\\u0001"]],"a\u2028\\u0001\\"\\\\"]`)
   })
   test('html characters and slashes are not escaped', () => {
     expect(serializeEvent({ pubkey: 'ab'.repeat(32), created_at: 1, kind: 1, tags: [['t', '<&>/']], content: '<&>/' })).toContain('[["t","<&>/"]],"<&>/"')

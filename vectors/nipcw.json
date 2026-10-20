@@ -1,7 +1,7 @@
 {
   "description": "NIP-CW create_circle_wallet: the request with its kind 23199 identity proof, and the result with its encrypted wallet details.",
   "source": "nipcw/{create_circle_wallet,identity,connection_key}.go; nipcw/{create_circle_wallet,connection_key_kat}_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "requests": [
     {
       "name": "full",

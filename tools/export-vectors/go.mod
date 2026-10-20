@@ -5,7 +5,7 @@ go 1.26.9
 require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/flokiorg/go-flokicoin v0.25.12-alpha
-	github.com/ohstr/nmilat v0.5.0-rc.24
+	github.com/ohstr/nmilat v0.5.0-rc.31
 )
 
 require (

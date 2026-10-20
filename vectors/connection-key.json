@@ -1,7 +1,7 @@
 {
   "description": "NIP-IC connection keys (platform identity hash) and NIP-CW member connection key pairs.",
   "source": "nipIC/nipIC.go NewConnectionKey, nipcw/connection_key.go ConnectionKeyFromSecret; nipcash/kat_test.go, nipcw/connection_key_kat_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "newConnectionKey": [
     {
       "platform": "github",

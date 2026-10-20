@@ -1,7 +1,7 @@
 {
   "description": "Decode and encode of the TLV bech32 strings: cash tokens (any HRP), cashhub1, circlehub1 and nconnection1.",
   "source": "nipcash/token.go, cashhub_connection.go, nipcw/circlehub_connection.go, nipIC/nconnection.go; cases from decode_tlv_rules_test.go, token_test.go, hub_group_test.go, encode_relay_test.go, kat_test.go, nipcw/circlehub_tlv_rules_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "decode": [
     {
       "name": "minimal",

@@ -1,7 +1,7 @@
 {
   "description": "NIP-47: pairing URIs, info events, and nip44_v2 request and response events as nmilat builds and parses them.",
   "source": "nip47/{pairing,events,methods}.go; nip47/{pairing,events,events_response_fallback}_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "pairingBuild": [
     {
       "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",

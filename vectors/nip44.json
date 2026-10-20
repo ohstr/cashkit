@@ -1,7 +1,7 @@
 {
   "description": "NIP-44 v2: the upstream vectors, verbatim, after checking that nmilat agrees with them.",
   "source": "nip44/encryption.go; nip44/auditC_qa_kat_test.go; upstream github.com/paulmillr/nip44 nip44.vectors.json (sha256 269ed0f69e4c192512cc779e78c555090cebc7c785b609e338a62afc3ce25040)",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "checkedAgainstNmilat": [
     "valid.get_conversation_key",
     "valid.calc_padded_len",
@@ -9,7 +9,6 @@
     "invalid.decrypt"
   ],
   "nmilatDivergences": [
-    "invalid.encrypt_msg_lengths: nmilat encrypts a 0-byte plaintext; cashkit refuses it as the NIP requires",
     "invalid.encrypt_msg_lengths: nmilat encrypts a 65536-byte plaintext; cashkit refuses it as the NIP requires",
     "invalid.encrypt_msg_lengths: nmilat encrypts a 100000-byte plaintext; cashkit refuses it as the NIP requires",
     "invalid.encrypt_msg_lengths: nmilat encrypts a 10000000-byte plaintext; cashkit refuses it as the NIP requires"

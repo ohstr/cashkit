@@ -1,7 +1,7 @@
 // NIP-01 events as nmilat serializes, hashes, signs and verifies them. Port of
 // nmilat nip01/event.go. The Hub recomputes event ids with nmilat, so cashkit
 // hashes exactly nmilat's bytes, including where its escaping departs from
-// NIP-01 (control characters as \u00xx, and U+2028/U+2029 escaped in tags).
+// NIP-01 (control characters as \u00xx). Tags and content escape alike.
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { fromHex, toHex, utf8 } from './bytes.js'
@@ -28,28 +28,8 @@ export interface NostrEvent extends UnsignedEvent {
 const HEX = '0123456789abcdef'
 const u00 = (c: number) => '\\u00' + HEX[c >> 4]! + HEX[c & 15]!
 
-/** A tag string as Go's encoding/json writes it, HTML escaping off. */
-function tagString(s: string): string {
-  let out = '"'
-  for (const ch of s) {
-    const c = ch.codePointAt(0)!
-    if (ch === '"') out += '\\"'
-    else if (ch === '\\') out += '\\\\'
-    else if (c === 0x0a) out += '\\n'
-    else if (c === 0x0d) out += '\\r'
-    else if (c === 0x09) out += '\\t'
-    else if (c === 0x08) out += '\\b'
-    else if (c === 0x0c) out += '\\f'
-    else if (c < 0x20) out += u00(c)
-    else if (c === 0x2028 || c === 0x2029) out += `\\u${c.toString(16)}`
-    else if (c >= 0xd800 && c <= 0xdfff) out += '�'
-    else out += ch
-  }
-  return out + '"'
-}
-
-/** Content as nmilat's utils.EscapeJSONString writes it. */
-function contentString(s: string): string {
+/** A string as nmilat's utils.EscapeJSONString writes it, for tags and content alike. */
+function jsonString(s: string): string {
   let out = '"'
   for (const ch of s) {
     const c = ch.codePointAt(0)!
@@ -77,8 +57,8 @@ function checkTemplate(e: EventTemplate): void {
 /** `[0,pubkey,created_at,kind,tags,content]`, byte for byte as nmilat writes it. */
 export function serializeEvent(e: UnsignedEvent): string {
   checkTemplate(e)
-  const tags = '[' + e.tags.map((t) => '[' + t.map(tagString).join(',') + ']').join(',') + ']'
-  return `[0,"${e.pubkey.toLowerCase()}",${e.created_at},${e.kind},${tags},${contentString(e.content)}]`
+  const tags = '[' + e.tags.map((t) => '[' + t.map(jsonString).join(',') + ']').join(',') + ']'
+  return `[0,"${e.pubkey.toLowerCase()}",${e.created_at},${e.kind},${tags},${jsonString(e.content)}]`
 }
 
 /** The event id: sha256 of the serialization, hex. */

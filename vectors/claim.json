@@ -1,7 +1,7 @@
 {
   "description": "NIP-IC attestations, cash targets, the claim proofs and new_identity bindings nmilat builds for cash_redeem, cash_transfer and cash_consolidate, and recipient matching.",
   "source": "nipcash/{identity,proof,claim,cash_redeem,cash_transfer,cash_consolidate}.go, nipIC/attestation.go; nipcash/proof_binding_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "attestation": [
     {
       "name": "valid",

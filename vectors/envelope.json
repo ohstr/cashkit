@@ -1,7 +1,7 @@
 {
   "description": "The private-transport envelope: exact encoded bytes (Go json.Marshal escaping, padding), decode with per-item rejection, item cost, freshness, response encode/decode, coherence validation.",
   "source": "nipcash/transport/{envelope,response,validate,identity}.go; envelope_test.go, response_test.go, auditB_duplicate_item_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "encode": [
     {
       "name": "one cash_status",
