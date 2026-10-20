@@ -188,8 +188,16 @@ describe('nipcw create_circle_wallet (create_circle_wallet_test.go)', () => {
     const result = kind === null ? seal(`{"wallet_pubkey":"${'9a'.repeat(32)}","relays":[" "]}`) : kind === 'bad' ? seal('{"wallet_pubkey":"abc","relays":["wss://r"]}') : kind
     await expect(parseCreateCircleWalletResult(result, { signer, connection: conn, hubPubkey: hub })).rejects.toThrow(CoreError)
   })
-  test('details sealed by another key fail to decrypt', async () => {
-    const other = { encrypted_details: nip44.encrypt('{}', nip44.getConversationKey(fill(8, 32), signer.pubkey)) }
+  // TestCreateCircleWalletParams_ParseResult_RejectsOtherSender. NIP-CW §Response: on
+  // either transport the details come from the Hub connection key, never the
+  // private transport's inbox or node key.
+  test.each([
+    ['the inbox key', fill(8, 32)],
+    ['the node key', fill(9, 32)],
+    ['the member’s own key', memberKey],
+  ] as const)('details sealed by %s are rejected', async (_, from) => {
+    const details = `{"wallet_pubkey":"${'9a'.repeat(32)}","relays":["wss://r"]}`
+    const other = { encrypted_details: nip44.encrypt(details, nip44.getConversationKey(from, signer.pubkey)) }
     await expect(parseCreateCircleWalletResult(other, { signer, connection: conn, hubPubkey: hub })).rejects.toThrow(/decrypt/)
   })
 })

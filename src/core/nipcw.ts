@@ -134,9 +134,10 @@ const DETAILS = {
 } as const
 
 /**
- * Parses the result: decrypts `encrypted_details` from the Hub with the
- * member's key and builds the pairing URI over the member's connection
- * secret. Blank relays are dropped and at least one must remain.
+ * Parses the result: decrypts `encrypted_details` from the Hub connection
+ * key (`hubPubkey`) with the member's key, on either transport, and builds
+ * the pairing URI over the member's connection secret. Blank relays are
+ * dropped and at least one must remain.
  */
 export async function parseCreateCircleWalletResult(
   result: unknown,
