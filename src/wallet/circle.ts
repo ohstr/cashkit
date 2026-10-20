@@ -1,9 +1,10 @@
 // Joining a circle (design §6.7). Port of cashctl cmd/circle.go
 // runCircleJoin: the connection key is generated here and parked as a
 // pending join before the request goes out; on success the connection is
-// added and the pending join deleted in one transaction.
+// added and the pending join deleted in one transaction. The join travels
+// over the private transport when the Hub offers it (NIP-CW §Private Join).
 import { buildPairingURI, decodeCircleHubConnection, parsePairingURI, sniff } from '../core/index.js'
-import { CircleClient, WalletError } from '../client/index.js'
+import { CircleClient, ClientError, PrivateJoinUnavailableError, WalletError, type JoinTransport } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import type { Ctx } from './context.js'
 import { CashkitError, classifySpendError, fromWalletError, isNotSent } from './errors.js'
@@ -19,6 +20,8 @@ export interface JoinInput {
   /** Requested lifetime in seconds; 0 lets the Hub choose. */
   readonly expirySeconds?: number
   readonly budgetRenewal?: string
+  /** Refuse rather than join over the shared Hub connection when the private transport can't be used. */
+  readonly requirePrivate?: boolean
 }
 
 /** Carries no connection string (§6.7). */
@@ -32,6 +35,27 @@ export interface JoinResult {
   readonly maxAmount?: bigint
   readonly feesPpm: number
   readonly budgetRenewal: string
+  /** Whether the join went over the private transport. */
+  readonly private: boolean
+  /**
+   * Why the join went over the standard transport although the Hub offers
+   * Private Join. Show the member that the join was not private.
+   */
+  readonly fallbackReason?: string
+}
+
+const privateUnavailable = (err: unknown) =>
+  new CashkitError('not_found', `this Hub's private transport can't be used, so nothing was sent: ${(err as Error).message}`, { cause: err })
+
+/** The transport, chosen before anything is parked: nothing has been sent yet. */
+async function chooseTransport(circle: CircleClient, requirePrivate: boolean): Promise<JoinTransport> {
+  try {
+    return await circle.chooseTransport({ requirePrivate })
+  } catch (err) {
+    if (err instanceof PrivateJoinUnavailableError) throw privateUnavailable(err)
+    if (err instanceof ClientError) throw new CashkitError('network', `could not read the Hub's terms (get_info), so nothing was sent: ${err.message}`, { cause: err })
+    throw new CashkitError('internal', `the Hub's get_info could not be read: ${(err as Error).message}`, { cause: err })
+  }
 }
 
 const isReplayGuard = (err: unknown) =>
@@ -87,24 +111,27 @@ export async function joinCircle(ctx: Ctx, o: JoinInput, sleep: (ms: number) => 
     const existing = await ctx.read((t) => t.list('connections'))
     const name = o.name ?? suggestName(existing.map((c) => c.id), 'circle', label)
     if (existing.some((c) => c.id === name)) throw new CashkitError('exists', `a connection named "${name}" already exists`, { input: name })
+    const via = await chooseTransport(circle, o.requirePrivate === true)
     await ctx.commit((t) => t.put('pendingJoins', { id: connection.pubkey, connectionSecret: sealedSecret, hubPubkey, hubLabel: label, name, at: ctx.now(), version: 1 }, 0))
     ctx.emit({ op: 'join', phase: 'sent', id: opId })
-    const attempt = () => circle.createCircleWallet({ signer, maxAmountMillis: o.maxAmount, expirySeconds: o.expirySeconds ?? 0, connection, ...(o.budgetRenewal !== undefined && { budgetRenewal: o.budgetRenewal }) })
-    let wallet
+    // The same transport for the retry: a sent private join never falls back.
+    const attempt = () => circle.createCircleWallet({ signer, maxAmountMillis: o.maxAmount, expirySeconds: o.expirySeconds ?? 0, connection, ...(o.budgetRenewal !== undefined && { budgetRenewal: o.budgetRenewal }) }, via)
+    let joined
     try {
       try {
-        wallet = (await attempt()).wallet
+        joined = await attempt()
       } catch (err) {
         if (!isReplayGuard(err)) throw err
         await sleep(1100)
-        wallet = (await attempt()).wallet
+        joined = await attempt()
       }
     } catch (raw) {
       const err = normalizeExists(raw)
       ctx.emit({ op: 'join', phase: 'failed', id: opId })
-      if (isNotSent(err) || err instanceof WalletError) {
+      if (isNotSent(err) || err instanceof WalletError || err instanceof PrivateJoinUnavailableError) {
         await ctx.commit((t) => t.delete('pendingJoins', connection.pubkey)).catch(() => undefined)
       }
+      if (err instanceof PrivateJoinUnavailableError) throw privateUnavailable(err)
       if (isReplayGuard(err)) {
         throw new CashkitError('conflict', "the Hub's identity-proof replay guard rejected two attempts within the same second, even after retrying once: wait a few seconds and join again", { cause: err })
       }
@@ -116,6 +143,7 @@ export async function joinCircle(ctx: Ctx, o: JoinInput, sleep: (ms: number) => 
         { cause: err },
       )
     }
+    const { wallet } = joined
     const sealedUri = await ctx.seal(wallet.pairingUri)
     let isDefault = false
     try {
@@ -147,6 +175,8 @@ export async function joinCircle(ctx: Ctx, o: JoinInput, sleep: (ms: number) => 
       ...(wallet.maxAmountMillis !== undefined && { maxAmount: wallet.maxAmountMillis }),
       feesPpm: wallet.feesPpm,
       budgetRenewal: wallet.budgetRenewal,
+      private: joined.private,
+      ...(joined.fallbackReason !== undefined && { fallbackReason: joined.fallbackReason.message }),
     }
   })
 }

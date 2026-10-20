@@ -230,11 +230,14 @@ await wallet.protect() // re-key every cash note still shared with its sender
 
 The member's connection key is generated here and parked before the request
 goes out. The Hub only ever sees its pubkey, and the result never carries the
-connection string:
+connection string. When the Hub offers Private Join, the request travels over
+NIP-CASH's private transport, out of sight of the shared Hub connection; a
+fallback to the standard transport is reported, never silent:
 
 ```ts
 const joined = await wallet.joinCircle({ hub: 'circlehub1…', maxAmount: 100_000_000n })
 console.log('joined', joined.name, 'wallet', joined.walletPubkey)
+if (joined.fallbackReason !== undefined) console.warn('joined without the private transport:', joined.fallbackReason)
 
 const ln = await wallet.lightning(joined.name)
 console.log(await ln.getBalance())

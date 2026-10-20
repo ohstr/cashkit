@@ -230,6 +230,12 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   the wallet is accepted.
 - **`CircleClient.createCircleWallet`**: generates the connection key
   locally and sends only `connection_pubkey`.
+- **`CircleClient.join(params, { requirePrivate })`**: `chooseTransport`
+  then `createCircleWallet` over it (NIP-CW §Private Join, §6.7).
+  `openBatchSession(identity, relays)` opens a session from `get_info`'s
+  identity instead of a bill, and `createCircleWalletMany` sends joins over
+  it. `NwcClient.getInfo` types the `circle_wallet` block, with
+  `circle_policy` `'allowlist' | 'follow_set'`.
 
 The client layer is stateless about the wallet. It never persists anything,
 and it returns enough for the engine to journal before and after each call.
@@ -642,19 +648,41 @@ handoffs(o?: { status?: Handoff['status'][]; includeSecrets?: boolean }): Promis
 ### 6.7 Circles
 
 ```ts
-joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; name?: string; makeDefault?: boolean }): Promise<JoinResult>
+joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; name?: string; makeDefault?: boolean; requirePrivate?: boolean }): Promise<JoinResult>
 ```
 
 - `maxAmount` MUST be greater than 0.
 - The connection key is generated locally and `pendingJoin` is committed
   before the request goes out.
+- The transport is chosen first, as NIP-CW §Finding the Private Transport
+  says, and kept for the retry below:
+  - `get_info`'s `circle_wallet.identity` is the only source of the node
+    identity. When it is present, the Hub's kind-11190 announcement is
+    fetched and verified against it (§2.2, §2.3: newest wins,
+    never backwards) and the join goes over the private transport without
+    asking.
+  - The item targets the Hub connection pubkey. Its kind-23192 proof is
+    signed by the joining key, with `d` = Hub pubkey and `h` = identity; its
+    kind-23193 bill proof is signed with the Hub connection secret. The
+    params are the standard request, kind-23199 proof included.
+  - `encrypted_details` is decrypted from the Hub connection pubkey on both
+    transports, never from the inbox or node key.
+  - No identity, or a `get_info` the Hub refuses, means the standard
+    transport and no `fallbackReason`.
+  - An announcement that can't be found or verified, or a private item that
+    fails before it is sent, falls back to the standard transport and sets
+    `fallbackReason`. With `requirePrivate` it is a `not_found` error
+    instead, and nothing is sent.
+  - A private join that was sent never falls back: a missing reply may mean
+    it ran.
 - A replay-guard error is retried once after 1.1 s.
 - An answer of "already exists" is an `exists` error.
 - On success the connection is added and the pending join deleted in one
   transaction.
 - The result carries `walletPubkey`, `relays`, `connectionPubkey`,
-  `expiresAt`, `maxAmount` (granted), `feesPpm` and `budgetRenewal`. It
-  never carries the connection string.
+  `expiresAt`, `maxAmount` (granted), `feesPpm`, `budgetRenewal`, `private`
+  and, after a fallback, `fallbackReason`. It never carries the connection
+  string.
 
 ### 6.8 Lightning, connections, identity
 
