@@ -7,64 +7,54 @@
 
 cashkit is a TypeScript SDK for building wallets on
 [NIP-CASH](https://github.com/ohstr/nips/blob/main/NIP-CASH.md) and
-[NIP-CW](https://github.com/ohstr/nips/blob/main/NIP-CW.md). It handles the
-plumbing (token codecs, the private transport to a Cash Hub, write-ahead
-journaling of every secret, and the wallet rules cashctl follows) so you
-can focus on the app you're building.
+[NIP-CW](https://github.com/ohstr/nips/blob/main/NIP-CW.md): token codecs,
+the private transport to a Hub, write-ahead journaling of every secret, and
+the wallet rules [`cashctl`](https://github.com/ohstr/cashctl) follows.
 
 Use it to:
 
 - **Build a cash wallet** in a browser, a PWA, Node ≥ 22 or Bun: receive,
-  send, consolidate and redeem cash bills, with the same behaviour and error
-  codes as [`cashctl`](https://github.com/ohstr/cashctl)
-- **Join a Circle** and use its wallet over Nostr Wallet Connect
-- **Talk to a Cash Hub directly**, one bill or one batch at a time, without
-  hand-rolling the private transport
+  send, consolidate and redeem bills, with cashctl's behaviour and error codes
+- **Join a Circle**, privately when the Hub offers it, and use its wallet
+  over Nostr Wallet Connect
+- **Talk to a Hub directly**, one bill or one batch at a time
 
-No UI or framework code lives here. This package is a library only. React
-bindings come later as their own subpath.
+A library only: no UI code, apart from the optional React bindings.
 
 ## Install
 
 ```sh
-pnpm add @ohstr/cashkit
+npm install @ohstr/cashkit        # or: pnpm add / yarn add / bun add
+npm install @ohstr/cashkit@next   # the newest prerelease
 ```
 
-Until the first npm release, install from the repository at a pinned
-commit. The package builds itself on install (`prepare`). Use a
-`git+https` URL, not the `github:` shorthand: yarn 1 fetches the shorthand
-as a plain source tarball and never builds it.
+Releases are published with npm provenance. To track an unreleased commit,
+depend on the repository instead; it builds on install. Use the `git+https`
+form, since yarn 1 doesn't build the `github:` shorthand:
 
 ```json
 "@ohstr/cashkit": "git+https://github.com/ohstr/cashkit.git#<commit>"
 ```
 
-Runtime dependencies are `@noble/curves`, `@noble/hashes`, `@noble/ciphers`
-and `@scure/base`, and nothing else.
+Runtime dependencies: `@noble/curves`, `@noble/hashes`, `@noble/ciphers` and
+`@scure/base`.
 
 ## Package overview
 
-One package, in layers. Each subpath imports only from the ones before it,
-and lint enforces that:
+One package, in layers; each subpath imports only from the ones before it:
 
-- **`@ohstr/cashkit/core`**: pure codecs and crypto, with no I/O. Cash
-  tokens, `cashhub1`/`circlehub1`/`nconnection1`, the `<token>#<secret>`
-  string, mint provenance, hub groups, connection keys, claim proofs, the
-  `cash_*` messages and results, NIP-01, NIP-19, NIP-44 v2, NIP-04 (for
-  legacy NWC wallets only), NIP-47 pairing and events, NIP-49 `ncryptsec`,
-  bolt11, `sniff` and `redact`
-- **`@ohstr/cashkit/transport`**: NIP-CASH's private transport. Envelope,
-  canonical params hash, padding, item and bill proofs, request wrap, reply
-  key and Hub announcement, byte-compatible with nmilat
-- **`@ohstr/cashkit/client`**: `CashClient` (one bill), `BatchSession` with
-  `statusMany` / `redeemMany` / `transferMany` / `consolidateMany`,
-  `NwcClient` and `CircleClient`
-- **`@ohstr/cashkit/wallet`**: the wallet engine. `Wallet.open`, plan then
-  execute for every money-moving call, a write-ahead journal, `settle()`,
-  and cashctl's error-code table (also exported from the package root)
-- **`@ohstr/cashkit/react`**: React bindings: a provider, state hooks that
-  re-render on every commit (any tab), and action and query hooks. React is
-  an optional peer
+- **`@ohstr/cashkit/core`**: codecs and crypto, no I/O. Cash tokens,
+  `cashhub1`/`circlehub1`/`nconnection1`, mint provenance, claim proofs, the
+  `cash_*` and `create_circle_wallet` messages, NIP-01, NIP-19, NIP-44 v2,
+  NIP-04 (legacy NWC only), NIP-47, NIP-49, bolt11, `sniff` and `redact`
+- **`@ohstr/cashkit/transport`**: NIP-CASH's private transport, byte-compatible
+  with nmilat
+- **`@ohstr/cashkit/client`**: `CashClient` (one bill), `BatchSession` and its
+  batch methods, `NwcClient` and `CircleClient`
+- **`@ohstr/cashkit/wallet`**: the wallet engine: plan then execute, a
+  write-ahead journal, `settle()` and cashctl's error codes (also exported
+  from the package root)
+- **`@ohstr/cashkit/react`**: a provider and hooks; React is an optional peer
 - **`@ohstr/cashkit/adapters/*`**: the ports, made concrete:
   - storage: `storage-indexeddb` (browsers), `storage-sqlite` (Node and Bun,
     on `node:sqlite` or any compatible driver), `storage-memory` (tests)
@@ -74,9 +64,8 @@ and lint enforces that:
   - relays: `relay-ws` (the global `WebSocket`), `relay-nostr-tools` and
     `relay-ndk` (bring your own SimplePool or NDK)
   - signers: `signer-nip07` (browser extensions), `signer-nip46` (bunkers)
-  - tabs: `lock-weblocks` and `sync-broadcast`, so two tabs never move
-    money at once and each sees the other's changes; `lock-memory` per
-    process
+  - tabs: `lock-weblocks` and `sync-broadcast` (one tab moves money at a
+    time, every tab sees the changes); `lock-memory` per process
 
 [`docs/design.md`](docs/design.md) is the specification the code follows.
 
@@ -84,10 +73,9 @@ and lint enforces that:
 
 ### Open a wallet in a browser
 
-`openWallet` fills in the platform's defaults: IndexedDB for rows, Web
-Locks so two tabs never move money at once, BroadcastChannel so every tab
-sees the others' changes, and `navigator.storage.persist()`. The one thing
-it never picks for you is how secrets are sealed at rest:
+`openWallet` picks the browser defaults (IndexedDB, Web Locks,
+BroadcastChannel, `navigator.storage.persist()`). You choose how secrets are
+sealed at rest:
 
 ```ts
 import { openWallet } from '@ohstr/cashkit'
@@ -101,14 +89,12 @@ console.log('receive at', me.npub)
 if (wallet.state.storagePersisted === false) warnTheBrowserMayEvictThis()
 ```
 
-Opening runs `settle()` before it returns, so any secret a previous tab
-parked mid-operation is reconciled before you spend.
+Opening runs `settle()`, so anything a previous tab left mid-operation is
+reconciled first.
 
 ### Open a wallet on Node or Bun
 
-Everything with side effects is a port you pass in: where rows live, how
-secrets are sealed at rest, and how relays are reached. The engine never
-opens a socket or a file on its own:
+Storage, vault and relays are ports you pass in:
 
 ```ts
 import { Wallet } from '@ohstr/cashkit'
@@ -128,14 +114,13 @@ const wallet = await Wallet.open({
 })
 ```
 
-`vault.lock()` forgets the key; until `vault.unlock(passphrase)`, the wallet
-reads but refuses to move money.
+While the vault is locked (`vault.lock()`), the wallet reads but won't move
+money.
 
 ### Sign with an extension or a bunker
 
-The identity can live outside the wallet. Both adapters check every event
-they get back: the right identity, the event that was asked for, and a
-valid signature:
+Both adapters check every event they get back: signer, content and
+signature:
 
 ```ts
 import { nip07Signer } from '@ohstr/cashkit/adapters/signer-nip07'
@@ -151,15 +136,13 @@ const fromBunker = await nip46Signer({
 const w = await openWallet({ vault: await DeviceVault.open(), signer: fromBunker })
 ```
 
-A phone bunker can take seconds per signature. Batches are sized so that
-signing fits half of the Hub's window, and a slow signer simply gets smaller
-batches.
+A slow signer, such as a phone bunker, just gets smaller batches.
 
 ### Receive a bill
 
-Pass whatever the sender gave you: a token for your pubkey, or a cash note
-`<token>#<secret>`. `receive` checks it with its Hub before committing it,
-and re-keys a cash note under a fresh secret only this wallet knows:
+Pass a token for your pubkey or a cash note `<token>#<secret>`. `receive`
+checks it with its Hub, then re-keys a cash note under a secret only this
+wallet knows:
 
 ```ts
 const r = await wallet.receive(pasted)
@@ -174,10 +157,8 @@ if (!r.received) {
 
 ### Send: plan, confirm, execute
 
-Every money-moving call is split in two. The plan carries everything
-cashctl would ask the user to confirm: whether bills merge first (and so tell
-their Hub they share an owner), the resolved target, and the earliest expiry.
-`execute` refuses with `conflict` if any holding changed since:
+Every money-moving call has a plan to confirm (merges, target, expiry) and
+an execute, which refuses with `conflict` if a holding changed since:
 
 ```ts
 const plan = await wallet.planSend({ amount: 2_000_000n }) // to: 'cash' by default
@@ -190,14 +171,12 @@ console.log('hand this over:', sent.cashNote) // <token>#<secret>, the only copy
 await wallet.send({ amount: 500_000n, to: 'alice@example.com' })
 ```
 
-`wallet.send(...)` is `executeSend(await planSend(...))` for callers that
-don't need a confirmation step.
+`wallet.send(...)` does both in one call.
 
 ### Redeem into a Lightning wallet
 
-Add a NWC connection, then redeem. Bills on the same node are quoted in one
-request and redeemed in one request, each into its own invoice for its net
-amount:
+Add a NWC connection, then redeem. Bills on one node are quoted and
+redeemed in one request each:
 
 ```ts
 await wallet.connections.add('main', 'nostr+walletconnect://…')
@@ -212,10 +191,9 @@ for (const o of report.outcomes) {
 }
 ```
 
-`amount` redeems exactly that much net, from one bill or a same-hub subset
-that sums to it; `invoice` redeems one bill straight into an invoice.
-Operations over several bills return a `Report` and never throw once anything
-has committed.
+`amount` redeems exactly that much net; `invoice` redeems into a given
+invoice. Calls over several bills return a `Report` and never throw once
+anything has committed.
 
 ### Consolidate and protect
 
@@ -228,11 +206,10 @@ await wallet.protect() // re-key every cash note still shared with its sender
 
 ### Join a Circle
 
-The member's connection key is generated here and parked before the request
-goes out. The Hub only ever sees its pubkey, and the result never carries the
-connection string. When the Hub offers Private Join, the request travels over
-NIP-CASH's private transport, out of sight of the shared Hub connection; a
-fallback to the standard transport is reported, never silent:
+The connection key is generated locally; the Hub only sees its pubkey. When
+the Hub reports `circle_wallet.identity`, the join goes over the private
+transport, and a fallback to the shared connection is reported in
+`fallbackReason` (`requirePrivate: true` refuses instead):
 
 ```ts
 const joined = await wallet.joinCircle({ hub: 'circlehub1…', maxAmount: 100_000_000n })
@@ -273,16 +250,14 @@ try {
 }
 ```
 
-`recovery` is the one place a secret appears in an error. It is set only
-when a Hub-side change is confirmed and the local commit failed, and it is
-never redacted or truncated. Show it so it can be copied whole.
+`recovery` is the one place a secret appears in an error: set when the Hub
+applied a change that couldn't be saved locally. Show it whole.
 
 ### Back it up
 
-In a browser, a user clearing site data, or the browser evicting it, can
-delete the only copy of an unclaimed cash note. `exportBackup` writes every
-collection as JSON with each secret sealed under a passphrase;
-`state.backupStale` says when value has moved since the last one:
+Clearing site data can delete the only copy of a cash note. `exportBackup`
+writes everything as JSON with secrets sealed under a passphrase, and
+`state.backupStale` says when it's due:
 
 ```ts
 if (wallet.state.backupStale) {
@@ -302,16 +277,13 @@ const stop = wallet.subscribe((s) => render(s.holdings, s.balance, s.unfinishedC
 wallet.on('operation', (e) => console.log(e.op, e.phase)) // planned, sent, committed, failed
 ```
 
-The snapshot and the events carry IDs and amounts, never secrets.
-`toJSON(result)` writes any result in cashctl's `--json` shape: snake_case,
-with exact integers for bigint amounts.
+State and events never carry secrets. `toJSON(result)` writes cashctl's
+`--json` shape.
 
 ### Use it from React
 
-`WalletProvider` opens the wallet and renders its children once it is
-ready. Below it, `useWalletState` re-renders on every commit, in this tab or
-another one; action hooks track one call's `pending`, `result` and `error`;
-query hooks re-run on every commit:
+`WalletProvider` opens the wallet; `useWalletState` re-renders on every
+commit in any tab, and action hooks track `pending`, `result` and `error`:
 
 ```tsx
 import { openWallet } from '@ohstr/cashkit'
@@ -370,8 +342,7 @@ if (sniff(token) === 'cash_token') {
 
 ### Bring your own relay pool
 
-An app that already runs nostr-tools or NDK can hand its pool to cashkit
-instead of opening a second set of sockets:
+Reuse an existing nostr-tools or NDK pool:
 
 ```ts
 import { SimplePool } from 'nostr-tools/pool'
@@ -385,9 +356,8 @@ const viaNdk = new NdkPool(ndk, { NDKEvent, NDKRelaySet })
 
 ### Talk to a Hub directly
 
-Below the wallet, `CashClient` speaks for one bill over the private
-transport. It persists nothing, so journaling a secret before you send is up
-to you:
+`CashClient` speaks for one bill over the private transport and persists
+nothing:
 
 ```ts
 import { bySecret, decodeToken } from '@ohstr/cashkit/core'
@@ -401,8 +371,7 @@ console.log(claim.amountMillis, 'millis, net', claim.netRedeemableMillis)
 
 ## Development
 
-Uses [`just`](https://github.com/casey/just) and pnpm, on Node 24
-(`.node-version`):
+[`just`](https://github.com/casey/just), pnpm and Node 24 (`.node-version`):
 
 ```sh
 # lint (oxlint + layer rules) and typecheck
