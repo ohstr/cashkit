@@ -13,7 +13,7 @@ import {
 } from '../core/index.js'
 import { billFromParts } from './bill.js'
 import { createCircleWalletMany, type CreateCircleWalletParams } from './circleJoin.js'
-import { ClientError, PrivateJoinUnavailableError, WalletError } from './errors.js'
+import { ClientError, PrivateJoinUnavailableError } from './errors.js'
 import type { BatchResult } from './methods.js'
 import { oneItemError } from './outcome.js'
 import { nowSeconds, randomOf, type ClientDeps } from './ports.js'
@@ -98,21 +98,15 @@ export class CircleClient {
    * Picks the transport. The node identity is read only from this
    * connection's get_info, whose reply the Hub connection key authenticates;
    * its announcement is then fetched and verified against it. An identity
-   * that is absent, or a get_info the Hub refuses, means the standard transport; one whose announcement
+   * that is absent means the standard transport; one whose announcement
    * cannot be found or verified means the standard transport with a
    * fallbackReason, or PrivateJoinUnavailableError under `requirePrivate`.
+   * A get_info that fails, refused or unanswered, fails the join with
+   * nothing sent.
    */
   async chooseTransport(o: JoinOptions = {}): Promise<JoinTransport> {
     const requirePrivate = o.requirePrivate === true
-    let info: GetInfoResult
-    try {
-      info = await this.nwc.getInfo()
-    } catch (err) {
-      // A Hub that offers Private Join must report its identity in get_info, so one that refuses get_info does not.
-      if (!(err instanceof WalletError)) throw err
-      info = {}
-    }
-    const identity = info.circle_wallet?.identity
+    const identity = (await this.nwc.getInfo()).circle_wallet?.identity
     if (identity === undefined) {
       if (requirePrivate) throw new PrivateJoinUnavailableError('the Hub does not offer it')
       return { requirePrivate }

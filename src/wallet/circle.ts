@@ -53,6 +53,7 @@ async function chooseTransport(circle: CircleClient, requirePrivate: boolean): P
     return await circle.chooseTransport({ requirePrivate })
   } catch (err) {
     if (err instanceof PrivateJoinUnavailableError) throw privateUnavailable(err)
+    if (err instanceof WalletError) throw fromWalletError(err)
     if (err instanceof ClientError) throw new CashkitError('network', `could not read the Hub's terms (get_info), so nothing was sent: ${err.message}`, { cause: err })
     throw new CashkitError('internal', `the Hub's get_info could not be read: ${(err as Error).message}`, { cause: err })
   }

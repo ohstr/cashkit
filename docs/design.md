@@ -667,8 +667,9 @@ joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; n
     params are the standard request, kind-23199 proof included.
   - `encrypted_details` is decrypted from the Hub connection pubkey on both
     transports, never from the inbox or node key.
-  - No identity, or a `get_info` the Hub refuses, means the standard
-    transport and no `fallbackReason`.
+  - No identity means the standard transport and no `fallbackReason`. A
+    `get_info` that fails, refused or unanswered, fails the join before
+    anything is parked or sent.
   - An announcement that can't be found or verified, or a private item that
     fails before it is sent, falls back to the standard transport and sets
     `fallbackReason`. With `requirePrivate` it is a `not_found` error

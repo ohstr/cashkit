@@ -149,12 +149,11 @@ describe('CircleClient.join (nipcw/client/join_test.go)', () => {
     expect([r.private, r.fallbackReason, r.wallet.walletPubkey]).toEqual([false, undefined, 'bb'.repeat(32)])
     expect([privateRequests(), standardJoins()]).toEqual([0, 1])
   })
-  test('a Hub that refuses get_info does not offer Private Join', async () => {
+  // nmilat Join: a get_info error fails the join before anything is sent.
+  test('a Hub that refuses get_info fails the join, and nothing is sent', async () => {
     nwc.handler = (method, p) => (method === 'create_circle_wallet' ? { result: sealed('bb', p['pubkey'] as string) } : { error: { code: 'NOT_IMPLEMENTED', message: method } })
-    const r = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })
-    expect([r.private, r.fallbackReason]).toEqual([false, undefined])
-    await expect(client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }, { requirePrivate: true })).rejects.toBeInstanceOf(PrivateJoinUnavailableError)
-    expect(standardJoins()).toBe(1)
+    await expect(client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ walletCode: 'NOT_IMPLEMENTED' })
+    expect([privateRequests(), standardJoins()]).toEqual([0, 0])
   })
   test('a get_info with no answer fails the join before anything is sent', async () => {
     nwc.handler = () => 'silent'

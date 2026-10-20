@@ -432,7 +432,7 @@ describe('circles (cmd/circle_test.go)', () => {
   test('maxAmount 0 is invalid_input; WALLET_EXISTS is exists and forgets the key', async () => {
     const hub = new FakeNwcWallet(h.pool, 0x81)
     expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 0n })))?.code).toBe('invalid_input')
-    hub.handler = () => ({ error: { code: 'RESTRICTED', message: 'this identity already has an active circle wallet' } })
+    hub.handler = (m) => (m === 'get_info' ? { result: {} } : { error: { code: 'RESTRICTED', message: 'this identity already has an active circle wallet' } })
     const e = await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n }))
     expect([e?.code, e?.nwcCode]).toEqual(['exists', 'WALLET_EXISTS'])
     expect(h.wallet.state.pendingJoins).toHaveLength(0)
@@ -443,7 +443,8 @@ describe('circles (cmd/circle_test.go)', () => {
     const slept: number[] = []
     h.wallet.sleep = async (ms) => void slept.push(ms)
     hub.handler = (m) => {
-      if (m === 'create_circle_wallet') calls++
+      if (m === 'get_info') return { result: {} }
+      calls++
       return { error: { code: 'BAD_REQUEST', message: 'identity_event has already been used' } }
     }
     expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n })))?.code).toBe('conflict')
@@ -451,7 +452,7 @@ describe('circles (cmd/circle_test.go)', () => {
   })
   test('silence keeps the pending join', async () => {
     const hub = new FakeNwcWallet(h.pool, 0x81)
-    hub.handler = (m) => (m === 'create_circle_wallet' ? 'silent' : { error: { code: 'NOT_IMPLEMENTED', message: m } })
+    hub.handler = (m) => (m === 'get_info' ? { result: {} } : 'silent')
     const x = await harness({ pool: h.pool, bank: h.bank, deps: { nwcTimeoutMs: 50 } })
     expect((await err(x.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n })))?.code).toBe('indeterminate')
     expect(x.wallet.state.pendingJoins).toHaveLength(1)
@@ -491,6 +492,13 @@ describe('private circle joins (NIP-CW §Private Join)', () => {
     expect(r.private).toBe(false)
     expect(r.fallbackReason).toMatch(/announcement/)
     expect(standardJoins()).toBe(1)
+  })
+  test('a Hub that refuses get_info fails the join with its code, and nothing is sent or parked', async () => {
+    nwc.handler = (m) => ({ error: { code: 'NOT_IMPLEMENTED', message: m } })
+    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
+    expect([e?.code, e?.nwcCode]).toEqual(['internal', 'NOT_IMPLEMENTED'])
+    expect(nwc.seen.map((x) => x.method)).toEqual(['get_info'])
+    expect(h.wallet.state.pendingJoins).toHaveLength(0)
   })
   test('requirePrivate without an identity is not_found, and nothing is sent or parked', async () => {
     identity = undefined
