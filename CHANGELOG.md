@@ -44,3 +44,7 @@
   a live end-to-end run on a throwaway cash_hub (`just e2e`).
 - Release workflow (npm with provenance, notes from this file) and the docs
   site.
+- Adds a private circle join: `joinCircle` uses NIP-CASH's private transport
+  when the Hub reports `circle_wallet.identity`, and reports a
+  `fallbackReason` when it can't.
+  ([#1](https://github.com/ohstr/cashkit/pull/1))

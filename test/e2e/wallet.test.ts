@@ -12,52 +12,13 @@
 // Like cashctl's integration suite (integration/cash_test.go setUpCashHub),
 // it provisions a throwaway self-funded cash_hub, mints a cash bill on it,
 // and deletes every child wallet and then the hub when it is done.
-import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { NwcClient } from '../../src/client/index.js'
 import { RelayWs } from '../../src/adapters/relay-ws.js'
 import { MemoryStorage } from '../../src/adapters/storage-memory.js'
 import { NoneVault } from '../../src/adapters/vault-none.js'
 import { Wallet } from '../../src/wallet/index.js'
-
-interface Admin {
-  readonly url: string
-  readonly token: string
-}
-
-function adminConfig(): Admin | undefined {
-  const url = process.env['CASHKIT_E2E_ADMIN_URL']
-  const token = process.env['CASHKIT_E2E_ADMIN_TOKEN']
-  if (url !== undefined && token !== undefined) return { url, token }
-  const path = process.env['CASHKIT_E2E_CONFIG']
-  if (path === undefined) return undefined
-  // Just the two scalars under admin_api; not a YAML parser.
-  const text = readFileSync(path, 'utf8')
-  const block = /^admin_api:\n((?:[ \t]+.*\n?)*)/m.exec(text)?.[1] ?? ''
-  const field = (k: string) => new RegExp(`^\\s+${k}:\\s*"?([^"\\n#]+?)"?\\s*$`, 'm').exec(block)?.[1]
-  const u = field('base_url')
-  const t = field('token')
-  return u !== undefined && t !== undefined ? { url: u, token: t } : undefined
-}
-
-const admin = adminConfig()
-
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(admin!.url + path, {
-    method,
-    headers: { authorization: `Bearer ${admin!.token}`, ...(body !== undefined && { 'content-type': 'application/json' }) },
-    ...(body !== undefined && { body: JSON.stringify(body) }),
-  })
-  const text = await res.text()
-  // The response body, never the request: the token stays out of errors.
-  if (!res.ok) throw new Error(`${method} ${path}: HTTP ${res.status}: ${text.slice(0, 300)}`)
-  return (text === '' ? undefined : JSON.parse(text)) as T
-}
-
-interface CreatedApp {
-  readonly id: number
-  readonly pairingUri: string
-}
+import { admin, api, type CreatedApp } from './admin.js'
 
 interface MintResult {
   readonly cash_token: string

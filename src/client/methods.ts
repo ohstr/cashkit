@@ -73,7 +73,8 @@ export interface BatchResult<R> {
   readonly error?: Error
 }
 
-async function run<R>(session: BatchSession, builders: ItemBuilder[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R): Promise<BatchResult<R>> {
+/** Sends the builders and decodes each answered item with `parse`. */
+export async function run<R>(session: BatchSession, builders: ItemBuilder[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R): Promise<BatchResult<R>> {
   const r = await session.send(builders)
   if (r.error && r.outcomes.length === 0) throw r.error
   const outcomes = await decodeOutcomes(r.outcomes, parse)

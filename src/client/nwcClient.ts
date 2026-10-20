@@ -10,8 +10,10 @@ import {
   nwcRequestEvent,
   parseInfoEvent,
   parsePairingURI,
+  parseCircleWalletInfo,
   parseResponseEvent,
   verifyEvent,
+  type CircleWalletInfo,
   type NWCEncryption,
   type NWCResponse,
   type PairingInfo,
@@ -31,6 +33,13 @@ export interface MakeInvoiceParams {
   readonly description?: string
   readonly descriptionHash?: string
   readonly expiry?: number
+}
+
+/** A `get_info` result, with the Circle Hub block (NIP-CW) typed. */
+export interface GetInfoResult {
+  readonly [field: string]: unknown
+  /** Present only on a Circle Hub's own connection. */
+  readonly circle_wallet?: CircleWalletInfo
 }
 
 export class NwcClient {
@@ -143,8 +152,13 @@ export class NwcClient {
     return resp.result as T
   }
 
-  getInfo<T = Record<string, unknown>>(): Promise<T> {
-    return this.request('get_info')
+  /** Refuses a malformed `circle_wallet` block, as nmilat's decoder does. */
+  async getInfo(): Promise<GetInfoResult> {
+    const raw = await this.request('get_info')
+    const top = raw !== null && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+    const { circle_wallet: _block, ...rest } = top
+    const circle = parseCircleWalletInfo(top)
+    return { ...rest, ...(circle !== undefined && { circle_wallet: circle }) }
   }
   getBalance(): Promise<{ balance: number }> {
     return this.request('get_balance')
