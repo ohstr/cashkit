@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.1.0-rc.1]
 
 - Adds `@ohstr/cashkit/core`: cash token, `cashhub1`, `circlehub1` and
   `nconnection1` codecs, hub group, cash string split, mint provenance,
