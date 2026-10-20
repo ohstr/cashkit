@@ -24,13 +24,11 @@ A library only: no UI code, apart from the optional React bindings.
 ## Install
 
 ```sh
-npm install @ohstr/cashkit        # or: pnpm add / yarn add / bun add
-npm install @ohstr/cashkit@next   # the newest prerelease
+npm install @ohstr/cashkit   # or: pnpm add / yarn add / bun add
 ```
 
-Releases are published with npm provenance. To track an unreleased commit,
-depend on the repository instead; it builds on install. Use the `git+https`
-form, since yarn 1 doesn't build the `github:` shorthand:
+Or from the repository at a commit, which builds on install. Use the
+`git+https` form, since yarn 1 doesn't build the `github:` shorthand:
 
 ```json
 "@ohstr/cashkit": "git+https://github.com/ohstr/cashkit.git#<commit>"
@@ -151,7 +149,7 @@ if (!r.received) {
   console.log('ask for the full token#secret; it holds', r.report.attestedAmount, 'millis')
 } else {
   console.log('received', r.holding.amount, 'millis, protection:', r.holding.protection)
-  if (r.secured.unresolved) console.log('the re-key may have landed; settle() will tell')
+  if (r.secured.unresolved) console.log('the re-key may have landed; settle() checks')
 }
 ```
 
