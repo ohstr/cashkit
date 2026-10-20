@@ -1,7 +1,7 @@
 // The wallet engine's public face (design §6). Every money-moving operation
 // is plan, then execute; the one-call forms are execute(await plan(...)).
 import { encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, toHex, type Signer } from '../core/index.js'
-import { NwcClient, type MakeInvoiceParams } from '../client/index.js'
+import { NwcClient, type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
 import { exportBackup, importBackup, valueFingerprint, type ImportSummary } from './backup.js'
 import { joinCircle, type JoinInput, type JoinResult } from './circle.js'
 import { consolidate, type ConsolidateReport } from './consolidate.js'
@@ -66,7 +66,7 @@ export interface ProtectOutcome {
 }
 
 export interface Lightning {
-  getInfo(): Promise<Record<string, unknown>>
+  getInfo(): Promise<GetInfoResult>
   getBalance(): Promise<{ balance: number }>
   makeInvoice(p: MakeInvoiceParams): Promise<Record<string, unknown>>
   payInvoice(invoice: string, amount?: bigint): Promise<{ preimage: string; fees_paid?: number }>

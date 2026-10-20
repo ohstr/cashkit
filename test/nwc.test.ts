@@ -73,6 +73,22 @@ describe('NwcClient', () => {
     expect(verifyEvent(seen[0]!.event)).toBe(true)
     expect(seen[0]!.event.tags).toEqual([['p', WALLET], ['encryption', 'nip44_v2']])
   })
+  test('get_info types the circle_wallet block and keeps the other fields', async () => {
+    startWallet(pool, () => ({ result: { alias: 'hub', methods: ['create_circle_wallet'], circle_wallet: { available_millis: 7, max_exp_secs: 60, fees_ppm: 1, circle_policy: 'follow_set', identity: '79'.repeat(32) } } }))
+    expect(await new NwcClient({ relays: pool }, pairing()).getInfo()).toEqual({
+      alias: 'hub',
+      methods: ['create_circle_wallet'],
+      circle_wallet: { available_millis: 7n, max_exp_secs: 60, fees_ppm: 1, circle_policy: 'follow_set', identity: '79'.repeat(32) },
+    })
+  })
+  test('get_info without a circle_wallet block has none', async () => {
+    startWallet(pool, () => ({ result: { alias: 'plain' } }))
+    expect(await new NwcClient({ relays: pool }, pairing()).getInfo()).toEqual({ alias: 'plain' })
+  })
+  test('get_info refuses a malformed circle_wallet block', async () => {
+    startWallet(pool, () => ({ result: { circle_wallet: { fees_ppm: 'lots' } } }))
+    await expect(new NwcClient({ relays: pool }, pairing()).getInfo()).rejects.toThrow(/circle_wallet/)
+  })
   test('bigint params travel as exact JSON numbers', async () => {
     const seen = startWallet(pool, () => ({ result: { invoice: 'lnfc1x' } }))
     await new NwcClient({ relays: pool }, pairing()).makeInvoice({ amount: 9007199254740993n, description: 'coffee' })

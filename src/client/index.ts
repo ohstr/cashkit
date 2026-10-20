@@ -35,6 +35,6 @@ export {
   type TransferFromSourcesParams,
   type TransferFromSourcesResult,
 } from './cashClient.js'
-export { NWC_CALL_TIMEOUT_MS, NwcClient, type MakeInvoiceParams } from './nwcClient.js'
+export { NWC_CALL_TIMEOUT_MS, NwcClient, type GetInfoResult, type MakeInvoiceParams } from './nwcClient.js'
 export { CircleClient, type CreateCircleWalletParams } from './circleClient.js'
 export { EventQueue, readEvents } from './relayIO.js'

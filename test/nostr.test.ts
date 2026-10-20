@@ -4,6 +4,8 @@
 import { describe, expect, test } from 'vitest'
 import {
   buildPairingURI,
+  CIRCLE_POLICY_ALLOWLIST,
+  CIRCLE_POLICY_FOLLOW_SET,
   connectionKeyFromSecret,
   CoreError,
   createCircleWalletRequest,
@@ -23,6 +25,7 @@ import {
   localSigner,
   nip44,
   nwcRequestEvent,
+  parseCircleWalletInfo,
   parseCreateCircleWalletResult,
   parseInfoEvent,
   parsePairingURI,
@@ -188,5 +191,34 @@ describe('nipcw create_circle_wallet (create_circle_wallet_test.go)', () => {
   test('details sealed by another key fail to decrypt', async () => {
     const other = { encrypted_details: nip44.encrypt('{}', nip44.getConversationKey(fill(8, 32), signer.pubkey)) }
     await expect(parseCreateCircleWalletResult(other, { signer, connection: conn, hubPubkey: hub })).rejects.toThrow(/decrypt/)
+  })
+})
+
+describe('nipcw get_info circle_wallet (nip47/methods_test.go)', () => {
+  const ID = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798'
+  // TestGetInfoResult_CircleWalletRoundTrips.
+  test('decodes the block, identity included', () => {
+    const info = JSON.parse(`{"alias":"hub","circle_wallet":{"available_millis":42000,"max_exp_secs":86400,"fees_ppm":5000,"circle_policy":"follow_set","identity":"${ID}"}}`) as unknown
+    expect(parseCircleWalletInfo(info)).toEqual({ available_millis: 42000n, max_exp_secs: 86400, fees_ppm: 5000, circle_policy: CIRCLE_POLICY_FOLLOW_SET, identity: ID })
+  })
+  test('no identity means no Private Join; an empty one is the same', () => {
+    expect(parseCircleWalletInfo({ circle_wallet: { available_millis: 1, max_exp_secs: 0, fees_ppm: 0, circle_policy: 'allowlist' } })).toEqual({ available_millis: 1n, max_exp_secs: 0, fees_ppm: 0, circle_policy: CIRCLE_POLICY_ALLOWLIST })
+    expect(parseCircleWalletInfo({ circle_wallet: { identity: '' } })).not.toHaveProperty('identity')
+  })
+  test('no block means not a Circle Hub', () => {
+    expect(parseCircleWalletInfo({ alias: 'wallet' })).toBeUndefined()
+    expect(parseCircleWalletInfo({ circle_wallet: null })).toBeUndefined()
+    expect(parseCircleWalletInfo(null)).toBeUndefined()
+  })
+  test('an unknown policy, the retired "following" included, is left out', () => {
+    expect(parseCircleWalletInfo({ circle_wallet: { circle_policy: 'following' } })).not.toHaveProperty('circle_policy')
+  })
+  test.each([
+    ['a string amount', { available_millis: '1' }],
+    ['a negative amount', { available_millis: -1 }],
+    ['a numeric identity', { identity: 7 }],
+    ['an array block', []],
+  ] as const)('refuses %s', (_, block) => {
+    expect(() => parseCircleWalletInfo({ circle_wallet: block })).toThrow(CoreError)
   })
 })

@@ -68,11 +68,16 @@ export {
   type WalletInfo,
 } from './nip47.js'
 export {
+  CIRCLE_POLICY_ALLOWLIST,
+  CIRCLE_POLICY_FOLLOW_SET,
   createCircleWalletRequest,
   KIND_CIRCLE_IDENTITY_PROOF,
   METHOD_CREATE_CIRCLE_WALLET,
+  parseCircleWalletInfo,
   parseCreateCircleWalletResult,
+  type CirclePolicy,
   type CircleWallet,
+  type CircleWalletInfo,
   type CreateCircleWalletRequest,
 } from './nipcw.js'
 export {
