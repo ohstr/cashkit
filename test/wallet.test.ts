@@ -500,6 +500,20 @@ describe('private circle joins (NIP-CW §Private Join)', () => {
     expect(nwc.seen.map((x) => x.method)).toEqual(['get_info'])
     expect(h.wallet.state.pendingJoins).toHaveLength(0)
   })
+  test('a fallback that is refused keeps the code and says the join was not private', async () => {
+    identity = getPublicKey(new Uint8Array(32).fill(0x5c))
+    nwc.handler = (m) => (m === 'get_info' ? { result: { circle_wallet: { identity } } } : { error: { code: 'RESTRICTED', message: 'not a member' } })
+    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
+    expect([e?.code, e?.nwcCode]).toEqual(['auth', 'RESTRICTED'])
+    expect(e?.fallbackReason).toMatch(/announcement/)
+    expect(toJSON(e)).toContain('"fallback_reason"')
+    expect(h.wallet.state.pendingJoins).toHaveLength(0)
+  })
+  test('a private refusal carries no fallback reason', async () => {
+    node.handler = () => ({ error: { code: 'RESTRICTED', message: 'no' } })
+    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
+    expect(e?.fallbackReason).toBeUndefined()
+  })
   test('requirePrivate without an identity is not_found, and nothing is sent or parked', async () => {
     identity = undefined
     const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n, requirePrivate: true }))

@@ -4,10 +4,10 @@
 // added and the pending join deleted in one transaction. The join travels
 // over the private transport when the Hub offers it (NIP-CW §Private Join).
 import { buildPairingURI, decodeCircleHubConnection, parsePairingURI, sniff } from '../core/index.js'
-import { CircleClient, ClientError, PrivateJoinUnavailableError, WalletError, type JoinTransport } from '../client/index.js'
+import { CircleClient, ClientError, fallbackReasonOf, PrivateJoinUnavailableError, WalletError, type JoinTransport } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import type { Ctx } from './context.js'
-import { CashkitError, classifySpendError, fromWalletError, isNotSent } from './errors.js'
+import { CashkitError, classifySpendError, fromWalletError, isNotSent, withJoinFallback } from './errors.js'
 import { appendActivity } from './ledger.js'
 import type { Connection } from './model.js'
 
@@ -57,6 +57,21 @@ async function chooseTransport(circle: CircleClient, requirePrivate: boolean): P
     if (err instanceof ClientError) throw new CashkitError('network', `could not read the Hub's terms (get_info), so nothing was sent: ${err.message}`, { cause: err })
     throw new CashkitError('internal', `the Hub's get_info could not be read: ${(err as Error).message}`, { cause: err })
   }
+}
+
+/** A failed join as the wallet reports it (the pending join is already settled). */
+function joinError(err: unknown, connectionPubkey: string): CashkitError {
+  if (err instanceof PrivateJoinUnavailableError) return privateUnavailable(err)
+  if (isReplayGuard(err)) {
+    return new CashkitError('conflict', "the Hub's identity-proof replay guard rejected two attempts within the same second, even after retrying once: wait a few seconds and join again", { cause: err })
+  }
+  if (err instanceof WalletError) return fromWalletError(err)
+  if (isNotSent(err)) return classifySpendError(err, 'join')
+  return new CashkitError(
+    'indeterminate',
+    `the join got no usable answer, so whether the wallet was created is unknown. If a later join says you already hold one, it is the wallet with connection key ${connectionPubkey} (listed in state.pendingJoins): ask the circle's host to delete it, then join again`,
+    { cause: err },
+  )
 }
 
 const isReplayGuard = (err: unknown) =>
@@ -132,17 +147,7 @@ export async function joinCircle(ctx: Ctx, o: JoinInput, sleep: (ms: number) => 
       if (isNotSent(err) || err instanceof WalletError || err instanceof PrivateJoinUnavailableError) {
         await ctx.commit((t) => t.delete('pendingJoins', connection.pubkey)).catch(() => undefined)
       }
-      if (err instanceof PrivateJoinUnavailableError) throw privateUnavailable(err)
-      if (isReplayGuard(err)) {
-        throw new CashkitError('conflict', "the Hub's identity-proof replay guard rejected two attempts within the same second, even after retrying once: wait a few seconds and join again", { cause: err })
-      }
-      if (err instanceof WalletError) throw fromWalletError(err)
-      if (isNotSent(err)) throw classifySpendError(err, 'join')
-      throw new CashkitError(
-        'indeterminate',
-        `the join got no usable answer, so whether the wallet was created is unknown. If a later join says you already hold one, it is the wallet with connection key ${connection.pubkey} (listed in state.pendingJoins): ask the circle's host to delete it, then join again`,
-        { cause: err },
-      )
+      throw withJoinFallback(joinError(err, connection.pubkey), fallbackReasonOf(raw)?.message)
     }
     const { wallet } = joined
     const sealedUri = await ctx.seal(wallet.pairingUri)

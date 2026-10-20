@@ -75,6 +75,22 @@ export class PrivateJoinUnavailableError extends ClientError {
   }
 }
 
+const fallbackReasons = new WeakMap<object, Error>()
+
+/**
+ * Why a failed join went over the standard transport although the Hub
+ * offers Private Join: the error came from the fallback, so the member's
+ * pubkey was on the shared connection. The error itself keeps its class and
+ * code; undefined for any other error.
+ */
+export const fallbackReasonOf = (err: unknown): Error | undefined => (typeof err === 'object' && err !== null ? fallbackReasons.get(err) : undefined)
+
+/** Records `reason` against `err` for fallbackReasonOf, and returns `err`. */
+export function withFallbackReason<E>(err: E, reason: Error): E {
+  if (typeof err === 'object' && err !== null) fallbackReasons.set(err, reason)
+  return err
+}
+
 /** The Hub (or wallet) answered with a refusal and a reason. */
 export class WalletError extends ClientError {
   override readonly name = 'WalletError'

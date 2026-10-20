@@ -16,6 +16,7 @@ import {
   billFromParts,
   CircleClient,
   ClientError,
+  fallbackReasonOf,
   createCircleWalletItem,
   createCircleWalletMany,
   openBatchSession,
@@ -193,11 +194,21 @@ describe('CircleClient.join (nipcw/client/join_test.go)', () => {
     expect([r.private, r.fallbackReason?.message]).toEqual([false, 'no'])
     expect([privateRequests(), standardJoins()]).toEqual([0, 1])
   })
-  // TestJoin_FailedFallbackKeepsReason, as far as this client goes: the standard refusal is kept as is.
-  test('a fallback that is refused surfaces the standard refusal', async () => {
+  // TestJoin_FailedFallbackKeepsReason: the standard refusal keeps its class and code, and carries the reason.
+  test('a fallback that is refused surfaces the standard refusal with the fallback reason', async () => {
     circle!['identity'] = getPublicKey(fill(0x55, 32))
     nwc.handler = (method) => (method === 'get_info' ? { result: { circle_wallet: circle } } : { error: { code: 'RESTRICTED', message: 'not a member' } })
-    await expect(client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ walletCode: 'RESTRICTED' })
+    const e = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }).catch((x: unknown) => x)
+    expect(e).toBeInstanceOf(WalletError)
+    expect((e as WalletError).walletCode).toBe('RESTRICTED')
+    expect(fallbackReasonOf(e)).toMatchObject({ code: 'no_announcement' })
+  })
+  test('a refusal with no fallback carries no fallback reason', async () => {
+    delete circle!['identity']
+    nwc.handler = (method) => (method === 'get_info' ? { result: { circle_wallet: circle } } : { error: { code: 'RESTRICTED', message: 'not a member' } })
+    const e = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }).catch((x: unknown) => x)
+    expect(fallbackReasonOf(e)).toBeUndefined()
+    expect(fallbackReasonOf(undefined)).toBeUndefined()
   })
   // TestJoin_RequirePrivateRefusesFallback.
   test.each([

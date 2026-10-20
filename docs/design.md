@@ -676,6 +676,9 @@ joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; n
     instead, and nothing is sent.
   - A private join that was sent never falls back: a missing reply may mean
     it ran.
+  - A standard join that fails after a fallback keeps its code, and the
+    `CashkitError` carries `fallbackReason` (`fallbackReasonOf(err)` in the
+    client), so the member still learns the join was not private.
 - A replay-guard error is retried once after 1.1 s.
 - An answer of "already exists" is an `exists` error.
 - On success the connection is added and the pending join deleted in one

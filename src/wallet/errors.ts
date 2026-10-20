@@ -44,6 +44,8 @@ export interface CashkitErrorOptions {
   /** Verbatim handoffs for a confirmed Hub mutation the local commit missed. */
   readonly recovery?: string
   readonly recoveryHandoffs?: readonly string[]
+  /** Why a failed circle join went over the standard transport, not the private one. */
+  readonly fallbackReason?: string
   readonly cause?: unknown
 }
 
@@ -57,6 +59,11 @@ export class CashkitError extends Error {
   /** Deliberately never redacted or truncated (§10): it is the only copy. */
   readonly recovery?: string
   readonly recoveryHandoffs?: readonly string[]
+  /**
+   * Set when a circle join failed after falling back to the standard
+   * transport: the member's pubkey was on the shared Hub connection.
+   */
+  readonly fallbackReason?: string
 
   constructor(code: ErrorCode, message: string, o: CashkitErrorOptions = {}) {
     super(message, o.cause !== undefined ? { cause: o.cause } : undefined)
@@ -67,6 +74,7 @@ export class CashkitError extends Error {
     if (o.hint !== undefined) this.hint = o.hint
     if (o.recovery !== undefined) this.recovery = o.recovery
     if (o.recoveryHandoffs !== undefined) this.recoveryHandoffs = [...o.recoveryHandoffs]
+    if (o.fallbackReason !== undefined) this.fallbackReason = sanitize(o.fallbackReason)
   }
 
   /** Only a conflict or a network failure is worth retrying as is. */
@@ -87,8 +95,24 @@ export class CashkitError extends Error {
       ...(this.input !== undefined && this.input !== '' && { input: this.input }),
       ...(this.hint !== undefined && { hint: this.hint }),
       ...(this.recovery !== undefined && { recovery: this.recovery }),
+      ...(this.fallbackReason !== undefined && { fallback_reason: this.fallbackReason }),
     }
   }
+}
+
+/** `e` with `fallbackReason` set; `e` itself when there is none. */
+export function withJoinFallback(e: CashkitError, fallbackReason: string | undefined): CashkitError {
+  if (fallbackReason === undefined) return e
+  return new CashkitError(e.code, e.message, {
+    ...(e.input !== undefined && { input: e.input }),
+    ...(e.nwcCode !== undefined && { nwcCode: e.nwcCode }),
+    ...(e.rawMessage !== undefined && { rawMessage: e.rawMessage }),
+    ...(e.hint !== undefined && { hint: e.hint }),
+    ...(e.recovery !== undefined && { recovery: e.recovery }),
+    ...(e.recoveryHandoffs !== undefined && { recoveryHandoffs: e.recoveryHandoffs }),
+    fallbackReason,
+    cause: e.cause,
+  })
 }
 
 export const isCashkitError = (e: unknown): e is CashkitError => e instanceof CashkitError

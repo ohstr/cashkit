@@ -13,7 +13,7 @@ import {
 } from '../core/index.js'
 import { billFromParts } from './bill.js'
 import { createCircleWalletMany, type CreateCircleWalletParams } from './circleJoin.js'
-import { ClientError, PrivateJoinUnavailableError } from './errors.js'
+import { ClientError, PrivateJoinUnavailableError, withFallbackReason } from './errors.js'
 import type { BatchResult } from './methods.js'
 import { oneItemError } from './outcome.js'
 import { nowSeconds, randomOf, type ClientDeps } from './ports.js'
@@ -125,7 +125,8 @@ export class CircleClient {
    * A private join that fails before anything is sent falls back to the
    * standard transport, and says so in fallbackReason; once the private
    * request is out it never falls back, since a missing reply may mean the
-   * join ran.
+   * join ran. When the fallback fails too, its error is thrown unchanged and
+   * `fallbackReasonOf(err)` gives the reason.
    */
   async createCircleWallet(p: CreateCircleWalletParams, via?: JoinTransport): Promise<CircleJoinResult> {
     const connection = p.connection ?? this.newConnectionKey()
@@ -137,7 +138,13 @@ export class CircleClient {
       const t = unavailable(r.notSent, via.requirePrivate)
       fallbackReason = t.fallbackReason
     }
-    const wallet = await this.standardJoin(params, connection)
+    let wallet: CircleWallet
+    try {
+      wallet = await this.standardJoin(params, connection)
+    } catch (err) {
+      // Kept so a caller still learns the join was not private: see fallbackReasonOf.
+      throw fallbackReason !== undefined ? withFallbackReason(err, fallbackReason) : err
+    }
     return { wallet, connection, private: false, ...(fallbackReason !== undefined && { fallbackReason }) }
   }
 
