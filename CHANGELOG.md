@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.0-rc.2]
+
+- Updates the README shipped with the package: install from npm, and a
+  shorter description of each example.
+  ([#4](https://github.com/ohstr/cashkit/pull/4))
+
 ## [0.1.0-rc.1]
 
 - Adds `@ohstr/cashkit/core`: cash token, `cashhub1`, `circlehub1` and
