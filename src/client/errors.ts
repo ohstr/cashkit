@@ -18,6 +18,8 @@ export type ClientErrorCode =
   | 'undecodable_result'
   /** Signing one item took the whole not_after window (design §3). Nothing was sent. */
   | 'signer_too_slow'
+  /** A join that required the private transport could not use it. Nothing was sent. */
+  | 'private_join_unavailable'
 
 export class ClientError extends Error {
   override readonly name: string = 'ClientError'
@@ -59,6 +61,17 @@ export class PartialProgressError extends ClientError {
     )
     if (landed.transferred !== undefined) this.transferred = landed.transferred
     if (landed.consolidated !== undefined) this.consolidated = landed.consolidated
+  }
+}
+
+/**
+ * `requirePrivate` was set and the join could not travel over the private
+ * transport, so nothing was sent.
+ */
+export class PrivateJoinUnavailableError extends ClientError {
+  override readonly name = 'PrivateJoinUnavailableError'
+  constructor(reason: string, options?: { cause?: unknown }) {
+    super('private_join_unavailable', `private join is unavailable: ${reason}`, options)
   }
 }
 

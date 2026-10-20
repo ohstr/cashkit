@@ -12,10 +12,20 @@ import {
   verifyEvent,
   type NostrEvent,
 } from '../src/core/index.js'
-import { billFromParts, ClientError, createCircleWalletItem, createCircleWalletMany, openBatchSession } from '../src/client/index.js'
+import {
+  billFromParts,
+  CircleClient,
+  ClientError,
+  createCircleWalletItem,
+  createCircleWalletMany,
+  openBatchSession,
+  PrivateJoinUnavailableError,
+  WalletError,
+} from '../src/client/index.js'
 import { newNonce, paramsHash, validateEnvelope, verifyBillProof, verifyItemProof } from '../src/transport/index.js'
 import { FakeHub, MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
+import { FakeNwcWallet } from './walletHarness.js'
 
 const R1 = 'wss://r1.test'
 const now = () => Math.floor(Date.now() / 1000)
@@ -26,6 +36,9 @@ const HUB = getPublicKey(hubKey)
 const hubSecret = fill(0x27, 32)
 const hubConn = () => billFromParts(HUB, toHex(hubSecret))
 const key = (b: number) => connectionKeyFromSecret(toHex(fill(b, 32)))
+const joinDetails = (w: string) => JSON.stringify({ wallet_pubkey: w.repeat(32), relays: ['wss://w'], expires_at: 1, fees_ppm: 0, budget_renewal: 'never' })
+/** Details as the Hub seals them: from its connection key. */
+const sealed = (w: string, to: string) => ({ encrypted_details: nip44.encrypt(joinDetails(w), nip44.getConversationKey(hubKey, to)) })
 const params = (signer = member, connection = key(0x31)) => ({ signer, connection, maxAmountMillis: 1000n, expirySeconds: 0 })
 
 describe('createCircleWalletItem (private_join_test.go)', () => {
@@ -99,5 +112,135 @@ describe('createCircleWalletMany (batch_circle_join_test.go)', () => {
     const elsewhere = { ...hubConn(), node: getPublicKey(fill(0x29, 32)) }
     await expect(createCircleWalletMany(s, [{ hub: elsewhere, params: params() }], now)).rejects.toThrow(/another node/)
     expect(pool.published.filter((x) => x.event.kind === 23190)).toHaveLength(0)
+  })
+})
+
+describe('CircleClient.join (nipcw/client/join_test.go)', () => {
+  let pool: MemoryRelayPool
+  let hub: FakeHub
+  let nwc: FakeNwcWallet
+  let circle: Record<string, unknown> | undefined
+  const privateRequests = () => pool.published.filter((x) => x.event.kind === 23190).length
+  const standardJoins = () => nwc.seen.filter((x) => x.method === 'create_circle_wallet').length
+  const client = (o: { notAfterSeconds?: number } = {}) => new CircleClient({ relays: pool, ...o }, nwc.uri)
+
+  beforeEach(async () => {
+    pool = new MemoryRelayPool()
+    hub = new FakeHub(pool, [R1])
+    hub.bills.set(HUB, getPublicKey(hubSecret))
+    hub.handler = (_m, info) => (info.signer === info.params['pubkey'] ? { result: sealed('aa', info.params['pubkey'] as string) } : 'omit')
+    await hub.start()
+    nwc = new FakeNwcWallet(pool, 0x26, R1) // its key is hubKey, its app secret hubSecret
+    circle = { available_millis: 1000, max_exp_secs: 0, fees_ppm: 0, circle_policy: 'follow_set', identity: hub.node }
+    nwc.handler = (method, p) => {
+      if (method === 'get_info') return { result: circle === undefined ? { alias: 'plain' } : { circle_wallet: circle } }
+      if (method === 'create_circle_wallet') return { result: sealed('bb', p['pubkey'] as string) }
+      return { error: { code: 'NOT_IMPLEMENTED', message: method } }
+    }
+  })
+
+  // TestJoin_NoIdentityUsesStandard.
+  test.each([
+    ['no circle_wallet block', undefined],
+    ['a block without identity', { circle_policy: 'allowlist' }],
+  ])('%s: the standard transport, with no fallbackReason', async (_, block) => {
+    circle = block
+    const r = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })
+    expect([r.private, r.fallbackReason, r.wallet.walletPubkey]).toEqual([false, undefined, 'bb'.repeat(32)])
+    expect([privateRequests(), standardJoins()]).toEqual([0, 1])
+  })
+  test('a Hub that refuses get_info does not offer Private Join', async () => {
+    nwc.handler = (method, p) => (method === 'create_circle_wallet' ? { result: sealed('bb', p['pubkey'] as string) } : { error: { code: 'NOT_IMPLEMENTED', message: method } })
+    const r = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })
+    expect([r.private, r.fallbackReason]).toEqual([false, undefined])
+    await expect(client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }, { requirePrivate: true })).rejects.toBeInstanceOf(PrivateJoinUnavailableError)
+    expect(standardJoins()).toBe(1)
+  })
+  test('a get_info with no answer fails the join before anything is sent', async () => {
+    nwc.handler = () => 'silent'
+    await expect(new CircleClient({ relays: pool, nwcTimeoutMs: 50 }, nwc.uri).join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ code: 'timeout' })
+    expect([privateRequests(), standardJoins()]).toEqual([0, 0])
+  })
+  // TestJoin_IdentityJoinsPrivately.
+  test('an identity in get_info: the private transport, without asking', async () => {
+    const r = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })
+    expect([r.private, r.fallbackReason, r.wallet.walletPubkey]).toEqual([true, undefined, 'aa'.repeat(32)])
+    expect([privateRequests(), standardJoins()]).toEqual([1, 0])
+    expect(r.wallet.pairingUri).toContain(r.connection.secret)
+    // Proofs bound d = the Hub connection pubkey and h = get_info's identity.
+    expect(hub.requests[0]).toMatchObject({ item: { target: HUB }, signer: member.pubkey, billSigner: getPublicKey(hubSecret) })
+  })
+  // TestJoin_NoAnnouncementFallsBackAndSaysSo.
+  test.each([
+    ['no announcement', () => void (circle!['identity'] = getPublicKey(fill(0x55, 32)))],
+    ['an announcement that does not verify', () => {
+      const id = getPublicKey(fill(0x55, 32))
+      circle!['identity'] = id
+      const ev = hub.announcementEvent({ relays: [R1], createdAt: now() })
+      pool.store(R1, { ...ev, pubkey: id })
+    }],
+    ['an identity that is not x-only hex', () => void (circle!['identity'] = '02' + hub.node)],
+  ])('%s: the standard transport, and a fallbackReason', async (_, setup) => {
+    setup()
+    const r = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })
+    expect(r.private).toBe(false)
+    expect(r.fallbackReason).toBeInstanceOf(Error)
+    expect([privateRequests(), standardJoins()]).toEqual([0, 1])
+  })
+  test('a private join that fails before sending falls back, and says so', async () => {
+    // A signer that will not sign the kind-23192 item proof: the item is never packed.
+    const picky = { ...member, signEvent: (t: Parameters<typeof member.signEvent>[0]) => (t.kind === 23192 ? Promise.reject(new Error('no')) : member.signEvent(t)) }
+    const r = await client().join({ signer: picky, maxAmountMillis: 1n, expirySeconds: 0 })
+    expect([r.private, r.fallbackReason?.message]).toEqual([false, 'no'])
+    expect([privateRequests(), standardJoins()]).toEqual([0, 1])
+  })
+  // TestJoin_FailedFallbackKeepsReason, as far as this client goes: the standard refusal is kept as is.
+  test('a fallback that is refused surfaces the standard refusal', async () => {
+    circle!['identity'] = getPublicKey(fill(0x55, 32))
+    nwc.handler = (method) => (method === 'get_info' ? { result: { circle_wallet: circle } } : { error: { code: 'RESTRICTED', message: 'not a member' } })
+    await expect(client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ walletCode: 'RESTRICTED' })
+  })
+  // TestJoin_RequirePrivateRefusesFallback.
+  test.each([
+    ['no identity', () => void delete circle!['identity']],
+    ['no announcement', () => void (circle!['identity'] = getPublicKey(fill(0x55, 32)))],
+  ])('requirePrivate with %s refuses and sends nothing', async (_, setup) => {
+    setup()
+    await expect(client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }, { requirePrivate: true })).rejects.toBeInstanceOf(PrivateJoinUnavailableError)
+    expect([privateRequests(), standardJoins()]).toEqual([0, 0])
+  })
+  test('requirePrivate refuses a private join that fails before sending', async () => {
+    const picky = { ...member, signEvent: (t: Parameters<typeof member.signEvent>[0]) => (t.kind === 23192 ? Promise.reject(new Error('no')) : member.signEvent(t)) }
+    await expect(client().join({ signer: picky, maxAmountMillis: 1n, expirySeconds: 0 }, { requirePrivate: true })).rejects.toMatchObject({ code: 'private_join_unavailable' })
+    expect(standardJoins()).toBe(0)
+  })
+  // TestJoin_SentPrivateJoinNeverFallsBack.
+  test.each(['NOT_READY', 'RESTRICTED', 'WALLET_EXISTS', 'RATE_LIMITED'])('a sent private join refused with %s keeps the code and never falls back', async (code) => {
+    hub.handler = () => ({ error: { code, message: 'no' } })
+    const e = await client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }).catch((x: unknown) => x)
+    expect(e).toBeInstanceOf(WalletError)
+    expect((e as WalletError).walletCode).toBe(code)
+    expect(standardJoins()).toBe(0)
+  })
+  test('a sent private join with no reply never falls back', async () => {
+    hub.faults = { drop: true }
+    await expect(client({ notAfterSeconds: 1 }).join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ code: 'timeout' })
+    expect([privateRequests(), standardJoins()]).toEqual([1, 0])
+  })
+  test('a private reply sealed by the inbox key is undecodable, not a refusal, and never falls back', async () => {
+    hub.handler = (_m, info) => ({ result: { encrypted_details: nip44.encrypt(joinDetails('aa'), nip44.getConversationKey(hub.inboxKey, info.params['pubkey'] as string)) } })
+    await expect(client().join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ code: 'undecodable_result' })
+    expect(standardJoins()).toBe(0)
+  })
+  test('a retry over the same transport stays private', async () => {
+    const c = client()
+    const via = await c.chooseTransport()
+    hub.handler = () => ({ error: { code: 'BAD_REQUEST', message: 'identity_event has already been used' } })
+    await expect(c.createCircleWallet({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }, via)).rejects.toBeInstanceOf(WalletError)
+    circle!['identity'] = getPublicKey(fill(0x55, 32)) // even if the Hub stopped announcing
+    hub.handler = (_m, info) => ({ result: sealed('aa', info.params['pubkey'] as string) })
+    const r = await c.createCircleWallet({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 }, via)
+    expect(r.private).toBe(true)
+    expect(standardJoins()).toBe(0)
   })
 })
