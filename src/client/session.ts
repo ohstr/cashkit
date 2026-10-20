@@ -349,6 +349,14 @@ export class BatchSession {
   }
 }
 
+/**
+ * `BatchSession.open` for a caller with no bill, such as a prospective circle
+ * member joining over the private transport: `hub` is then the identity the
+ * Hub reported in get_info (NIP-CW §Finding the Private Transport), and
+ * `relays` are the Hub connection's.
+ */
+export const openBatchSession = (deps: ClientDeps, hub: string, relays: readonly string[]): Promise<BatchSession> => BatchSession.open(deps, hub, relays)
+
 function isStalePolicy(err: Error): boolean {
   return err instanceof TransportError && (err.code === 'envelope_too_large' || err.code === 'too_many_items' || err.code === 'verify_budget_exceeded')
 }

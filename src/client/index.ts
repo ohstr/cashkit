@@ -13,7 +13,7 @@ export {
   type ItemOutcome,
   type OutcomeState,
 } from './outcome.js'
-export { BatchSession, NOT_AFTER_WINDOW, NOT_SENT, SUBSCRIPTION_ACK_WAIT_MS, type ItemBinding, type ItemBuilder, type SendResult } from './session.js'
+export { BatchSession, NOT_AFTER_WINDOW, openBatchSession, NOT_SENT, SUBSCRIPTION_ACK_WAIT_MS, type ItemBinding, type ItemBuilder, type SendResult } from './session.js'
 export {
   buildItem,
   consolidateMany,
@@ -36,5 +36,6 @@ export {
   type TransferFromSourcesResult,
 } from './cashClient.js'
 export { NWC_CALL_TIMEOUT_MS, NwcClient, type GetInfoResult, type MakeInvoiceParams } from './nwcClient.js'
-export { CircleClient, type CreateCircleWalletParams } from './circleClient.js'
+export { CircleClient } from './circleClient.js'
+export { createCircleWalletItem, createCircleWalletMany, type BatchCircleJoin, type CircleJoinOutcome, type CreateCircleWalletParams } from './circleJoin.js'
 export { EventQueue, readEvents } from './relayIO.js'

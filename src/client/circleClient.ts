@@ -9,19 +9,10 @@ import {
   type CircleWallet,
   type ConnectionKeyPair,
   type PairingInfo,
-  type Signer,
 } from '../core/index.js'
+import type { CreateCircleWalletParams } from './circleJoin.js'
 import { nowSeconds, randomOf, type ClientDeps } from './ports.js'
 import { NwcClient } from './nwcClient.js'
-
-export interface CreateCircleWalletParams {
-  readonly signer: Signer
-  readonly maxAmountMillis: bigint
-  readonly expirySeconds: number
-  readonly budgetRenewal?: string
-  /** Supplied to resume a join; otherwise one is generated. Secret-bearing. */
-  readonly connection?: ConnectionKeyPair
-}
 
 export class CircleClient {
   private readonly nwc: NwcClient
