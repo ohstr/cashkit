@@ -1,7 +1,7 @@
 {
   "description": "The response key: HKDF-Expand(SHA-256, PRK = request conversation key, info = \"nipcash-reply-v1\" || reply_to hex, L = 32).",
   "source": "nipcash/transport/response.go DeriveReplyKey; auditC_reply_key_kat_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "derive": [
     {
       "conversationKey": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",

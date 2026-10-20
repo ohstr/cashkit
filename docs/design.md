@@ -139,6 +139,9 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
     `undefined`.
 - **NIP-47 messages and pairing URI**, and **NIP-CW** `create_circle_wallet`
   request/response, including decrypting `encrypted_details`.
+- **NIP-44 plaintext length.** 1 to 2^32−1 bytes, with the extended length
+  prefix from 65536, as current NIP-44 and nmilat; an empty plaintext is
+  refused (`nip44.json`).
 - **Units.** Amounts are `bigint` millis everywhere, never `number`. The
   display unit comes from the token's HRP (`lokicash` → loki, `satscash` →
   sat, with 1 unit = 1000 millis).
@@ -931,25 +934,21 @@ drift. Coverage:
 | `padding.json` | `transport/auditB_priv_padding_test.go`, `auditD_privacy_padding_test.go`, `limits_test.go` |
 | `envelope.json` | `transport/envelope_test.go`, `response_test.go`, `auditB_duplicate_item_test.go` |
 | `nip44.json` | `nip44/auditC_qa_kat_test.go` plus the upstream NIP-44 vectors |
+| `private-join.json` | `nipcw/private_join_test.go`, `nipcash/client/batch_circle_join_test.go` |
 
 Vectors with fixed randomness produce byte-identical envelopes, which is
 why the Go-compatible escaping in §2.2 is a SHOULD.
 
 Where cashkit is stricter than nmilat, the vectors record the difference:
 
-- **NIP-44 plaintext length.** 1 to 2^32−1 bytes, with the extended length
-  prefix from 65536, as current NIP-44, nostr-tools and rust-nostr; an
-  empty plaintext is refused (`nip44.json`).
 - **Secret range.** A secp256k1 secret that is zero or ≥ n is refused
   rather than reduced mod n (`connection-key.json` leaves them out).
-- **bolt11 amounts.** An amount beyond int64 millis is refused
-  (`bolt11.json` marks those cases `overflow`).
 - **NWC replies.** Only a reply authored and signed by the wallet is
   accepted (§2.3).
 
 Event ids are hashed exactly as nmilat serializes them, including its
-escaping of control characters and of U+2028/U+2029 in tags, because the
-Hub recomputes ids with nmilat (`nip01.json`).
+escaping of control characters, because the Hub recomputes ids with nmilat
+(`nip01.json`). Tags and content are escaped alike.
 
 ### 11.2 Engine scenarios
 

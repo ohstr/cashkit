@@ -100,14 +100,19 @@ func buildNIP44() (any, error) {
 			return nil, fmt.Errorf("calc_padded_len %d: %w", c[0], err)
 		}
 		raw, _ := base64.StdEncoding.DecodeString(payload)
-		// version(1) || nonce(32) || u16 length(2) || padded || mac(32)
-		if got := len(raw) - 1 - 32 - 2 - 32; got != c[1] {
+		// version(1) || nonce(32) || length prefix || padded || mac(32). The
+		// prefix is a u16, or from 65536 bytes on two zero bytes then a u32.
+		prefix := 2
+		if c[0] >= 65536 {
+			prefix = 6
+		}
+		if got := len(raw) - 1 - 32 - prefix - 32; got != c[1] {
 			return nil, fmt.Errorf("calc_padded_len %d: nmilat pads to %d, want %d", c[0], got, c[1])
 		}
 	}
-	// nmilat's Encrypt has no length check, so it seals out-of-range
-	// plaintexts that no conforming peer can open. cashkit follows the NIP
-	// and refuses them; the divergence is recorded rather than hidden.
+	// An out-of-range plaintext nmilat would still seal is one no conforming
+	// peer can open. cashkit follows the NIP and refuses it; any such
+	// divergence is recorded rather than hidden.
 	var divergences []string
 	for _, n := range v.Invalid.EncryptMsgLengths {
 		if _, err := nip44.Encrypt(strings.Repeat("a", n), ck); err == nil {

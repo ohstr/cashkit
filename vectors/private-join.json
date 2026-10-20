@@ -1,0 +1,292 @@
+{
+  "description": "NIP-CW §Private Join: create_circle_wallet as a private-transport item. Its target and both proofs' d tag are the Hub connection pubkey and h the node identity; the item proof is the requester's, the bill proof the Hub connection secret's.",
+  "source": "nipcw/private_join.go, nipcash/transport_item.go; nipcw/private_join_test.go, nipcash/client/batch_circle_join_test.go",
+  "nmilat": "v0.5.0-rc.31",
+  "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+  "hubConnectionSecret": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+  "node": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+  "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+  "notAfter": 1760000060,
+  "now": 1760000000,
+  "build": [
+    {
+      "name": "full",
+      "inputs": {
+        "budgetRenewal": "monthly",
+        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "expirySeconds": 2592000,
+        "hubConnectionSecret": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+        "maxAmountMillis": 100000
+      },
+      "item": {
+        "billProof": {
+          "kind": 23193,
+          "pubkey": "0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177",
+          "tags": [
+            [
+              "d",
+              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+            ],
+            [
+              "h",
+              "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"
+            ],
+            [
+              "m",
+              "create_circle_wallet"
+            ],
+            [
+              "ph",
+              "<params hash>"
+            ],
+            [
+              "en",
+              "1111111111111111111111111111111111111111111111111111111111111111"
+            ],
+            [
+              "expiration",
+              "1760000060"
+            ]
+          ]
+        },
+        "id": "join",
+        "method": "create_circle_wallet",
+        "params": {
+          "budget_renewal": "monthly",
+          "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+          "expiry": 2592000,
+          "identity_event": {
+            "content": "",
+            "kind": 23199,
+            "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+            "tags": [
+              [
+                "d",
+                "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+              ],
+              [
+                "connection",
+                "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+              ]
+            ],
+            "valid": true
+          },
+          "max_amount": 100000,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+        },
+        "proof": {
+          "kind": 23192,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+            ],
+            [
+              "h",
+              "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"
+            ],
+            [
+              "m",
+              "create_circle_wallet"
+            ],
+            [
+              "ph",
+              "<params hash>"
+            ],
+            [
+              "en",
+              "1111111111111111111111111111111111111111111111111111111111111111"
+            ],
+            [
+              "expiration",
+              "1760000060"
+            ]
+          ]
+        },
+        "target": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+      }
+    },
+    {
+      "name": "the Hub's defaults",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "expirySeconds": 0,
+        "hubConnectionSecret": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+        "maxAmountMillis": 1
+      },
+      "item": {
+        "billProof": {
+          "kind": 23193,
+          "pubkey": "0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177",
+          "tags": [
+            [
+              "d",
+              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+            ],
+            [
+              "h",
+              "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"
+            ],
+            [
+              "m",
+              "create_circle_wallet"
+            ],
+            [
+              "ph",
+              "<params hash>"
+            ],
+            [
+              "en",
+              "1111111111111111111111111111111111111111111111111111111111111111"
+            ],
+            [
+              "expiration",
+              "1760000060"
+            ]
+          ]
+        },
+        "id": "join",
+        "method": "create_circle_wallet",
+        "params": {
+          "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+          "expiry": 0,
+          "identity_event": {
+            "content": "",
+            "kind": 23199,
+            "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+            "tags": [
+              [
+                "d",
+                "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+              ],
+              [
+                "connection",
+                "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+              ]
+            ],
+            "valid": true
+          },
+          "max_amount": 1,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+        },
+        "proof": {
+          "kind": 23192,
+          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "tags": [
+            [
+              "d",
+              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+            ],
+            [
+              "h",
+              "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"
+            ],
+            [
+              "m",
+              "create_circle_wallet"
+            ],
+            [
+              "ph",
+              "<params hash>"
+            ],
+            [
+              "en",
+              "1111111111111111111111111111111111111111111111111111111111111111"
+            ],
+            [
+              "expiration",
+              "1760000060"
+            ]
+          ]
+        },
+        "target": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+      }
+    },
+    {
+      "name": "no Hub connection secret",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "expirySeconds": 0,
+        "hubConnectionSecret": "",
+        "maxAmountMillis": 1
+      },
+      "error": "nipcash: item \"join\" needs the bill's connection secret to prove possession"
+    },
+    {
+      "name": "no connection key",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "",
+        "expirySeconds": 0,
+        "hubConnectionSecret": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+        "maxAmountMillis": 1
+      },
+      "error": "nipcw: create_circle_wallet requires a member-generated connection key"
+    }
+  ],
+  "verify": [
+    {
+      "name": "valid join",
+      "target": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+      "params": "{\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"connection_pubkey\":\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\",\"max_amount\":1000,\"expiry\":0,\"identity_event\":\"{\\\"id\\\":\\\"c48f735d557949be8a8632c45767ff1d9c7fcce6504195f3bb8cab7627b04dd1\\\",\\\"pubkey\\\":\\\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\\\",\\\"created_at\\\":1760000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\\\"],[\\\"connection\\\",\\\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"269031c2ba2f57ba62c5684677a4c6112c3e297ceb5a1adabcacaa6e8b2327a6ed77c9d9a8755e81f310c478a301ed1da5e94591db18a437f1e58d5d227843ea\\\"}\"}",
+      "proof": "{\"id\":\"fb554169fc255cedb1afb9aafddc189ac42398de350d37707bbb3e82b33b5058\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"e2174fe435dca61155d907cb734778fec54c48a00b7e9056256a97f27bd4b88114cbe78602048724ed8abeb04895a2c45cfc682ef7d7a503179eb0bd8cc5938e\"}",
+      "billProof": "{\"id\":\"78bab7097319028bfaac372aba06e75e8ed2fcdb699b45f4ae6f561f8a3bedd9\",\"pubkey\":\"0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"0928fc55441df70cdcf02e3e065cf616ea8a347c6a9be4c77f86d3a5a79b5e7032c7707206da43deac8d4107ae691fb696e652a6910d201849278b5b7bc8ab3f\"}",
+      "itemSigner": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "billSigner": "0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177",
+      "admitted": true
+    },
+    {
+      "name": "item proof signed by another key than the requester",
+      "target": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+      "params": "{\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"connection_pubkey\":\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\",\"max_amount\":1000,\"expiry\":0,\"identity_event\":\"{\\\"id\\\":\\\"c48f735d557949be8a8632c45767ff1d9c7fcce6504195f3bb8cab7627b04dd1\\\",\\\"pubkey\\\":\\\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\\\",\\\"created_at\\\":1760000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\\\"],[\\\"connection\\\",\\\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"269031c2ba2f57ba62c5684677a4c6112c3e297ceb5a1adabcacaa6e8b2327a6ed77c9d9a8755e81f310c478a301ed1da5e94591db18a437f1e58d5d227843ea\\\"}\"}",
+      "proof": "{\"id\":\"4e0d37c7da08a7cbb8ad2de9ad5d97b94473f0c5e155d502ac54b64f72af894b\",\"pubkey\":\"2f1b310f4c065331bc0d79ba4661bb9822d67d7c4a1b0a1892e1fd0cd23aa68d\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"701fb4f0871fa5350c78f33802623ca1fe1c509f96c3142a2a8b787e2c5db85ad97e3c3af471da7969f375499adec55ccdcef9d57fb9cabad93423ebcfdac5c0\"}",
+      "billProof": "{\"id\":\"78bab7097319028bfaac372aba06e75e8ed2fcdb699b45f4ae6f561f8a3bedd9\",\"pubkey\":\"0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"0928fc55441df70cdcf02e3e065cf616ea8a347c6a9be4c77f86d3a5a79b5e7032c7707206da43deac8d4107ae691fb696e652a6910d201849278b5b7bc8ab3f\"}",
+      "itemSigner": "2f1b310f4c065331bc0d79ba4661bb9822d67d7c4a1b0a1892e1fd0cd23aa68d",
+      "billSigner": "0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177",
+      "admitted": false
+    },
+    {
+      "name": "bill proof signed by the requester, not the Hub connection secret",
+      "target": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+      "params": "{\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"connection_pubkey\":\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\",\"max_amount\":1000,\"expiry\":0,\"identity_event\":\"{\\\"id\\\":\\\"c48f735d557949be8a8632c45767ff1d9c7fcce6504195f3bb8cab7627b04dd1\\\",\\\"pubkey\\\":\\\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\\\",\\\"created_at\\\":1760000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\\\"],[\\\"connection\\\",\\\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"269031c2ba2f57ba62c5684677a4c6112c3e297ceb5a1adabcacaa6e8b2327a6ed77c9d9a8755e81f310c478a301ed1da5e94591db18a437f1e58d5d227843ea\\\"}\"}",
+      "proof": "{\"id\":\"fb554169fc255cedb1afb9aafddc189ac42398de350d37707bbb3e82b33b5058\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"e2174fe435dca61155d907cb734778fec54c48a00b7e9056256a97f27bd4b88114cbe78602048724ed8abeb04895a2c45cfc682ef7d7a503179eb0bd8cc5938e\"}",
+      "billProof": "{\"id\":\"0c818b49e58f0f12aa948515ec01e5cd1098b0ec018dbce96aa0d21bb8028f79\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"a5d14535e41efaf74736cc563fc31921dfa0faefbd4e3618af7c0bb58c535be6f5fb9b74416d3c0cf5815c9b07a08f80b48a063265effbed9db0c77c14a3e1b6\"}",
+      "itemSigner": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "billSigner": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "admitted": false
+    },
+    {
+      "name": "d is the node, not the Hub connection pubkey",
+      "target": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+      "params": "{\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"connection_pubkey\":\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\",\"max_amount\":1000,\"expiry\":0,\"identity_event\":\"{\\\"id\\\":\\\"c48f735d557949be8a8632c45767ff1d9c7fcce6504195f3bb8cab7627b04dd1\\\",\\\"pubkey\\\":\\\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\\\",\\\"created_at\\\":1760000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\\\"],[\\\"connection\\\",\\\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"269031c2ba2f57ba62c5684677a4c6112c3e297ceb5a1adabcacaa6e8b2327a6ed77c9d9a8755e81f310c478a301ed1da5e94591db18a437f1e58d5d227843ea\\\"}\"}",
+      "proof": "{\"id\":\"b81509597052561276b0b5d5dd33695eaf2067083bf20a5a2a47575898ec6a53\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"aadccf1e185d84818b786a9953ffe120bd0c039e14588f01d44424113351bc176617e0056e7357639b1522f051fe768021155f3353375a93e90a32479c1f7fc0\"}",
+      "billProof": "{\"id\":\"694324d498592885e491bd9dacbb7d525f1ca6bbc7eca82074fa68c4c34e8daf\",\"pubkey\":\"0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"1eaf2ba3b2bd402bceca8441e6409d4163a4ae3d20db32228344ddf0b05588b42b5149087f08655d606a6c2b89b11bd828a74db6d24f5ed20f3a2d6e49523101\"}",
+      "itemSigner": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "billSigner": "0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177",
+      "admitted": false
+    },
+    {
+      "name": "h is the Hub connection pubkey, not the node",
+      "target": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+      "params": "{\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"connection_pubkey\":\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\",\"max_amount\":1000,\"expiry\":0,\"identity_event\":\"{\\\"id\\\":\\\"c48f735d557949be8a8632c45767ff1d9c7fcce6504195f3bb8cab7627b04dd1\\\",\\\"pubkey\\\":\\\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\\\",\\\"created_at\\\":1760000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\\\"],[\\\"connection\\\",\\\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"269031c2ba2f57ba62c5684677a4c6112c3e297ceb5a1adabcacaa6e8b2327a6ed77c9d9a8755e81f310c478a301ed1da5e94591db18a437f1e58d5d227843ea\\\"}\"}",
+      "proof": "{\"id\":\"9716638c228eff8c345566df2e014e10943f8dd009791fda86a73b6976b2ec80\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"94f59365c92ea7c2509118c372c98018991abb9c850a3473f07296d3258a28adfd8aaecd1af92ca4aae5109131582d7d55e869bc12f4f8c4967d88d975af6c13\"}",
+      "billProof": "{\"id\":\"06a54f4ad53068bf14df43411984b6e17955fe262e6c07816626734c2b60100b\",\"pubkey\":\"0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"9d130a0f42644b7cb61669ba1ba10f9a50413030fe1aafaf3bc1741a30ec659422034b716c50b915de81c4db688f2513ca1103d41ab9efb0d3d4ed5274cfaa84\"}",
+      "itemError": "transport: item proof is bound to a different hub: bound to \"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"",
+      "billError": "transport: item proof is bound to a different hub: bound to \"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"",
+      "admitted": false
+    },
+    {
+      "name": "params changed after signing",
+      "target": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
+      "params": "{\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"connection_pubkey\":\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\",\"max_amount\":999999,\"expiry\":0,\"identity_event\":\"{\\\"id\\\":\\\"c48f735d557949be8a8632c45767ff1d9c7fcce6504195f3bb8cab7627b04dd1\\\",\\\"pubkey\\\":\\\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\\\",\\\"created_at\\\":1760000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\\\"],[\\\"connection\\\",\\\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"269031c2ba2f57ba62c5684677a4c6112c3e297ceb5a1adabcacaa6e8b2327a6ed77c9d9a8755e81f310c478a301ed1da5e94591db18a437f1e58d5d227843ea\\\"}\"}",
+      "proof": "{\"id\":\"fb554169fc255cedb1afb9aafddc189ac42398de350d37707bbb3e82b33b5058\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"e2174fe435dca61155d907cb734778fec54c48a00b7e9056256a97f27bd4b88114cbe78602048724ed8abeb04895a2c45cfc682ef7d7a503179eb0bd8cc5938e\"}",
+      "billProof": "{\"id\":\"78bab7097319028bfaac372aba06e75e8ed2fcdb699b45f4ae6f561f8a3bedd9\",\"pubkey\":\"0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"create_circle_wallet\"],[\"ph\",\"de7383a9af515d912bb27e892ddb576fd0fa4bf32db5382e80a52f86d8c3c796\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"0928fc55441df70cdcf02e3e065cf616ea8a347c6a9be4c77f86d3a5a79b5e7032c7707206da43deac8d4107ae691fb696e652a6910d201849278b5b7bc8ab3f\"}",
+      "itemError": "transport: item proof is bound to different params",
+      "billError": "transport: item proof is bound to different params",
+      "admitted": false
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "description": "Kind 11190 Hub announcements: author must be the node identity, signature valid, inbox a valid key other than the node's, announced limits safe to adopt.",
   "source": "nipcash/transport/announcement.go; announcement_test.go, auditC_seca_policy_floor_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "parse": [
     {
       "name": "valid",

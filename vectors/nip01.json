@@ -1,7 +1,7 @@
 {
   "description": "NIP-01 events as nmilat serializes, hashes, signs and verifies them, including its JSON escaping and NIP-13 nonce check.",
   "source": "nip01/event.go, utils/event.go MarshalTags/EscapeJSONString, nip13/nip13.go ValidatePow; nip01/event_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "serialize": [
     {
       "name": "empty",
@@ -247,8 +247,8 @@
         ]
       ],
       "content": "",
-      "serialized": "[0,\"abababababababababababababababababababababababababababababababab\",1760000000,1,[[\"t\",\"a\\u2028b\\u2029c\"]],\"\"]",
-      "id": "ebe1e46a5973472dee1764ac9d3e21fc5db05e0907a6816869ba4d766ebded45"
+      "serialized": "[0,\"abababababababababababababababababababababababababababababababab\",1760000000,1,[[\"t\",\"a\u2028b\u2029c\"]],\"\"]",
+      "id": "e5845224877ed852e3ed4e623f0dc1ef26074d042c93524b414c7c4d3673ef22"
     },
     {
       "name": "content: non-ASCII",
@@ -352,7 +352,7 @@
     {
       "name": "signed text note with escapes",
       "event": {
-        "id": "c1d2a98ae382c483920fb6d39a1ab578e5c4b7311edc450612208742e3028d9b",
+        "id": "5f149f4f4afd604e11657258a630cfc1a1542b5e79f8eea0e3b99ed34e873d46",
         "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
         "created_at": 1760000000,
         "kind": 1,
@@ -363,7 +363,7 @@
           ]
         ],
         "content": "line\none \"q\" \u0001",
-        "sig": "6d1486e6ae7b57738bc8ab78e4ae2ec8b2ccab82de2635597e4673999410be4c5d0e8a60978becb6d2ebdfccc54e3128508c6032286ed8d3005808304c04a556"
+        "sig": "eb9becf1761552eb1ee65586d36cede0a8324dd55026e09c44f3434924485bfac76c110304c4de0cfbac30196cb3bcdf4413ad9f9d89d6953855328e04f39dd4"
       },
       "valid": true
     },

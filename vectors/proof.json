@@ -1,7 +1,7 @@
 {
   "description": "Item (kind 23192) and bill (kind 23193) proofs: the six bound tags, and verification order, freshness window and kind separation.",
   "source": "nipcash/transport/proof.go; proof_test.go, proof_window_test.go, bill_proof_test.go, nipcash/proof_binding_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "build": [
     {
       "name": "item proof",

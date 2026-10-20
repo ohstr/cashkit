@@ -1,7 +1,7 @@
 {
   "description": "Mint provenance: payload scheme, per-HRP signed-message prefix, and public-key recovery from the 65-byte compact signature over sha256d.",
   "source": "nipcash/provenance.go; nipcash/kat_test.go, provenance_test.go; lokihub lokicash/lokicash_provenance_adversarial_test.go",
-  "nmilat": "v0.5.0-rc.24",
+  "nmilat": "v0.5.0-rc.31",
   "mintPayload": [
     {
       "hrp": "lokicash",
