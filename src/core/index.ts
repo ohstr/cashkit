@@ -16,12 +16,45 @@ export {
 export {
   CASH_HUB_HRP,
   CIRCLE_HUB_HRP,
+  connectionSignedText,
+  connFieldsOf,
+  decodeAnyConnection,
   decodeCashHubConnection,
   decodeCircleHubConnection,
+  decodeOrderConnection,
   encodeCashHubConnection,
   encodeCircleHubConnection,
+  encodeOrderConnection,
+  ORDER_CONNECTION_HRP,
+  signCashHubConnection,
+  signCircleHubConnection,
+  signOrderConnection,
+  verifyCashHubConnection,
+  verifyCircleHubConnection,
+  verifyOrderConnection,
+  type HubConnectionKind,
   type HubConnection,
+  type HubConnectionFields,
 } from './hubConnection.js'
+export {
+  chainSignedMessagePrefix,
+  CONN_LABEL_CASH_HUB,
+  CONN_LABEL_CASH_ORDER,
+  CONN_LABEL_CIRCLE_HUB,
+  CONN_LABELS,
+  connectionDigest,
+  connSignedText,
+  hubIdentityEqual,
+  onlineCheck,
+  qrForm,
+  signConnection,
+  validChainName,
+  verifyConnection,
+  type ConnFields,
+  type ConnUnverifiedReason,
+  type ConnVerdict,
+} from './connection.js'
+export { LOOKALIKE_MARKS, sanitizeText } from './text.js'
 export { decodeNConnection, encodeNConnection, NCONNECTION_HRP, type NConnection } from './nconnection.js'
 export { joinCashString, splitCashString } from './cashString.js'
 export { HUB_GROUP_LEN, hubGroupFor, sameHubGroup } from './hubGroup.js'

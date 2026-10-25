@@ -3,11 +3,12 @@
 // routes input exactly as cashctl does.
 import { bech32Decode } from './bech32.js'
 import { trimSpace } from './bytes.js'
-import { CASH_HUB_HRP, CIRCLE_HUB_HRP } from './hubConnection.js'
+import { CASH_HUB_HRP, CIRCLE_HUB_HRP, ORDER_CONNECTION_HRP } from './hubConnection.js'
 
 export type InputKind =
   | 'cash_token'
   | 'cashhub'
+  | 'cashorder'
   | 'circlehub'
   | 'nwc_uri'
   | 'nostr_entity'
@@ -26,7 +27,8 @@ export function bech32Hrp(s: string): string | undefined {
 }
 
 /**
- * What kind of string `s` is. Only the framing is checked: a "cash_token"
+ * What kind of string `s` is. `nwc_uri` is a third-party NIP-47 wallet's
+ * pairing URI, for `connections.add`; no Hub connection takes that form. Only the framing is checked: a "cash_token"
  * may still fail `decodeToken`. Any bech32 HRP that is not a Hub, a Nostr
  * entity or `ln…` counts as a cash token, because a token may use any HRP.
  * Split off a `#<cash_secret>` first (`splitCashString`).
@@ -37,6 +39,7 @@ export function sniff(s: string): InputKind {
   if (hrp === undefined) return 'unknown'
   if (hrp === CIRCLE_HUB_HRP) return 'circlehub'
   if (hrp === CASH_HUB_HRP) return 'cashhub'
+  if (hrp === ORDER_CONNECTION_HRP) return 'cashorder'
   if (NOSTR_ENTITY_HRPS.has(hrp)) return 'nostr_entity'
   if (hrp.startsWith('ln')) return 'lightning_invoice'
   return 'cash_token'

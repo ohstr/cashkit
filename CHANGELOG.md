@@ -8,6 +8,10 @@
   bill needs its Cash Zap. ([#8](https://github.com/ohstr/cashkit/pull/8))
 - Refuses a mixed-case bech32 string; an all-uppercase one still decodes.
   ([#8](https://github.com/ohstr/cashkit/pull/8))
+- Decodes and verifies signed `cashhub1`, `cashorder1` and `circlehub1`
+  strings (Hub identity, connection signature, chain), and adds the online
+  check of `get_info` against them. An unsigned string is refused.
+- Adds `sanitizeText` for a lister's display text.
 
 ## [0.1.0-rc.2]
 

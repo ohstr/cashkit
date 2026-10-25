@@ -36,7 +36,8 @@ function refuseKind(input: string): void {
   const kind = sniff(input)
   const why: Partial<Record<typeof kind, string>> = {
     circlehub: "that's a Circle Hub connection: join it with wallet.joinCircle()",
-    cashhub: "that's a Cash Hub connection (for minting cash): minting needs the Hub operator's own tooling",
+    cashhub: "that's a Cash Hub connection (for minting cash), not a cash token: add it with wallet.connections.add()",
+    cashorder: "that's an Order connection (for buying cash), not a cash token",
     nwc_uri: "that looks like a wallet connection, not a cash token: add it with wallet.connections.add()",
     nostr_entity: "that's a Nostr identifier, not a cash token",
     lightning_invoice: "that's a Lightning invoice, not a cash token: pay it from a wallet, or redeem into it with wallet.redeem({ invoice })",

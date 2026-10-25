@@ -10,8 +10,6 @@ import {
   decodeCircleHubConnection,
   decodeNConnection,
   decodeToken,
-  encodeCashHubConnection,
-  encodeCircleHubConnection,
   encodeNConnection,
   fromHex,
   hubGroupFor,
@@ -95,6 +93,7 @@ function tokenToJSON(t: Token) {
 }
 
 const hubToJSON = (c: HubConnection) => ({ ...c, relays: [...c.relays] })
+
 const ncToJSON = (c: NConnection) => ({ ...c, relays: [...c.relays] })
 
 const decoders: Record<string, (s: string) => unknown> = {
@@ -105,8 +104,6 @@ const decoders: Record<string, (s: string) => unknown> = {
 }
 
 const encoders: Record<string, (f: Json) => string> = {
-  cashhub: (f) => encodeCashHubConnection({ ...f, relays: f.relays ?? [] }),
-  circlehub: (f) => encodeCircleHubConnection({ ...f, relays: f.relays ?? [] }),
   nconnection: (f) => encodeNConnection({ ...f, relays: f.relays ?? [] }),
 }
 
@@ -115,6 +112,10 @@ const encoders: Record<string, (f: Json) => string> = {
 // regenerated, a token case checks only what those rules leave unchanged
 // (decodes or not, and its other fields); test/token.test.ts and
 // test/provenance.test.ts cover the rest from the NIP's own vectors.
+// The pinned cashhub1/circlehub1 strings carry no connection signature
+// (TLV 4–6), so every one is refused now; test/connection.test.ts covers the
+// signed strings from the NIP's examples.
+const UNSIGNED_KINDS = new Set(['cashhub', 'circlehub'])
 // A token whose only hint is not ASCII has no usable relay: refused now.
 const NOW_REFUSED = new Set(['relay of U+FEFF only is not blank'])
 const stableTokenFields = ({ relays: _r, mintSignature: _m, attestedAmountMillis: _a, ...rest }: Record<string, unknown>) => rest
@@ -123,11 +124,11 @@ describe('tlv.json', () => {
   const v = load('tlv.json')
   test.each(named(v.decode, (c) => `decode ${c.kind}: ${c.name}`))('%s', (_: string, c: Json) => {
     const decode = decoders[c.kind]!
-    if (c.error || (c.kind === 'token' && NOW_REFUSED.has(c.name))) expect(() => decode(c.input)).toThrow()
+    if (c.error || UNSIGNED_KINDS.has(c.kind) || (c.kind === 'token' && NOW_REFUSED.has(c.name))) expect(() => decode(c.input)).toThrow()
     else if (c.kind === 'token') expect(stableTokenFields(decode(c.input) as Record<string, unknown>)).toEqual(stableTokenFields(c.want))
     else expect(decode(c.input)).toEqual(c.want)
   })
-  test.each(named(v.encode.filter((c: Json) => c.kind !== 'token'), (c) => `encode ${c.kind}: ${c.name}`))('%s', (_: string, c: Json) => {
+  test.each(named(v.encode.filter((c: Json) => c.kind !== 'token' && !UNSIGNED_KINDS.has(c.kind)), (c) => `encode ${c.kind}: ${c.name}`))('%s', (_: string, c: Json) => {
     const encode = encoders[c.kind]!
     if (c.error) expect(() => encode(c.fields)).toThrow()
     else expect(encode(c.fields)).toBe(c.output)

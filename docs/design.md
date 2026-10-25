@@ -101,8 +101,9 @@ tools/export-vectors/   Go module that imports nmilat and writes vectors/
 
 A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
 
-- **TLV strings.** Covers the token (types 0–8), `cashhub1` and `circlehub1`
-  (0/1/2 plus 3 = label) and `nconnection1`.
+- **TLV strings.** Covers the token (types 0–8), the signed Hub connections
+  `cashhub1`, `cashorder1` and `circlehub1` (0/1/2, 3 = label, 4 = Hub
+  identity, 5 = connection signature, 6 = chain) and `nconnection1`.
   - Decoding MUST apply no length limit and MUST accept a bech32 or a
     bech32m checksum, matching go-flokicoin's `bech32.DecodeNoLimit`.
     Encoding always writes bech32. `@scure/base`'s `bech32.decode` refuses
@@ -123,6 +124,27 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
   - `encodeToken` writes entries in ascending type order (TLV 8 last) and
     refuses a token without provenance and a scheme, an empty or non-ASCII
     hint, and a wrong-length hub group. Source: `nmilat/nipcash/token.go`.
+- **Connection signatures** (`core/connection.ts`). The node identity signs
+  `<label>:<chain>:<connection_pubkey>:<hub_identity>:<relay_hash>:<label_hash>`
+  (`cash-hub:v1`, `cash-order:v1`, `circle-hub:v1`), hashed with the
+  chain's signed-message prefix exactly as a mint signature; `label_hash` is
+  `''` without TLV 3, so the text ends with `:`.
+  - A decoder refuses a missing, repeated or malformed TLV 4, 5 or 6 (a
+    chain is 1–32 bytes of `a`–`z`, `0`–`9`, `-`) and ignores a type above
+    6, which is outside the signature. Encoders refuse an unsigned string and
+    an empty TLV 3.
+  - `verify*Connection` returns `{verified: true}` or `{verified: false,
+    reason: 'chain_no_prefix' | 'signer_mismatch'}`; an unverified string
+    still decodes, and its label and identity are claims only.
+    `decodeAnyConnection` returns kind, connection and verdict for a paste
+    box. `sign*Connection` exist for the fake Hub and tests: cashkit issues no
+    strings.
+  - `onlineCheck` compares a `get_info` identity with TLV 4
+    (`hubIdentityEqual`: lowercase, a `02`/`03` prefix dropped) and its
+    `chain` with TLV 6. `qrForm` renders a string in uppercase for a QR code.
+- **Untrusted text.** `sanitizeText(s, maxClusters)` strips check-mark
+  look-alikes, bidirectional controls and zero-width characters, turns line
+  breaks into spaces and caps grapheme clusters (`Intl.Segmenter`).
 - **`<token>#<cash_secret>`.** Split on the first `#`, as
   `SplitCashSliceString` does. The combined string is secret-bearing (§10).
 - **Hub group.** `HubGroupFor(hub)` is `sha256(utf8(hex(hub)))[:4]`. It

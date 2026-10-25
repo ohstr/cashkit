@@ -2,7 +2,7 @@
 // nmilat's encodeTLVs build them, so malformed inputs can be produced.
 import { bech32Encode, toWords } from '../src/core/bech32.js'
 import { concatBytes, utf8 } from '../src/core/bytes.js'
-import { encodeToken, mintPayloadV1, relayHashOf, signCompact, signedMessageDigest, type TokenFields } from '../src/core/index.js'
+import { encodeCashHubConnection, encodeCircleHubConnection, encodeOrderConnection, getPublicKey, signCashHubConnection, signCircleHubConnection, signOrderConnection, encodeToken, mintPayloadV1, relayHashOf, signCompact, signedMessageDigest, type TokenFields } from '../src/core/index.js'
 
 export type RawTLV = [type: number, value: Uint8Array | string]
 
@@ -54,4 +54,19 @@ export function signedToken(f: Omit<TokenFields, 'scheme' | 'mintSignature' | 'a
   const payload = mintPayloadV1({ hrp: f.hrp, walletPubkey: f.walletPubkey, amountMillis: amount, relayHash: relayHashOf(f.relays.map(utf8), f.secret) })
   const mintSignature = signCompact(signedMessageDigest(f.hrp, payload)!, key)
   return encodeToken({ ...rest, scheme: 'mint_v1', mintSignature, attestedAmountMillis: amount })
+}
+
+/** The fixture Hub identity key for connection strings (private key 1, as the NIP examples). */
+export const HUB_KEY = Uint8Array.of(...fill(0, 31), 1)
+
+/** A connection string signed by `key` (TLV 4 = its x-only key, TLV 6 `bitcoin` unless given). */
+export function signedConnection(
+  hrp: 'cashhub' | 'cashorder' | 'circlehub',
+  f: { walletPubkey: string; secret: string; relays: readonly string[]; label?: string; chain?: string; hubIdentity?: string },
+  key: Uint8Array = HUB_KEY,
+): string {
+  const c = { label: '', chain: 'bitcoin', hubIdentity: getPublicKey(key), ...f }
+  const sign = { cashhub: signCashHubConnection, cashorder: signOrderConnection, circlehub: signCircleHubConnection }[hrp]
+  const encode = { cashhub: encodeCashHubConnection, cashorder: encodeOrderConnection, circlehub: encodeCircleHubConnection }[hrp]
+  return encode(sign(c, key))
 }

@@ -8,9 +8,10 @@ import {
   decodeCashHubConnection,
   decodeCircleHubConnection,
   decodeNConnection,
+  decodeOrderConnection,
+  fromHex,
+  getPublicKey,
   decodeToken,
-  encodeCashHubConnection,
-  encodeCircleHubConnection,
   encodeNConnection,
   encodeToken,
   hasProvenance,
@@ -21,7 +22,7 @@ import {
   toHex,
   type Token,
 } from '../src/core/index.js'
-import { BASE, fill, KEY_HEX, RELAY, rawBech32, SECRET_HEX } from './helpers.js'
+import { BASE, fill, HUB_KEY, KEY_HEX, RELAY, rawBech32, SECRET_HEX, signedConnection, type RawTLV } from './helpers.js'
 
 const token = (over: Partial<Token> = {}): Token => ({
   hrp: 'lokicash',
@@ -210,35 +211,40 @@ describe('cash token', () => {
   })
 })
 
-describe('hub connections (cashhub1, circlehub1)', () => {
+describe('hub connections (cashhub1, cashorder1, circlehub1)', () => {
+  const SIGNED: RawTLV[] = [[4, fromHex(getPublicKey(HUB_KEY))], [5, fill(1, 65)], [6, 'bitcoin']]
+  const signedBase = (): RawTLV[] => [...BASE, ...SIGNED]
   test.each([
-    ['cashhub', encodeCashHubConnection, decodeCashHubConnection],
-    ['circlehub', encodeCircleHubConnection, decodeCircleHubConnection],
-  ] as const)('%s round-trips, label included', (hrp, encode, decode) => {
+    ['cashhub', decodeCashHubConnection],
+    ['cashorder', decodeOrderConnection],
+    ['circlehub', decodeCircleHubConnection],
+  ] as const)('%s round-trips, label included', (hrp, decode) => {
     const c = { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: 'Family ☕' }
-    const s = encode(c)
+    const s = signedConnection(hrp, c)
     expect(s.startsWith(`${hrp}1`)).toBe(true)
-    expect(decode(s)).toEqual(c)
-    expect(decode(encode({ ...c, label: '' })).label).toBe('')
+    expect(decode(s)).toMatchObject({ ...c, hubIdentity: getPublicKey(HUB_KEY), chain: 'bitcoin' })
+    expect(decode(signedConnection(hrp, { ...c, label: '' })).label).toBe('')
+    expect(decode(signedConnection(hrp, { ...c, label: '' })).labelBytes).toBeUndefined()
   })
-  test('each decoder refuses the other HRP and a token', () => {
-    const c = { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: '' }
-    expect(() => decodeCashHubConnection(encodeCircleHubConnection(c))).toThrow(CoreError)
-    expect(() => decodeCircleHubConnection(encodeCashHubConnection(c))).toThrow(CoreError)
+  test('each decoder refuses the other HRPs and a token', () => {
+    const c = { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY] }
+    expect(() => decodeCashHubConnection(signedConnection('circlehub', c))).toThrow(CoreError)
+    expect(() => decodeCircleHubConnection(signedConnection('cashhub', c))).toThrow(CoreError)
+    expect(() => decodeOrderConnection(signedConnection('cashhub', c))).toThrow(CoreError)
     expect(() => decodeCircleHubConnection(rawBech32('lokicash', BASE))).toThrow(CoreError)
   })
   test('a duplicate label is refused, even an empty one', () => {
-    expect(() => decodeCircleHubConnection(rawBech32('circlehub', [...BASE, [3, ''], [3, '']]))).toThrow(/duplicate label/)
+    expect(() => decodeCircleHubConnection(rawBech32('circlehub', [...signedBase(), [3, ''], [3, '']]))).toThrow(/duplicate label/)
   })
   test('a label over 255 bytes is refused on encode', () => {
-    expect(() => encodeCashHubConnection({ walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: 'é'.repeat(128) })).toThrow(CoreError)
+    expect(() => signedConnection('cashhub', { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: 'é'.repeat(128) })).toThrow(CoreError)
   })
   // cashctl TestDecode_RejectsMalformedCircleHubTLVs.
-  test.each<[string, Parameters<typeof rawBech32>[1], number[]?]>([
-    ['missing pubkey', [[1, RELAY], [2, fill(0x33, 32)]]],
-    ['missing secret', [[0, fill(0x22, 32)], [1, RELAY]]],
-    ['no relay', [[0, fill(0x22, 32)], [2, fill(0x33, 32)]]],
-    ['truncated entry', BASE, [3, 9, 1]],
+  test.each<[string, RawTLV[], number[]?]>([
+    ['missing pubkey', [[1, RELAY], [2, fill(0x33, 32)], ...SIGNED]],
+    ['missing secret', [[0, fill(0x22, 32)], [1, RELAY], ...SIGNED]],
+    ['no relay', [[0, fill(0x22, 32)], [2, fill(0x33, 32)], ...SIGNED]],
+    ['truncated entry', [...BASE, ...SIGNED], [3, 9, 1]],
   ])('circlehub decode refuses %s', (_, entries, raw) => {
     expect(() => decodeCircleHubConnection(rawBech32('circlehub', entries, raw))).toThrow(CoreError)
   })

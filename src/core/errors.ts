@@ -8,6 +8,10 @@ export type CoreErrorCode =
   | 'invalid_key'
   | 'invalid_payload'
   | 'invalid_request'
+  /** The online check: `get_info` names another Hub identity than the string's TLV 4. */
+  | 'hub_identity_mismatch'
+  /** The online check: `get_info`'s `chain` is not the string's TLV 6, or is missing. */
+  | 'chain_mismatch'
 
 /**
  * The error every `core` function throws for bad input. Messages name the
