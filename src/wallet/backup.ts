@@ -19,7 +19,7 @@ const CHECK = 'cashkit backup key check'
 
 /** The secret-bearing fields of each collection: every one is re-sealed, none travels in the clear. */
 export const SEALED_FIELDS: Readonly<Partial<Record<Collection, readonly string[]>>> = {
-  holdings: ['cashSecret', 'pendingCashSecret', 'pendingDestinationCashSecret', 'pendingThrowawayKey', 'throwawayKey'],
+  holdings: ['cashSecret', 'pendingCashSecret', 'pendingDestinationCashSecret', 'pendingRemainderCashSecret', 'pendingThrowawayKey', 'throwawayKey'],
   handoffs: ['handoff'],
   connections: ['uri'],
   identity: ['priv'],

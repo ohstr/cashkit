@@ -199,7 +199,10 @@ export function nwcRequestEvent(p: {
   /** nip44_v2: the 32-byte nonce; nip04: the 16-byte IV. For vectors only. */
   nonce?: Uint8Array
   encryption?: NWCEncryption
+  /** NIP-40 `expiration` (unix seconds): the call's deadline, which `mint_cash` requires. */
+  expiration?: number
 }): UnsignedEvent {
+  if (p.expiration !== undefined && (!Number.isSafeInteger(p.expiration) || p.expiration < 0)) throw new CoreError('invalid_request', 'expiration must be unix seconds')
   const plaintext = toJSONText(p.params === undefined || p.params === null ? { method: p.method } : { method: p.method, params: p.params })
   const encryption = p.encryption ?? ENCRYPTION_NIP44_V2
   let content: string
@@ -216,8 +219,34 @@ export function nwcRequestEvent(p: {
     tags: [
       ['p', p.walletPubkey],
       ['encryption', encryption],
+      ...(p.expiration !== undefined ? [['expiration', String(p.expiration)]] : []),
     ],
     content,
+  }
+}
+
+/** NIP-47's `network` values (NIP-CASH §Network and Chain). */
+export const NETWORKS = ['mainnet', 'testnet', 'signet', 'regtest'] as const
+export type Network = (typeof NETWORKS)[number]
+
+export const validNetwork = (s: unknown): s is Network => typeof s === 'string' && (NETWORKS as readonly string[]).includes(s)
+
+/**
+ * `network` and `chain` from a `get_info` result. An unknown or non-string
+ * `network` is kept raw and flagged (`networkUnknown`), never thrown: a test
+ * network only warns, it blocks nothing by itself.
+ */
+export function readNetworkChain(info: unknown): { readonly network?: Network; readonly networkRaw?: unknown; readonly networkUnknown: boolean; readonly testNetwork: boolean; readonly chain?: string } {
+  const o = info !== null && typeof info === 'object' && !Array.isArray(info) ? (info as Record<string, unknown>) : {}
+  const raw = o['network']
+  const chain = typeof o['chain'] === 'string' && o['chain'] !== '' ? (o['chain'] as string) : undefined
+  const known = validNetwork(raw)
+  return {
+    ...(known && { network: raw }),
+    ...(raw !== undefined && !known && { networkRaw: raw }),
+    networkUnknown: raw !== undefined && !known,
+    testNetwork: known && raw !== 'mainnet',
+    ...(chain !== undefined && { chain }),
   }
 }
 

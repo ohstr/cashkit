@@ -42,6 +42,8 @@ export interface Holding {
   // Write-ahead slots (§5.1).
   readonly pendingCashSecret?: Sealed
   readonly pendingDestinationCashSecret?: Sealed
+  /** The fresh secret a split of this cash note gives its remainder (`remainder_commitment`). */
+  readonly pendingRemainderCashSecret?: Sealed
   readonly pendingThrowawayKey?: Sealed
   readonly throwawayKey?: Sealed
   /** ms epoch. */

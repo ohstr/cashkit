@@ -9,7 +9,7 @@
 //   rekey landed). Else probe the current secret; a match clears it. cashctl
 //   only resolves this slot lazily on the next spend (retry on NOT_FOUND),
 //   which cashkit also does; probing here closes the kill window sooner.
-// - pendingDestinationCashSecret: cleared only when the source is still held
+// - pendingDestinationCashSecret and pendingRemainderCashSecret: cleared only when the source is still held
 //   and the Hub still answers for it at the recorded amount, so the send
 //   cannot have happened. Otherwise it stays in state.unfinishedCashSends.
 //
@@ -95,7 +95,7 @@ export async function settle(ctx: Ctx): Promise<SettleReport> {
       }
       continue
     }
-    if (h.pendingDestinationCashSecret !== undefined && h.amount !== undefined) {
+    if ((h.pendingDestinationCashSecret !== undefined || h.pendingRemainderCashSecret !== undefined) && h.amount !== undefined) {
       let cred: Credential
       try {
         cred = await ctx.credentialFor(h)
@@ -104,7 +104,7 @@ export async function settle(ctx: Ctx): Promise<SettleReport> {
       }
       const still = await probe(ctx, h, cred, await ctx.claimPubkeyFor(h))
       if (still?.ok === true && still.amount === h.amount) {
-        await ctx.commit((t) => updateHolding(t, h.id, ({ pendingDestinationCashSecret: _d, ...x }) => x, h.version)).then(() => clearedDest.push(h.id), () => undefined)
+        await ctx.commit((t) => updateHolding(t, h.id, ({ pendingDestinationCashSecret: _d, pendingRemainderCashSecret: _r, ...x }) => x, h.version)).then(() => clearedDest.push(h.id), () => undefined)
       }
     }
   }
@@ -112,7 +112,7 @@ export async function settle(ctx: Ctx): Promise<SettleReport> {
   const returnedToCash = await toCashNotes(ctx, leftovers.map((h) => h.id))
   const after = await ctx.read((t) => t.list('holdings'))
   const unresolved = after
-    .filter((h) => h.status === 'held' && (h.pendingThrowawayKey !== undefined || h.pendingCashSecret !== undefined || h.pendingDestinationCashSecret !== undefined))
+    .filter((h) => h.status === 'held' && (h.pendingThrowawayKey !== undefined || h.pendingCashSecret !== undefined || h.pendingDestinationCashSecret !== undefined || h.pendingRemainderCashSecret !== undefined))
     .map((h) => h.id)
   return {
     mergeKeysPromoted: promotedKeys,

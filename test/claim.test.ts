@@ -34,12 +34,12 @@ import {
   parseCashTransferResult,
   pubkeyTarget,
   recipientToken,
+  sourcesHash,
   resolvedConnectionKeyTarget,
   toHex,
   verifyEvent,
   type Attestation,
   type NostrEvent,
-  type RecipientStatus,
 } from '../src/core/index.js'
 import { bech32Encode, toWords } from '../src/core/bech32.js'
 import { fill } from './helpers.js'
@@ -51,6 +51,7 @@ const iaPub = getPublicKey(iaKey)
 const WALLET = 'ab'.repeat(32)
 const WALLET2 = 'cd'.repeat(32)
 const NOW = 1_760_000_000
+const RID = '00112233445566778899aabbccddeeff'
 
 function invoiceWithHash(hash: Uint8Array): string {
   const w = [...Array(7).fill(0), 1, 1, 20, ...toWords(hash), ...Array(104).fill(0)]
@@ -74,7 +75,7 @@ const proofOf = (json: string | undefined): NostrEvent => JSON.parse(json!)
 const tag = (e: NostrEvent, name: string) => e.tags.find((t) => t[0] === name)?.[1]
 
 const src = (w: string, amount: bigint, cred = bySigning(signer)) => ({ walletPubkey: w, amount, credential: cred })
-const row = (identity_type: string, identity_value: string, amount: bigint, claimed = false): RecipientStatus => ({
+const row = (identity_type: string, identity_value: string, amount: bigint, claimed = false): Parameters<typeof matchClaim>[0][number] => ({
   identity_type,
   identity_value,
   amount_millis: amount,
@@ -165,7 +166,7 @@ describe('claim proofs (proof_binding_test.go)', () => {
     expect(verifyEvent(proof)).toBe(true)
     expect(proof.kind).toBe(KIND_CLAIM_PROOF)
     expect(proof.created_at).toBe(NOW)
-    expect(proof.tags).toEqual([['d', WALLET], ['bolt11_hash', 'aa'.repeat(32)]])
+    expect(proof.tags).toEqual([['d', WALLET], ['m', 'cash_redeem'], ['bolt11_hash', 'aa'.repeat(32)]])
     expect(req).toMatchObject({ invoice: INVOICE, identity_type: 'pubkey', identity_value: signer.pubkey })
     expect(req).not.toHaveProperty('cash_secret')
   })
@@ -187,7 +188,7 @@ describe('claim proofs (proof_binding_test.go)', () => {
   })
   test('a split binds the new identity and the split amount', async () => {
     const to = newCashTarget()
-    const req = await cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to, currentAmount: 21000n, splitAmount: 5000n, now: NOW })
+    const req = await cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to, currentAmount: 21000n, splitAmount: 5000n, requestId: RID, now: NOW })
     const proof = proofOf(req.identity_event)
     expect(tag(proof, 'new_identity_hash')).toBe(newIdentityHash(to))
     expect(tag(proof, 'amount_millis')).toBe('5000')
@@ -195,44 +196,48 @@ describe('claim proofs (proof_binding_test.go)', () => {
     expect(req.new_identity).toEqual({ identity_type: 'cash', identity_value: to.identityValue })
   })
   test('a full transfer binds the current amount and sends no amount_millis (TestCashTransferParams_Request_FullTransfer)', async () => {
-    const req = await cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to: pubkeyTarget(WALLET2), currentAmount: 21000n, now: NOW })
+    const req = await cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to: pubkeyTarget(WALLET2), currentAmount: 21000n, requestId: RID, now: NOW })
     expect(tag(proofOf(req.identity_event), 'amount_millis')).toBe('21000')
     expect(req).not.toHaveProperty('amount_millis')
   })
   test('a cash slice presents its secret and no proof (TestCashTransferParams_Request_CashSlicePresentsSecret)', async () => {
-    const req = await cashTransferRequest({ walletPubkey: WALLET, credential: bySecret('5e'.repeat(32)), to: pubkeyTarget(WALLET2), currentAmount: 1n })
-    expect(req).toEqual({ cash_secret: '5e'.repeat(32), new_identity: { identity_type: 'pubkey', identity_value: WALLET2 } })
+    const req = await cashTransferRequest({ walletPubkey: WALLET, credential: bySecret('5e'.repeat(32)), to: pubkeyTarget(WALLET2), currentAmount: 1n, requestId: RID })
+    expect(req).toEqual({ cash_secret: '5e'.repeat(32), new_identity: { identity_type: 'pubkey', identity_value: WALLET2 }, request_id: RID })
   })
   test('a connection-key target needs an IA pubkey', async () => {
-    await expect(cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to: connectionKeyTarget('github', '1', ''), currentAmount: 1n })).rejects.toThrow(/ia_pubkey/)
+    await expect(cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to: connectionKeyTarget('github', '1', ''), currentAmount: 1n, requestId: RID })).rejects.toThrow(/ia_pubkey/)
   })
   test('redeem refuses an invalid invoice (TestCashRedeemParams_Request_InvalidInvoice)', async () => {
     await expect(cashRedeemRequest({ walletPubkey: WALLET, invoice: 'lnfc1nope', credential: bySigning(signer) })).rejects.toThrow(CoreError)
   })
   test('redeem by cash secret and with an amount (TestCashRedeemParams_Request_Cash)', async () => {
-    expect(await cashRedeemRequest({ walletPubkey: WALLET, invoice: INVOICE, credential: bySecret('s'), amount: 7n })).toEqual({ invoice: INVOICE, amount: 7n, cash_secret: 's' })
+    expect(await cashRedeemRequest({ walletPubkey: WALLET, invoice: INVOICE, credential: bySecret('s') })).toEqual({ invoice: INVOICE, cash_secret: 's' })
+    await expect(cashRedeemRequest({ walletPubkey: WALLET, invoice: INVOICE, credential: bySecret('s'), amount: 7n })).rejects.toThrow(/amountless/)
   })
 })
 
 describe('cash_consolidate (cash_consolidate_test.go)', () => {
   test('happy path: one proof per source, each bound to its own wallet and amount', async () => {
     const to = pubkeyTarget(signer.pubkey)
-    const req = await cashConsolidateRequest({ sources: [src(WALLET, 1000n), src(WALLET2, 2000n)], to, now: NOW })
+    const req = await cashConsolidateRequest({ sources: [src(WALLET, 1000n), src(WALLET2, 2000n)], to, requestId: RID, now: NOW })
     expect(req.sources.map((s) => s.wallet_pubkey)).toEqual([WALLET, WALLET2])
     const proofs = req.sources.map((s) => proofOf(s.identity_event))
     expect(proofs.map((p) => tag(p, 'd'))).toEqual([WALLET, WALLET2])
     expect(proofs.map((p) => tag(p, 'amount_millis'))).toEqual(['1000', '2000'])
     expect(proofs.every((p) => tag(p, 'new_identity_hash') === newIdentityHash(to) && verifyEvent(p))).toBe(true)
+    expect(proofs.every((p) => tag(p, 'm') === 'cash_consolidate' && tag(p, 's') === sourcesHash([WALLET, WALLET2]))).toBe(true)
+    expect(req.request_id).toBe(RID)
   })
   test('cash and connection-key targets are accepted', async () => {
-    await expect(cashConsolidateRequest({ sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: newCashTarget() })).resolves.toBeDefined()
-    await expect(cashConsolidateRequest({ sources: [src(WALLET, 1n), src(WALLET2, 1n, ckCred)], to: connectionKeyTarget('github', '1', iaPub), now: NOW })).resolves.toBeDefined()
+    await expect(cashConsolidateRequest({ sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: newCashTarget(), requestId: RID })).resolves.toBeDefined()
+    await expect(cashConsolidateRequest({ sources: [src(WALLET, 1n), src(WALLET2, 1n, ckCred)], to: connectionKeyTarget('github', '1', iaPub), requestId: RID, now: NOW })).resolves.toBeDefined()
   })
   test.each<[string, Parameters<typeof cashConsolidateRequest>[0]]>([
-    ['too few sources', { sources: [src(WALLET, 1n)], to: pubkeyTarget(WALLET) }],
-    ['a cash-mode source', { sources: [src(WALLET, 1n), src(WALLET2, 1n, bySecret('s'))], to: pubkeyTarget(WALLET) }],
-    ['the same source twice', { sources: [src(WALLET, 1n), src(WALLET, 1n)], to: pubkeyTarget(WALLET) }],
-    ['a connection-key target without IA', { sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: connectionKeyTarget('g', '1', '') }],
+    ['too few sources', { sources: [src(WALLET, 1n)], to: pubkeyTarget(WALLET), requestId: RID }],
+    ['a cash-mode source', { sources: [src(WALLET, 1n), src(WALLET2, 1n, bySecret('s'))], to: pubkeyTarget(WALLET), requestId: RID }],
+    ['the same source twice', { sources: [src(WALLET, 1n), src(WALLET, 1n)], to: pubkeyTarget(WALLET), requestId: RID }],
+    ['a connection-key target without IA', { sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: connectionKeyTarget('g', '1', ''), requestId: RID }],
+    ['no request_id', { sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: pubkeyTarget(WALLET), requestId: '' }],
   ])('refuses %s', async (_, p) => {
     await expect(cashConsolidateRequest(p)).rejects.toThrow(CoreError)
   })
@@ -279,16 +284,16 @@ describe('results', () => {
   })
   test('redeem and status results', () => {
     expect(parseCashRedeemResult({ preimage: 'ff'.repeat(32), fees_paid: 12 })).toEqual({ preimage: 'ff'.repeat(32), feesPaid: 12n })
-    const s = parseCashStatusResult({ recipients: [{ identity_type: 'cash', amount_millis: 9007199254740993n, claimed: false, redeem_fee_millis: 0, net_redeemable_millis: 1, min_transfer_millis: 2 }], retained_until: 5 })
+    const s = parseCashStatusResult({ recipients: [{ identity_type: 'cash', amount_millis: 9007199254740993n, claimed: false, redeem_fee_millis: 0, net_redeemable_millis: 1, min_transfer_millis: 2 }] })
     expect(s.recipients[0]!.amount_millis).toBe(9007199254740993n)
-    expect(s.retainedUntil).toBe(5)
-    expect(isSpent(parseCashStatusResult({ error: 'spent' }))).toBe(true)
+    expect(isSpent(parseCashStatusResult({ status: 'spent', reason: 'redeemed', retained_until: 5 }))).toBe(true)
+    expect(parseCashStatusResult({ status: 'spent', retained_until: 5 }).tombstone).toEqual({ status: 'spent', retainedUntil: 5 })
     expect(isSpent(s)).toBe(false)
   })
   test.each<[string, () => unknown]>([
-    ['a negative amount', () => parseCashRedeemResult({ fees_paid: -1 })],
-    ['a fractional amount', () => parseCashRedeemResult({ fees_paid: 1.5 })],
-    ['a string amount', () => parseCashRedeemResult({ fees_paid: '1' })],
+    ['a negative amount', () => parseCashRedeemResult({ preimage: 'ff'.repeat(32), fees_paid: -1 })],
+    ['a fractional amount', () => parseCashRedeemResult({ preimage: 'ff'.repeat(32), fees_paid: 1.5 })],
+    ['a string amount', () => parseCashRedeemResult({ preimage: 'ff'.repeat(32), fees_paid: '1' })],
     ['a non-object result', () => parseCashStatusResult([])],
     ['non-array recipients', () => parseCashStatusResult({ recipients: {} })],
     ['a non-boolean claimed', () => parseCashStatusResult({ recipients: [{ claimed: 'no' }] })],
@@ -298,7 +303,7 @@ describe('results', () => {
 })
 
 describe('matchClaim (claim_test.go)', () => {
-  test.each<[string, RecipientStatus[], boolean, string, bigint | undefined]>([
+  test.each<[string, Parameters<typeof matchClaim>[0][number][], boolean, string, bigint | undefined]>([
     ['cash, unclaimed', [row('cash', '', 1000n)], true, '', 1000n],
     ['cash, already claimed', [row('cash', '', 1000n, true)], true, '', undefined],
     ['pubkey, exact match', [row('pubkey', WALLET, 2000n)], false, WALLET, 2000n],

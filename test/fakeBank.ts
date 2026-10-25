@@ -118,7 +118,7 @@ export class FakeBank {
   private handle(method: string, info: RequestInfo): Answer {
     const w = this.wallets.get(info.item.target)
     if (w === undefined) return 'omit'
-    if (w.spent && method === 'cash_status') return { result: { recipients: [], error: 'spent' } }
+    if (w.spent && method === 'cash_status') return { result: { status: 'spent', reason: 'transferred' } }
     if (w.spent) return { error: { code: 'NOT_FOUND', message: 'this slice has already been claimed' } }
     if (w.expiresAt !== undefined && w.expiresAt <= this.now()) return { error: { code: 'EXPIRED', message: 'this cash wallet has expired' } }
     const denied = this.authenticate(w, info)
@@ -186,10 +186,15 @@ export class FakeBank {
     const caller = w.identity
     const split = p['amount_millis'] === undefined ? undefined : BigInt(p['amount_millis'] as number)
     if (split !== undefined && (split <= 0n || split > w.amount)) return { error: { code: 'BAD_REQUEST', message: 'amount_millis out of range' } }
+    const partial = split !== undefined && split < w.amount
+    const rc = p['remainder_commitment']
+    if (partial && caller.type === 'cash') {
+      if (typeof rc !== 'string' || !/^[0-9a-f]{64}$/.test(rc) || rc === caller.value) return { error: { code: 'BAD_REQUEST', message: 'a split of a cash slice needs a fresh remainder_commitment' } }
+    } else if (rc !== undefined) return { error: { code: 'BAD_REQUEST', message: 'remainder_commitment is only for a split of a cash slice' } }
     if (split !== undefined && split < w.amount) {
       w.spent = true
       const carved = this.spinOff(split, to, w.expiresAt)
-      const rest = this.spinOff(w.amount - split, caller, w.expiresAt)
+      const rest = this.spinOff(w.amount - split, caller.type === 'cash' ? { type: 'cash', value: rc as string } : caller, w.expiresAt)
       return {
         result: {
           amount_millis: split,

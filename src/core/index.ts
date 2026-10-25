@@ -110,7 +110,11 @@ export {
   KIND_NWC_INFO,
   KIND_NWC_REQUEST,
   KIND_NWC_RESPONSE,
+  NETWORKS,
   nwcRequestEvent,
+  readNetworkChain,
+  validNetwork,
+  type Network,
   PAIRING_URI_SCHEME,
   parseInfoEvent,
   parsePairingURI,
@@ -138,9 +142,12 @@ export {
   bySecret,
   bySigning,
   bySigningConnectionKey,
+  cashCommitment,
   cashTargetFromSecret,
   connectionKeyTarget,
   decryptDelivery,
+  isCashSecret,
+  isCommitment,
   localSigner,
   newCashTarget,
   newIdentityHash,
@@ -152,41 +159,52 @@ export {
   type Signer,
   type Target,
 } from './identity.js'
-export { KIND_ATTESTATION, parseAttestation, type Attestation, type Evidence } from './attestation.js'
+export { checkAttestationForClaim, KIND_ATTESTATION, parseAttestation, type Attestation, type Evidence } from './attestation.js'
 export {
   buildProof,
   cashConsolidateRequest,
   cashRedeemRequest,
+  cashStatusRequest,
   cashTransferRequest,
   claimProofTags,
   eventJSON,
+  expectedTransferOutcome,
+  sourcesHash,
   KIND_CLAIM_PROOF,
   matchClaim,
   matchClaimAuto,
   NO_LOCAL_IDENTITY,
   type CashConsolidateRequest,
   type CashRedeemRequest,
+  type CashStatusRequest,
   type CashTransferRequest,
+  type ClaimMethod,
   type ConsolidateSource,
+  type TransferOutcome,
   type NewIdentity,
   type ProofBinding,
   type ProofFields,
-  type RecipientStatus,
 } from './claim.js'
 export {
   isSpent,
+  parseBillResult,
   parseCashConsolidateResult,
   parseCashRedeemResult,
   parseCashStatusResult,
   parseCashTransferResult,
+  parseTombstone,
   recipientToken,
-  STATUS_SPENT,
+  type BillMethod,
+  type BillResult,
+  type RecipientStatus,
+  type Tombstone,
+  type TombstoneReason,
   type CashConsolidateResult,
   type CashRedeemResult,
   type CashStatusResult,
   type CashTransferResult,
-  type RecipientStatusRow,
 } from './results.js'
+export { validateWithdrawTerms, type WithdrawTerms } from './withdraw.js'
 export * as nip44 from './nip44.js'
 export {
   finalizeEvent,
@@ -203,3 +221,15 @@ export { redact, sanitize } from './redact.js'
 export { formatAmount, formatMillis, MAX_AMOUNT_MILLIS, MILLIS_PER_UNIT, parseUnits, unitForHrp } from './units.js'
 export { NCRYPTSEC_HRP, nip49Decrypt, nip49Encrypt, type KeySecurity, type Nip49EncryptOptions } from './nip49.js'
 export * as nip04 from './nip04.js'
+export { derivedRequestId, isRequestId, newRequestId, REQUEST_ID_RE } from './requestId.js'
+export { MAX_FEE_PPM, redeemFeeQuote } from './fees.js'
+export { mintCashRequest, parseMintCashResult, type MintCashRequest, type MintCashResult, type MintRecipient } from './mint.js'
+export {
+  cashLookupParams,
+  decideLookup,
+  decodeLookupDone,
+  parseCashLookupResult,
+  tokenOrTombstone,
+  type CashLookupParams,
+  type CashLookupResult,
+} from './lookup.js'

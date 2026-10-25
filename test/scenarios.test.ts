@@ -57,7 +57,7 @@ async function controls(storage: Storage): Promise<{ pubkeys: Set<string>; commi
     const id = await t.get('identity', 'self')
     if (id !== undefined) pubkeys.add(id.pubkey)
     for (const h of await t.list('holdings')) {
-      for (const s of [h.cashSecret, h.pendingCashSecret, h.pendingDestinationCashSecret]) addSecret(unseal(s))
+      for (const s of [h.cashSecret, h.pendingCashSecret, h.pendingDestinationCashSecret, h.pendingRemainderCashSecret]) addSecret(unseal(s))
       for (const k of [h.throwawayKey, h.pendingThrowawayKey]) addKey(unseal(k))
     }
     for (const ho of await t.list('handoffs')) addSecret(splitCashString(unseal(ho.handoff) ?? '').cashSecret || undefined)
@@ -253,6 +253,20 @@ describe('write-ahead ordering (auditD_cli_writeahead)', () => {
     const rows = (await seen[0]!.holdings) as { pendingThrowawayKey?: Sealed }[]
     const keys = rows.flatMap((r) => (r.pendingThrowawayKey !== undefined ? [getPublicKey(fromHex(unseal(r.pendingThrowawayKey)!))] : []))
     expect(keys).toEqual([newIdentityValue(seen[0]!.params)])
+  })
+  test('a split of a cash note writes its remainder secret ahead and sends its commitment', async () => {
+    const h = await harness()
+    const t = newCashTarget()
+    await h.wallet.receive(`${h.bank.mintToCash(5000n, t.secret).token}#${t.secret}`, { protect: false })
+    const seen = watch(h, 'cash_transfer')
+    const r = await h.wallet.send({ amount: 1000n, to: getPublicKey(BOB_KEY) })
+    const rows = (await seen[0]!.holdings) as { pendingRemainderCashSecret?: Sealed }[]
+    const parked = rows.flatMap((x) => (x.pendingRemainderCashSecret !== undefined ? [commitment(unseal(x.pendingRemainderCashSecret)!)] : []))
+    expect(parked).toEqual([seen[0]!.params['remainder_commitment']])
+    expect(parked[0]).not.toBe(commitment(t.secret))
+    const rem = (await h.storage.tx('r', (x) => x.get('holdings', r.remainder!.id)))!
+    expect(commitment(unseal(rem.cashSecret)!)).toBe(parked[0])
+    expect((await h.storage.tx('r', (x) => x.list('holdings'))).every((x) => x.pendingRemainderCashSecret === undefined)).toBe(true)
   })
   test('a non-cash target parks nothing (TestAuditD_CLI_ParkIsANoOpForANonCashTarget)', async () => {
     const h = await harness()

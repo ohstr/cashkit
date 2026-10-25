@@ -156,12 +156,38 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
   - On the wire, a cash target is `hex(sha256(secret))`, hashing the 32
     raw secret bytes (not their hex text).
 - **Claim proof.**
-  - Kind 23198 with tags `d`, `bolt11_hash`, `new_identity_hash`,
-    `amount_millis`, plus `connection_key`/`e` and an embedded NIP-IC
-    35522 attestation for connection keys.
+  - Kind 23198 with exactly the tags its method and slice need
+    (`claimProofTags`): `d` and `m` always; `bolt11_hash` (redeem), `q`
+    (withdraw), `new_identity_hash` and `amount_millis` (transfer,
+    consolidate), `s` = `sourcesHash` of the sources in order (consolidate);
+    plus `connection_key`/`e` and the embedded NIP-IC 35522 attestation for
+    a connection-key slice (`checkAttestationForClaim` runs the NIP's checks
+    on it). A missing, extra or badly encoded tag is refused locally.
   - `new_identity_hash = sha256(type ":" value ":" ia)`.
   - Tokens delivered to the claimant are NIP-44 decrypted with
     ECDH(own priv, new wallet pubkey).
+- **Requests.** `request_id` (`newRequestId`, 32 random bytes;
+  `derivedRequestId` = sha256 of `retry:<id>` for a re-placed call) is
+  required on `cash_transfer`, `cash_consolidate` and `mint_cash`; the
+  client draws one when the caller gives none. `cashTransferRequest`
+  refuses a zero or excess amount, takes `zap_target` (pubkey slice to a
+  pubkey only) and requires a fresh `remainder_commitment` for a partial
+  split of a cash source (refused anywhere else).
+  `expectedTransferOutcome` predicts the NIP's outcome table.
+  `cashStatusRequest` never carries a cash secret. `mintCashRequest` and
+  `parseMintCashResult` apply the recipient rules; the token alone is the
+  credential. `nwcRequestEvent` takes an `expiration`.
+- **Results.** A destroyed bill answers any bill method with a tombstone
+  (`parseTombstone`: `status: spent`, `reason` when it is one of the five,
+  `retained_until`); the client reports it as `spent`. An expiry of 0 or
+  null reads as never. `parseCashRedeemResult` requires a 64-hex
+  `preimage` and `fees_paid`. A `cash_status` row is `RecipientStatus`
+  (with `ia_pubkey`, `claimed_at`, `withdraw_request_id`); the result may
+  carry `withdraw` terms, dropped when invalid.
+- **Lookups.** `cashLookupParams`, `parseCashLookupResult` and
+  `decodeLookupDone` (a destroyed bill's token field holds its tombstone);
+  `decideLookup` is the NIP's status table. `redeemFeeQuote` and
+  `readNetworkChain` cover the fee quote and `get_info`'s `network`/`chain`.
 - **Provenance.**
   - Scheme 1 signs `cash-mint:v1:<hrp>:<wallet>:<amount>:<relay_hash>`;
     scheme 2 (a zap bill) signs `cash-zap:v1:…:<relay_hash>:pubkey/<recipient>:pubkey/<sender>:<target_hash>:<issued_at>:<expires_at>`.
@@ -441,6 +467,7 @@ interface Holding {
   // write-ahead slots (§5)
   pendingCashSecret?: Sealed<CashSecret>
   pendingDestinationCashSecret?: Sealed<CashSecret>
+  pendingRemainderCashSecret?: Sealed<CashSecret>
   pendingThrowawayKey?: Sealed<PrivKey>
   throwawayKey?: Sealed<PrivKey>
   version: number
@@ -489,6 +516,7 @@ This is the invariant everything else hangs on.
 |---|---|---|---|---|---|
 | `pendingCashSecret` | rekey of the same bill (protect, back-to-cash) | yes | yes, then reported `unresolved` | becomes `cashSecret`, `protection = protected` | `receive_secure.go` `protectRekeyOnly`, `cash_merge.go` `toCashNotes` |
 | `pendingDestinationCashSecret` | any spend whose target is a new cash note | yes (`forgetIfNothingCreated`) | yes, surfaced as an unfinished cash send | written into the handoff / new holding | `cash_writeahead.go` `parkDestinationCashSecret` |
+| `pendingRemainderCashSecret` | a partial split of a cash note (its `remainder_commitment`), in the same commit as the destination's | yes | yes | becomes the remainder holding's `cashSecret` | — |
 | `pendingThrowawayKey` | moving a cash note onto a merge key | yes, and earlier moves are undone | yes | becomes `throwawayKey`; the holding switches to signing | `cash_merge.go` `moveCashNotesToKey` |
 | `pendingJoin` row | `create_circle_wallet` | deleted | kept (`pendingJoins` in state) | deleted in the same tx that adds the connection | `circle.go`, `config/pending_join.go` |
 
@@ -528,7 +556,7 @@ How Hub answers are classified (cashctl `classifyCashSpendErr`):
   match, clear. Separately, a spend that comes back `NOT_FOUND` is retried
   once with the pending secret, as `pending_secret_fallback.go` and
   `redeem_private.go` `retryWithPendingSecrets` do.
-- **`pendingDestinationCashSecret`.** Cleared when the source is still held
+- **`pendingDestinationCashSecret`** and **`pendingRemainderCashSecret`.** Cleared when the source is still held
   and its Hub still answers for it at the recorded amount; otherwise shown
   in `state.unfinishedCashSends`.
 
@@ -939,7 +967,7 @@ This lets cashkit and cashctl share fixtures.
     secret is XChaCha20-Poly1305 under a fresh 24-byte nonce, with associated
     data `cashkit/backup/v1`.
   - The secret-bearing fields are exactly: holdings `cashSecret`,
-    `pendingCashSecret`, `pendingDestinationCashSecret`,
+    `pendingCashSecret`, `pendingDestinationCashSecret`, `pendingRemainderCashSecret`,
     `pendingThrowawayKey`, `throwawayKey`; handoffs `handoff`; connections
     `uri`; identity `priv`; pendingJoins `connectionSecret`. Each is
     `{ "sealed": … }` in the file and nothing else is secret.

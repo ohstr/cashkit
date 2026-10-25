@@ -154,11 +154,11 @@ export class CashClient {
     return this.redeemMany([{ id: '1', bill: this.bill, ...p }]).then((r) => CashClient.one(r, 'cash_redeem'))
   }
 
-  cashTransfer(p: { credential: Credential; to: Target; currentAmount: bigint; splitAmount?: bigint }): Promise<CashTransferResult> {
+  cashTransfer(p: { credential: Credential; to: Target; currentAmount: bigint; splitAmount?: bigint; zapTarget?: string; remainderCommitment?: string; requestId?: string }): Promise<CashTransferResult> {
     return this.transferMany([{ id: '1', bill: this.bill, ...p }]).then((r) => CashClient.one(r, 'cash_transfer'))
   }
 
-  cashConsolidate(credential: Credential, p: { sources: readonly ConsolidateSource[]; to: Target }): Promise<CashConsolidateResult> {
+  cashConsolidate(credential: Credential, p: { sources: readonly ConsolidateSource[]; to: Target; requestId?: string }): Promise<CashConsolidateResult> {
     return this.consolidateMany([{ id: '1', bill: this.bill, credential, ...p }]).then((r) => CashClient.one(r, 'cash_consolidate'))
   }
 

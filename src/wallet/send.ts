@@ -10,7 +10,7 @@
 // a landed bill is unsaved.
 import { decodeToken, MAX_AMOUNT_MILLIS, newCashTarget, pubkeyTarget, type CashTarget, type CashTransferResult, type Target } from '../core/index.js'
 import { validateRequestedAmount } from './amounts.js'
-import { followMove, forgetPark, getHeld, liveAmount, moveCashNotesToKey, newThrowawayKey, parkDestination, promotePending, releasePark, toCashNotes, withPendingSecret } from './bills.js'
+import { followMove, forgetPark, forgetRemainder, getHeld, newRemainder, releaseRemainder, liveAmount, moveCashNotesToKey, newThrowawayKey, parkDestination, promotePending, releasePark, toCashNotes, withPendingSecret } from './bills.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError, classifySpendError, isCrossHubDecline } from './errors.js'
 import { addHandoff, addHolding, appendActivity, heldHoldings, updateHolding } from './ledger.js'
@@ -170,24 +170,29 @@ export async function executeSend(ctx: Ctx, plan: SendPlan): Promise<SendResult>
 /** One bill: a full or split transfer (`runCashTransfer`'s tail). */
 async function sendSingle(ctx: Ctx, plan: SendPlan, h: Holding, target: Target, consolidatedFirst: boolean): Promise<SendResult> {
   const cred = await ctx.credentialFor(h)
-  const park = await parkDestination(ctx, h.id, target)
   const split = plan.amount < h.amount!
+  // A split of a cash note gives its remainder a fresh secret, written ahead with the destination's.
+  const remainder = split && h.mode === 'cash' && cred.kind === 'secret' ? await newRemainder(ctx) : undefined
+  const park = await parkDestination(ctx, h.id, target, remainder?.sealed)
   let out: { result: CashTransferResult; promoted?: import('./model.js').Sealed }
   try {
-    out = await withPendingSecret(ctx, h, cred, (c) => ctx.client(h.token).cashTransfer({ credential: c, to: target, currentAmount: h.amount!, ...(split && { splitAmount: plan.amount }) }))
+    out = await withPendingSecret(ctx, h, cred, (c) =>
+      ctx.client(h.token).cashTransfer({ credential: c, to: target, currentAmount: h.amount!, ...(split && { splitAmount: plan.amount }), ...(remainder !== undefined && { remainderCommitment: remainder.commitment }) }),
+    )
   } catch (err) {
     const c = classifySpendError(err, 'transfer', [h.id])
     await forgetPark(ctx, park, c)
+    if (remainder !== undefined) await forgetRemainder(ctx, h.id, remainder.sealed, c)
     throw c
   }
-  const cashSecret = out.promoted ?? h.cashSecret
+  const cashSecret = remainder?.sealed ?? out.promoted ?? h.cashSecret
   return finishSend(ctx, {
     plan,
     target,
     result: out.result,
     originalToken: h.token,
     sourceIds: [h.id],
-    updateSource: (x) => promotePending({ ...releasePark(x, park), status: 'transferred' }, out.promoted),
+    updateSource: (x) => promotePending({ ...releaseRemainder(releasePark(x, park), remainder?.sealed), status: 'transferred' }, out.promoted),
     remainderMode: {
       mode: h.mode,
       protection: h.protection,

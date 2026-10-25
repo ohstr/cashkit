@@ -95,3 +95,21 @@ export function parseAttestation(event: NostrEvent): Attestation {
     ...(expiresAt !== undefined && { expiresAt }),
   }
 }
+
+/**
+ * The checks NIP-CASH §Claim Proofs applies to the attestation behind a
+ * `connection_key` slice's claim proof, run before sending one: kind 35522,
+ * id and signature, author = the IA recorded on the slice, `d` = the
+ * slice's identity value, `p` = the claim-proof signer, `platform`,
+ * `evidence` and an `expiration` not yet passed. Throws `CoreError` naming
+ * the failed check.
+ */
+export function checkAttestationForClaim(event: NostrEvent, p: { readonly identityValue: string; readonly iaPubkey: string; readonly signer: string; readonly now: number }): Attestation {
+  const att = parseAttestation(event)
+  if (event.pubkey !== p.iaPubkey) throw fail('signed by another key than the Identity Authority recorded on the slice')
+  if (att.connectionKey !== p.identityValue) throw fail("#d tag is not the slice's identity value")
+  if (att.userPubkey !== p.signer) throw fail('#p tag is not the claim-proof signer')
+  if (att.expiresAt === undefined) throw fail('#expiration tag is required')
+  if (p.now > att.expiresAt) throw fail('has expired')
+  return att
+}

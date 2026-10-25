@@ -45,6 +45,18 @@ export function resolvedConnectionKeyTarget(connectionKey: string, platform: str
     : { identityType: 'connection_key', identityValue: connectionKey, iaPubkey }
 }
 
+/** A cash secret: 64 lowercase hex (32 bytes). */
+export const isCashSecret = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{64}$/.test(s)
+
+/** A cash commitment: 64 lowercase hex. */
+export const isCommitment = isCashSecret
+
+/** `cash` identity value: hex(sha256(the 32 secret bytes)), never of the hex text. */
+export function cashCommitment(secretHex: string): string {
+  if (!isCashSecret(secretHex)) throw new CoreError('invalid_field', 'a cash secret is 64 lowercase hex characters')
+  return toHex(sha256(fromHex(secretHex)))
+}
+
 /** A cash target from a known 32-byte secret (hex), e.g. when recovering. */
 export function cashTargetFromSecret(secretHex: string): CashTarget {
   const raw = fromHex(secretHex, 'cash secret')

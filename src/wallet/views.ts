@@ -41,7 +41,7 @@ export function holdingView(h: Holding, nowSeconds: number): HoldingView {
     relayUrls: [...h.relayUrls],
     addedAt: h.addedAt,
     midMerge: h.throwawayKey !== undefined || h.pendingThrowawayKey !== undefined,
-    unsettled: h.pendingCashSecret !== undefined || h.pendingDestinationCashSecret !== undefined || h.pendingThrowawayKey !== undefined,
+    unsettled: h.pendingCashSecret !== undefined || h.pendingDestinationCashSecret !== undefined || h.pendingRemainderCashSecret !== undefined || h.pendingThrowawayKey !== undefined,
   }
 }
 

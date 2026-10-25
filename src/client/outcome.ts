@@ -56,7 +56,8 @@ export const notServedOutcomes = (ids: readonly string[], envelope: number): Ite
  * Hub's refusal, the send error, or NotServedError. A decided outcome wins
  * over a send error that arrived with it.
  */
-export function oneItemError(o: (Pick<ItemOutcome, 'state' | 'error'> & { readonly undecodable?: boolean }) | undefined, sendError: unknown, method: string): Error | undefined {
+export function oneItemError(o: (Pick<ItemOutcome, 'state' | 'error'> & { readonly undecodable?: boolean; readonly tombstone?: unknown }) | undefined, sendError: unknown, method: string): Error | undefined {
+  if (o?.state === 'result' && o.tombstone !== undefined) return new ClientError('spent', `the hub says this bill is gone, so the ${method} did not run`)
   if (o?.state === 'result') return undefined
   // It ran: a success whose body did not decode is never a refusal.
   if (o?.undecodable) return new ClientError('undecodable_result', `the hub applied this ${method}, but its answer could not be read`)

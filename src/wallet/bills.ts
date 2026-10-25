@@ -115,17 +115,26 @@ export interface Park {
   readonly sealed: Sealed
 }
 
-export async function parkDestination(ctx: Ctx, holdingId: string, target: Target): Promise<Park | undefined> {
-  if (target.identityType !== 'cash') return undefined
-  const secret = (target as CashTarget).secret
-  if (secret === undefined || secret === '') throw new CashkitError('internal', 'a cash-mode target carries no secret, so its destination bill would be unspendable')
-  const sealed = await ctx.seal(secret)
-  try {
-    await ctx.commit((t) => updateHolding(t, holdingId, (h) => ({ ...h, pendingDestinationCashSecret: sealed })))
-  } catch (err) {
-    throw new CashkitError('internal', 'could not record the destination cash secret before placing the call, so the call was not placed (your funds have not moved)', { cause: err })
+/**
+ * Parks the destination secret of a cash target and, for a cash note's
+ * split, its remainder's fresh secret, in one commit before the call.
+ */
+export async function parkDestination(ctx: Ctx, holdingId: string, target: Target, remainder?: Sealed): Promise<Park | undefined> {
+  let sealed: Sealed | undefined
+  if (target.identityType === 'cash') {
+    const secret = (target as CashTarget).secret
+    if (secret === undefined || secret === '') throw new CashkitError('internal', 'a cash-mode target carries no secret, so its destination bill would be unspendable')
+    sealed = await ctx.seal(secret)
   }
-  return { holdingId, sealed }
+  if (sealed === undefined && remainder === undefined) return undefined
+  try {
+    await ctx.commit((t) =>
+      updateHolding(t, holdingId, (h) => ({ ...h, ...(sealed !== undefined && { pendingDestinationCashSecret: sealed }), ...(remainder !== undefined && { pendingRemainderCashSecret: remainder }) })),
+    )
+  } catch (err) {
+    throw new CashkitError('internal', 'could not record the new cash secrets before placing the call, so the call was not placed (your funds have not moved)', { cause: err })
+  }
+  return sealed !== undefined ? { holdingId, sealed } : undefined
 }
 
 /** Clears a park inside a transaction, if it is still ours. */
@@ -139,6 +148,25 @@ export function releasePark(h: Holding, park: Park | undefined): Holding {
 export async function forgetPark(ctx: Ctx, park: Park | undefined, failure: CashkitError): Promise<void> {
   if (park === undefined || failure.code === 'indeterminate') return
   await ctx.commit((t) => updateHolding(t, park.holdingId, (h) => releasePark(h, park))).catch(() => undefined)
+}
+
+/** The fresh secret a cash note's split gives its remainder; `parkDestination` writes it ahead. */
+export async function newRemainder(ctx: Ctx): Promise<{ sealed: Sealed; commitment: string }> {
+  const t = newCashTarget(ctx.random)
+  return { sealed: await ctx.seal(t.secret), commitment: t.identityValue }
+}
+
+/** Clears the remainder park inside a transaction, if it is still ours. */
+export function releaseRemainder(h: Holding, sealed: Sealed | undefined): Holding {
+  if (sealed === undefined || !sameSealed(h.pendingRemainderCashSecret, sealed)) return h
+  const { pendingRemainderCashSecret: _r, ...rest } = h
+  return rest
+}
+
+/** A definite failure created no remainder, so its park goes; best-effort. */
+export async function forgetRemainder(ctx: Ctx, holdingId: string, sealed: Sealed, failure: CashkitError): Promise<void> {
+  if (failure.code === 'indeterminate') return
+  await ctx.commit((t) => updateHolding(t, holdingId, (h) => releaseRemainder(h, sealed))).catch(() => undefined)
 }
 
 /** A fresh throwaway merge key: hex secret and its pubkey. */

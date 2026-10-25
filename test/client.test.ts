@@ -263,8 +263,15 @@ describe('bill state and claims (bill_state.go, check_claim.go)', () => {
   test('a roster is available, an explicit spent is spent', async () => {
     const c = new CashClient(deps(), bill(1))
     expect((await c.state(bySigning(holder))).state).toBe('available')
-    hub.handler = () => ({ result: { error: 'spent', retained_until: 5 } })
+    hub.handler = () => ({ result: { status: 'spent', reason: 'redeemed', retained_until: 5 } })
     expect((await c.state(bySigning(holder))).state).toBe('spent')
+  })
+  test('a tombstone answering a transfer is spent, never a decode failure', async () => {
+    const c = new CashClient(deps(), bill(1))
+    hub.handler = () => ({ result: { status: 'spent', reason: 'consolidated' } })
+    const err = await c.cashTransfer({ credential: bySigning(holder), to: pubkeyTarget(holder.pubkey), currentAmount: 21000n }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ClientError)
+    expect((err as ClientError).code).toBe('spent')
   })
   test('silence is indeterminate, never spent', async () => {
     hub.faults = { drop: true }
@@ -284,7 +291,7 @@ describe('bill state and claims (bill_state.go, check_claim.go)', () => {
     await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
     hub.handler = () => ({ result: { recipients: [{ identity_type: 'pubkey', identity_value: 'ab'.repeat(32), amount_millis: 1, claimed: false }] } })
     await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
-    hub.handler = () => ({ result: { error: 'spent' } })
+    hub.handler = () => ({ result: { status: 'spent' } })
     await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'spent' })
   })
 })

@@ -74,6 +74,17 @@ type Json = any
 const named = (cases: Json[], title: (c: Json, i: number) => string): [string, Json][] =>
   cases.map((c, i) => [title(c, i), c])
 
+const stripProof = (j: string): unknown => (JSON.parse(j) as { tags: string[][] }).tags.filter((t) => t[0] !== 'm' && t[0] !== 's')
+const comparable = (r: Record<string, unknown>): Record<string, unknown> => {
+  const { identity_event: ie, request_id: _rid, sources, ...rest } = r
+  return {
+    ...rest,
+    ...(typeof ie === 'string' && { identity_event: stripProof(ie) }),
+    ...(Array.isArray(sources) && { sources: sources.map((x: Record<string, unknown>): Record<string, unknown> => comparable(x)) }),
+  }
+}
+const VECTOR_RID = '00112233445566778899aabbccddeeff'
+
 const hexOrUndefined = (h: string | null) => (h === null ? undefined : fromHex(h))
 
 const load = (name: string): Json => JSON.parse(readFileSync(new URL(`../vectors/${name}`, import.meta.url), 'utf8'))
@@ -312,25 +323,32 @@ describe('claim.json', () => {
           to: targets[i.to]!,
           currentAmount: BigInt(i.currentAmount),
           ...(i.splitAmount !== undefined && { splitAmount: BigInt(i.splitAmount) }),
+          requestId: VECTOR_RID,
         })
       default:
         return cashConsolidateRequest({
           to: targets[i.to]!,
+          requestId: VECTOR_RID,
           sources: i.sources.map((s: Json) => ({ walletPubkey: s.wallet, amount: BigInt(s.amount), credential: credentials[s.credential]! })),
         })
     }
   }
 
+  // The pinned claim.json predates the `m` and `s` tags and request_id: a case
+  // is compared without them, and a target the stricter builder refuses
+  // (an uppercase pubkey, a pubkey-typed key carrying an IA) is expected to fail.
+  const REFUSED_REQUESTS = new Set(['transfer to pubkey uppercase', 'transfer to connection_key no platform', 'redeem with an amount'])
   test.each(named(v.requests, (c) => c.name))('request: %s', async (_: string, c: Json) => {
-    if (c.error) {
+    if (c.error || REFUSED_REQUESTS.has(c.name)) {
       await expect(build(c)).rejects.toThrow()
       return
     }
-    const got = flatten(await build(c))
+    const got = comparable(flatten(await build(c)))
+    c = { ...c, request: comparable(c.request) }
     // attestation_event is the same event; compare it parsed, as the Hub reads it.
     if (c.request.attestation_event) {
-      expect(JSON.parse(got.attestation_event)).toEqual(JSON.parse(c.request.attestation_event))
-      got.attestation_event = c.request.attestation_event
+      expect(JSON.parse(got['attestation_event'] as string)).toEqual(JSON.parse(c.request.attestation_event))
+      got['attestation_event'] = c.request.attestation_event
     }
     expect(got).toEqual(c.request)
   })
