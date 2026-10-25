@@ -13,8 +13,13 @@
 //   and the Hub still answers for it at the recorded amount, so the send
 //   cannot have happened. Otherwise it stays in state.unfinishedCashSends.
 //
-// A probe that errors is inconclusive and leaves the slot alone.
+// A probe is definite only when the Hub says the credential does not match
+// (no matching recipient, NOT_FOUND) or the bill is spent; any other error
+// (RATE_LIMITED, INTERNAL, silence, …) is inconclusive and leaves the slot
+// alone. A holding with an open pending cash secret is never returned to a
+// cash note: that would overwrite the slot.
 import { bySecret, bySigning, localSigner, NO_LOCAL_IDENTITY, type Credential } from '../core/index.js'
+import { ClientError, WalletError } from '../client/index.js'
 import { hexBytes, promoteThrowaway, toCashNotes } from './bills.js'
 import type { Ctx } from './context.js'
 import { appendActivity, updateHolding } from './ledger.js'
@@ -39,13 +44,24 @@ async function probe(ctx: Ctx, h: Holding, cred: Credential, asPubkey: string): 
     const r = await ctx.client(h.token).checkClaim(cred, asPubkey)
     return { ok: true, amount: r.amountMillis }
   } catch (err) {
-    const code = (err as { code?: string }).code
-    if (code === 'claim_not_found' || code === 'spent' || code === 'wallet_error') return { ok: false }
+    if (isDefiniteNo(err)) return { ok: false }
     return undefined
   }
 }
 
-export async function settle(ctx: Ctx): Promise<SettleReport> {
+/** The Hub's answer proves this credential does not control the bill. */
+function isDefiniteNo(err: unknown): boolean {
+  if (err instanceof WalletError) return err.walletCode === 'NOT_FOUND'
+  return err instanceof ClientError && (err.code === 'claim_not_found' || err.code === 'spent')
+}
+
+/**
+ * Reconciles every open slot, or only those of `o.holdings`. Runs inside
+ * the caller's spend lock.
+ */
+export async function settle(ctx: Ctx, o: { holdings?: readonly string[] } = {}): Promise<SettleReport> {
+  const only = o.holdings !== undefined ? new Set(o.holdings) : undefined
+  const inScope = (h: Holding) => only === undefined || only.has(h.id)
   const promotedKeys: string[] = []
   const clearedKeys: string[] = []
   const promotedSecrets: string[] = []
@@ -53,7 +69,7 @@ export async function settle(ctx: Ctx): Promise<SettleReport> {
   const clearedDest: string[] = []
   const rows = await ctx.read((t) => t.list('holdings'))
   for (const h of rows) {
-    if (h.status !== 'held') continue
+    if (h.status !== 'held' || !inScope(h)) continue
     if (h.pendingThrowawayKey !== undefined) {
       const signer = localSigner(hexBytes(await ctx.open(h.pendingThrowawayKey)))
       const viaKey = await probe(ctx, h, bySigning(signer), signer.pubkey)
@@ -108,11 +124,11 @@ export async function settle(ctx: Ctx): Promise<SettleReport> {
       }
     }
   }
-  const leftovers = (await ctx.read((t) => t.list('holdings'))).filter((h) => h.status === 'held' && h.throwawayKey !== undefined && h.pendingThrowawayKey === undefined)
+  const leftovers = (await ctx.read((t) => t.list('holdings'))).filter((h) => h.status === 'held' && inScope(h) && h.throwawayKey !== undefined && h.pendingThrowawayKey === undefined && h.pendingCashSecret === undefined)
   const returnedToCash = await toCashNotes(ctx, leftovers.map((h) => h.id))
   const after = await ctx.read((t) => t.list('holdings'))
   const unresolved = after
-    .filter((h) => h.status === 'held' && (h.pendingThrowawayKey !== undefined || h.pendingCashSecret !== undefined || h.pendingDestinationCashSecret !== undefined))
+    .filter((h) => h.status === 'held' && inScope(h) && (h.pendingThrowawayKey !== undefined || h.pendingCashSecret !== undefined || h.pendingDestinationCashSecret !== undefined))
     .map((h) => h.id)
   return {
     mergeKeysPromoted: promotedKeys,

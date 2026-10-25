@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.0-rc.1]
+
+- Fixes a protect, a settle or a merge that could overwrite or drop a cash
+  note's unresolved new secret, the only one that works once an earlier
+  rekey has landed unseen. Protect now settles first.
 ## [0.1.0-rc.2]
 
 - Updates the README shipped with the package: install from npm, and a

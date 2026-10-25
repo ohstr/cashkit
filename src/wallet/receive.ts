@@ -4,7 +4,7 @@
 import { bySecret, bySigning, decodeToken, newCashTarget, sniff, splitCashString, type Credential, type Token } from '../core/index.js'
 import { ClientError, WalletError } from '../client/index.js'
 import { validateClaimedAmount } from './amounts.js'
-import { followMove, getHeld } from './bills.js'
+import { clearPendingSecret, followMove, getHeld, hasOpenPendingSecret } from './bills.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, isNotSent } from './errors.js'
 import { addHolding, appendActivity, findByToken, updateHolding } from './ledger.js'
@@ -136,14 +136,27 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
 /**
  * `protectRekeyOnly`: moves a shared cash note to a fresh secret only this
  * wallet knows. The secret is parked first; a definite refusal clears it,
- * silence keeps it for `settle()`.
+ * silence keeps it for `settle()`. A holding whose earlier rekey is still
+ * unresolved is left alone: its pending secret may be the only one that
+ * works, so it is never overwritten.
  */
 export async function protectOne(ctx: Ctx, h: Holding): Promise<{ secured: Secured; holding: Holding }> {
+  if (hasOpenPendingSecret(h)) return { secured: { status: 'failed', unresolved: true }, holding: h }
   const target = newCashTarget(ctx.random)
   const sealed = await ctx.seal(target.secret)
   let parked: Holding
   try {
-    parked = await ctx.commit((t) => updateHolding(t, h.id, (x) => ({ ...x, pendingCashSecret: sealed }), h.version))
+    parked = await ctx.commit((t) =>
+      updateHolding(
+        t,
+        h.id,
+        (x) => {
+          if (hasOpenPendingSecret(x)) throw new CashkitError('conflict', 'an earlier protect of this note is still unresolved')
+          return { ...x, pendingCashSecret: sealed }
+        },
+        h.version,
+      ),
+    )
   } catch {
     return { secured: { status: 'failed' }, holding: h }
   }
@@ -153,7 +166,7 @@ export async function protectOne(ctx: Ctx, h: Holding): Promise<{ secured: Secur
     res = await ctx.client(parked.token).cashTransfer({ credential: bySecret(await ctx.open(parked.cashSecret)), to: target, currentAmount: parked.amount })
   } catch (err) {
     if (err instanceof WalletError || isNotSent(err) || err instanceof CashkitError) {
-      const cleared = await ctx.commit((t) => updateHolding(t, h.id, ({ pendingCashSecret: _p, ...x }) => x)).catch(() => parked)
+      const cleared = await ctx.commit((t) => updateHolding(t, h.id, (x) => clearPendingSecret(x, sealed))).catch(() => parked)
       return { secured: { status: 'failed', likelyWrongSecret: err instanceof WalletError && err.walletCode === 'NOT_FOUND' }, holding: cleared }
     }
     return { secured: { status: 'failed', unresolved: true }, holding: parked }

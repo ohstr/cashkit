@@ -250,6 +250,8 @@ export class Wallet {
 
   async protect(o: { holdings?: readonly string[] } = {}): Promise<Report<ProtectOutcome>> {
     return this.ctx.spend(async () => {
+      // Resolve any earlier rekey first, inside this lock (it is not re-entrant).
+      await settle(this.ctx, o.holdings !== undefined ? { holdings: o.holdings } : {}).catch(() => undefined)
       const now = this.ctx.nowSeconds()
       const rs = await protectMany(this.ctx, o.holdings)
       return report<ProtectOutcome>(
@@ -257,7 +259,7 @@ export class Wallet {
           r.secured.status === 'failed'
             ? {
                 ok: false as const,
-                error: new CashkitError(r.secured.unresolved === true ? 'indeterminate' : 'internal', r.secured.likelyWrongSecret === true ? 'the Hub did not recognise this cash secret' : 'protect failed', { input: r.holdingId }),
+                error: new CashkitError(r.secured.unresolved === true ? 'indeterminate' : 'internal', r.secured.likelyWrongSecret === true ? 'the Hub did not recognise this cash secret' : r.secured.unresolved === true ? 'an earlier protect of this note is still unresolved; settle() resolves it' : 'protect failed', { input: r.holdingId }),
                 holdingIds: [r.holdingId],
               }
             : { ok: true as const, holdingId: r.holdingId, secured: r.secured, holding: holdingView(r.holding, now) },

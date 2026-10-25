@@ -141,6 +141,19 @@ const ops: Op[] = [
     },
     run: (w) => w.consolidate(),
   },
+  {
+    // B4: the first rekey landed but its reply was lost, so only the pending secret works.
+    name: 'protect again a cash note whose earlier rekey is unresolved',
+    setup: async (h) => {
+      const t = newCashTarget()
+      outside.add(commitment(t.secret))
+      await h.wallet.receive(`${h.bank.mintToCash(900n, t.secret).token}#${t.secret}`, { protect: false })
+      h.bank.loseReplyFor.add('cash_transfer')
+      await h.wallet.protect()
+      h.bank.loseReplyFor.clear()
+    },
+    run: (w) => w.protect({ holdings: [] }).then(async () => w.protect({ holdings: (await w.holdings()).map((x) => x.id) })),
+  },
 ]
 
 async function scenario(op: Op, crashAfter: number | undefined, o: { loseReply?: string } = {}) {
@@ -189,13 +202,14 @@ describe('lost replies: indeterminate, then settle() (auditD_cli_killwindow)', (
     [ops[4]!, 'cash_transfer'],
     [ops[4]!, 'cash_consolidate'],
     [ops[5]!, 'cash_consolidate'],
+    [ops[7]!, 'cash_transfer'],
   ]
   for (const [op, method] of cases) {
     test(`${op.name}, ${method} reply lost`, async () => {
       const s = await scenario(op, undefined, { loseReply: method })
       const lost = await uncontrolled(s.bank, s.storage.inner, [s.bob.me])
       expect(lost).toEqual([])
-      if (s.outcome !== 'ok' && s.outcome instanceof CashkitError && op !== ops[0]) expect(['indeterminate', 'network']).toContain(s.outcome.code)
+      if (s.outcome !== 'ok' && s.outcome instanceof CashkitError && op !== ops[0] && op !== ops[7]) expect(['indeterminate', 'network']).toContain(s.outcome.code)
     }, 60_000)
   }
 })

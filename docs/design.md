@@ -448,6 +448,15 @@ This is the invariant everything else hangs on.
 | `pendingThrowawayKey` | moving a cash note onto a merge key | yes, and earlier moves are undone | yes | becomes `throwawayKey`; the holding switches to signing | `cash_merge.go` `moveCashNotesToKey` |
 | `pendingJoin` row | `create_circle_wallet` | deleted | kept (`pendingJoins` in state) | deleted in the same tx that adds the connection | `circle.go`, `config/pending_join.go` |
 
+An open slot is never overwritten and never dropped. A slot is cleared
+only by the call that wrote it (compare-and-clear: the stored value must
+still be the one it parked) or by `settle()` once the Hub answers
+definitely. A holding with an open `pendingCashSecret` (one that is not a
+copy of `cashSecret`) is skipped by protect and by the return to cash notes,
+and a consolidate or merged send naming it, or a note with an open
+`pendingThrowawayKey`, is refused with `conflict` before anything moves:
+the pending secret may be the only one that still controls the bill.
+
 Redeem has no slot because it creates no locally generated secret. It
 commits once, after the result arrives.
 
@@ -481,14 +490,22 @@ How Hub answers are classified (cashctl `classifyCashSpendErr`):
   return any leftover throwaway-key holdings to cash notes (`toCashNotes`).
 - **`pendingCashSecret`.** Probe `bySecret(pending)`; on a match, promote it
   (`protection = protected`). Otherwise probe the current secret; on a
-  match, clear. Separately, a spend that comes back `NOT_FOUND` is retried
+  match, clear. A holding with this slot open is never returned to a cash
+  note by the step above. Separately, a spend that comes back `NOT_FOUND` is retried
   once with the pending secret, as `pending_secret_fallback.go` and
   `redeem_private.go` `retryWithPendingSecrets` do.
 - **`pendingDestinationCashSecret`.** Cleared when the source is still held
   and its Hub still answers for it at the recorded amount; otherwise shown
   in `state.unfinishedCashSends`.
 
-A probe that errors is inconclusive and leaves its slot alone.
+A probe is definite only when the Hub says the credential does not match
+(no matching recipient, `NOT_FOUND`) or the bill is spent. Any other answer
+(`RATE_LIMITED`, `INTERNAL`, a timeout, …) is inconclusive and leaves its
+slot alone.
+
+`protect()` settles the holdings it targets first, inside its own spend
+lock (the lock is not re-entrant, so it runs the internal pass rather than
+`wallet.settle()`).
 
 ### 5.4 Concurrency
 
@@ -611,7 +628,9 @@ status(o?: { holdings?: string[]; scope?: 'mine' | 'all' }): Promise<Report<Stat
   reported in `aloneOnTheirHub`.
 - **Cash notes in a consolidate** move to a throwaway key first. The merged
   result is a fresh cash note, or a pubkey holding when the target is self.
-- **Protect** re-keys every `shared` holding when nothing is named.
+- **Protect** re-keys every `shared` holding when nothing is named. It
+  settles first, and a holding whose earlier rekey is still unresolved is
+  reported `indeterminate` with no wire call.
 - **Status** reports every holding. A `spent` row records a tombstone.
 - **Consolidate to another identity** (`to` naming someone else) leaves a
   gift handoff and no holding row.

@@ -15,6 +15,23 @@ import type { Holding, Sealed } from './model.js'
 
 export const sameSealed = (a: Sealed | undefined, b: Sealed | undefined) => a !== undefined && b !== undefined && a.alg === b.alg && a.data === b.data
 
+/** A pending cash secret that may be the only working one: anything but a copy of the current secret. */
+export const hasOpenPendingSecret = (h: Holding) => h.pendingCashSecret !== undefined && !sameSealed(h.pendingCashSecret, h.cashSecret)
+
+/** Clears the pending cash secret only if it is still the one this call wrote. */
+export function clearPendingSecret(h: Holding, sealed: Sealed): Holding {
+  if (!sameSealed(h.pendingCashSecret, sealed)) return h
+  const { pendingCashSecret: _p, ...rest } = h
+  return rest
+}
+
+/** Clears the pending merge key only if it is still the one this call wrote. */
+export function clearPendingKey(h: Holding, sealed: Sealed): Holding {
+  if (!sameSealed(h.pendingThrowawayKey, sealed)) return h
+  const { pendingThrowawayKey: _k, ...rest } = h
+  return rest
+}
+
 export async function getHolding(ctx: Ctx, id: string): Promise<Holding> {
   const h = await ctx.read((t) => t.get('holdings', id))
   if (h === undefined) throw new CashkitError('not_found', `no holding ${id}`, { input: id })
@@ -165,6 +182,12 @@ export function promoteThrowaway(h: Holding): Holding {
   return { ...rest, ...(pendingThrowawayKey !== undefined && { throwawayKey: pendingThrowawayKey }), mode: 'pubkey', protection: 'none' }
 }
 
+const unresolvedMove = (ids: readonly string[]) =>
+  new CashkitError('conflict', `${ids.join(',')} still has an unresolved earlier move; run settle() first. Nothing was changed`, { input: ids.join(',') })
+
+/** An earlier move of this note may have landed: its slot must not be overwritten. */
+const unresolved = (h: Holding) => h.pendingThrowawayKey !== undefined || hasOpenPendingSecret(h)
+
 const isCashNote = (h: Holding) => h.throwawayKey === undefined && h.mode === 'cash' && h.cashSecret !== undefined
 
 /**
@@ -173,12 +196,34 @@ const isCashNote = (h: Holding) => h.throwawayKey === undefined && h.mode === 'c
  * an ambiguous one leaves the park for `settle()`. Returns the moved ids.
  */
 export async function moveCashNotesToKey(ctx: Ctx, ids: readonly string[], priv: string, pub: string): Promise<string[]> {
+  const busy: string[] = []
+  for (const id of ids) {
+    const h = await getHolding(ctx, id)
+    if (isCashNote(h) && unresolved(h)) busy.push(id)
+  }
+  if (busy.length > 0) throw unresolvedMove(busy)
   const sealedKey = await ctx.seal(priv)
   const moved: string[] = []
   for (const id of ids) {
     const h = await getHolding(ctx, id)
     if (!isCashNote(h)) continue
-    const parked = await ctx.commit((t) => updateHolding(t, id, (x) => ({ ...x, pendingThrowawayKey: sealedKey })))
+    let parked: Holding
+    try {
+      parked = await ctx.commit((t) =>
+        updateHolding(
+          t,
+          id,
+          (x) => {
+            if (unresolved(x)) throw unresolvedMove([id])
+            return { ...x, pendingThrowawayKey: sealedKey }
+          },
+          h.version,
+        ),
+      )
+    } catch (err) {
+      await toCashNotes(ctx, moved)
+      throw err instanceof CashkitError ? err : new CashkitError('conflict', 'could not record the merge key before moving a note, so nothing more was moved', { cause: err })
+    }
     let res: CashTransferResult
     try {
       if (parked.amount === undefined) throw new ClientError('no_relay', `${id} has no known amount`)
@@ -186,7 +231,7 @@ export async function moveCashNotesToKey(ctx: Ctx, ids: readonly string[], priv:
     } catch (err) {
       const classified = classifySpendError(err, 'merge', [id])
       if (isNotSent(err) || isDefiniteRefusal(err)) {
-        await ctx.commit((t) => updateHolding(t, id, ({ pendingThrowawayKey: _k, ...x }) => x)).catch(() => undefined)
+        await ctx.commit((t) => updateHolding(t, id, (x) => clearPendingKey(x, sealedKey))).catch(() => undefined)
         await toCashNotes(ctx, moved)
         throw classified
       }
@@ -219,11 +264,21 @@ export async function toCashNotes(ctx: Ctx, ids: readonly string[]): Promise<num
     } catch {
       continue
     }
-    if (h.throwawayKey === undefined || h.status !== 'held' || h.amount === undefined) continue
+    if (h.throwawayKey === undefined || h.status !== 'held' || h.amount === undefined || h.pendingCashSecret !== undefined) continue
     const target = newCashTarget(ctx.random)
     const sealed = await ctx.seal(target.secret)
     try {
-      h = await ctx.commit((t) => updateHolding(t, id, (x) => ({ ...x, pendingCashSecret: sealed })))
+      h = await ctx.commit((t) =>
+        updateHolding(
+          t,
+          id,
+          (x) => {
+            if (x.pendingCashSecret !== undefined) throw new CashkitError('conflict', 'this holding has an unresolved move')
+            return { ...x, pendingCashSecret: sealed }
+          },
+          h.version,
+        ),
+      )
     } catch {
       continue
     }
@@ -232,7 +287,7 @@ export async function toCashNotes(ctx: Ctx, ids: readonly string[]): Promise<num
       const signer = localSigner(hexBytes(await ctx.open(h.throwawayKey!)))
       res = await ctx.client(h.token).cashTransfer({ credential: bySigning(signer), to: target, currentAmount: h.amount! })
     } catch (err) {
-      if (isDefiniteRefusal(err)) await ctx.commit((t) => updateHolding(t, id, ({ pendingCashSecret: _p, ...x }) => x)).catch(() => undefined)
+      if (isDefiniteRefusal(err)) await ctx.commit((t) => updateHolding(t, id, (x) => clearPendingSecret(x, sealed))).catch(() => undefined)
       continue
     }
     await ctx
