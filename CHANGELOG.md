@@ -17,13 +17,17 @@
 - Signs claim proofs with the method (`m`) and, for a consolidate, the
   source-list hash (`s`), and sends a `request_id` on every transfer and
   consolidate.
+  ([#10](https://github.com/ohstr/cashkit/pull/10))
 - Writes a cash note's split remainder ahead under a fresh secret and sends
   its `remainder_commitment`.
+  ([#10](https://github.com/ohstr/cashkit/pull/10))
 - Reads a destroyed bill's tombstone (`status`, `reason`) from any bill
   method and reports it as spent; an expiry of 0 now means never.
+  ([#10](https://github.com/ohstr/cashkit/pull/10))
 - Adds builders and parsers for `mint_cash`, `cash_lookup` and the status
   request, request ids, the redeem fee quote, and `get_info`'s `network`
   and `chain`.
+  ([#10](https://github.com/ohstr/cashkit/pull/10))
 
 ## [0.1.0-rc.2]
 
