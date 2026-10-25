@@ -8,6 +8,7 @@
   bill needs its Cash Zap. ([#8](https://github.com/ohstr/cashkit/pull/8))
 - Refuses a mixed-case bech32 string; an all-uppercase one still decodes.
   ([#8](https://github.com/ohstr/cashkit/pull/8))
+
 ## [0.1.0-rc.2]
 
 - Updates the README shipped with the package: install from npm, and a
