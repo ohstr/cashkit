@@ -11,7 +11,9 @@
 - Decodes and verifies signed `cashhub1`, `cashorder1` and `circlehub1`
   strings (Hub identity, connection signature, chain), and adds the online
   check of `get_info` against them. An unsigned string is refused.
+  ([#9](https://github.com/ohstr/cashkit/pull/9))
 - Adds `sanitizeText` for a lister's display text.
+  ([#9](https://github.com/ohstr/cashkit/pull/9))
 
 ## [0.1.0-rc.2]
 
