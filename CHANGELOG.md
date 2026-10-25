@@ -5,8 +5,9 @@
 - Reads and writes the token's signature scheme (TLV 8) and verifies mint
   provenance over the `cash-mint:v1` and `cash-zap:v1` payloads, which sign
   the relay hints. A copy whose provenance fails is never dialled, and a zap
-  bill needs its Cash Zap.
+  bill needs its Cash Zap. ([#8](https://github.com/ohstr/cashkit/pull/8))
 - Refuses a mixed-case bech32 string; an all-uppercase one still decodes.
+  ([#8](https://github.com/ohstr/cashkit/pull/8))
 ## [0.1.0-rc.2]
 
 - Updates the README shipped with the package: install from npm, and a
