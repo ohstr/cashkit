@@ -47,7 +47,7 @@ export function bech32Decode(s: string): { hrp: string; words: Uint8Array } {
     hasLower ||= c >= 97 && c <= 122
     hasUpper ||= c >= 65 && c <= 90
   }
-  if (hasLower && hasUpper) throw bad('mixed case')
+  if (hasLower && hasUpper) throw new CoreError('mixed_case', 'bech32: mixed case (a string is either all lowercase or all uppercase)')
   const lower = hasUpper ? s.toLowerCase() : s
 
   const one = lower.lastIndexOf('1')

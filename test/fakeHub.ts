@@ -1,8 +1,7 @@
 // An in-memory relay pool and a Hub that serves the private transport over
 // it, with failure injection (design §11.2). Test support only.
-import { secp256k1 } from '@noble/curves/secp256k1.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { encodeToken, finalizeEvent, getPublicKey, mintPayload, signedMessagePrefix, toHex, type NostrEvent } from '../src/core/index.js'
+import { finalizeEvent, getPublicKey, toHex, type NostrEvent } from '../src/core/index.js'
+import { signedToken } from './helpers.js'
 import type { Filter, RelayPool, SubscriptionHandlers } from '../src/client/index.js'
 import {
   checkFreshness,
@@ -252,20 +251,19 @@ export class FakeHub {
     identityRequired?: boolean
   }): string {
     const wallet = getPublicKey(p.walletKey)
-    const digest = sha256(sha256(new TextEncoder().encode(signedMessagePrefix('lokicash')! + mintPayload('lokicash', wallet, p.amount))))
-    const sig = secp256k1.sign(digest, this.nodeKey, { prehash: false, format: 'recovered' })
-    const mintSignature = Uint8Array.of(31 + sig[0]!, ...sig.subarray(1))
     this.bills.set(wallet, getPublicKey(p.connSecret))
-    return encodeToken({
-      hrp: 'lokicash',
-      walletPubkey: wallet,
-      secret: toHex(p.connSecret),
-      relays: p.relays ?? this.relayUrls,
-      mintSignature,
-      attestedAmountMillis: p.amount,
-      ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }),
-      ...(p.identityRequired !== undefined && { identityRequired: p.identityRequired }),
-    })
+    return signedToken(
+      {
+        hrp: 'lokicash',
+        walletPubkey: wallet,
+        secret: toHex(p.connSecret),
+        relays: p.relays ?? this.relayUrls,
+        amount: p.amount,
+        ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }),
+        ...(p.identityRequired !== undefined && { identityRequired: p.identityRequired }),
+      },
+      this.nodeKey,
+    )
   }
 }
 

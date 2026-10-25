@@ -21,7 +21,7 @@ describe('sniff', () => {
     expect(sniff('  nostr+walletconnect://abc')).toBe('nwc_uri')
   })
   test('cash token (TestSniff_CashToken)', () => {
-    expect(sniff(encodeToken({ hrp: 'lokicash', walletPubkey: pk, secret: sk, relays: ['wss://relay.example'] }))).toBe('cash_token')
+    expect(sniff(encodeToken({ hrp: 'lokicash', walletPubkey: pk, secret: sk, relays: ['wss://relay.example'], scheme: 'mint_v1', mintSignature: new Uint8Array(65).fill(1), attestedAmountMillis: 1n }))).toBe('cash_token')
   })
   test('any other HRP is a cash token too', () => {
     expect(sniff(bech32Encode('xyzcash', toWords(new Uint8Array(8))))).toBe('cash_token')

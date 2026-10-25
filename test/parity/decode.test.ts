@@ -111,6 +111,7 @@ function corpus(): [string, string][] {
         walletPubkey: c.walletPubkey,
         secret: '33'.repeat(32),
         relays: ['wss://r.example'],
+        scheme: 'mint_v1',
         mintSignature: fromHex(c.mintSignature),
         attestedAmountMillis: BigInt(c.attestedAmountMillis),
       }),

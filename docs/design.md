@@ -101,17 +101,28 @@ tools/export-vectors/   Go module that imports nmilat and writes vectors/
 
 A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
 
-- **TLV strings.** Covers the token (types 0–7), `cashhub1` and `circlehub1`
+- **TLV strings.** Covers the token (types 0–8), `cashhub1` and `circlehub1`
   (0/1/2 plus 3 = label) and `nconnection1`.
   - Decoding MUST apply no length limit and MUST accept a bech32 or a
     bech32m checksum, matching go-flokicoin's `bech32.DecodeNoLimit`.
     Encoding always writes bech32. `@scure/base`'s `bech32.decode` refuses
-    bech32m, so `core/bech32.ts` implements the framing itself.
-  - Unknown TLV types are ignored.
+    bech32m, so `core/bech32.ts` implements the framing itself. An
+    all-uppercase string decodes as its lowercase form; a mixed-case one is
+    refused (`CoreError` `mixed_case`).
+  - Unknown TLV types (4 included) are ignored; entries decode in any order.
   - A duplicate or wrong-length pubkey, secret or identity_required is
-    fatal.
-  - A malformed 5/6 pair (mint signature, attested amount) or a malformed 7
-    (hub group) is dropped silently. Source: `nmilat/nipcash/token.go`.
+    fatal, and so is a token with no usable relay hint.
+  - `Token.scheme` says what the mint signature signs: `mint_v1` (TLV 8 = 1),
+    `zap_v1` (2), `malformed` (TLV 8 absent, wrong-length, repeated or
+    unknown, or TLV 5/6 unpaired or malformed) or `none` (no 5/6). Only the
+    first two carry `mintSignature`/`attestedAmountMillis`; a malformed one
+    still decodes. A malformed 7 (hub group) is dropped silently.
+  - `Token.relays` holds only the hints a client dials (non-blank printable
+    ASCII), in encoded order; `Token.relayBytes` keeps every TLV 1 exactly
+    as encoded, for the relay hash.
+  - `encodeToken` writes entries in ascending type order (TLV 8 last) and
+    refuses a token without provenance and a scheme, an empty or non-ASCII
+    hint, and a wrong-length hub group. Source: `nmilat/nipcash/token.go`.
 - **`<token>#<cash_secret>`.** Split on the first `#`, as
   `SplitCashSliceString` does. The combined string is secret-bearing (§10).
 - **Hub group.** `HubGroupFor(hub)` is `sha256(utf8(hex(hub)))[:4]`. It
@@ -130,13 +141,24 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
   - Tokens delivered to the claimant are NIP-44 decrypted with
     ECDH(own priv, new wallet pubkey).
 - **Provenance.**
-  - The payload is `lokicash-mint:v1:<hrp>:<wallet>:<amount>`, prefixed by
-    `Flokicoin Lightning Signed Message:` (lokicash) or
-    `Lightning Signed Message:` (satscash).
-  - It is signed as a 65-byte recoverable compact ECDSA signature over
-    `sha256d`.
-  - `verifyProvenance(token)` returns the compressed minter key or
-    `undefined`.
+  - Scheme 1 signs `cash-mint:v1:<hrp>:<wallet>:<amount>:<relay_hash>`;
+    scheme 2 (a zap bill) signs `cash-zap:v1:…:<relay_hash>:pubkey/<recipient>:pubkey/<sender>:<target_hash>:<issued_at>:<expires_at>`.
+    The labels are the same for every HRP. `relay_hash` (`relayHashOf`) is
+    the sha256 of every TLV 1 as encoded, each after its 1-byte length, then
+    the 32-byte secret.
+  - The digest is `sha256d(prefix ‖ payload)`, the prefix chosen from the
+    token's HRP through `CHAIN_TABLE` (`satscash` → `bitcoin` →
+    `Lightning Signed Message:`, plus implementation-local rows). An HRP
+    with no row decodes with no provenance.
+  - It is a 65-byte recoverable compact ECDSA signature; a header of 27..34
+    or a raw recid 0..3 is accepted.
+  - `verifyProvenance(token)` returns `{minter, xonly}` for scheme 1, or
+    `undefined`. A zap bill needs its Cash Zap's fields
+    (`verifyZapProvenance`); without them `CashClient` fails `no_zap_event`
+    before contacting any relay. `sameMinter` compares x-only.
+  - Among copies of one bill, `selectVerifiedCopy` keeps only one whose
+    provenance recovers the trusted minter; a failing copy's hints are never
+    dialled.
 - **NIP-47 messages and pairing URI**, and **NIP-CW** `create_circle_wallet`
   request/response, including decrypting `encrypted_details`.
 - **NIP-44 plaintext length.** 1 to 2^32−1 bytes, with the extended length

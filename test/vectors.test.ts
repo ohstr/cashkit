@@ -13,10 +13,8 @@ import {
   encodeCashHubConnection,
   encodeCircleHubConnection,
   encodeNConnection,
-  encodeToken,
   fromHex,
   hubGroupFor,
-  mintPayload,
   newConnectionKey,
   nip04,
   nip44,
@@ -26,7 +24,6 @@ import {
   signedMessagePrefix,
   splitCashString,
   toHex,
-  verifyProvenance,
   buildPairingURI,
   createCircleWalletRequest,
   decodeNaddr,
@@ -97,19 +94,6 @@ function tokenToJSON(t: Token) {
   }
 }
 
-function tokenFromJSON(j: Json): Token {
-  return {
-    hrp: j.hrp,
-    walletPubkey: j.walletPubkey,
-    secret: j.secret,
-    relays: j.relays ?? [],
-    ...(j.identityRequired !== null && j.identityRequired !== undefined && { identityRequired: j.identityRequired }),
-    ...(j.mintSignature != null && { mintSignature: fromHex(j.mintSignature) }),
-    ...(j.attestedAmountMillis != null && { attestedAmountMillis: BigInt(j.attestedAmountMillis) }),
-    ...(j.hubGroup != null && { hubGroup: fromHex(j.hubGroup) }),
-  }
-}
-
 const hubToJSON = (c: HubConnection) => ({ ...c, relays: [...c.relays] })
 const ncToJSON = (c: NConnection) => ({ ...c, relays: [...c.relays] })
 
@@ -121,20 +105,29 @@ const decoders: Record<string, (s: string) => unknown> = {
 }
 
 const encoders: Record<string, (f: Json) => string> = {
-  token: (f) => encodeToken(tokenFromJSON(f)),
   cashhub: (f) => encodeCashHubConnection({ ...f, relays: f.relays ?? [] }),
   circlehub: (f) => encodeCircleHubConnection({ ...f, relays: f.relays ?? [] }),
   nconnection: (f) => encodeNConnection({ ...f, relays: f.relays ?? [] }),
 }
 
+// The pinned tlv.json and provenance.json predate the signature scheme (TLV 8),
+// the `cash-mint:v1` payload and usable-only relay hints. Until they are
+// regenerated, a token case checks only what those rules leave unchanged
+// (decodes or not, and its other fields); test/token.test.ts and
+// test/provenance.test.ts cover the rest from the NIP's own vectors.
+// A token whose only hint is not ASCII has no usable relay: refused now.
+const NOW_REFUSED = new Set(['relay of U+FEFF only is not blank'])
+const stableTokenFields = ({ relays: _r, mintSignature: _m, attestedAmountMillis: _a, ...rest }: Record<string, unknown>) => rest
+
 describe('tlv.json', () => {
   const v = load('tlv.json')
   test.each(named(v.decode, (c) => `decode ${c.kind}: ${c.name}`))('%s', (_: string, c: Json) => {
     const decode = decoders[c.kind]!
-    if (c.error) expect(() => decode(c.input)).toThrow()
+    if (c.error || (c.kind === 'token' && NOW_REFUSED.has(c.name))) expect(() => decode(c.input)).toThrow()
+    else if (c.kind === 'token') expect(stableTokenFields(decode(c.input) as Record<string, unknown>)).toEqual(stableTokenFields(c.want))
     else expect(decode(c.input)).toEqual(c.want)
   })
-  test.each(named(v.encode, (c) => `encode ${c.kind}: ${c.name}`))('%s', (_: string, c: Json) => {
+  test.each(named(v.encode.filter((c: Json) => c.kind !== 'token'), (c) => `encode ${c.kind}: ${c.name}`))('%s', (_: string, c: Json) => {
     const encode = encoders[c.kind]!
     if (c.error) expect(() => encode(c.fields)).toThrow()
     else expect(encode(c.fields)).toBe(c.output)
@@ -162,20 +155,8 @@ describe('cash-string.json', () => {
 
 describe('provenance.json', () => {
   const v = load('provenance.json')
-  test.each(named(v.mintPayload, (c) => c.payload))('mintPayload %s', (_: string, c: Json) => {
-    expect(mintPayload(c.hrp, c.walletPubkey, BigInt(c.amountMillis))).toBe(c.payload)
-  })
   test.each(named(v.signedMessagePrefix, (c) => JSON.stringify(c.hrp)))('prefix %s', (_: string, c: Json) => {
     expect(signedMessagePrefix(c.hrp) ?? null).toBe(c.prefix)
-  })
-  test.each(named(v.verify, (c) => c.name))('verify: %s', (_: string, c: Json) => {
-    const got = verifyProvenance({
-      hrp: c.hrp,
-      walletPubkey: c.walletPubkey,
-      ...(c.mintSignature !== null && { mintSignature: fromHex(c.mintSignature) }),
-      ...(c.attestedAmountMillis !== null && { attestedAmountMillis: BigInt(c.attestedAmountMillis) }),
-    })
-    expect(got ?? null).toBe(c.minter)
   })
 })
 

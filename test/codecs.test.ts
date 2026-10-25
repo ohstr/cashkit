@@ -28,8 +28,13 @@ const token = (over: Partial<Token> = {}): Token => ({
   walletPubkey: KEY_HEX,
   secret: SECRET_HEX,
   relays: [RELAY],
+  scheme: 'mint_v1',
+  mintSignature: fill(1, 65),
+  attestedAmountMillis: 21000n,
   ...over,
 })
+/** What a decoder returns beside the fields given: the raw relay hints. */
+const decoded = (t: Token) => ({ ...t, relays: [...t.relays], relayBytes: t.relays.map((r) => new TextEncoder().encode(r)) })
 
 describe('bech32 framing', () => {
   test('encode then decode round-trips any HRP and payload', () => {
@@ -89,13 +94,14 @@ describe('cash token', () => {
       hubGroup: hubGroupFor('cd'.repeat(32)),
     })
     const back = decodeToken(encodeToken(t))
-    expect(back).toEqual({ ...t, relays: [...t.relays] })
+    expect(back).toEqual(decoded(t))
     expect(hasProvenance(back)).toBe(true)
+    expect(decodeToken(encodeToken({ ...t, scheme: 'zap_v1' })).scheme).toBe('zap_v1')
   })
   test('optional fields are absent, not undefined-valued, when missing', () => {
     const back = decodeToken(encodeToken(token()))
-    expect(new Set(Object.keys(back))).toEqual(new Set(['hrp', 'relays', 'secret', 'walletPubkey']))
-    expect(hasProvenance(back)).toBe(false)
+    expect(new Set(Object.keys(back))).toEqual(new Set(['hrp', 'relays', 'relayBytes', 'secret', 'walletPubkey', 'scheme', 'mintSignature', 'attestedAmountMillis']))
+    expect(hasProvenance(back)).toBe(true)
   })
   test('identity_required false survives (it is not the same as absent)', () => {
     expect(decodeToken(encodeToken(token({ identityRequired: false }))).identityRequired).toBe(false)
@@ -104,15 +110,17 @@ describe('cash token', () => {
     const t = token({ mintSignature: fill(1, 65), attestedAmountMillis: 18446744073709551615n })
     expect(decodeToken(encodeToken(t)).attestedAmountMillis).toBe(18446744073709551615n)
   })
-  test('encode skips blank relays (TestEncoders_SkipBlankRelayEntries)', () => {
-    expect(decodeToken(encodeToken(token({ relays: ['', RELAY, '  '] }))).relays).toEqual([RELAY])
-  })
   test.each<[string, Partial<Token>]>([
     ['no relays', { relays: [] }],
     ['only blank relays', { relays: [' ', '\t'] }],
+    ['a blank relay beside a usable one', { relays: ['', RELAY] }],
+    ['a non-ASCII relay', { relays: ['wss://bücher.example'] }],
+    ['no provenance', { mintSignature: undefined as never, attestedAmountMillis: undefined as never }],
+    ['no scheme', { scheme: 'none' }],
+    ['a malformed scheme', { scheme: 'malformed' }],
     ['a relay over 255 bytes', { relays: ['r'.repeat(256)] }],
-    ['a signature without an amount', { mintSignature: fill(1, 65) }],
-    ['an amount without a signature', { attestedAmountMillis: 1n }],
+    ['a signature without an amount', { attestedAmountMillis: undefined as never }],
+    ['an amount without a signature', { mintSignature: undefined as never }],
     ['a 64-byte signature', { mintSignature: fill(1, 64), attestedAmountMillis: 1n }],
     ['a negative amount', { mintSignature: fill(1, 65), attestedAmountMillis: -1n }],
     ['an amount above uint64', { mintSignature: fill(1, 65), attestedAmountMillis: 1n << 64n }],
@@ -150,9 +158,19 @@ describe('cash token', () => {
     ['short signature', [[5, fill(1, 64)], [6, fill(0, 8)]]],
     ['short amount', [[5, fill(1, 65)], [6, fill(0, 7)]]],
     ['duplicate signature', [[5, fill(1, 65)], [5, fill(1, 65)], [6, fill(0, 8)]]],
+    ['no scheme beside a pair', [[5, fill(1, 65)], [6, fill(0, 8)]]],
+    ['scheme 0', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(0)]]],
+    ['scheme 3', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(3)]]],
+    ['scheme 255', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(255)]]],
+    ['an empty scheme', [[5, fill(1, 65)], [6, fill(0, 8)], [8, new Uint8Array()]]],
+    ['a 2-byte scheme', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(1, 1)]]],
+    ['a repeated scheme, same value', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(1)], [8, Uint8Array.of(1)]]],
+    ['a valid scheme without the pair', [[5, fill(1, 65)], [8, Uint8Array.of(1)]]],
   ])('anomalous provenance is dropped, not fatal: %s', (_, extra) => {
     const t = decodeToken(rawBech32('lokicash', [...BASE, ...extra]))
     expect(hasProvenance(t)).toBe(false)
+    expect(t.scheme).toBe('malformed')
+    expect(t.mintSignature).toBeUndefined()
     expect(t.walletPubkey).toBe(KEY_HEX)
   })
   test.each([
@@ -161,7 +179,7 @@ describe('cash token', () => {
     ['empty', [[7, new Uint8Array()]]],
     ['duplicated', [[7, fill(1, 4)], [7, fill(1, 4)]]],
   ] as [string, Parameters<typeof rawBech32>[1]][])('an anomalous hub group is dropped, the rest kept: %s', (_, extra) => {
-    const t = decodeToken(rawBech32('lokicash', [...BASE, [5, fill(1, 65)], [6, fill(0, 8)], ...extra]))
+    const t = decodeToken(rawBech32('lokicash', [...BASE, [5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(1)], ...extra]))
     expect(t.hubGroup).toBeUndefined()
     expect(hasProvenance(t)).toBe(true)
   })
@@ -169,9 +187,12 @@ describe('cash token', () => {
     const t = decodeToken(rawBech32('lokicash', [[0, fill(0x22, 32)], [4, Uint8Array.of(1, 2, 3)], [1, RELAY], [200, 'future'], [2, fill(0x33, 32)], [99, new Uint8Array()], [255, fill(0xee, 40)]]))
     expect(t.relays).toEqual([RELAY])
   })
-  test('decode keeps blank relays beside a usable one, and a leading BOM', () => {
-    expect(decodeToken(rawBech32('lokicash', [...BASE, [1, ' ']])).relays).toEqual([RELAY, ' '])
-    expect(decodeToken(rawBech32('lokicash', [...BASE, [1, '﻿wss://x']])).relays[1]).toBe('﻿wss://x')
+  test('decode skips a blank or non-ASCII relay beside a usable one, and keeps its raw bytes', () => {
+    const t = decodeToken(rawBech32('lokicash', [...BASE, [1, ' '], [1, '\uFEFFwss://x'], [1, Uint8Array.of(0xff)]]))
+    expect(t.relays).toEqual([RELAY])
+    expect(t.relayBytes).toHaveLength(4)
+    expect(t.relayBytes![3]).toEqual(Uint8Array.of(0xff))
+    expect(t.scheme).toBe('none')
   })
   test('any HRP decodes as a token', () => {
     expect(decodeToken(rawBech32('xyzcash', BASE)).hrp).toBe('xyzcash')

@@ -2,6 +2,7 @@
 // nmilat's encodeTLVs build them, so malformed inputs can be produced.
 import { bech32Encode, toWords } from '../src/core/bech32.js'
 import { concatBytes, utf8 } from '../src/core/bytes.js'
+import { encodeToken, mintPayloadV1, relayHashOf, signCompact, signedMessageDigest, type TokenFields } from '../src/core/index.js'
 
 export type RawTLV = [type: number, value: Uint8Array | string]
 
@@ -42,4 +43,15 @@ export function invoice(amountMillis?: bigint, hashByte = 0x42): string {
   const words = Uint8Array.from([...fill(0, 7), 1, hash.length >> 5, hash.length & 31, ...hash, ...fill(0, 104)])
   const amount = amountMillis === undefined ? '' : `${amountMillis * 10n}p`
   return bech32Encode(`lnfc${amount}`, words)
+}
+
+/** The fixture minter key (nmilat LocalMintSigner). */
+export const MINT_KEY = fill(0x11, 32)
+
+/** A scheme-1 token signed by `key`, as a Hub mints it. */
+export function signedToken(f: Omit<TokenFields, 'scheme' | 'mintSignature' | 'attestedAmountMillis'> & { readonly amount?: bigint }, key: Uint8Array = MINT_KEY): string {
+  const { amount = 21000n, ...rest } = f
+  const payload = mintPayloadV1({ hrp: f.hrp, walletPubkey: f.walletPubkey, amountMillis: amount, relayHash: relayHashOf(f.relays.map(utf8), f.secret) })
+  const mintSignature = signCompact(signedMessageDigest(f.hrp, payload)!, key)
+  return encodeToken({ ...rest, scheme: 'mint_v1', mintSignature, attestedAmountMillis: amount })
 }

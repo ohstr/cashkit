@@ -2,6 +2,7 @@
 export type CoreErrorCode =
   | 'invalid_hex'
   | 'invalid_bech32'
+  | 'mixed_case'
   | 'invalid_tlv'
   | 'invalid_field'
   | 'invalid_key'

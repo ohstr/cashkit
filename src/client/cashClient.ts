@@ -9,7 +9,6 @@ import {
   decodeToken,
   isSpent,
   matchClaimAuto,
-  verifyProvenance,
   type CashConsolidateResult,
   type CashRedeemResult,
   type CashStatusResult,
@@ -19,8 +18,9 @@ import {
   type Credential,
   type Target,
   type Token,
+  type ZapFields,
 } from '../core/index.js'
-import { billFor, type Bill } from './bill.js'
+import { billFor, minterOf, type Bill } from './bill.js'
 import { ClientError, PartialProgressError, WalletError } from './errors.js'
 import {
   consolidateMany,
@@ -89,12 +89,17 @@ export class CashClient {
   readonly bill: Bill
   private sessionPromise: Promise<BatchSession> | undefined
 
+  /**
+   * `zap` carries a zap bill's Cash Zap fields: without them its provenance
+   * cannot verify, and the client refuses to contact any relay.
+   */
   constructor(
     private readonly deps: ClientDeps,
     token: Token | string,
+    private readonly zap?: ZapFields,
   ) {
     this.token = typeof token === 'string' ? decodeToken(token) : token
-    this.bill = billFor(this.token)
+    this.bill = billFor(this.token, zap)
   }
 
   get walletPubkey(): string {
@@ -106,11 +111,14 @@ export class CashClient {
   /** The bill's Hub session, opened on first use and reused. */
   session(): Promise<BatchSession> {
     if (this.sessionPromise === undefined) {
-      const minter = verifyProvenance(this.token)
-      if (minter === undefined) {
-        return Promise.reject(new ClientError('bad_input', 'this bill carries no verifiable mint signature, so its hub cannot be identified'))
+      if (this.token.scheme === 'zap_v1' && this.zap === undefined) {
+        return Promise.reject(new ClientError('no_zap_event', "this is a zap bill: its mint signature verifies only with the Cash Zap that carries it, so its hub cannot be identified without it"))
       }
-      this.sessionPromise = BatchSession.open(this.deps, minter, this.token.relays).catch((err: unknown) => {
+      const minter = minterOf(this.token, this.zap)
+      if (minter === undefined) {
+        return Promise.reject(new ClientError('no_provenance', 'this bill carries no verifiable mint signature, so its hub cannot be identified'))
+      }
+      this.sessionPromise = BatchSession.open(this.deps, minter.minter, this.token.relays).catch((err: unknown) => {
         this.sessionPromise = undefined
         throw err
       })
@@ -181,7 +189,7 @@ export class CashClient {
     const row = matchClaimAuto(result.recipients, asPubkey)
     if (row === undefined) throw new ClientError('claim_not_found', 'no matching, unclaimed recipient on this hub')
     const full = result.recipients.find((r) => r === row)!
-    const minter = verifyProvenance(this.token)
+    const minter = minterOf(this.token, this.zap)?.minter
     return {
       isCash: row.identity_type === 'cash',
       amountMillis: row.amount_millis,

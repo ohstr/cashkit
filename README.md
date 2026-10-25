@@ -334,7 +334,7 @@ import { decodeToken, sniff, splitCashString, verifyProvenance } from '@ohstr/ca
 const { token, cashSecret } = splitCashString(pasted)
 if (sniff(token) === 'cash_token') {
   const t = decodeToken(token)
-  console.log(t.walletPubkey, t.relays, 'minted by', verifyProvenance(t) ?? 'unknown')
+  console.log(t.walletPubkey, t.relays, 'minted by', verifyProvenance(t)?.minter ?? 'unknown')
 }
 ```
 

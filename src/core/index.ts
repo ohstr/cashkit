@@ -8,7 +8,10 @@ export {
   encodeToken,
   hasProvenance,
   MINT_SIGNATURE_LEN,
+  T_SIGNATURE_SCHEME,
   type Token,
+  type TokenFields,
+  type TokenScheme,
 } from './token.js'
 export {
   CASH_HUB_HRP,
@@ -23,11 +26,29 @@ export { decodeNConnection, encodeNConnection, NCONNECTION_HRP, type NConnection
 export { joinCashString, splitCashString } from './cashString.js'
 export { HUB_GROUP_LEN, hubGroupFor, sameHubGroup } from './hubGroup.js'
 export {
-  FLND_SIGNED_MESSAGE_PREFIX,
+  CHAIN_TABLE,
+  chainForHrp,
   LND_SIGNED_MESSAGE_PREFIX,
-  mintPayload,
+  MINT_LABEL_V1,
+  mintPayloadV1,
+  needsZapEvent,
+  provenancePayload,
+  recoverCompact,
+  recoveryId,
+  relayHash,
+  relayHashOf,
+  sameMinter,
+  signCompact,
+  signedMessageDigest,
   signedMessagePrefix,
   verifyProvenance,
+  verifyZapProvenance,
+  ZAP_LABEL_V1,
+  zapPayloadV1,
+  zapTargetHash,
+  type Minter,
+  type MintPayloadFields,
+  type ZapFields,
 } from './provenance.js'
 export { connectionKeyFromSecret, newConnectionKey, type ConnectionKeyPair } from './connectionKey.js'
 export { decodeBolt11, type Bolt11Invoice } from './bolt11.js'

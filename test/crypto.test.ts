@@ -1,4 +1,4 @@
-// Unit tests for provenance, connection keys and NIP-44. Cases follow
+// Unit tests for connection keys and NIP-44. Cases follow
 // cashctl cmd/decode_provenance_test.go, nmilat nipcash/{kat,provenance}_test.go,
 // nipcw/connection_key_kat_test.go and nip44/auditC_qa_kat_test.go.
 import { chacha20 } from '@noble/ciphers/chacha.js'
@@ -9,90 +9,11 @@ import { base64 } from '@scure/base'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, test } from 'vitest'
 import { concatBytes, utf8 } from '../src/core/bytes.js'
-import {
-  connectionKeyFromSecret,
-  CoreError,
-  decodeToken,
-  fromHex,
-  mintPayload,
-  newConnectionKey,
-  nip44,
-  signedMessagePrefix,
-  toHex,
-  verifyProvenance,
-} from '../src/core/index.js'
-import { BASE, fill, rawBech32 } from './helpers.js'
-
-const KAT_MINTER = '034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa'
-const KAT_SIG = fromHex(
-  '20c72cfbb8e8566000d6d90904c0c04fd047ce066dd599ede34c84dfb314f3126709ad9a50800f285c90a9683f8282b268a8bb85f8b7a9599f9b4482cbfd83b508',
-)
-const WALLET = '22'.repeat(32)
-
-/** Signs like a Lightning node's signmessage: header 31 + recovery, r, s. */
-function signMint(secret: Uint8Array, hrp: string, wallet: string, amount: bigint): Uint8Array {
-  const digest = sha256(sha256(utf8(signedMessagePrefix(hrp)! + mintPayload(hrp, wallet, amount))))
-  const sig = secp256k1.sign(digest, secret, { prehash: false, format: 'recovered' })
-  return concatBytes(Uint8Array.of(31 + sig[0]!), sig.subarray(1))
-}
+import { connectionKeyFromSecret, CoreError, fromHex, newConnectionKey, nip44, toHex } from '../src/core/index.js'
+import { fill } from './helpers.js'
 
 const pub = (s: Uint8Array) => toHex(secp256k1.getPublicKey(s, true).subarray(1))
 
-const amountTLV = (m: bigint) => {
-  const b = new Uint8Array(8)
-  new DataView(b.buffer).setBigUint64(0, m)
-  return b
-}
-
-describe('provenance', () => {
-  test('mint payload scheme (TestKAT_MintProvenance)', () => {
-    expect(mintPayload('lokicash', WALLET, 21000n)).toBe(`lokicash-mint:v1:lokicash:${WALLET}:21000`)
-  })
-  test('the KAT token decodes and verifies end to end (TestDecode_KATProvenanceVerifies)', () => {
-    const t = decodeToken(rawBech32('lokicash', [[0, fill(0x22, 32)], ...BASE.slice(1), [5, KAT_SIG], [6, amountTLV(21000n)]]))
-    expect(verifyProvenance(t)).toBe(KAT_MINTER)
-  })
-  test('a signature made here verifies, for both prefixes', () => {
-    const secret = fill(7, 32)
-    const minter = toHex(secp256k1.getPublicKey(secret, true))
-    for (const hrp of ['lokicash', 'satscash']) {
-      const sig = signMint(secret, hrp, WALLET, 5000n)
-      expect(verifyProvenance({ hrp, walletPubkey: WALLET, mintSignature: sig, attestedAmountMillis: 5000n })).toBe(minter)
-    }
-  })
-  // TestDecode_BadMintSignatureIsNeverValid: unrecoverable → no minter.
-  test.each<[string, (s: Uint8Array) => void, string?]>([
-    ['recovery byte out of range', (s) => (s[0] = 0)],
-    ['r is zero', (s) => s.fill(0, 1, 33)],
-    ['s is zero', (s) => s.fill(0, 33)],
-    ['r beyond the curve order', (s) => s.fill(0xff, 1, 33)],
-    ['unknown HRP, no prefix', () => {}, 'xyzcash'],
-  ])('never valid: %s', (_, mutate, hrp = 'lokicash') => {
-    const sig = KAT_SIG.slice()
-    mutate(sig)
-    expect(verifyProvenance({ hrp, walletPubkey: WALLET, mintSignature: sig, attestedAmountMillis: 21000n })).toBeUndefined()
-  })
-  // Tampered tokens recover some key, never the real minter.
-  test.each<[string, string, bigint, (s: Uint8Array) => void]>([
-    ['amount raised', WALLET, 21001n, () => {}],
-    ['other wallet', '23'.repeat(32), 21000n, () => {}],
-    ['signature bit flip', WALLET, 21000n, (s) => (s[64]! ^= 1)],
-  ])('tampered (%s) never names the real minter', (_, wallet, amount, mutate) => {
-    const sig = KAT_SIG.slice()
-    mutate(sig)
-    expect(verifyProvenance({ hrp: 'lokicash', walletPubkey: wallet, mintSignature: sig, attestedAmountMillis: amount })).not.toBe(KAT_MINTER)
-  })
-  test('no provenance, or half of it, is undefined', () => {
-    expect(verifyProvenance({ hrp: 'lokicash', walletPubkey: WALLET })).toBeUndefined()
-    expect(verifyProvenance({ hrp: 'lokicash', walletPubkey: WALLET, mintSignature: KAT_SIG })).toBeUndefined()
-    expect(verifyProvenance({ hrp: 'lokicash', walletPubkey: WALLET, attestedAmountMillis: 1n })).toBeUndefined()
-  })
-  test('only lokicash and satscash have a prefix; lookups are own-property only', () => {
-    expect(signedMessagePrefix('lokicash')).toBe('Flokicoin Lightning Signed Message:')
-    expect(signedMessagePrefix('satscash')).toBe('Lightning Signed Message:')
-    expect(signedMessagePrefix('constructor')).toBeUndefined()
-  })
-})
 
 describe('connection keys', () => {
   test('NIP-IC key is sha256(platform:id) (TestKAT_ConnectionKey)', () => {

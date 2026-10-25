@@ -20,6 +20,10 @@ export type ClientErrorCode =
   | 'signer_too_slow'
   /** A join that required the private transport could not use it. Nothing was sent. */
   | 'private_join_unavailable'
+  /** A zap bill's provenance needs its Cash Zap's fields, which were not given. Nothing was sent. */
+  | 'no_zap_event'
+  /** The token carries no mint signature that verifies, so its Hub cannot be identified. Nothing was sent. */
+  | 'no_provenance'
 
 export class ClientError extends Error {
   override readonly name: string = 'ClientError'

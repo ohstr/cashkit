@@ -1,8 +1,7 @@
 // Which bill a batch item acts on, and the secret that proves it is held.
 // Port of nmilat nipcash/client/bill.go: the two halves come from one token
 // and cannot be supplied separately.
-import { fromHex, verifyProvenance, type Token } from '../core/index.js'
-import { normalizeNodeIdentity } from '../transport/index.js'
+import { fromHex, sameMinter, verifyProvenance, verifyZapProvenance, type Minter, type Token, type ZapFields } from '../core/index.js'
 import { ClientError } from './errors.js'
 
 export interface Bill {
@@ -14,18 +13,27 @@ export interface Bill {
   readonly node?: string
 }
 
+/** The minter a token's provenance recovers: scheme 1 alone, scheme 2 with its Cash Zap's fields. */
+export function minterOf(token: Token, zap?: ZapFields): Minter | undefined {
+  return token.scheme === 'zap_v1' ? (zap !== undefined ? verifyZapProvenance(token, zap) : undefined) : verifyProvenance(token)
+}
+
 /** The bill a token describes. */
-export function billFor(token: Token): Bill {
-  const minter = verifyProvenance(token)
-  let node: string | undefined
-  if (minter !== undefined) {
-    try {
-      node = normalizeNodeIdentity(minter)
-    } catch {
-      node = undefined
-    }
-  }
+export function billFor(token: Token, zap?: ZapFields): Bill {
+  const node = minterOf(token, zap)?.xonly
   return { ...billFromParts(token.walletPubkey, token.secret), ...(node !== undefined && { node }) }
+}
+
+/**
+ * The first copy of a bill whose provenance recovers `trustedMinter`
+ * (compared x-only), or undefined. A copy that fails is never dialled: its
+ * relay hints are unverified.
+ */
+export function selectVerifiedCopy<T extends Token>(copies: readonly T[], trustedMinter: string, zap?: ZapFields): T | undefined {
+  return copies.find((t) => {
+    const m = minterOf(t, zap)
+    return m !== undefined && sameMinter(m.minter, trustedMinter)
+  })
 }
 
 /** A bill from pairing data (a raw pairing URI carries no token around them). */

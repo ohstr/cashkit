@@ -2,7 +2,7 @@
 // (design §2.3). Stateless about the wallet.
 export type { ClientDeps, Filter, RelayPool, SubscriptionHandlers } from './ports.js'
 export { ClientError, fallbackReasonOf, NotServedError, PartialProgressError, PrivateJoinUnavailableError, WalletError, type ClientErrorCode } from './errors.js'
-export { billFor, billFromParts, checkBill, type Bill } from './bill.js'
+export { billFor, billFromParts, checkBill, minterOf, selectVerifiedCopy, type Bill } from './bill.js'
 export {
   joinOutcomes,
   notServedOutcomes,

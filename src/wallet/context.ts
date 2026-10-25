@@ -197,6 +197,6 @@ export class Ctx {
 /** Token facts every holding row carries. */
 export function tokenFacts(token: string): { tok: Token; minterPubkey?: string; hubGroup: string } {
   const tok = decodeToken(token)
-  const minter = verifyProvenance(tok)
+  const minter = verifyProvenance(tok)?.minter
   return { tok, ...(minter !== undefined && { minterPubkey: minter }), hubGroup: tok.hubGroup !== undefined ? toHex(tok.hubGroup) : '' }
 }
