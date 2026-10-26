@@ -47,13 +47,17 @@
   (`deadlineFor`); `notAfterSeconds` is replaced by `replyWaitMs`, which only
   shortens the wait. A Hub without a usable `max_request_age` takes no
   bill-creating call.
+  ([#12](https://github.com/ohstr/cashkit/pull/12))
 - Adds a write-ahead hook to `BatchSession.send` (`beforePublish`, with a
   20 s margin and `singleEnvelope`) and returns the relays that accepted a
   request.
+  ([#12](https://github.com/ohstr/cashkit/pull/12))
 - Publishes to the announced relays first, then the bill's hints, and reads
   the announcement from the hints only.
+  ([#12](https://github.com/ohstr/cashkit/pull/12))
 - Keeps every decided outcome of a malformed or incomplete reply, marks an
   item answered twice `conflicted`, and adds `classifyCall`.
+  ([#12](https://github.com/ohstr/cashkit/pull/12))
 
 ## [0.1.0-rc.2]
 
