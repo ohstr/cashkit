@@ -120,6 +120,8 @@ export interface RequestInfo {
   readonly signer: string | undefined
   /** The bill proof's signer: the bill's connection pubkey. */
   readonly billSigner: string
+  /** The envelope's not_after: the call's deadline. */
+  readonly notAfter: number
 }
 
 export interface Faults {
@@ -223,7 +225,7 @@ export class FakeHub {
         const known = this.bills.get(item.target)
         if (known !== undefined && known !== billSigner) continue // not the bill's key: omit
         const signer = hasProof(item) ? verifyItemProof(item.proof ?? '', binding, now) : undefined
-        info = { item, params: JSON.parse(item.params ?? '{}'), signer, billSigner }
+        info = { item, params: JSON.parse(item.params ?? '{}'), signer, billSigner, notAfter: envelope.notAfter }
       } catch {
         continue // an unverifiable item is omitted
       }

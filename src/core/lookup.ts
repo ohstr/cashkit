@@ -49,7 +49,8 @@ export function parseCashLookupResult(v: unknown): CashLookupResult {
       if (o['result'] === undefined || o['result'] === null || typeof o['result'] !== 'object') throw badResult('done carries the original result')
       return { status: 'done', result: o['result'] }
     case 'pending': {
-      const r = o['retry_after']
+      const raw = o['retry_after']
+      const r = typeof raw === 'bigint' && raw >= 0n && raw <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(raw) : raw
       if (typeof r !== 'number' || !Number.isSafeInteger(r) || r < 0) throw badResult('pending carries retry_after')
       return { status: 'pending', retryAfter: r }
     }

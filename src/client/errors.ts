@@ -30,6 +30,12 @@ export type ClientErrorCode =
   | 'deadline_too_close'
   /** The items do not fit the one envelope the caller required. Nothing was sent. */
   | 'single_envelope_required'
+  /** Not a connection string of the expected kind, or a malformed one. Nothing was dialled. */
+  | 'connection_invalid'
+  /** `get_info` names another Hub identity or chain than the connection string. */
+  | 'connection_mismatch'
+  /** The string's signature does not verify, and the user did not confirm it. Nothing was sent. */
+  | 'connection_unverified'
 
 export class ClientError extends Error {
   override readonly name: string = 'ClientError'

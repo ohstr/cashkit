@@ -374,6 +374,7 @@ describe('T-115 lookups (K-DL-1, K-LK-1..7, K-JLK-1)', () => {
   test('statuses', () => {
     expect(parseCashLookupResult({ status: 'done', result: { amount_millis: 1 } })).toEqual({ status: 'done', result: { amount_millis: 1 } })
     expect(parseCashLookupResult({ status: 'pending', retry_after: 7 })).toEqual({ status: 'pending', retryAfter: 7 })
+    expect(parseCashLookupResult({ status: 'pending', retry_after: 7n })).toEqual({ status: 'pending', retryAfter: 7 })
     expect(parseCashLookupResult({ status: 'unknown' })).toEqual({ status: 'unknown' })
     expect(parseCashLookupResult({ status: 'expired' })).toEqual({ status: 'expired' })
     for (const bad of [{ status: 'done' }, { status: 'pending' }, { status: 'gone' }, []]) expect(() => parseCashLookupResult(bad)).toThrow(CoreError)

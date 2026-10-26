@@ -4,7 +4,7 @@
 // describe. Test support only; it trusts the transport layer's proof checks
 // (FakeHub) and adds the per-method identity checks on top.
 import { sha256 } from '@noble/hashes/sha2.js'
-import { fromHex, getPublicKey, hubGroupFor, nip44, toHex, verifyEvent, type NostrEvent } from '../src/core/index.js'
+import { decideLookup, encodeCashHubConnection, finalizeEvent, fromHex, getPublicKey, hubGroupFor, nip44, signCashHubConnection, toHex, verifyEvent, type NostrEvent } from '../src/core/index.js'
 import { FakeHub, type Answer, type MemoryRelayPool, type RequestInfo } from './fakeHub.js'
 
 export type Identity = { readonly type: 'pubkey' | 'connection_key'; readonly value: string } | { readonly type: 'cash'; readonly value: string }
@@ -49,6 +49,16 @@ export class FakeBank {
   override: ((method: string, info: RequestInfo) => Answer | undefined) | undefined
   /** Applies the call but loses the answer: the "landed, reply lost" case. */
   loseReplyFor = new Set<string>()
+  /** Every request_id ever used on this node (NIP-CASH §`request_id`): never dropped. */
+  readonly usedIds = new Set<string>()
+  /** The record of each committed call, by request_id. */
+  readonly records = new Map<string, { readonly target: string; readonly authorizer: string; readonly result: unknown }>()
+  /** Cash Hub connections served over NIP-47, by connection pubkey. */
+  readonly cashHubs = new Map<string, { readonly walletKey: Uint8Array; readonly client: string }>()
+  /** How the Cash Hub connections answer get_info. */
+  cashHubInfo: { pubkey?: string; network?: string | null; chain?: string | null } = {}
+  /** Mints but loses the reply. */
+  loseMintReply = false
 
   constructor(
     pool: MemoryRelayPool,
@@ -116,20 +126,33 @@ export class FakeBank {
   // ---- methods
 
   private handle(method: string, info: RequestInfo): Answer {
+    if (method === 'cash_lookup') return this.lookup(info)
     const w = this.wallets.get(info.item.target)
     if (w === undefined) return 'omit'
     if (w.spent && method === 'cash_status') return { result: { status: 'spent', reason: 'transferred' } }
     if (w.spent) return { error: { code: 'NOT_FOUND', message: 'this slice has already been claimed' } }
     if (w.expiresAt !== undefined && w.expiresAt <= this.now()) return { error: { code: 'EXPIRED', message: 'this cash wallet has expired' } }
+    const idBearing = method === 'cash_transfer' || method === 'cash_consolidate'
+    const rid = info.params['request_id']
+    if (idBearing && (typeof rid !== 'string' || !/^(?:[0-9a-f]{2}){16,32}$/.test(rid))) return { error: { code: 'BAD_REQUEST', message: 'request_id is required' } }
+    if (idBearing && this.usedIds.has(rid as string)) return { error: { code: 'REQUEST_REUSED', message: 'request_id already used' } }
     const denied = this.authenticate(w, info)
     if (denied !== undefined) return denied
+    if (idBearing) this.usedIds.add(rid as string)
+    const record = (a: Answer): Answer => {
+      if (typeof a === 'object' && 'result' in a) {
+        const secret = info.params['cash_secret']
+        this.records.set(rid as string, { target: info.item.target, authorizer: info.signer ?? (typeof secret === 'string' ? commitment(secret) : ''), result: a.result })
+      }
+      return a
+    }
     switch (method) {
       case 'cash_status':
         return { result: { recipients: [this.row(w)] } }
       case 'cash_transfer':
-        return this.transfer(w, info)
+        return record(this.transfer(w, info))
       case 'cash_consolidate':
-        return this.consolidate(w, info)
+        return record(this.consolidate(w, info))
       case 'cash_redeem':
         return this.redeem(w, info)
       default:
@@ -272,6 +295,96 @@ export class FakeBank {
         ...(expiresAt !== undefined && { expires_at: expiresAt }),
       },
     }
+  }
+
+  /**
+   * cash_lookup (NIP-CASH §Looking Up a Call): served for any target this
+   * node knows, destroyed bills included; a record is answered `done` to its
+   * recorded authorizer and target only; without one the status follows the
+   * deadline. Pure: it changes nothing.
+   */
+  private lookup(info: RequestInfo): Answer {
+    const target = info.item.target
+    if (!this.wallets.has(target) && !this.cashHubs.has(target)) return 'omit'
+    const p = info.params
+    const rid = p['request_id']
+    const deadline = p['deadline']
+    const secret = p['cash_secret']
+    if (typeof rid !== 'string' || typeof deadline !== 'number') return { error: { code: 'BAD_REQUEST', message: 'lookup needs request_id and deadline' } }
+    const rec = this.records.get(rid)
+    if (rec !== undefined) {
+      if (rec.target !== target) return { error: { code: 'UNAUTHORIZED', message: 'not this call' } }
+      const by = info.signer ?? (typeof secret === 'string' ? commitment(secret) : undefined)
+      if (by !== rec.authorizer) return { error: { code: 'UNAUTHORIZED', message: 'not this call' } }
+      return { result: { status: 'done', result: rec.result } }
+    }
+    if (info.signer === undefined && typeof secret === 'string') {
+      const w = this.wallets.get(target)
+      if (w === undefined || w.identity.value !== commitment(secret)) return { error: { code: 'UNAUTHORIZED', message: 'secret does not match' } }
+    }
+    const d = decideLookup({ now: this.now(), deadline, horizon: this.hub.maxRequestAge ?? 300, hasRecord: false })
+    return { result: typeof d === 'string' ? { status: d } : { status: 'pending', retry_after: d.retryAfter } }
+  }
+
+  /**
+   * A Cash Hub connection served over NIP-47 (`get_info`, `mint_cash`), its
+   * `cashhub1` signed by the node identity. Returns the string.
+   */
+  openCashHub(): string {
+    const walletKey = nextKey()
+    const clientSecret = nextKey()
+    const wallet = getPublicKey(walletKey)
+    const client = getPublicKey(clientSecret)
+    this.cashHubs.set(wallet, { walletKey, client })
+    this.hub.bills.set(wallet, client)
+    this.hub.pool.subscribe(this.hub.relayUrls, { kinds: [23194], '#p': [wallet] }, {
+      onEvent: (e: NostrEvent, relay: string) => void this.serveCashHub(e, relay, walletKey),
+      onEose: () => {},
+    })
+    return encodeCashHubConnection(
+      signCashHubConnection({ walletPubkey: wallet, secret: toHex(clientSecret), relays: this.hub.relayUrls, label: 'Fake Cash Hub', hubIdentity: this.hub.node, chain: 'bitcoin' }, this.hub.nodeKey),
+    )
+  }
+
+  private async serveCashHub(e: NostrEvent, relay: string, walletKey: Uint8Array): Promise<void> {
+    const wallet = getPublicKey(walletKey)
+    const hubConn = this.cashHubs.get(wallet)!
+    if (e.pubkey !== hubConn.client || !verifyEvent(e)) return
+    const ck = nip44.getConversationKey(walletKey, e.pubkey)
+    const req = JSON.parse(nip44.decrypt(e.content, ck)) as { method: string; params?: Record<string, unknown> }
+    const answer = this.cashHubAnswer(req.method, req.params ?? {}, e)
+    if (req.method === 'mint_cash' && this.loseMintReply) return
+    const body = JSON.stringify({ result_type: req.method, ...answer }, (_k, v) => (typeof v === 'bigint' ? Number(v) : v))
+    const reply = finalizeEvent({ kind: 23195, created_at: e.created_at, tags: [['p', e.pubkey], ['e', e.id], ['encryption', 'nip44_v2']], content: nip44.encrypt(body, ck) }, walletKey)
+    await this.hub.pool.publish(relay, reply).catch(() => undefined)
+  }
+
+  private cashHubAnswer(method: string, p: Record<string, unknown>, e: NostrEvent): { result?: unknown; error?: { code: string; message: string } } {
+    const i = this.cashHubInfo
+    if (method === 'get_info') {
+      return {
+        result: {
+          pubkey: i.pubkey ?? this.hub.node,
+          ...(i.network !== null && { network: i.network ?? 'mainnet' }),
+          ...(i.chain !== null && { chain: i.chain ?? 'bitcoin' }),
+          methods: ['get_info', 'mint_cash'],
+          private_methods: ['cash_lookup'],
+        },
+      }
+    }
+    if (method !== 'mint_cash') return { error: { code: 'NOT_IMPLEMENTED', message: method } }
+    const rid = p['request_id']
+    if (typeof rid !== 'string' || !/^(?:[0-9a-f]{2}){16,32}$/.test(rid)) return { error: { code: 'BAD_REQUEST', message: 'request_id is required' } }
+    if (this.usedIds.has(rid)) return { error: { code: 'REQUEST_REUSED', message: 'request_id already used' } }
+    this.usedIds.add(rid)
+    const exp = Number(e.tags.find((t) => t[0] === 'expiration')?.[1] ?? NaN)
+    if (!Number.isFinite(exp) || exp < this.now() || exp > this.now() + (this.hub.maxRequestAge ?? 0)) return { error: { code: 'BAD_REQUEST', message: 'expiration is missing or out of range' } }
+    const r = (p['recipients'] as { identity_type: string; identity_value: string; amount_millis: number }[] | undefined)?.[0]
+    if (r === undefined) return { error: { code: 'BAD_REQUEST', message: 'recipients' } }
+    const w = this.mint(BigInt(r.amount_millis), { type: r.identity_type, value: r.identity_value } as Identity)
+    const result = { wallet_pubkey: w.walletPubkey, cash_token: w.token, recipients: [{ identity_type: r.identity_type, identity_value: r.identity_value, amount_millis: r.amount_millis }] }
+    this.records.set(rid, { target: getPublicKey(this.cashHubs.get(e.tags.find((t) => t[0] === 'p')![1]!)!.walletKey), authorizer: e.pubkey, result })
+    return { result }
   }
 
   private redeem(w: BankWallet, info: RequestInfo): Answer {

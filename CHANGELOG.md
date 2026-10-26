@@ -58,6 +58,14 @@
 - Keeps every decided outcome of a malformed or incomplete reply, marks an
   item answered twice `conflicted`, and adds `classifyCall`.
   ([#12](https://github.com/ohstr/cashkit/pull/12))
+- Adds `cash_lookup` clients (`lookupMany`, `lookupOne`) signed by the
+  original call's authorizer, with the two-step lookup of a cash-authorized
+  call.
+- Adds `CashHubClient` for a signed `cashhub1`: the online check on every
+  `get_info`, confirmation of an unverified string, `mint` with a
+  `request_id` and an `expiration`, `lookupMint`, and a `HubView` for display.
+- NWC calls wait for every relay's subscription before publishing, and
+  `get_info` types `pubkey`, `network` and `chain`.
 
 ## [0.1.0-rc.2]
 

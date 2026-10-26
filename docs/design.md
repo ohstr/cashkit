@@ -343,7 +343,24 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
     then split-transfer.
   - `rekeyCashSlice`.
   - Both surface `PartialProgressError { transferred?, consolidated?, cause }`.
-- **`NwcClient`**: `getInfo`, `getBalance`, `makeInvoice`, `payInvoice`,
+- **Lookups** (`lookupMany`, `lookupOne`): a `cash_lookup` item names the
+  original call's target and is signed as that call was authorized (the
+  claim-proof key, the Cash Hub connection's own key for a mint, or a cash
+  secret: first without it, then with it only after `UNAUTHORIZED`). A
+  `REQUEST_REUSED` or an omission is routed as not served, never as
+  `unknown`.
+- **`CashHubClient(deps, cashhub1, {confirmUnverified})`** takes the string
+  only (a URI or any other form is `connection_invalid`, nothing dialled).
+  Every `get_info` read runs the online check (`pubkey` = TLV 4, `chain` =
+  TLV 6, else `connection_mismatch`); an unverified string is used only after
+  that check passed and `confirmUnverified` resolved true, asked once per
+  client. `node()` is TLV 4; `mint` sends `request_id` with the deadline as
+  NIP-47 `expiration` (refused to a Hub without a usable H); `lookupMint`
+  finds a lost mint. `view()` returns a `HubView` (fingerprint, sanitized
+  label, verdict, online state, network, QR form).
+- **`NwcClient`** (subscriptions opened and EOSE awaited, bounded, before the
+  first publish; `call(…, {expiration})` for a deadline): `getInfo` (typing
+  `pubkey`, `network`, `chain`), `getBalance`, `makeInvoice`, `payInvoice`,
   `listTransactions`, `signMessage`. The scheme comes from the wallet's
   kind 13194 info event: `nip44_v2` when listed, `nip04` when the wallet
   lists only that or nothing. Only a reply authored and signed by
