@@ -219,15 +219,28 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
 ### 2.2 transport
 
 A port of `nmilat/nipcash/transport`, which carries every bill method
-(`cash_status`, `cash_redeem`, `cash_transfer`, `cash_consolidate`).
-`mint_cash` and `create_circle_wallet` stay on plain NIP-47, as nmilat's
-circle client sends them.
+(`cash_status`, `cash_redeem`, `cash_withdraw_quote`, `cash_withdraw`,
+`cash_transfer`, `cash_consolidate`), `cash_lookup`, `cash_order` and
+`create_circle_wallet` (an explicit allowlist; `mint_cash` never travels
+here).
 
-- **Envelope** `{v:1, not_after, nonce, reply_to, items, pad}`. Each item is
+- **Envelope** `{not_after, nonce, reply_to, items, pad}` (no version
+  field; responses carry none either). Each item is
   `{id, target, method, params, proof, bill_proof}`. Kinds:
   - 23190 request, 23191 response
   - 23192 item proof, 23193 bill proof
   - 11190 Hub announcement
+- **Bearer shapes** (`bearerShapeOK`): never both `proof` and a
+  `cash_secret`; a proofless `cash_status` or `cash_withdraw_quote` carries
+  no secret (a cash-mode one passes on its bill proof alone, so the client
+  checks a cash secret against the row's commitment instead); a proofless
+  value method carries the secret; a `cash_lookup` or a withdraw cancel
+  request may go either way; every other method needs `proof`. Two items of
+  one envelope never carry the same `request_id`.
+- **Verification budget** (`verificationCost`): the bill proof, the item
+  proof when present, and every signed event in params (`identity_event`,
+  `attestation_event`, `quote`, each source's events); a cash secret costs
+  nothing.
 - **Canonical params hash (`ph`).** The format is nmilat-specific and is not
   stock RFC 8785:
   - Keys are sorted by byte order.
@@ -240,33 +253,48 @@ circle client sends them.
   by canonicalising that exact text with a small tokenizer that keeps number
   tokens verbatim.
 - **Padding.**
-  - The plaintext is padded to a multiple of `pad_bucket_bytes`, measured on
-    cashkit's own serialized bytes.
+  - T is the smallest multiple of `pad_bucket_bytes` at least L, or
+    `max_bytes` when that multiple is larger; only L above `max_bytes` is
+    refused.
   - cashkit SHOULD escape `<`, `>` and `&` the way Go's `json.Marshal`
     does, so envelopes are byte-identical to nmilat's and vectors can
     compare them directly.
 - **Limits.**
-  - Defaults: 56 KiB / 32 items / 8 KiB bucket / verify budget 200 / 48
-    consolidate sources.
   - An announced bucket is at least 2 KiB, and NIP-44 plaintext is at most
-    65535 bytes.
+    65535 bytes (an announced `max_bytes` above it reads as 65535).
 - **Request wrap.**
   - A fresh ephemeral key signs the event: kind 23190, `["p", inbox]`, and a
     randomized `created_at` up to 2 days in the past.
   - The content is NIP-44 v2 under ECDH(ephemeral, inbox). It is not a gift
     wrap.
+  - Under proof of work (`wrapRequestPow`) the event also carries a NIP-13
+    `nonce` and an `expiration` equal to `not_after` (at most 1 day ahead);
+    `remine` re-mines the same event (key, content, `created_at`) after a
+    relay's `pow:` refusal (`parsePowRejection`), and `relayPowMinimum`
+    reads a relay's NIP-11 minimum. Difficulty 0 adds neither tag.
 - **Reply key.**
   - HKDF-Expand only (SHA-256): PRK = the conversation key, info =
     `"nipcash-reply-v1" || reply_to hex`, L = 32.
   - The response (kind 23191, p-tagged `reply_to`) is NIP-44 v2 encrypted
     with that key used directly as the conversation key.
+- **Responses.** `decodeResponse` rejects a chunk only for a `req_nonce`
+  mismatch. An unknown id is dropped (`unknownIds`), an id answered twice or
+  with both a result and an error has no outcome (`conflictedIds`), a `seq`
+  outside 1 to `total` is flagged (`malformedSeq`); errors keep their
+  `detail`.
 - **Proof freshness** is 5 min in the past and 1 min in the future on
-  `created_at`. `not_after` is at most 120 s ahead.
-- **Announcement.**
-  - Fetch the newest `{kinds:[11190], authors:[hub]}`.
-  - Verify the author and the BIP-340 signature.
-  - The inbox MUST NOT be the node key.
-  - Announced limits are validated.
+  `created_at`. A Hub accepts a `not_after` up to its own `max_request_age`
+  ahead (`checkFreshness`, used by the fake Hub).
+- **Announcement** (tags, `content` empty).
+  - Fetch the newest `{kinds:[11190], authors:[hub]}`; verify the author and
+    the BIP-340 signature.
+  - Exactly one `inbox` (used as announced, even when it is the author), one
+    `limit` per name (unknown names ignored), `r` relays in order, `addr`
+    hints kept for display (a malformed one dropped). A malformed `inbox`,
+    `limit` or `r`, or a missing envelope limit, rejects it: there are no
+    defaults.
+  - `max_request_age` (H) may be missing or below 60: the Hub then stays
+    usable for reads and redeems, but `hubUsableForBills` is false.
 
 ### 2.3 client
 

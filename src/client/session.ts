@@ -151,7 +151,7 @@ export class BatchSession {
     const notAfter = Math.floor(startMs / 1000) + window
     const budgetMs = (window * 1000) / 2
     const binding: ItemBinding = { hub: this.hub, nonce: newNonce(random), notAfter }
-    let env: Envelope = { v: 1, notAfter, nonce: binding.nonce, replyTo: newNonce(random), items: [] }
+    let env: Envelope = { notAfter, nonce: binding.nonce, replyTo: newNonce(random), items: [] }
     const ids: string[] = []
     let consumed = 0
     for (const b of rest) {

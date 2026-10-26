@@ -6,7 +6,9 @@
 // the bill's own mint signature. The client is stateless about the wallet:
 // it persists nothing, and returns what the engine needs to journal.
 import {
+  cashCommitment,
   decodeToken,
+  isCashSecret,
   isSpent,
   matchClaimAuto,
   type CashConsolidateResult,
@@ -188,6 +190,10 @@ export class CashClient {
     if (isSpent(result)) throw new ClientError('spent', 'this bill has been spent')
     const row = matchClaimAuto(result.recipients, asPubkey)
     if (row === undefined) throw new ClientError('claim_not_found', 'no matching, unclaimed recipient on this hub')
+    // A cash-mode status carries no secret, so the secret is checked against the row's commitment when the Hub shows it.
+    if (credential.kind === 'secret' && row.identity_type === 'cash' && row.identity_value !== undefined && (!isCashSecret(credential.secret) || row.identity_value !== cashCommitment(credential.secret))) {
+      throw new ClientError('claim_not_found', 'the cash secret does not match this bill')
+    }
     const full = result.recipients.find((r) => r === row)!
     const minter = minterOf(this.token, this.zap)?.minter
     return {

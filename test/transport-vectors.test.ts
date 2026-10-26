@@ -17,7 +17,7 @@ import {
   estimatedWireBytes,
   hasBillProof,
   hasProof,
-  isBearer,
+  hasCashSecret,
   isServableMethod,
   maxSourcesForEnvelope,
   normalizeNodeIdentity,
@@ -29,7 +29,6 @@ import {
   validateAnnouncedLimits,
   validateEnvelope,
   validateLimits,
-  verificationCost,
   verifyBillProof,
   verifyItemProof,
   type Envelope,
@@ -50,9 +49,8 @@ const toItem = (i: Json): Item => ({
   ...(i.proof !== null && { proof: i.proof }),
   ...(i.bill_proof !== null && { billProof: i.bill_proof }),
 })
-const toEnvelope = (e: Json): Envelope => ({ v: e.v, notAfter: e.not_after, nonce: e.nonce, replyTo: e.reply_to, items: e.items.map(toItem) })
+const toEnvelope = (e: Json): Envelope => ({ notAfter: e.not_after, nonce: e.nonce, replyTo: e.reply_to, items: e.items.map(toItem) })
 const toResponse = (r: Json): ResponseEnvelope => ({
-  v: r.v,
   reqNonce: r.req_nonce,
   ...(r.error && { error: r.error }),
   results: (r.results ?? []).map((x: Json) => ({
@@ -65,6 +63,27 @@ const toResponse = (r: Json): ResponseEnvelope => ({
   total: r.total ?? 0,
 })
 const toBinding = (b: Json) => ({ target: b.target, hub: b.hub, method: b.method, paramsHash: b.paramsHash, nonce: b.nonce, notAfter: b.notAfter })
+
+// The pinned envelope.json, padding.json and announcement.json predate the
+// envelope without `v`, padding capped at max_bytes, freshness by the Hub's
+// max_request_age and the tag-form announcement. Until they are regenerated
+// a case is checked on what those rules leave unchanged: an encoded
+// plaintext as parsed JSON without `v` and `pad`, at the same padded size.
+// Cases whose verdict the final rules invert: a cash-mode cash_status now
+// carries no secret (and one with a secret is refused), `v` is not read, and
+// a bad response item no longer rejects its chunk.
+const INVERTED = new Set(['a bearer item needs no slice proof', 'no proof and no cash secret', 'a null proof is no proof', 'wrong version', 'explicit null proof on a bearer item'])
+const RESPONSE_FLAGGED: Record<string, (r: ResponseEnvelope) => boolean> = {
+  'an unknown id': (r) => (r.unknownIds?.length ?? 0) > 0,
+  'a duplicate result': (r) => (r.conflictedIds?.length ?? 0) > 0,
+  'result and error together': (r) => (r.conflictedIds?.length ?? 0) > 0,
+  'seq 0 of 2': (r) => r.malformedSeq === true,
+  'wrong version': () => true,
+}
+const withoutVersion = (text: string) => {
+  const { v: _v, pad: _p, ...rest } = JSON.parse(text) as Record<string, unknown>
+  return rest
+}
 
 describe('reply-key.json', () => {
   test.each(named(load('reply-key.json').derive, (c) => c.replyTo))('deriveReplyKey %s', (_: string, c: Json) => {
@@ -90,7 +109,8 @@ describe('padding.json', () => {
     expect(DEFAULT_LIMITS).toEqual(v.defaults)
   })
   test.each(named(v.paddedSize, (c) => `${c.limits.padBucketBytes}/${c.limits.maxEnvelopeBytes} n=${c.n}`))('paddedSize %s', (_: string, c: Json) => {
-    if (c.error) expect(() => paddedSize(c.limits, c.n)).toThrow()
+    if (c.n > c.limits.maxEnvelopeBytes || c.n < 0) expect(() => paddedSize(c.limits, c.n)).toThrow()
+    else if (c.error) expect(paddedSize(c.limits, c.n)).toBe(c.limits.maxEnvelopeBytes)
     else expect(paddedSize(c.limits, c.n)).toBe(c.padded)
   })
   test.each(named(v.validate, (c) => c.name))('validate: %s', (_: string, c: Json) => {
@@ -110,10 +130,25 @@ describe('envelope.json', () => {
   const v = load('envelope.json')
   test.each(named(v.encode, (c) => c.name))('encode: %s', (_: string, c: Json) => {
     const e = toEnvelope(c.envelope)
-    if (c.error) expect(() => encodeEnvelope(e, c.limits)).toThrow()
-    else expect(encodeEnvelope(e, c.limits)).toBe(c.plaintext)
+    if (INVERTED.has(c.name)) {
+      if (c.error) expect(() => encodeEnvelope(e, c.limits)).not.toThrow()
+      else expect(() => encodeEnvelope(e, c.limits)).toThrow()
+      return
+    }
+    if (c.error) {
+      expect(() => encodeEnvelope(e, c.limits)).toThrow()
+      return
+    }
+    const got = encodeEnvelope(e, c.limits)
+    expect(withoutVersion(got)).toEqual(withoutVersion(c.plaintext))
+    expect(got.length).toBe(c.plaintext.length)
   })
   test.each(named(v.decode, (c) => c.name))('decode: %s', (_: string, c: Json) => {
+    if (INVERTED.has(c.name)) {
+      if (c.error) expect(() => decodeEnvelope(c.plaintext, c.limits)).not.toThrow()
+      else expect(() => decodeEnvelope(c.plaintext, c.limits)).toThrow()
+      return
+    }
     if (c.error) {
       expect(() => decodeEnvelope(c.plaintext, c.limits)).toThrow()
       return
@@ -124,23 +159,33 @@ describe('envelope.json', () => {
   })
   test.each(named(v.items, (c) => c.name))('item: %s', (_: string, c: Json) => {
     const it = toItem(c.item)
-    expect({ hasProof: hasProof(it), hasBillProof: hasBillProof(it), isBearer: isBearer(it), sourceCount: sourceCount(it), verificationCost: verificationCost(it) }).toEqual({
+    expect({ hasProof: hasProof(it), hasBillProof: hasBillProof(it), hasCashSecret: hasCashSecret(it), sourceCount: sourceCount(it) }).toEqual({
       hasProof: c.hasProof,
       hasBillProof: c.hasBillProof,
-      isBearer: c.isBearer,
+      hasCashSecret: c.isBearer,
       sourceCount: c.sourceCount,
-      verificationCost: c.verificationCost,
     })
   })
   test.each(named(v.freshness, (c) => `not_after ${c.notAfter} at ${c.now}`))('freshness %s', (_: string, c: Json) => {
-    if (c.error) expect(() => checkFreshness({ notAfter: c.notAfter }, c.now)).toThrow()
-    else expect(() => checkFreshness({ notAfter: c.notAfter }, c.now)).not.toThrow()
+    // The pinned cases use the former 120 s ceiling, i.e. a Hub announcing H = 120.
+    if (c.error) expect(() => checkFreshness({ notAfter: c.notAfter }, c.now, 120)).toThrow()
+    else expect(() => checkFreshness({ notAfter: c.notAfter }, c.now, 120)).not.toThrow()
   })
   test.each(named(v.encodeResponse, (c) => c.name))('encodeResponse: %s', (_: string, c: Json) => {
-    if (c.error) expect(() => encodeResponse(toResponse(c.response), c.limits)).toThrow()
-    else expect(encodeResponse(toResponse(c.response), c.limits)).toBe(c.plaintext)
+    if (c.error) {
+      expect(() => encodeResponse(toResponse(c.response), c.limits)).toThrow()
+      return
+    }
+    const got = encodeResponse(toResponse(c.response), c.limits)
+    expect(withoutVersion(got)).toEqual(withoutVersion(c.plaintext))
+    expect(got.length).toBe(c.plaintext.length)
   })
   test.each(named(v.decodeResponse, (c) => c.name))('decodeResponse: %s', (_: string, c: Json) => {
+    const flagged = RESPONSE_FLAGGED[c.name]
+    if (flagged !== undefined) {
+      expect(flagged(decodeResponse(c.plaintext, c.reqNonce, c.requestedIds, DEFAULT_LIMITS))).toBe(true)
+      return
+    }
     if (c.error) {
       expect(() => decodeResponse(c.plaintext, c.reqNonce, c.requestedIds, DEFAULT_LIMITS)).toThrow()
       return
@@ -185,12 +230,8 @@ describe('proof.json', () => {
 
 describe('announcement.json', () => {
   test.each(named(load('announcement.json').parse, (c) => c.name))('%s', (_: string, c: Json) => {
+    // Every pinned case is in the former JSON-content form, which carries no inbox tag.
     const ev = { ...c.event, tags: c.event.tags ?? [] }
-    if (c.error) {
-      expect(() => parseAnnouncement(ev, c.expectedNode)).toThrow()
-      return
-    }
-    const a = parseAnnouncement(ev, c.expectedNode)
-    expect({ inbox: a.inbox, limits: a.limits, relays: a.relays, createdAt: a.createdAt }).toEqual(c.want)
+    expect(() => parseAnnouncement(ev, c.expectedNode)).toThrow()
   })
 })

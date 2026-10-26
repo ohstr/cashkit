@@ -10,7 +10,9 @@ import {
   DEFAULT_LIMITS,
   encodeResponse,
   goEventJSON,
-  isBearer,
+  announcementTags,
+  hasProof,
+  TransportError,
   KIND_HUB_ANNOUNCEMENT,
   KIND_PRIVATE_REQUEST,
   KIND_PRIVATE_RESPONSE,
@@ -147,6 +149,8 @@ export class FakeHub {
   readonly node: string
   readonly inbox: string
   limits: Limits = DEFAULT_LIMITS
+  /** The announced `max_request_age` (H); undefined announces none. */
+  maxRequestAge: number | undefined = 300
   faults: Faults = {}
   /** Handles one served item. Default: cash_status says every bill is available. */
   handler: (method: string, info: RequestInfo) => Answer = () => ({ result: { recipients: [] } })
@@ -175,18 +179,13 @@ export class FakeHub {
     })
   }
 
-  announcementEvent(p: { relays: readonly string[]; createdAt: number; limits?: Limits; inbox?: string }): NostrEvent {
-    const l = p.limits ?? this.limits
-    const content = JSON.stringify({
-      v: 1,
-      inbox: p.inbox ?? this.inbox,
-      limits: { max_bytes: l.maxEnvelopeBytes, max_items: l.maxItems, max_consolidate_sources: l.maxConsolidateSources, pad_bucket_bytes: l.padBucketBytes, max_verify_budget: l.maxVerifyBudget },
-      relays: p.relays,
-    })
-    return finalizeEvent({ kind: KIND_HUB_ANNOUNCEMENT, created_at: p.createdAt, tags: [], content }, this.nodeKey)
+  announcementEvent(p: { relays: readonly string[]; createdAt: number; limits?: Limits; inbox?: string; maxRequestAge?: number | null; addrs?: readonly string[] }): NostrEvent {
+    const h = p.maxRequestAge === null ? undefined : (p.maxRequestAge ?? this.maxRequestAge)
+    const tags = announcementTags({ inbox: p.inbox ?? this.inbox, limits: p.limits ?? this.limits, ...(h !== undefined && { maxRequestAge: h }), relays: p.relays, ...(p.addrs !== undefined && { addrs: p.addrs }) })
+    return finalizeEvent({ kind: KIND_HUB_ANNOUNCEMENT, created_at: p.createdAt, tags, content: '' }, this.nodeKey)
   }
 
-  async announce(p: { relays: readonly string[]; createdAt: number; limits?: Limits }): Promise<void> {
+  async announce(p: { relays: readonly string[]; createdAt: number; limits?: Limits; maxRequestAge?: number | null }): Promise<void> {
     const e = this.announcementEvent(p)
     for (const r of this.relayUrls) await this.pool.publish(r, e).catch(() => undefined)
   }
@@ -196,8 +195,20 @@ export class FakeHub {
     const ck = conversationKeyFor(e.pubkey, this.inboxKey)
     const { envelope } = decodeEnvelope(nip44.decrypt(e.content, ck), this.limits)
     const now = Math.floor(this.clock() / 1000)
-    checkFreshness(envelope, now)
+    let tooFar = false
+    try {
+      checkFreshness(envelope, now, this.maxRequestAge ?? 0)
+    } catch (err) {
+      if (!(err instanceof TransportError) || err.code !== 'envelope_too_far_ahead') return // past not_after: dropped, no reply
+      tooFar = true
+    }
     const results: ItemResult[] = []
+    if (tooFar) {
+      const plaintext = encodeResponse({ reqNonce: envelope.nonce, error: { code: 'BAD_REQUEST', message: 'not_after is too far ahead' }, results: [], seq: 1, total: 1 }, this.limits)
+      const reply = finalizeEvent({ kind: KIND_PRIVATE_RESPONSE, created_at: now, tags: [['p', envelope.replyTo]], content: sealReply(plaintext, ck, envelope.replyTo) }, crypto.getRandomValues(new Uint8Array(32)))
+      await this.pool.publish(relay, reply).catch(() => undefined)
+      return
+    }
     for (const item of envelope.items) {
       const binding = { target: item.target, hub: this.node, method: item.method, paramsHash: paramsHash(item.params ?? ''), nonce: envelope.nonce, notAfter: envelope.notAfter }
       let info: RequestInfo
@@ -205,7 +216,7 @@ export class FakeHub {
         const billSigner = verifyBillProof(item.billProof ?? '', binding, now)
         const known = this.bills.get(item.target)
         if (known !== undefined && known !== billSigner) continue // not the bill's key: omit
-        const signer = isBearer(item) ? undefined : verifyItemProof(item.proof ?? '', binding, now)
+        const signer = hasProof(item) ? verifyItemProof(item.proof ?? '', binding, now) : undefined
         info = { item, params: JSON.parse(item.params ?? '{}'), signer, billSigner }
       } catch {
         continue // an unverifiable item is omitted
@@ -233,7 +244,7 @@ export class FakeHub {
     const relays = f.replyOnAllRelays ? this.relayUrls : [relay]
     for (let i = 0; i < send; i++) {
       const plaintext = encodeResponse(
-        { v: 1, reqNonce: envelope.nonce, ...(f.envelopeError && { error: f.envelopeError }), results: f.envelopeError ? [] : parts[i]!, seq: i + 1, total },
+        { reqNonce: envelope.nonce, ...(f.envelopeError && { error: f.envelopeError }), results: f.envelopeError ? [] : parts[i]!, seq: i + 1, total },
         this.limits,
       )
       const reply = finalizeEvent({ kind: KIND_PRIVATE_RESPONSE, created_at: now, tags: [['p', envelope.replyTo]], content: sealReply(plaintext, ck, envelope.replyTo) }, crypto.getRandomValues(new Uint8Array(32)))

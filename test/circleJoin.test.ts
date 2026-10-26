@@ -62,7 +62,7 @@ describe('createCircleWalletItem (private_join_test.go)', () => {
     expect(verifyBillProof(item.billProof!, want, now())).toBe(getPublicKey(hubSecret))
     const tags = (JSON.parse(item.proof!) as NostrEvent).tags
     expect(tags.filter((t) => t[0] === 'd' || t[0] === 'h')).toEqual([['d', HUB], ['h', node]])
-    expect(() => validateEnvelope({ v: 1, notAfter: binding.notAfter, nonce: binding.nonce, replyTo: newNonce(), items: [item] }, node, now())).not.toThrow()
+    expect(() => validateEnvelope({ notAfter: binding.notAfter, nonce: binding.nonce, replyTo: newNonce(), items: [item] }, node, now())).not.toThrow()
   })
   // TestCreateCircleWalletParams_Item_NeedsHubSecret.
   test('a join without the Hub connection secret has no bill proof and is refused', () => {

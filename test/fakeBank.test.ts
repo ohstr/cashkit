@@ -37,9 +37,12 @@ describe('FakeBank', () => {
     const t = newCashTarget()
     const w = bank.mintToCash(700n, t.secret)
     expect((await client(w.token).checkClaim(bySecret(t.secret), '')).isCash).toBe(true)
-    const err = await client(w.token).cashStatus(bySecret('ab'.repeat(32))).catch((e: unknown) => e)
-    expect(err).toBeInstanceOf(WalletError)
-    expect([(err as WalletError).walletCode, (err as WalletError).walletMessage]).toEqual(['NOT_FOUND', 'no slice of this bill matches this cash secret'])
+    // A cash-mode status carries no secret; the secret is checked against the row's commitment.
+    const err = await client(w.token).checkClaim(bySecret('ab'.repeat(32)), '').catch((e: unknown) => e)
+    expect((err as { code?: string }).code).toBe('claim_not_found')
+    const spend = await client(w.token).cashTransfer({ credential: bySecret('ab'.repeat(32)), to: pubkeyTarget(bob.pubkey), currentAmount: 700n }).catch((e: unknown) => e)
+    expect(spend).toBeInstanceOf(WalletError)
+    expect((spend as WalletError).walletCode).toBe('NOT_FOUND')
   })
   test('a split spins off two wallets and spends the source', async () => {
     const w = bank.mintToPubkey(5000n, alice.pubkey)

@@ -3,7 +3,7 @@
 // bill_proof_test, announcement_test, auditB_priv_padding_test,
 // auditD_privacy_padding_test, auditB_duplicate_item_test, validate_test.
 import { describe, expect, test } from 'vitest'
-import { finalizeEvent, getPublicKey, localSigner, nip44, toHex } from '../src/core/index.js'
+import { getPublicKey, localSigner, nip44, toHex } from '../src/core/index.js'
 import { compactGo, goString, parseGo, parseGoStream } from '../src/transport/gojson.js'
 import {
   buildBillProof,
@@ -22,7 +22,6 @@ import {
   omittedIds,
   openReply,
   paramsHash,
-  parseAnnouncement,
   randomizedCreatedAt,
   sealReply,
   toJSONText,
@@ -53,7 +52,7 @@ async function item(i: number, method = 'cash_status', params: unknown = { scope
   const b: ProofBinding = { target, hub: HUB, method, paramsHash: paramsHash(text), nonce: NONCE, notAfter: NOW + 60 }
   return { id: `i${i}`, target, method, params: text, proof: await buildItemProof(holder, b, NOW), billProof: buildBillProof(billSecret, b, NOW) }
 }
-const envelope = (items: Item[]): Envelope => ({ v: 1, notAfter: NOW + 60, nonce: NONCE, replyTo: REPLY, items })
+const envelope = (items: Item[]): Envelope => ({ notAfter: NOW + 60, nonce: NONCE, replyTo: REPLY, items })
 
 describe('request wrap (request_test.go)', () => {
   test('the Hub opens what the client wraps', () => {
@@ -92,14 +91,14 @@ describe('reply (response_test.go)', () => {
   test('a full exchange: wrap, Hub decrypts, Hub seals the reply, client opens it', () => {
     const { event, conversationKey } = wrapRequest('req', INBOX, { now: NOW })
     const hubCk = conversationKeyFor(event.pubkey, inboxKey)
-    const reply = encodeResponse({ v: 1, reqNonce: NONCE, results: [{ id: 'i0', resultType: 'cash_status', result: '{"recipients":[]}' }], seq: 1, total: 1 }, DEFAULT_LIMITS)
+    const reply = encodeResponse({ reqNonce: NONCE, results: [{ id: 'i0', resultType: 'cash_status', result: '{"recipients":[]}' }], seq: 1, total: 1 }, DEFAULT_LIMITS)
     const content = sealReply(reply, hubCk, REPLY)
     const opened = decodeResponse(openReply(content, conversationKey, REPLY), NONCE, ['i0', 'i1'], DEFAULT_LIMITS)
     expect(opened.results[0]).toEqual({ id: 'i0', resultType: 'cash_status', result: '{"recipients":[]}' })
     expect(omittedIds(opened, ['i0', 'i1'])).toEqual(['i1'])
   })
   test('responses pad to the bucket too', () => {
-    expect(encodeResponse({ v: 1, reqNonce: NONCE, results: [], seq: 0, total: 0 }, DEFAULT_LIMITS)).toHaveLength(8192)
+    expect(encodeResponse({ reqNonce: NONCE, results: [], seq: 0, total: 0 }, DEFAULT_LIMITS)).toHaveLength(8192)
   })
 })
 
@@ -209,21 +208,6 @@ describe('validateEnvelope (validate_test.go)', () => {
 describe('announcement (announcement_test.go)', () => {
   const nodeKey = fill(0x0a, 32)
   const node = getPublicKey(nodeKey)
-  const announce = (content: object, key = nodeKey) => finalizeEvent({ kind: 11190, created_at: NOW, tags: [], content: JSON.stringify(content) }, key)
-  const limits = { max_bytes: 57344, max_items: 32, max_consolidate_sources: 48, pad_bucket_bytes: 8192, max_verify_budget: 200 }
-  test('parses a signed announcement', () => {
-    expect(parseAnnouncement(announce({ v: 1, inbox: INBOX, limits, relays: ['wss://r'] }), node)).toEqual({
-      inbox: INBOX,
-      limits: DEFAULT_LIMITS,
-      relays: ['wss://r'],
-      createdAt: NOW,
-    })
-  })
-  test('refuses a stranger’s announcement, the node key as inbox, and an unsafe policy', () => {
-    expect(() => parseAnnouncement(announce({ v: 1, inbox: INBOX, limits }, fill(0x0c, 32)), node)).toThrow(expect.objectContaining({ code: 'announcement_author' }))
-    expect(() => parseAnnouncement(announce({ v: 1, inbox: node, limits }), node)).toThrow(/node identity/)
-    expect(() => parseAnnouncement(announce({ v: 1, inbox: INBOX, limits: { ...limits, pad_bucket_bytes: 1 } }), node)).toThrow(/unusable/)
-  })
   test('normalizeNodeIdentity takes a compressed key from a mint signature', () => {
     expect(normalizeNodeIdentity('03' + node.toUpperCase())).toBe(node)
     expect(() => normalizeNodeIdentity('04' + node)).toThrow(TransportError)

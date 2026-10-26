@@ -28,6 +28,17 @@
   request, request ids, the redeem fee quote, and `get_info`'s `network`
   and `chain`.
   ([#10](https://github.com/ohstr/cashkit/pull/10))
+- Reads the tag-form Hub announcement (`inbox`, `limit`, `r`, `addr`) with
+  `max_request_age`, and writes envelopes and reads responses without a
+  version field. A Hub without a usable `max_request_age` stays readable.
+- Sends a cash-mode `cash_status` with neither proof nor secret, and checks
+  a cash secret against the row's commitment instead.
+- Pads envelopes up to `max_bytes` instead of refusing, counts every signed
+  event in the verification budget, and keeps a response chunk's other
+  results when one item is answered twice or unknown; errors keep `detail`.
+- Adds proof of work for private requests: NIP-11 minimum, mining with
+  `nonce` and `expiration`, and re-mining the same request after a `pow:`
+  refusal.
 
 ## [0.1.0-rc.2]
 

@@ -146,6 +146,10 @@ export class FakeBank {
     const p = info.params
     if (w.identity.type === 'cash') {
       const secret = p['cash_secret']
+      if (info.item.method === 'cash_status') {
+        // Served on the bill proof alone; a secret here is refused.
+        return secret === undefined ? undefined : { error: { code: 'BAD_REQUEST', message: 'a cash-mode status item carries no cash secret' } }
+      }
       if (typeof secret !== 'string' || secret === '') return { error: { code: 'BAD_REQUEST', message: 'this item carries neither a slice proof nor a cash secret' } }
       if (commitment(secret) !== w.identity.value) return { error: { code: 'NOT_FOUND', message: 'no slice of this bill matches this cash secret' } }
       return undefined
@@ -158,7 +162,7 @@ export class FakeBank {
     const fee = this.fee(w.amount)
     return {
       identity_type: w.identity.type,
-      ...(w.identity.type !== 'cash' && { identity_value: w.identity.value }),
+      identity_value: w.identity.value,
       amount_millis: w.amount,
       claimed: false,
       redeem_fee_millis: fee,

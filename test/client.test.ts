@@ -139,11 +139,11 @@ describe('sending (batch_send.go)', () => {
     expect(req.billSigner).toBe(getPublicKey(fill(0x61, 32)))
     expect(req.params).toEqual({ scope: 'mine' })
   })
-  test('a cash credential sends its secret and no slice proof', async () => {
+  test('a cash-mode status carries neither its secret nor a slice proof', async () => {
     const c = new CashClient(deps(), bill(1))
     await c.cashStatus(bySecret('5e'.repeat(32)))
     expect(hub.requests[0]!.signer).toBeUndefined()
-    expect(hub.requests[0]!.params).toEqual({ scope: 'mine', cash_secret: '5e'.repeat(32) })
+    expect(hub.requests[0]!.params).toEqual({ scope: 'mine' })
   })
   test('fails over to the next relay when the first is down', async () => {
     pool.relay(R1).down = true

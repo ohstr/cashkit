@@ -10,7 +10,7 @@ export type TransportErrorCode =
   | 'duplicate_item_id'
   | 'duplicate_item'
   | 'envelope_expired'
-  | 'envelope_too_fresh'
+  | 'envelope_too_far_ahead'
   | 'proof_malformed'
   | 'proof_wrong_target'
   | 'proof_wrong_hub'
@@ -24,10 +24,10 @@ export type TransportErrorCode =
   | 'unknown_item_id'
   | 'announcement_malformed'
   | 'announcement_author'
-  | 'announcement_version'
   | 'announcement_signature'
   | 'mixed_hubs'
   | 'method_not_servable'
+  | 'pow_aborted'
 
 /** Thrown by `transport`. Messages never carry params or secrets. */
 export class TransportError extends Error {

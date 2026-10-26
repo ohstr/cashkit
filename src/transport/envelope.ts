@@ -11,9 +11,6 @@ export const KIND_PRIVATE_REQUEST = 23190
 export const KIND_PRIVATE_RESPONSE = 23191
 export const KIND_ITEM_PROOF = 23192
 export const KIND_BILL_PROOF = 23193
-export const ENVELOPE_VERSION = 1
-/** How far ahead an envelope may claim validity, in seconds. */
-export const MAX_NOT_AFTER_WINDOW = 120
 
 /**
  * One bill operation. `params`, `proof` and `billProof` are JSON text, kept
@@ -33,7 +30,6 @@ export interface Item {
 }
 
 export interface Envelope {
-  readonly v: number
   /** Unix seconds. */
   readonly notAfter: number
   readonly nonce: string
@@ -69,10 +65,33 @@ function paramsAs(i: Item, t: GoType): Record<string, unknown> {
   }
 }
 
-/** A cash-mode item: its params carry a non-empty cash_secret. */
-export function isBearer(i: Item): boolean {
+/** Whether the item's params carry a non-empty cash_secret. */
+export function hasCashSecret(i: Item): boolean {
   const p = paramsAs(i, { object: { cash_secret: 'string' } })
   return typeof p['cash_secret'] === 'string' && p['cash_secret'] !== ''
+}
+
+/** A `cash_withdraw` cancel request: its params carry `cancel`. */
+export function isCancelRequest(i: Pick<Item, 'method' | 'params'>): boolean {
+  if (i.method !== 'cash_withdraw') return false
+  const p = paramsAs(i as Item, { object: { cancel: 'raw' } })
+  return p['cancel'] !== undefined && p['cancel'] !== 'null'
+}
+
+/**
+ * Whether an item's authorization has a shape its method allows (NIP-CASH
+ * §Bearer Items, §Serving an Envelope I8): never both `proof` and a
+ * `cash_secret`; a proofless `cash_status` or `cash_withdraw_quote` carries
+ * no secret (a cash-mode one passes on its bill proof alone); a proofless
+ * value method carries the secret; a `cash_lookup` or a cancel request may
+ * go either way; every other method needs `proof`.
+ */
+export function bearerShapeOK(method: string, params: string | undefined, hasProofField: boolean, hasSecret: boolean): boolean {
+  if (hasProofField && hasSecret) return false
+  if (method === 'cash_status' || method === 'cash_withdraw_quote') return !hasSecret
+  if (method === 'cash_lookup' || isCancelRequest({ method, ...(params !== undefined && { params }) })) return true
+  if (method === 'cash_redeem' || method === 'cash_withdraw' || method === 'cash_transfer' || method === 'cash_consolidate') return hasProofField || hasSecret
+  return hasProofField
 }
 
 /** How many consolidate sources the params declare; 0 for other methods. */
@@ -81,14 +100,28 @@ export function sourceCount(i: Item): number {
   return Array.isArray(p['sources']) ? p['sources'].length : 0
 }
 
-/** Signature verifications the Hub will spend on this item, counted from its shape. */
+const SIGNED_PARAMS: GoType = {
+  object: {
+    identity_event: 'raw',
+    attestation_event: 'raw',
+    quote: 'raw',
+    sources: { array: { object: { identity_event: 'raw', attestation_event: 'raw' } } },
+  },
+}
+
+/**
+ * Signature verifications the Hub will spend on this item (NIP-CASH §Bearer
+ * Items): its bill proof, its item proof when present, and every signed
+ * event in its params (kind 23198, 35522 or 23187), one per source for a
+ * consolidate. A cash secret costs nothing.
+ */
 export function verificationCost(i: Item): number {
   let cost = 1 // the bill proof
-  if (!isBearer(i)) cost++ // the slice proof
-  const p = paramsAs(i, { object: { sources: { array: { object: { identity_event: 'string', attestation_event: 'string' } } } } })
+  if (hasProof(i)) cost++
+  const p = paramsAs(i, SIGNED_PARAMS)
+  for (const k of ['identity_event', 'attestation_event', 'quote']) if (hasRawValue(p[k] as string | undefined) && p[k] !== '""') cost++
   for (const s of (p['sources'] as Record<string, unknown>[] | undefined) ?? []) {
-    if (s['identity_event']) cost++
-    if (s['attestation_event']) cost++
+    for (const k of ['identity_event', 'attestation_event']) if (hasRawValue(s[k] as string | undefined) && s[k] !== '""') cost++
   }
   return cost
 }
@@ -106,7 +139,7 @@ function itemError(i: number, item: Item, limits: Limits): { hash?: string; erro
   }
   if (!isLowerHex64(item.target)) return bad('envelope_malformed', `item ${i} target must be 64 lowercase hex characters`)
   if (item.method === '') return bad('envelope_malformed', `item ${i} has no method`)
-  if (!hasProof(item) && !isBearer(item)) return bad('envelope_malformed', `item ${i} has no proof and carries no cash secret`)
+  if (!bearerShapeOK(item.method, item.params, hasProof(item), hasCashSecret(item))) return bad('envelope_malformed', `item ${i} carries an authorization its method does not allow`)
   if (!hasBillProof(item)) return bad('envelope_malformed', `item ${i} has no bill proof`)
   if (sourceCount(item) > limits.maxConsolidateSources) {
     return bad('too_many_items', `item ${i} declares ${sourceCount(item)} sources, limit ${limits.maxConsolidateSources}`)
@@ -115,7 +148,6 @@ function itemError(i: number, item: Item, limits: Limits): { hash?: string; erro
 }
 
 function checkHeader(e: Envelope, limits: Limits): void {
-  if (e.v !== ENVELOPE_VERSION) throw new TransportError('envelope_version', `unsupported envelope version ${e.v}`)
   if (!isLowerHex64(e.nonce)) throw new TransportError('envelope_malformed', 'nonce must be 64 lowercase hex characters')
   if (!isLowerHex64(e.replyTo)) throw new TransportError('envelope_malformed', 'reply_to must be 64 lowercase hex characters')
   if (e.items.length === 0) throw new TransportError('envelope_no_items', 'envelope carries no items')
@@ -147,6 +179,18 @@ function checkItems(e: Envelope, limits: Limits): { kept: Item[]; rejected: Item
   return { kept, rejected }
 }
 
+/** A request_id names one call: two items of one envelope never carry the same one (lookups aside). */
+function checkRequestIds(items: readonly Item[]): void {
+  const seen = new Set<string>()
+  for (const it of items) {
+    if (it.method === 'cash_lookup' || isCancelRequest(it)) continue
+    const id = paramsAs(it, { object: { request_id: 'string' } })['request_id']
+    if (typeof id !== 'string' || id === '') continue
+    if (seen.has(id)) throw new TransportError('duplicate_item', 'two items carry the same request_id')
+    seen.add(id)
+  }
+}
+
 function checkBudget(items: readonly Item[], limits: Limits): void {
   const budget = items.reduce((n, it) => n + verificationCost(it), 0)
   if (budget > limits.maxVerifyBudget) {
@@ -164,7 +208,7 @@ function marshalItem(i: Item): string {
 
 function marshalEnvelope(e: Envelope, pad: string): string {
   return (
-    `{"v":${e.v},"not_after":${e.notAfter},"nonce":${goString(e.nonce)},"reply_to":${goString(e.replyTo)},` +
+    `{"not_after":${e.notAfter},"nonce":${goString(e.nonce)},"reply_to":${goString(e.replyTo)},` +
     `"items":[${e.items.map(marshalItem).join(',')}]` +
     (pad === '' ? '' : `,"pad":${goString(pad)}`) +
     '}'
@@ -182,6 +226,7 @@ export function encodeEnvelope(e: Envelope, limits: Limits): string {
   checkHeader(e, limits)
   const { kept, rejected } = checkItems(e, limits)
   if (rejected.length > 0) throw rejected[0]!.error
+  checkRequestIds(kept)
   checkBudget(kept, limits)
   const body = marshalEnvelope(e, '')
   const target = paddedSize(limits, utf8Len(body) + PAD_FIELD_OVERHEAD)
@@ -195,7 +240,7 @@ export function encodeEnvelope(e: Envelope, limits: Limits): string {
 
 const ITEM_TYPE: GoType = { object: { id: 'string', target: 'string', method: 'string', params: 'raw', proof: 'raw', bill_proof: 'raw' } }
 const ENVELOPE_TYPE: GoType = {
-  object: { v: 'int', not_after: 'int', nonce: 'string', reply_to: 'string', items: { array: ITEM_TYPE }, pad: 'string' },
+  object: { not_after: 'int', nonce: 'string', reply_to: 'string', items: { array: ITEM_TYPE }, pad: 'string' },
 }
 
 /**
@@ -227,7 +272,6 @@ export function decodeEnvelope(plaintext: string, limits: Limits): { envelope: E
     }),
   )
   const e: Envelope = {
-    v: Number((o['v'] as bigint | undefined) ?? 0n),
     notAfter: Number((o['not_after'] as bigint | undefined) ?? 0n),
     nonce: (o['nonce'] as string | undefined) ?? '',
     replyTo: (o['reply_to'] as string | undefined) ?? '',
@@ -240,11 +284,17 @@ export function decodeEnvelope(plaintext: string, limits: Limits): { envelope: E
   return { envelope: { ...e, items: kept }, rejected }
 }
 
-/** Refuses an envelope already expired at `now`, or valid more than 120 s ahead. */
-export function checkFreshness(e: Pick<Envelope, 'notAfter'>, now: number): void {
+/**
+ * The Hub's freshness rule (NIP-CASH §Envelopes): an envelope past its
+ * `not_after` is dropped (`envelope_expired`); one more than the Hub's
+ * current `max_request_age` ahead is refused with an envelope-level
+ * `BAD_REQUEST` (`envelope_too_far_ahead`). For a Hub (and the fake Hub);
+ * a client sets its deadline from H instead.
+ */
+export function checkFreshness(e: Pick<Envelope, 'notAfter'>, now: number, maxRequestAge: number): void {
   if (now > e.notAfter) throw new TransportError('envelope_expired', 'envelope not_after has passed')
-  if (e.notAfter - now > MAX_NOT_AFTER_WINDOW) {
-    throw new TransportError('envelope_too_fresh', `envelope valid for ${e.notAfter - now}s, maximum ${MAX_NOT_AFTER_WINDOW}s`)
+  if (e.notAfter - now > maxRequestAge) {
+    throw new TransportError('envelope_too_far_ahead', `envelope valid for ${e.notAfter - now}s, the hub accepts at most ${maxRequestAge}s`)
   }
 }
 

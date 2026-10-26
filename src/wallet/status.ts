@@ -2,7 +2,7 @@
 // Port of cashctl cmd/redeem_private.go groupEntriesByHub/quoteHubGroup and
 // recordQuote. Bills batch by `nodeKey` (the verified minter, whose
 // announcement names the inbox), never by hubGroup (design §6.3).
-import { decodeToken, matchClaimAuto, isSpent, type CashStatusResult } from '../core/index.js'
+import { cashCommitment, decodeToken, isCashSecret, matchClaimAuto, isSpent, type CashStatusResult } from '../core/index.js'
 import { billFor, NotServedError, WalletError, type BatchStatus } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import { getHeld } from './bills.js'
@@ -28,6 +28,16 @@ export function byNode(hs: readonly Holding[]): { groups: Holding[][]; ungrouped
   return { groups: [...m.values()], ungrouped }
 }
 
+/**
+ * A cash-mode status carries no secret, so the secret is checked against the
+ * cash row's commitment when the Hub shows it.
+ */
+function secretMatches(r: CashStatusResult, secret: string): boolean {
+  const row = r.recipients.find((x) => x.identity_type === 'cash' && !x.claimed)
+  if (row?.identity_value === undefined) return true
+  return isCashSecret(secret) && row.identity_value === cashCommitment(secret)
+}
+
 /** One cash_status per holding, one request per node. */
 export async function statusByNode(ctx: Ctx, hs: readonly Holding[]): Promise<Map<string, NodeStatus>> {
   const out = new Map<string, NodeStatus>()
@@ -50,8 +60,12 @@ export async function statusByNode(ctx: Ctx, hs: readonly Holding[]): Promise<Ma
       for (const it of items) out.set(it.id!, { error: classifyReadError(err, it.id) })
       continue
     }
+    const secrets = new Map(items.flatMap((it) => (it.credential.kind === 'secret' ? [[it.id!, it.credential.secret] as const] : [])))
     for (const o of r.outcomes) {
-      if (o.state === 'result' && o.value !== undefined) out.set(o.id, isSpent(o.value) ? { state: 'spent' } : { state: 'available', result: o.value })
+      const secret = secrets.get(o.id)
+      if (o.state === 'result' && o.value !== undefined && secret !== undefined && !secretMatches(o.value, secret)) {
+        out.set(o.id, { error: new CashkitError('invalid_input', 'the cash secret does not match this bill: it was received incomplete, or someone else has re-keyed the note', { input: o.id }) })
+      } else if (o.state === 'result' && o.value !== undefined) out.set(o.id, isSpent(o.value) ? { state: 'spent' } : { state: 'available', result: o.value })
       else if (o.state === 'error' && o.undecodable) out.set(o.id, { error: new CashkitError('network', "the Hub's answer for this bill could not be read; asking again is safe", { input: o.id }) })
       else if (o.state === 'error' && o.error) out.set(o.id, { error: classifyReadError(new WalletError('cash_status', o.error.code, o.error.message ?? ''), o.id) })
       else out.set(o.id, { error: classifyReadError(r.error ?? new NotServedError('cash_status'), o.id) })

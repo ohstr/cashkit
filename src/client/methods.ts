@@ -3,6 +3,7 @@
 import {
   cashConsolidateRequest,
   cashRedeemRequest,
+  cashStatusRequest,
   cashTransferRequest,
   newRequestId,
   parseCashConsolidateResult,
@@ -110,11 +111,8 @@ export function statusMany(session: BatchSession, items: readonly BatchStatus[],
     id: itemId(it.id, i),
     build: (id, b) => {
       checkBill(it.bill, id, session.hub)
-      const params = {
-        ...(it.scope && { scope: it.scope }),
-        ...(it.credential.kind === 'secret' && { cash_secret: it.credential.secret }),
-        ...(it.attestationEvent && { attestation_event: it.attestationEvent }),
-      }
+      // A cash-mode status item carries neither proof nor secret: the bill proof names its one row.
+      const params = cashStatusRequest({ ...(it.scope && { scope: it.scope }), ...(it.attestationEvent && { attestationEvent: it.attestationEvent }) })
       return buildItem(id, it.bill, 'cash_status', params, it.credential, b, now())
     },
   }))
