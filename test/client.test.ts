@@ -115,11 +115,11 @@ describe('BatchSession (batch_session.go)', () => {
   test('the newest announcement wins and a replayed older one never rolls it back', async () => {
     const s = await BatchSession.open(deps(), hub.node, [R1])
     const newer = hub.announcementEvent({ relays: [R2], createdAt: now() + 100, limits: { ...DEFAULT_LIMITS, padBucketBytes: 4096 } })
-    await pool.publish(R2, newer)
+    await pool.publish(R1, newer)
     await s.refresh()
     expect(s.limits.padBucketBytes).toBe(4096)
-    pool.store(R1, hub.announcementEvent({ relays: [R1], createdAt: now() - 1000 }))
-    pool.relay(R2).stored = []
+    // Only an older one is left to read: the session keeps the newer.
+    pool.relay(R1).stored = [hub.announcementEvent({ relays: [R1], createdAt: now() - 1000 })]
     await s.refresh()
     expect(s.limits.padBucketBytes).toBe(4096)
   })
@@ -184,7 +184,7 @@ describe('sending (batch_send.go)', () => {
   })
   test('a partial reply keeps what arrived and says it is incomplete, at not_after', async () => {
     hub.faults = { chunks: 2, sendChunks: 1 }
-    const s = await new CashClient({ relays: pool, notAfterSeconds: 2 }, bill(1)).session()
+    const s = await new CashClient({ relays: pool, replyWaitMs: 2000 }, bill(1)).session()
     const r = await statusMany(s, [1, 2].map((i) => ({ id: `s${i}`, bill: billFor(decodeToken(bill(i))), credential: bySigning(holder) })), now)
     expect(r.error).toMatchObject({ code: 'incomplete_reply' })
     expect(r.outcomes).toHaveLength(2)
@@ -192,7 +192,7 @@ describe('sending (batch_send.go)', () => {
   }, 10_000)
   test('no reply at all: every item not_served, with a timeout error', async () => {
     hub.faults = { drop: true }
-    const s = await new CashClient({ relays: pool, notAfterSeconds: 1 }, bill(1)).session()
+    const s = await new CashClient({ relays: pool, replyWaitMs: 1000 }, bill(1)).session()
     const r = await statusMany(s, [{ id: 'a', bill: billFor(decodeToken(bill(1))), credential: bySigning(holder) }], now)
     expect(r.outcomes).toMatchObject([{ id: 'a', state: 'not_served' }])
     expect(r.error).toMatchObject({ code: 'timeout' })
@@ -275,7 +275,7 @@ describe('bill state and claims (bill_state.go, check_claim.go)', () => {
   })
   test('silence is indeterminate, never spent', async () => {
     hub.faults = { drop: true }
-    const st = await new CashClient({ relays: pool, notAfterSeconds: 1 }, bill(1)).state(bySigning(holder))
+    const st = await new CashClient({ relays: pool, replyWaitMs: 1000 }, bill(1)).state(bySigning(holder))
     expect(st.state).toBe('indeterminate')
     expect(st.error).toBeDefined()
   }, 10_000)

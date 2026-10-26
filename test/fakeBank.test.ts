@@ -13,7 +13,7 @@ const bob = localSigner(fill(0x62, 32))
 
 let pool: MemoryRelayPool
 let bank: FakeBank
-const client = (token: string) => new CashClient({ relays: pool, notAfterSeconds: 2 }, token)
+const client = (token: string) => new CashClient({ relays: pool, replyWaitMs: 2000 }, token)
 
 beforeEach(async () => {
   pool = new MemoryRelayPool()

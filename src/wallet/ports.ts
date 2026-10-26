@@ -103,8 +103,8 @@ export interface WalletDeps {
   readonly random?: (n: number) => Uint8Array
   readonly logger?: Logger
   readonly fallbackRelays?: readonly string[]
-  /** How long one batch envelope stays valid, in seconds; tests shorten it. */
-  readonly notAfterSeconds?: number
+  /** The longest a private send waits for its reply, in ms (never past the call's deadline); tests shorten it. */
+  readonly replyWaitMs?: number
   /** How long an NWC call waits for its answer, in ms; default 60 s. */
   readonly nwcTimeoutMs?: number
   /** Cross-tab change notices; other tabs reload their state on one. */

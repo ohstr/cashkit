@@ -123,7 +123,7 @@ describe('CircleClient.join (nipcw/client/join_test.go)', () => {
   let circle: Record<string, unknown> | undefined
   const privateRequests = () => pool.published.filter((x) => x.event.kind === 23190).length
   const standardJoins = () => nwc.seen.filter((x) => x.method === 'create_circle_wallet').length
-  const client = (o: { notAfterSeconds?: number } = {}) => new CircleClient({ relays: pool, ...o }, nwc.uri)
+  const client = (o: { replyWaitMs?: number } = {}) => new CircleClient({ relays: pool, ...o }, nwc.uri)
 
   beforeEach(async () => {
     pool = new MemoryRelayPool()
@@ -234,7 +234,7 @@ describe('CircleClient.join (nipcw/client/join_test.go)', () => {
   })
   test('a sent private join with no reply never falls back', async () => {
     hub.faults = { drop: true }
-    await expect(client({ notAfterSeconds: 1 }).join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ code: 'timeout' })
+    await expect(client({ replyWaitMs: 1000 }).join({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ code: 'timeout' })
     expect([privateRequests(), standardJoins()]).toEqual([1, 0])
   })
   test('a private reply sealed by the inbox key is undecodable, not a refusal, and never falls back', async () => {

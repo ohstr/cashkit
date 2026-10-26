@@ -8,8 +8,11 @@ import { ClientError, NotServedError, WalletError } from './errors.js'
  *   possibly applied: never read it as a failure or as "spent".
  * - `result`: served and succeeded.
  * - `error`: served and refused, with the Hub's reason.
+ * - `conflicted`: answered more than once; no decided outcome, possibly applied.
+ * - `tombstone`: the bill is gone (NIP-CASH §Answering About a Destroyed
+ *   Bill), so the call never ran.
  */
-export type OutcomeState = 'not_served' | 'result' | 'error'
+export type OutcomeState = 'not_served' | 'result' | 'error' | 'conflicted' | 'tombstone'
 
 export interface ItemOutcome {
   readonly id: string
@@ -37,9 +40,10 @@ export const succeeded = (o: Pick<ItemOutcome, 'state'>): boolean => o.state ===
  * Pairs a response with the ids sent, so every requested item gets exactly
  * one outcome. An envelope-level error applies to every item in it.
  */
-export function joinOutcomes(requestedIds: readonly string[], resp: Pick<ResponseEnvelope, 'results' | 'error'> | undefined, envelope: number): ItemOutcome[] {
+export function joinOutcomes(requestedIds: readonly string[], resp: Pick<ResponseEnvelope, 'results' | 'error'> | undefined, envelope: number, conflicted: ReadonlySet<string> = new Set()): ItemOutcome[] {
   const byId = new Map((resp?.results ?? []).map((r) => [r.id, r]))
   return requestedIds.map((id): ItemOutcome => {
+    if (conflicted.has(id)) return { id, state: 'conflicted', undecodable: false, envelope }
     const r = byId.get(id)
     if (r?.error) return { id, state: 'error', error: r.error, undecodable: false, envelope }
     if (r) return { id, state: 'result', ...(r.result !== undefined && { result: r.result }), undecodable: false, envelope }
@@ -57,7 +61,7 @@ export const notServedOutcomes = (ids: readonly string[], envelope: number): Ite
  * over a send error that arrived with it.
  */
 export function oneItemError(o: (Pick<ItemOutcome, 'state' | 'error'> & { readonly undecodable?: boolean; readonly tombstone?: unknown }) | undefined, sendError: unknown, method: string): Error | undefined {
-  if (o?.state === 'result' && o.tombstone !== undefined) return new ClientError('spent', `the hub says this bill is gone, so the ${method} did not run`)
+  if (o?.state === 'tombstone' || (o?.state === 'result' && o.tombstone !== undefined)) return new ClientError('spent', `the hub says this bill is gone, so the ${method} did not run`)
   if (o?.state === 'result') return undefined
   // It ran: a success whose body did not decode is never a refusal.
   if (o?.undecodable) return new ClientError('undecodable_result', `the hub applied this ${method}, but its answer could not be read`)
@@ -72,3 +76,36 @@ export function oneItemError(o: (Pick<ItemOutcome, 'state' | 'error'> & { readon
  * - `spent`: the Hub said so explicitly.
  */
 export type BillState = 'indeterminate' | 'available' | 'spent'
+
+/**
+ * What a call's outcome means for its pending record (NIP-CASH §Methods,
+ * §Lost Replies):
+ * - `applied`: it ran and its result is known.
+ * - `final_not_applied`: refused `BAD_REQUEST`, item- or envelope-level; it
+ *   never ran and never will.
+ * - `tombstone`: the bill is gone; the call never ran.
+ * - `not_sent`: refused locally before anything went out.
+ * - `open`: anything else (another Hub code, an omission, a timeout, an
+ *   incomplete or conflicted reply, an undecodable success): it may have
+ *   run, so it stays pending and is looked up, never resent.
+ */
+export type CallClass =
+  | { readonly kind: 'applied' }
+  | { readonly kind: 'final_not_applied'; readonly code: string; readonly detail?: string }
+  | { readonly kind: 'tombstone' }
+  | { readonly kind: 'not_sent' }
+  | { readonly kind: 'open'; readonly reason: 'refused' | 'not_served' | 'conflicted' | 'undecodable'; readonly code?: string; readonly detail?: string }
+
+export function classifyCall(o: Pick<ItemOutcome, 'state' | 'error' | 'undecodable'> & { readonly tombstone?: unknown }): CallClass {
+  if (o.state === 'tombstone' || (o.state === 'result' && o.tombstone !== undefined)) return { kind: 'tombstone' }
+  if (o.undecodable) return { kind: 'open', reason: 'undecodable' }
+  if (o.state === 'result') return { kind: 'applied' }
+  if (o.state === 'conflicted') return { kind: 'open', reason: 'conflicted' }
+  if (o.state === 'error' && o.error !== undefined) {
+    const detail = o.error.detail !== undefined ? { detail: o.error.detail } : {}
+    if (o.error.code === 'NOT_SENT') return { kind: 'not_sent' }
+    if (o.error.code === 'BAD_REQUEST') return { kind: 'final_not_applied', code: o.error.code, ...detail }
+    return { kind: 'open', reason: 'refused', code: o.error.code, ...detail }
+  }
+  return { kind: 'open', reason: 'not_served' }
+}

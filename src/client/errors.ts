@@ -24,6 +24,12 @@ export type ClientErrorCode =
   | 'no_zap_event'
   /** The token carries no mint signature that verifies, so its Hub cannot be identified. Nothing was sent. */
   | 'no_provenance'
+  /** The Hub announces no usable max_request_age, so it takes no bill-creating call. Nothing was sent. */
+  | 'hub_unusable'
+  /** Too little time was left before the deadline after the write-ahead. Nothing was sent. */
+  | 'deadline_too_close'
+  /** The items do not fit the one envelope the caller required. Nothing was sent. */
+  | 'single_envelope_required'
 
 export class ClientError extends Error {
   override readonly name: string = 'ClientError'

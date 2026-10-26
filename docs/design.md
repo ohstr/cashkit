@@ -301,21 +301,40 @@ here).
 A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
 
 - **`BatchSession(hub, relays)`.**
-  - Fetches and refreshes the announcement, keeping the newest by
-    `created_at` (rollback guard).
-  - Adopts the relays the announcement lists.
+  - Fetches the announcement from the relay hints only and refreshes it,
+    keeping the newest by `created_at` (rollback guard).
+  - Publishes to the announcement's `r` relays first, then the hints in
+    encoded order, each once, blanks skipped.
   - Packs items greedily into envelopes with a fresh nonce and `reply_to`
-    per envelope and `not_after = now + 60s`.
+    per envelope. The deadline (`not_after`) is `deadlineFor(H, now)` =
+    now + min(60, ⌊H/2⌋), from the Hub's announced `max_request_age`, or one
+    the caller passes (already written ahead); it is never an app setting.
+  - `send(builders, {notAfter, singleEnvelope, beforePublish})`: a
+    bill-creating item to a Hub without a usable H is refused
+    (`hub_unusable`); `beforePublish` runs once the envelope and its
+    deadline are final (the caller's write-ahead), and with less than 20 s
+    then left nothing is sent (`deadline_too_close`); `singleEnvelope`
+    refuses a batch that would split.
 - **Send.**
   - Per relay: subscribe to `{kinds:[23191], #p:[reply_to]}`, wait up to 2 s
-    for EOSE, then publish.
-  - The first relay to accept wins.
-  - Collect replies until `not_after`. Merge chunks by `seq`/`total`; a
-    conflicting chunk makes the reply malformed.
+    for EOSE, then publish. The first relay to accept wins
+    (`acceptedRelays`); every subscription opened is kept until the reply
+    is collected.
+  - Collect replies until `not_after` (or `replyWaitMs`, if shorter), per
+    NIP-CASH §Chunked Replies: every decided outcome is kept; chunks
+    disagreeing about `total`, two events with one `seq` or a `seq` out of
+    range make the reply incomplete, never void; an item answered twice is
+    `conflicted`; the same event from two relays is one chunk; `total` is
+    bounded by the items sent.
 - **Per-item `ItemOutcome`.**
   - `state` is `not_served` (the zero value: **unknown**, possibly applied),
-    `result` or `error`.
-  - `safeToResend()` is true only for a decodable error.
+    `result`, `error`, `conflicted` (answered twice, possibly applied) or
+    `tombstone` (the bill is gone, the call never ran).
+  - `classifyCall` reads it for a pending call: `applied`;
+    `final_not_applied` for `BAD_REQUEST` (item- or envelope-level, with its
+    `detail`); `tombstone`; `not_sent` for a local refusal; `open` for any
+    other code, an omission, a conflict or an undecodable success, which is
+    looked up and never resent.
 - **`BillState`** is `indeterminate` (the zero value), `available` or
   `spent`. Only an explicit `"spent"` answer produces `spent`; a timeout
   never does.

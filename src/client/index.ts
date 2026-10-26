@@ -4,16 +4,18 @@ export type { ClientDeps, Filter, RelayPool, SubscriptionHandlers } from './port
 export { ClientError, fallbackReasonOf, NotServedError, PartialProgressError, PrivateJoinUnavailableError, WalletError, type ClientErrorCode } from './errors.js'
 export { billFor, billFromParts, checkBill, minterOf, selectVerifiedCopy, type Bill } from './bill.js'
 export {
+  classifyCall,
   joinOutcomes,
   notServedOutcomes,
   oneItemError,
   safeToResend,
   succeeded,
   type BillState,
+  type CallClass,
   type ItemOutcome,
   type OutcomeState,
 } from './outcome.js'
-export { BatchSession, NOT_AFTER_WINDOW, openBatchSession, NOT_SENT, SUBSCRIPTION_ACK_WAIT_MS, type ItemBinding, type ItemBuilder, type SendResult } from './session.js'
+export { BatchSession, deadlineFor, MIN_PUBLISH_MARGIN, openBatchSession, NOT_SENT, SUBSCRIPTION_ACK_WAIT_MS, type ItemBinding, type ItemBuilder, type SendOptions, type SendResult } from './session.js'
 export {
   buildItem,
   consolidateMany,

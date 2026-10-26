@@ -81,7 +81,7 @@ export async function harness(o: { storage?: Storage; deps?: Partial<WalletDeps>
     for (let i = 0; i < k; i++) out[i] = (n = (n * 1103515245 + 12345) >>> 0) >>> 24
     return out
   }
-  const deps: WalletDeps = { storage, vault: new NoneVault(), relays: pool, notAfterSeconds: 2, random, ...o.deps }
+  const deps: WalletDeps = { storage, vault: new NoneVault(), relays: pool, replyWaitMs: 2000, random, ...o.deps }
   const wallet = await Wallet.open(deps)
   let me = ''
   if (o.identity !== false) me = (await wallet.identity.get())?.pubkey ?? (await wallet.identity.generate()).pubkey

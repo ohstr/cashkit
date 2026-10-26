@@ -71,7 +71,7 @@ async function decodeOutcomes<R>(outcomes: readonly ItemOutcome[], parse: (o: It
       const v = parseJSONValue(o.result ?? 'null')
       const tombstone = tombstones ? parseTombstone(v) : undefined
       if (tombstone !== undefined) {
-        out.push({ ...o, tombstone })
+        out.push({ ...o, state: 'tombstone', tombstone })
         continue
       }
       out.push({ ...o, value: await parse(o, v) })
@@ -85,6 +85,8 @@ async function decodeOutcomes<R>(outcomes: readonly ItemOutcome[], parse: (o: It
 export interface BatchResult<R> {
   readonly outcomes: TypedOutcome<R>[]
   readonly error?: Error
+  /** The relays that accepted a request event. */
+  readonly acceptedRelays?: readonly string[]
 }
 
 /** Sends the builders and decodes each answered item with `parse`. */
@@ -92,7 +94,8 @@ export async function run<R>(session: BatchSession, builders: ItemBuilder[], par
   const r = await session.send(builders)
   if (r.error && r.outcomes.length === 0) throw r.error
   const outcomes = await decodeOutcomes(r.outcomes, parse, o.tombstones ?? true)
-  return r.error ? { outcomes, error: r.error } : { outcomes }
+  const accepted = r.acceptedRelays !== undefined ? { acceptedRelays: r.acceptedRelays } : {}
+  return r.error ? { outcomes, error: r.error, ...accepted } : { outcomes, ...accepted }
 }
 
 
@@ -109,6 +112,7 @@ export interface BatchStatus {
 export function statusMany(session: BatchSession, items: readonly BatchStatus[], now: () => number): Promise<BatchResult<CashStatusResult>> {
   const builders = items.map((it, i): ItemBuilder => ({
     id: itemId(it.id, i),
+    method: 'cash_status',
     build: (id, b) => {
       checkBill(it.bill, id, session.hub)
       // A cash-mode status item carries neither proof nor secret: the bill proof names its one row.
@@ -130,6 +134,7 @@ export interface BatchRedeem {
 export function redeemMany(session: BatchSession, items: readonly BatchRedeem[], now: () => number): Promise<BatchResult<CashRedeemResult>> {
   const builders = items.map((it, i): ItemBuilder => ({
     id: itemId(it.id, i),
+    method: 'cash_redeem',
     build: async (id, b) => {
       checkBill(it.bill, id, session.hub)
       const req = await cashRedeemRequest({
@@ -166,6 +171,7 @@ export function transferMany(session: BatchSession, items: readonly BatchTransfe
     byId.set(id, it)
     return {
       id,
+      method: 'cash_transfer',
       build: async (itemIdArg, b) => {
         checkBill(it.bill, itemIdArg, session.hub)
         const req = await cashTransferRequest({
@@ -205,6 +211,7 @@ export function consolidateMany(session: BatchSession, items: readonly BatchCons
     byId.set(id, it)
     return {
       id,
+      method: 'cash_consolidate',
       build: async (itemIdArg, b) => {
         checkBill(it.bill, itemIdArg, session.hub)
         const req = await cashConsolidateRequest({ sources: it.sources, to: it.to, requestId: it.requestId ?? newRequestId(), now: now() })

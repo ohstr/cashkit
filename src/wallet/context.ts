@@ -47,7 +47,7 @@ export class Ctx {
       relays: deps.relays,
       random: this.random,
       ...(deps.clock !== undefined && { clock: deps.clock }),
-      ...(deps.notAfterSeconds !== undefined && { notAfterSeconds: deps.notAfterSeconds }),
+      ...(deps.replyWaitMs !== undefined && { replyWaitMs: deps.replyWaitMs }),
       ...(deps.nwcTimeoutMs !== undefined && { nwcTimeoutMs: deps.nwcTimeoutMs }),
     }
     this.signerOverride = deps.signer

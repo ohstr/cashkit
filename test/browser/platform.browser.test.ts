@@ -66,7 +66,7 @@ async function bank() {
 describe('openWallet with the browser defaults', () => {
   test('IndexedDB, Web Locks, BroadcastChannel and storage.persist are wired in; money moves', async () => {
     const { pool, bank: b } = await bank()
-    const w = await openWallet({ name: name(), vault: await DeviceVault.open({ name: name() }), relays: pool, notAfterSeconds: 5 })
+    const w = await openWallet({ name: name(), vault: await DeviceVault.open({ name: name() }), relays: pool, replyWaitMs: 5000 })
     expect(typeof w.state.storagePersisted).toBe('boolean')
     const me = (await w.identity.generate()).pubkey
     const t = newCashTarget()
@@ -98,7 +98,7 @@ describe('two tabs on one wallet (multi-tab scenario)', () => {
         relays: pool,
         lock: new WebLocksLock(),
         sync: new BroadcastSync(`cashkit:${db}`),
-        notAfterSeconds: 5,
+        replyWaitMs: 5000,
       })
     const a = await tab()
     const me = (await a.identity.generate()).pubkey

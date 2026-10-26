@@ -12,6 +12,11 @@ export interface Filter {
   readonly limit?: number
   readonly '#p'?: readonly string[]
   readonly '#e'?: readonly string[]
+  readonly '#P'?: readonly string[]
+  readonly '#w'?: readonly string[]
+  readonly '#a'?: readonly string[]
+  readonly '#k'?: readonly string[]
+  readonly '#d'?: readonly string[]
 }
 
 export interface SubscriptionHandlers {
@@ -36,10 +41,11 @@ export interface ClientDeps {
   /** Default crypto.getRandomValues. */
   readonly random?: (n: number) => Uint8Array
   /**
-   * How long a batch envelope stays valid, and so how long a send waits for
-   * its reply. Default 60 s; a Hub refuses more than 120 s.
+   * The longest a send waits for its reply, in ms. The wait never outlasts
+   * the envelope's own deadline, which comes from the Hub's
+   * `max_request_age` and is never an app setting.
    */
-  readonly notAfterSeconds?: number
+  readonly replyWaitMs?: number
   /** How long an NWC call waits for the wallet's response. Default 60 s. */
   readonly nwcTimeoutMs?: number
 }

@@ -100,7 +100,7 @@ describe('a wallet over each adapter, against a Hub on the real relay', () => {
       }
       bridge.subscribe([relay.url], { kinds: [23190] }, { onEvent: (e) => void realPublish(relay.url, e), onEose: () => {} })
       await bank.start()
-      const h = await harness({ bank, pool: memory, deps: { relays: a.make(), notAfterSeconds: 10 } })
+      const h = await harness({ bank, pool: memory, deps: { relays: a.make(), replyWaitMs: 10000 } })
       const r = await h.wallet.receive(bank.mintToPubkey(5000n, h.me).token)
       expect(r.received).toBe(true)
       expect((await h.wallet.send({ amount: 2000n })).sent).toBe(2000n)

@@ -141,6 +141,12 @@ export interface Faults {
   replyOnAllRelays?: boolean
   /** Declare this total instead of the real chunk count. */
   declaredTotal?: number
+  /** Per-chunk declared totals (chunks disagreeing about the total). */
+  chunkTotals?: number[]
+  /** Send the first chunk a second time as another event with the same seq. */
+  repeatFirstChunk?: boolean
+  /** Answer this item id again in the last chunk. */
+  answerTwice?: string
 }
 
 export class FakeHub {
@@ -242,9 +248,12 @@ export class FakeHub {
     results.forEach((r, i) => parts[i % chunks]!.push(r))
     const send = f.sendChunks ?? chunks
     const relays = f.replyOnAllRelays ? this.relayUrls : [relay]
-    for (let i = 0; i < send; i++) {
+    const twice = f.answerTwice !== undefined ? results.find((r) => r.id === f.answerTwice) : undefined
+    if (twice !== undefined) parts[chunks - 1]!.push({ ...twice, result: '{"recipients":[]}' })
+    const order = f.repeatFirstChunk === true ? [0, ...Array.from({ length: send }, (_, i) => i)] : Array.from({ length: send }, (_, i) => i)
+    for (const i of order) {
       const plaintext = encodeResponse(
-        { reqNonce: envelope.nonce, ...(f.envelopeError && { error: f.envelopeError }), results: f.envelopeError ? [] : parts[i]!, seq: i + 1, total },
+        { reqNonce: envelope.nonce, ...(f.envelopeError && { error: f.envelopeError }), results: f.envelopeError ? [] : parts[i]!, seq: i + 1, total: f.chunkTotals?.[i] ?? total },
         this.limits,
       )
       const reply = finalizeEvent({ kind: KIND_PRIVATE_RESPONSE, created_at: now, tags: [['p', envelope.replyTo]], content: sealReply(plaintext, ck, envelope.replyTo) }, crypto.getRandomValues(new Uint8Array(32)))
