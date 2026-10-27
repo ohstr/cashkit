@@ -225,6 +225,11 @@
   ([#29](https://github.com/ohstr/cashkit/pull/29))
 - Fixes reading `expires_at` from a mint's lookup result.
   ([#29](https://github.com/ohstr/cashkit/pull/29))
+- Adds NIP-IC canonical platform user ids: `canonicalUserId`,
+  `canonicalDomain` (UTS #46 ToASCII with the spec's refusals, tables from
+  Unicode 15.0.0), `connectionKeyFromTyped` (x, discord, email, dns only)
+  and `connectionKeyFromAttested`. They agree with nmilat on its 5000-domain
+  corpus.
 
 ## [0.1.0-rc.2]
 
