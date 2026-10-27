@@ -1,0 +1,127 @@
+{
+  "description": "NIP-AZ alternative zap request (kind 9520) to a connection key, frozen for drift (K-AZ-1).",
+  "source": "nipAZ/request.go NewAltZapRequest, ValidateAltZapRequestForRelay; nipAZ/kat_test.go (K-AZ-1)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "kat": {
+    "id": "K-AZ-1",
+    "senderSecret": "0101010101010101010101010101010101010101010101010101010101010101",
+    "githubUserId": "1234567",
+    "connectionKey": "ffed85070e86f6ac651aa82b91310ca01895a7432bb0f8224fe74d7b21ab18c1",
+    "ia": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+    "lnurl": "lnurl1dp68gurn8ghj7urp0yhx27rpd4cxcefwvdhk6tmvde6hymrs9askc6trv5qmmmex",
+    "event": {
+      "id": "e0f32bed48057944056e7fb1d74c00569ecb2349882d0e2985f2ae480b71f4c5",
+      "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+      "created_at": 1720000000,
+      "kind": 9520,
+      "tags": [
+        [
+          "p",
+          "ffed85070e86f6ac651aa82b91310ca01895a7432bb0f8224fe74d7b21ab18c1",
+          "github"
+        ],
+        [
+          "amount",
+          "21000"
+        ],
+        [
+          "lnurl",
+          "lnurl1dp68gurn8ghj7urp0yhx27rpd4cxcefwvdhk6tmvde6hymrs9askc6trv5qmmmex"
+        ],
+        [
+          "chain",
+          "examplecoin"
+        ],
+        [
+          "ia",
+          "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+        ],
+        [
+          "relays",
+          "wss://relay.example.com"
+        ]
+      ],
+      "content": "",
+      "sig": "6df3805411b78a5bb11ccd90525da1fc0d19947ad8ff9f4880994486ad760dbc048d4010dee36c652402798902aabaeb3feb88f7a6cc1fe9b0a89c8b60aefea3"
+    }
+  },
+  "validateForRelay": [
+    {
+      "name": "K-AZ-1",
+      "event": {
+        "id": "e0f32bed48057944056e7fb1d74c00569ecb2349882d0e2985f2ae480b71f4c5",
+        "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+        "created_at": 1720000000,
+        "kind": 9520,
+        "tags": [
+          [
+            "p",
+            "ffed85070e86f6ac651aa82b91310ca01895a7432bb0f8224fe74d7b21ab18c1",
+            "github"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "lnurl",
+            "lnurl1dp68gurn8ghj7urp0yhx27rpd4cxcefwvdhk6tmvde6hymrs9askc6trv5qmmmex"
+          ],
+          [
+            "chain",
+            "examplecoin"
+          ],
+          [
+            "ia",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "relays",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "",
+        "sig": "6df3805411b78a5bb11ccd90525da1fc0d19947ad8ff9f4880994486ad760dbc048d4010dee36c652402798902aabaeb3feb88f7a6cc1fe9b0a89c8b60aefea3"
+      }
+    },
+    {
+      "name": "bad signature",
+      "event": {
+        "id": "e0f32bed48057944056e7fb1d74c00569ecb2349882d0e2985f2ae480b71f4c5",
+        "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+        "created_at": 1720000000,
+        "kind": 9520,
+        "tags": [
+          [
+            "p",
+            "ffed85070e86f6ac651aa82b91310ca01895a7432bb0f8224fe74d7b21ab18c1",
+            "github"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "lnurl",
+            "lnurl1dp68gurn8ghj7urp0yhx27rpd4cxcefwvdhk6tmvde6hymrs9askc6trv5qmmmex"
+          ],
+          [
+            "chain",
+            "examplecoin"
+          ],
+          [
+            "ia",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ],
+          [
+            "relays",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "",
+        "sig": "6df3805411b78a5bb11ccd90525da1fc0d19947ad8ff9f4880994486ad760dbc048d4010dee36c652402798902aabaeb3feb88f7a6cc1fe9b0a89c8b60aefea0"
+      },
+      "error": "nip57: invalid signature: invalid signature"
+    }
+  ]
+}

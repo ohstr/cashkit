@@ -1,0 +1,1409 @@
+{
+  "description": "Signed connection strings (cashhub1, circlehub1, cashorder1): the signed text <label>:<chain>:<TLV 0>:<TLV 4>:<relay_hash>:<label_hash>, its digest under the chain's signed-message prefix, TLV 5, the exact strings; decoder refusals (missing, repeated or malformed TLV 0/2/4/5/6), unverified cases, a type above 6 outside the signature, uppercase strings decode and mixed case is refused; chain names and the online check against get_info.",
+  "source": "nipcash/connsig.go, cashhub_connection.go, online.go, nipcw/circlehub_connection.go, nipCO/connection.go, internal/credcodec; nipcash/cashhub_connection_test.go, nipcw/circlehub_connection_test.go, nipCO/connection_test.go (K-CH-1..2, K-CWH-1..2, K-CO-1..2, K-CSIG-1, K-CHAIN-1, K-ONL-1)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "kats": [
+    {
+      "id": "K-CH-1",
+      "kind": "cashhub",
+      "inputs": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "relayHash": "16c4c4164c27d448128dabf8052dddd5b30c61904b7b7c1b85e1486c37b7a500",
+      "labelHash": "b5d2b9a2a7f9519d7367521d3a125f882cc34bbcc6f2844aed18533f5f724294",
+      "text": "cash-hub:v1:bitcoin:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:16c4c4164c27d448128dabf8052dddd5b30c61904b7b7c1b85e1486c37b7a500:b5d2b9a2a7f9519d7367521d3a125f882cc34bbcc6f2844aed18533f5f724294",
+      "prefix": "Lightning Signed Message:",
+      "digest": "c4976825128c4be05a7c553d29852f9611667832eb6d2c096417cd7a6c8817dd",
+      "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+      "header": 31,
+      "string": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcvlu0w2",
+      "length": 368
+    },
+    {
+      "id": "K-CH-2",
+      "kind": "cashhub",
+      "inputs": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "relayHash": "16c4c4164c27d448128dabf8052dddd5b30c61904b7b7c1b85e1486c37b7a500",
+      "labelHash": "",
+      "text": "cash-hub:v1:bitcoin:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:16c4c4164c27d448128dabf8052dddd5b30c61904b7b7c1b85e1486c37b7a500:",
+      "prefix": "Lightning Signed Message:",
+      "digest": "bd39cc19f477bb273774acdef3ed94f8b8a7f9954bb6363a913d6200c48d5c73",
+      "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+      "header": 31,
+      "string": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7ppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sglmer7ss5cusd7ce24a058p02yas6x06j8gwrtpfrhtvzpdgnv24jz54upq4m7t8e34s88g9j8f8d7jsh2s06m3fsvm43v59kfgh9fvnqxqa3xjarrda5kuj08pl5",
+      "length": 339
+    },
+    {
+      "id": "K-CWH-1",
+      "kind": "circlehub",
+      "inputs": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "relayHash": "16c4c4164c27d448128dabf8052dddd5b30c61904b7b7c1b85e1486c37b7a500",
+      "labelHash": "c7c2b59bc693ccb3290c0a51e5c3114e49d382ba14d374ad9b1a17ffdb1750c1",
+      "text": "circle-hub:v1:bitcoin:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:16c4c4164c27d448128dabf8052dddd5b30c61904b7b7c1b85e1486c37b7a500:c7c2b59bc693ccb3290c0a51e5c3114e49d382ba14d374ad9b1a17ffdb1750c1",
+      "prefix": "Lightning Signed Message:",
+      "digest": "7c945cb9b96fd8a62c973c42661e572ed186026a012cd7d4882c2eccc1cf1356",
+      "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+      "header": 31,
+      "string": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjms0uy6sx",
+      "length": 375
+    },
+    {
+      "id": "K-CO-1",
+      "kind": "cashorder",
+      "inputs": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "relayHash": "1681e7f0cca2d68c5a2a57e369f815529f0127b2a118adfeafa2f0edadb4d3d5",
+      "labelHash": "4415045cc4156b398d107e30b03adc967e5cafa1008863146c4467e79f6ed76f",
+      "text": "cash-order:v1:bitcoin:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:1681e7f0cca2d68c5a2a57e369f815529f0127b2a118adfeafa2f0edadb4d3d5:4415045cc4156b398d107e30b03adc967e5cafa1008863146c4467e79f6ed76f",
+      "prefix": "Lightning Signed Message:",
+      "digest": "0d819a660d269d960d5d898ca15a21fe79eab05c37c2949a973f4377d1180c28",
+      "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+      "header": 31,
+      "string": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+      "length": 376
+    }
+  ],
+  "decode": [
+    {
+      "name": "K-CH-1",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcvlu0w2",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CH-1 uppercase",
+      "kind": "cashhub",
+      "input": "CASHHUB1QQS0JVY2QXF93SCSFY6YLP0CN4FZNDF3EPZCXMUEKZRQRUGNHNSRD7GPZAMHXUE69UHHYETVV9UJUETCV9KHQMR99E3K7MGZYQSZZG3RYSJJVFEG9Y4ZKTPD9CHNQVFJXV6R2D3H8QUN5WEU85LR7QCSG9KXJCM9YAEJQSMPWD5ZQJR4VGZZQ7D7VEL0NH9M4326QC54E6RSKPCZN07DKTWW9RV4NU5PTVT0S9UCQ4Q377SFR0M7HP53AMVSKRZNSQM50LD4VPKXDM3DDL852CSZJ7HRS4YG2LFX9693AZ8L4QHK3MEX6V67VA8SAE5Q2EPSPH453EYY9D45ZVQSVPMZD96XXMMFDCVLU0W2",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CH-1 mixed case",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0Jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcvlu0w2",
+      "error": "nipcash: bech32 string mixes upper and lower case"
+    },
+    {
+      "name": "K-CH-1 no TLV 0",
+      "kind": "cashhub",
+      "input": "cashhub1qythwumn8ghj7un9d3shjtn90psk6urvv5hxxmmdqgszqgfzyvjz2f389q5j52ev95hz7vp3xgengdfkxuurjw3m8s7nu0crzpqkc6trv5nhxgzrv9eksgzgw43qggrehen8a7wuhwk9tgrzjh8gwzc8q2dlekedec5djk0js9d3d7qhnqz5z8m6pydl06uxj8hdjzcv2wqrw3lak4sxcehw94hu73tzq2t6uwz53ptaychgk85gl75z7680ymfnten57rhxsptyxqx7kj8yss4kksfszps8vf5hgcm0d9hqcsk3gt",
+      "error": "nipcash: missing pubkey"
+    },
+    {
+      "name": "K-CH-1 no TLV 1",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcp86m39",
+      "error": "nipcash: connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "K-CH-1 no TLV 2",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgrzpqkc6trv5nhxgzrv9eksgzgw43qggrehen8a7wuhwk9tgrzjh8gwzc8q2dlekedec5djk0js9d3d7qhnqz5z8m6pydl06uxj8hdjzcv2wqrw3lak4sxcehw94hu73tzq2t6uwz53ptaychgk85gl75z7680ymfnten57rhxsptyxqx7kj8yss4kksfszps8vf5hgcm0d9hqkwsjdl",
+      "error": "nipcash: missing secret"
+    },
+    {
+      "name": "K-CH-1 no TLV 4",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgz5z8m6pydl06uxj8hdjzcv2wqrw3lak4sxcehw94hu73tzq2t6uwz53ptaychgk85gl75z7680ymfnten57rhxsptyxqx7kj8yss4kksfszps8vf5hgcm0d9hqmavs0k",
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: missing hub identity"
+    },
+    {
+      "name": "K-CH-1 no TLV 5",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucqcrky6t5vdhkjmssz48ad",
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: missing signature"
+    },
+    {
+      "name": "K-CH-1 no TLV 6",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsd246u5",
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): missing"
+    },
+    {
+      "name": "K-CH-1 31-byte TLV 0",
+      "kind": "cashhub",
+      "input": "cashhub1qq0ln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uljqghwaehxw309aex2mrp0yhx27rpd4cxcefwvdhk6q3qyqsjygeyy5nzw2pf9g4jctfw9ucrzv3nxs6nvdec8yark0pa8clsxyzpd35kxef8wvsyxctndqsysatzqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy0h5zgm7l4cdy0wmy9sc5uqxarlmdtqd3nwutt0eazkyq5h4cu9fzzh6f3w3v0g3lag9a5w7fknxhn8fu8wdqzkgvqdadywfpptddqnqyrqwcnfw33k76twx628dk",
+      "error": "nipcash: pubkey must be 32 bytes, got 31"
+    },
+    {
+      "name": "K-CH-1 31-byte TLV 4",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzp77d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9c9gy0h5zgm7l4cdy0wmy9sc5uqxarlmdtqd3nwutt0eazkyq5h4cu9fzzh6f3w3v0g3lag9a5w7fknxhn8fu8wdqzkgvqdadywfpptddqnqyrqwcnfw33k76twt8sgyw",
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: hub identity is 31 bytes, want 32"
+    },
+    {
+      "name": "K-CH-1 33-byte TLV 4",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzzqnehen8a7wuhwk9tgrzjh8gwzc8q2dlekedec5djk0js9d3d7qhnqz5z8m6pydl06uxj8hdjzcv2wqrw3lak4sxcehw94hu73tzq2t6uwz53ptaychgk85gl75z7680ymfnten57rhxsptyxqx7kj8yss4kksfszps8vf5hgcm0d9hqnp7f7y",
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: hub identity is 33 bytes, want 32"
+    },
+    {
+      "name": "K-CH-1 64-byte TLV 5",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4qp77sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvrqwcnfw33k76tw43ds7n",
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: signature is 64 bytes, want 65"
+    },
+    {
+      "name": "K-CH-1 empty TLV 6",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvqqzwlwzh",
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): \"\""
+    },
+    {
+      "name": "K-CH-1 TLV 6 Bitcoin",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvp6zd96xxmmfdcnycfm4",
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): \"Bitcoin\""
+    },
+    {
+      "name": "K-CH-1 TLV 6 bit_coin",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvzrzd9697cm0d9hqyr6rp9",
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): \"bit_coin\""
+    },
+    {
+      "name": "K-CH-1 33-byte TLV 6",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvgtpv9skzctpv9skzctpv9skzctpv9skzctpv9skzctpv9skzctpv9ssnc8tq6",
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+    },
+    {
+      "name": "K-CH-1 TLV 6 bitcoin-x decodes, unverified",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvztzd96xxmmfdckhsy8xyhh",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin-x",
+        "verified": false,
+        "verifyError": "nipcash: connection string is not verified: nipcash: no signed-message prefix is known for this chain: \"bitcoin-x\""
+      }
+    },
+    {
+      "name": "K-CH-1 TLV 3 twice",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcp3qstvd93k2fmnyppkzumgypy82cs0e3vdg",
+      "error": "nipcash: duplicate TLV 3 entry"
+    },
+    {
+      "name": "K-CH-1 TLV 4 twice",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdczzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucumf7fa",
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: TLV 4 repeated"
+    },
+    {
+      "name": "K-CH-1 TLV 5 twice",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcz5z8m6pydl06uxj8hdjzcv2wqrw3lak4sxcehw94hu73tzq2t6uwz53ptaychgk85gl75z7680ymfnten57rhxsptyxqx7kj8yss4kksfszp6rvw6",
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: TLV 5 repeated"
+    },
+    {
+      "name": "K-CH-1 TLV 6 twice",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcrqwcnfw33k76twyj84m7",
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): repeated"
+    },
+    {
+      "name": "K-CH-1 extra TLV 9 is outside the signature",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcysven4w36hyegug6nna",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CH-1 blank hint beside the real one",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcqszgqg4hrfx",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com",
+          " "
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin",
+        "verified": false,
+        "verifyError": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+      }
+    },
+    {
+      "name": "K-CH-1 under another connection HRP",
+      "kind": "cashhub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdc0vemgj",
+      "error": "nipcash: unexpected hrp \"circlehub\", want \"cashhub\""
+    },
+    {
+      "name": "K-CH-1 as a token HRP",
+      "kind": "cashhub",
+      "input": "satscash1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdc7qqcvd",
+      "error": "nipcash: unexpected hrp \"satscash\", want \"cashhub\""
+    },
+    {
+      "name": "K-CWH-1",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjms0uy6sx",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CWH-1 uppercase",
+      "kind": "circlehub",
+      "input": "CIRCLEHUB1QQS0JVY2QXF93SCSFY6YLP0CN4FZNDF3EPZCXMUEKZRQRUGNHNSRD7GPZAMHXUE69UHHYETVV9UJUETCV9KHQMR99E3K7MGZYQSZZG3RYSJJVFEG9Y4ZKTPD9CHNQVFJXV6R2D3H8QUN5WEU85LR7QCNG9JXZFMNYPRXZMTFD3UJQSMFWF3KCEGYYPUMUEN7L8WTHTZ45P3FTN58PVRS9XLUMVKUU2XET8EGZKCKLQTESP2PRUZ886KHDQ7PMDM0V9UYC5PMNLSP34XME8DJME07VP9ELACP0EDW2NX04N8LDYHUUFVSR90XYEVLPYNNQ7V0TFSN6MTS8YPJS7C9AGZMQCRKY6T5VDHKJMS0UY6SX",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CWH-1 mixed case",
+      "kind": "circlehub",
+      "input": "circlehub1qqS0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjms0uy6sx",
+      "error": "nipcw: bech32 string mixes upper and lower case"
+    },
+    {
+      "name": "K-CWH-1 no TLV 0",
+      "kind": "circlehub",
+      "input": "circlehub1qythwumn8ghj7un9d3shjtn90psk6urvv5hxxmmdqgszqgfzyvjz2f389q5j52ev95hz7vp3xgengdfkxuurjw3m8s7nu0crzdqkgcf8wvsyvctdd9k8jgzrd9exxmr9qss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy0sgul26a5rc8dhdashsnzs8w07qxx5m0yakt09lesyh8lhq9l94e2ve7kvla5jln39jqv4ucn9nuyjwvre3adxz0tdwqusx2rmqh4qtvrqwcnfw33k76twspgjaq",
+      "error": "nipcw: missing pubkey"
+    },
+    {
+      "name": "K-CWH-1 no TLV 1",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjms4l9vtg",
+      "error": "nipcw: connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "K-CWH-1 no TLV 2",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgrzdqkgcf8wvsyvctdd9k8jgzrd9exxmr9qss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy0sgul26a5rc8dhdashsnzs8w07qxx5m0yakt09lesyh8lhq9l94e2ve7kvla5jln39jqv4ucn9nuyjwvre3adxz0tdwqusx2rmqh4qtvrqwcnfw33k76twa440d4",
+      "error": "nipcw: missing secret"
+    },
+    {
+      "name": "K-CWH-1 no TLV 4",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kceg9gy0sgul26a5rc8dhdashsnzs8w07qxx5m0yakt09lesyh8lhq9l94e2ve7kvla5jln39jqv4ucn9nuyjwvre3adxz0tdwqusx2rmqh4qtvrqwcnfw33k76twekkx3l",
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: missing hub identity"
+    },
+    {
+      "name": "K-CWH-1 no TLV 5",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesps8vf5hgcm0d9hqkchzqx",
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: missing signature"
+    },
+    {
+      "name": "K-CWH-1 no TLV 6",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzme6xhcy",
+      "error": "nipcw: connection string carries no valid chain name (TLV 6): missing"
+    },
+    {
+      "name": "K-CWH-1 31-byte TLV 0",
+      "kind": "circlehub",
+      "input": "circlehub1qq0ln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uljqghwaehxw309aex2mrp0yhx27rpd4cxcefwvdhk6q3qyqsjygeyy5nzw2pf9g4jctfw9ucrzv3nxs6nvdec8yark0pa8clsxy6pv3sjwueqgesk66tv0ysyx6tjvdkx2ppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sglq3e744mg8swmwmmp0px9qwuluqvdfk7fmvk7tlnqfw0lwqt7ttj5enavelmf9l8ztyqete3xt8cfyuc8nr66vy7k6upeqv58kp02qkcxqa3xjarrda5ku29hykd",
+      "error": "nipcw: pubkey must be 32 bytes, got 31"
+    },
+    {
+      "name": "K-CWH-1 31-byte TLV 4",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyraumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqts2sglq3e744mg8swmwmmp0px9qwuluqvdfk7fmvk7tlnqfw0lwqt7ttj5enavelmf9l8ztyqete3xt8cfyuc8nr66vy7k6upeqv58kp02qkcxqa3xjarrda5kuejwfq6",
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: hub identity is 31 bytes, want 32"
+    },
+    {
+      "name": "K-CWH-1 33-byte TLV 4",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyyyp8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy0sgul26a5rc8dhdashsnzs8w07qxx5m0yakt09lesyh8lhq9l94e2ve7kvla5jln39jqv4ucn9nuyjwvre3adxz0tdwqusx2rmqh4qtvrqwcnfw33k76twv3m769",
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: hub identity is 33 bytes, want 32"
+    },
+    {
+      "name": "K-CWH-1 64-byte TLV 5",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2qruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agqxqa3xjarrda5kuhlfl3e",
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: signature is 64 bytes, want 65"
+    },
+    {
+      "name": "K-CWH-1 empty TLV 6",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcqqad92ft",
+      "error": "nipcw: connection string carries no valid chain name (TLV 6): \"\""
+    },
+    {
+      "name": "K-CWH-1 TLV 6 Bitcoin",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcr5y6t5vdhkjmscrvkn3",
+      "error": "nipcw: connection string carries no valid chain name (TLV 6): \"Bitcoin\""
+    },
+    {
+      "name": "K-CWH-1 TLV 6 bit_coin",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcyxy6t5ta3k76tw5hc94t",
+      "error": "nipcw: connection string carries no valid chain name (TLV 6): \"bit_coin\""
+    },
+    {
+      "name": "K-CWH-1 33-byte TLV 6",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcskzctpv9skzctpv9skzctpv9skzctpv9skzctpv9skzctpv9skzctpq6khga",
+      "error": "nipcw: connection string carries no valid chain name (TLV 6): \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+    },
+    {
+      "name": "K-CWH-1 TLV 6 bitcoin-x decodes, unverified",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcyky6t5vdhkjm3d0qhlypu4",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin-x",
+        "verified": false,
+        "verifyError": "nipcash: connection string is not verified: nipcash: no signed-message prefix is known for this chain: \"bitcoin-x\""
+      }
+    },
+    {
+      "name": "K-CWH-1 TLV 3 twice",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjmsrzdqkgcf8wvsyvctdd9k8jgzrd9exxmr9xl39kr",
+      "error": "nipcw: duplicate TLV 3 entry"
+    },
+    {
+      "name": "K-CWH-1 TLV 4 twice",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjmsyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesfs0ey2",
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: TLV 4 repeated"
+    },
+    {
+      "name": "K-CWH-1 TLV 5 twice",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjms9gy0sgul26a5rc8dhdashsnzs8w07qxx5m0yakt09lesyh8lhq9l94e2ve7kvla5jln39jqv4ucn9nuyjwvre3adxz0tdwqusx2rmqh4qtvs4gh6d",
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: TLV 5 repeated"
+    },
+    {
+      "name": "K-CWH-1 TLV 6 twice",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjmsxqa3xjarrda5ku4ak35z",
+      "error": "nipcw: connection string carries no valid chain name (TLV 6): repeated"
+    },
+    {
+      "name": "K-CWH-1 extra TLV 9 is outside the signature",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjmsfqen82ar4wfjstmva0p",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CWH-1 blank hint beside the real one",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjmspqysq8l89dg",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com",
+          " "
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin",
+        "verified": false,
+        "verifyError": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+      }
+    },
+    {
+      "name": "K-CWH-1 under another connection HRP",
+      "kind": "circlehub",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjmsqtskf8",
+      "error": "nipcw: unexpected hrp \"cashorder\", want \"circlehub\""
+    },
+    {
+      "name": "K-CWH-1 as a token HRP",
+      "kind": "circlehub",
+      "input": "satscash1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjmsss6qre",
+      "error": "nipcw: unexpected hrp \"satscash\", want \"circlehub\""
+    },
+    {
+      "name": "K-CO-1",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CO-1 uppercase",
+      "kind": "cashorder",
+      "input": "CASHORDER1QQS0JVY2QXF93SCSFY6YLP0CN4FZNDF3EPZCXMUEKZRQRUGNHNSRD7GPZAMHXUE69UHHYETVV9UJUETCV9KHQMR99E3K7MGZYPQYZSJRG3Z5V36GF99YKNZDFE84Q52J2D2924JHTPV45K6UT4097QC5G9KXJCM9YAEJQCMPWD5ZQCM0W4H8GETJQSS8N0NX0MUAEWAV2KSX99WWSU9SWQ5MLNDJMN3GM9VL9Q2MZMUP0XQ9GY079M5VML5LHETE5L55TJ2XS3DC0UTWLZMP05FUARS7SGX9K9Q94QRCVYT93HE0X9RZHU2GTR76RY3Z3FUZNP0SKM4CFL29QUZ073PHG5RQWCNFW33K76TWQXHA8F",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CO-1 mixed case",
+      "kind": "cashorder",
+      "input": "cashorder1qqS0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+      "error": "nipCO: invalid order connection: bech32 string mixes upper and lower case"
+    },
+    {
+      "name": "K-CO-1 no TLV 0",
+      "kind": "cashorder",
+      "input": "cashorder1qythwumn8ghj7un9d3shjtn90psk6urvv5hxxmmdqgsyqs2zgdzy23j8fpy55j6vf48y75z32ff4g42k2av9jkjmt3w4uhcrz3qkc6trv5nhxgrrv9eksgrrda6kuar9wgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q3lchw3n07n7l90xn7j3wfg6z9hpl3dmutv9738n5wr6pqckc5qk5q0ps3vkxl9uc5v2l3fpv0mgvjy298s2v97zmwhp8ag5rsfl6yxazsvpmzd96xxmmfdc6zmcfj",
+      "error": "nipCO: invalid order connection: missing pubkey"
+    },
+    {
+      "name": "K-CO-1 no TLV 1",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76tw9vnpar",
+      "error": "nipCO: invalid order connection: connection carries no usable relay url, so the hub is unreachable"
+    },
+    {
+      "name": "K-CO-1 no TLV 2",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgrz3qkc6trv5nhxgrrv9eksgrrda6kuar9wgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q3lchw3n07n7l90xn7j3wfg6z9hpl3dmutv9738n5wr6pqckc5qk5q0ps3vkxl9uc5v2l3fpv0mgvjy298s2v97zmwhp8ag5rsfl6yxazsvpmzd96xxmmfdcz4gfxx",
+      "error": "nipCO: invalid order connection: missing secret"
+    },
+    {
+      "name": "K-CO-1 no TLV 4",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjq4q3lchw3n07n7l90xn7j3wfg6z9hpl3dmutv9738n5wr6pqckc5qk5q0ps3vkxl9uc5v2l3fpv0mgvjy298s2v97zmwhp8ag5rsfl6yxazsvpmzd96xxmmfdcpjgwqv",
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: missing hub identity"
+    },
+    {
+      "name": "K-CO-1 no TLV 5",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xqxqa3xjarrda5ku6zwelr",
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: missing signature"
+    },
+    {
+      "name": "K-CO-1 no TLV 6",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5h0d9xr",
+      "error": "nipCO: invalid order connection: connection string carries no valid chain name (TLV 6): missing"
+    },
+    {
+      "name": "K-CO-1 31-byte TLV 0",
+      "kind": "cashorder",
+      "input": "cashorder1qq0ln70el8uln70el8uln70el8uln70el8uln70el8uln70el8uljqghwaehxw309aex2mrp0yhx27rpd4cxcefwvdhk6q3qgpq5ys6yg4rywjzfff95cn2wfag9z5jn2324v46ct9d9khzate0sx9zpd35kxef8wvsxxctndqsxxmm4de6x2usyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2prl3warxla8a727d8a9zuj35ytwrlzmhckctaz08gu85zp3d3gpdgq7rpzevd7te3gc4lzjzclkseyg520q5ctu9kawz063g8qnl5gd69qcrky6t5vdhkjms26vya8",
+      "error": "nipCO: invalid order connection: pubkey must be 32 bytes, got 31"
+    },
+    {
+      "name": "K-CO-1 31-byte TLV 4",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqs0hn0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmupwp2prl3warxla8a727d8a9zuj35ytwrlzmhckctaz08gu85zp3d3gpdgq7rpzevd7te3gc4lzjzclkseyg520q5ctu9kawz063g8qnl5gd69qcrky6t5vdhkjmsfwxc2u",
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: hub identity is 31 bytes, want 32"
+    },
+    {
+      "name": "K-CO-1 33-byte TLV 4",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqsssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q3lchw3n07n7l90xn7j3wfg6z9hpl3dmutv9738n5wr6pqckc5qk5q0ps3vkxl9uc5v2l3fpv0mgvjy298s2v97zmwhp8ag5rsfl6yxazsvpmzd96xxmmfdck5wzas",
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: hub identity is 33 bytes, want 32"
+    },
+    {
+      "name": "K-CO-1 64-byte TLV 5",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gq079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phqcrky6t5vdhkjmsqkgh3u",
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: signature is 64 bytes, want 65"
+    },
+    {
+      "name": "K-CO-1 empty TLV 6",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqq0s8mxn",
+      "error": "nipCO: invalid order connection: connection string carries no valid chain name (TLV 6): \"\""
+    },
+    {
+      "name": "K-CO-1 TLV 6 Bitcoin",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwsnfw33k76twcr9c2w",
+      "error": "nipCO: invalid order connection: connection string carries no valid chain name (TLV 6): \"Bitcoin\""
+    },
+    {
+      "name": "K-CO-1 TLV 6 bit_coin",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqscnfw30kxmmfdcnwqq0h",
+      "error": "nipCO: invalid order connection: connection string carries no valid chain name (TLV 6): \"bit_coin\""
+    },
+    {
+      "name": "K-CO-1 33-byte TLV 6",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rzzctpv9skzctpv9skzctpv9skzctpv9skzctpv9skzctpv9skzctpvyqx3qna",
+      "error": "nipCO: invalid order connection: connection string carries no valid chain name (TLV 6): \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+    },
+    {
+      "name": "K-CO-1 TLV 6 bitcoin-x decodes, unverified",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqjcnfw33k76tw94uqypgtyh",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin-x",
+        "verified": false,
+        "verifyError": "nipcash: connection string is not verified: nipcash: no signed-message prefix is known for this chain: \"bitcoin-x\""
+      }
+    },
+    {
+      "name": "K-CO-1 TLV 3 twice",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqv2yzmrfvdjjwueqvdshx6pqvdhh2mn5v4eq3lxl7f",
+      "error": "nipCO: invalid order connection: duplicate TLV 3 entry"
+    },
+    {
+      "name": "K-CO-1 TLV 4 twice",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xqfvzf6q",
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: TLV 4 repeated"
+    },
+    {
+      "name": "K-CO-1 TLV 5 twice",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twq4q3lchw3n07n7l90xn7j3wfg6z9hpl3dmutv9738n5wr6pqckc5qk5q0ps3vkxl9uc5v2l3fpv0mgvjy298s2v97zmwhp8ag5rsfl6yxazs3eh65t",
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: TLV 5 repeated"
+    },
+    {
+      "name": "K-CO-1 TLV 6 twice",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqcrky6t5vdhkjmskfuwur",
+      "error": "nipCO: invalid order connection: connection string carries no valid chain name (TLV 6): repeated"
+    },
+    {
+      "name": "K-CO-1 extra TLV 9 is outside the signature",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twpyrxvat5w4ex26tp5x3",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin",
+        "verified": true
+      }
+    },
+    {
+      "name": "K-CO-1 blank hint beside the real one",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqyqjqze7elc",
+      "want": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com",
+          " "
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin",
+        "verified": false,
+        "verifyError": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+      }
+    },
+    {
+      "name": "K-CO-1 under another connection HRP",
+      "kind": "cashorder",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twz97qgr",
+      "error": "nipCO: invalid order connection: unexpected hrp \"cashhub\", want \"cashorder\""
+    },
+    {
+      "name": "K-CO-1 as a token HRP",
+      "kind": "cashorder",
+      "input": "satscash1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twwdf0v6",
+      "error": "nipCO: invalid order connection: unexpected hrp \"satscash\", want \"cashorder\""
+    }
+  ],
+  "encode": [
+    {
+      "name": "K-CH-1",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin"
+      },
+      "output": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcvlu0w2"
+    },
+    {
+      "name": "K-CH-1 unsigned",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: signature is 0 bytes, want 65"
+    },
+    {
+      "name": "K-CH-1 empty label is never emitted",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: an encoder never emits an empty label"
+    },
+    {
+      "name": "K-CH-1 no relay",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": null,
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: a connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "K-CH-1 only a blank relay",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          " "
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: a connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "K-CH-1 non-ASCII relay",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relé.example"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: relay hint is not ASCII: \"wss://relé.example\""
+    },
+    {
+      "name": "K-CH-1 chain Bitcoin",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "Bitcoin"
+      },
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): \"Bitcoin\""
+    },
+    {
+      "name": "K-CH-1 short identity",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Alice's Cash Hub",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817",
+        "signature": "1f7a091bf7eb8691eed90b0c53803747fdb5606c66ee2d6fcf45620297ae38548857d262e8b1e88ffa82f68ef26d335e674f0ee680564300deb48e4842b6b41301",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: hub identity must be 32 bytes, got 31"
+    },
+    {
+      "name": "K-CH-2",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+        "chain": "bitcoin"
+      },
+      "output": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7ppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sglmer7ss5cusd7ce24a058p02yas6x06j8gwrtpfrhtvzpdgnv24jz54upq4m7t8e34s88g9j8f8d7jsh2s06m3fsvm43v59kfgh9fvnqxqa3xjarrda5kuj08pl5"
+    },
+    {
+      "name": "K-CH-2 unsigned",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: signature is 0 bytes, want 65"
+    },
+    {
+      "name": "K-CH-2 empty label is never emitted",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: an encoder never emits an empty label"
+    },
+    {
+      "name": "K-CH-2 no relay",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": null,
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: a connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "K-CH-2 only a blank relay",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          " "
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: a connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "K-CH-2 non-ASCII relay",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relé.example"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: relay hint is not ASCII: \"wss://relé.example\""
+    },
+    {
+      "name": "K-CH-2 chain Bitcoin",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+        "chain": "Bitcoin"
+      },
+      "error": "nipcash: connection string carries no valid chain name (TLV 6): \"Bitcoin\""
+    },
+    {
+      "name": "K-CH-2 short identity",
+      "kind": "cashhub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": null,
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817",
+        "signature": "1fde47e84298e41bec6555ebe870bd44ec3467ea474386b0a4775b0416a26c55642a57810577e59f31ac0e74164749dbe942ea83f5b8a60cdd62ca16c945ca964c",
+        "chain": "bitcoin"
+      },
+      "error": "nipcash: connection string is not signed: TLV 4 and 5 are required: hub identity must be 32 bytes, got 31"
+    },
+    {
+      "name": "K-CWH-1",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin"
+      },
+      "output": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pruz886khdq7pmdm0v9uyc5pmnlsp34xme8djme07vp9elacp0edw2nx04n8ldyhuufvsr90xyevlpynnq7v0tfsn6mts8ypjs7c9agzmqcrky6t5vdhkjms0uy6sx"
+    },
+    {
+      "name": "K-CWH-1 unsigned",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: signature is 0 bytes, want 65"
+    },
+    {
+      "name": "K-CWH-1 empty label is never emitted",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin"
+      },
+      "error": "nipcw: an encoder never emits an empty label"
+    },
+    {
+      "name": "K-CWH-1 no relay",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": null,
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin"
+      },
+      "error": "nipcw: a connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "K-CWH-1 only a blank relay",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          " "
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin"
+      },
+      "error": "nipcw: a connection needs at least one non-empty relay url, or nobody can reach the hub"
+    },
+    {
+      "name": "K-CWH-1 non-ASCII relay",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relé.example"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin"
+      },
+      "error": "nipcw: relay hint is not ASCII: \"wss://relé.example\""
+    },
+    {
+      "name": "K-CWH-1 chain Bitcoin",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "Bitcoin"
+      },
+      "error": "nipcw: connection string carries no valid chain name (TLV 6): \"Bitcoin\""
+    },
+    {
+      "name": "K-CWH-1 short identity",
+      "kind": "circlehub",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+        "label": "Ada's Family Circle",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817",
+        "signature": "1f0473ead7683c1db76f61784c503b9fe018d4dbc9db2de5fe604b9ff7017e5ae54ccfaccff692fce2590195e62659f092730798f5a613d6d703903287b05ea05b",
+        "chain": "bitcoin"
+      },
+      "error": "nipcw: connection string is not signed: TLV 4 and 5 are required: hub identity must be 32 bytes, got 31"
+    },
+    {
+      "name": "K-CO-1",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin"
+      },
+      "output": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+    },
+    {
+      "name": "K-CO-1 unsigned",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": null,
+        "chain": "bitcoin"
+      },
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: signature is 0 bytes, want 65"
+    },
+    {
+      "name": "K-CO-1 empty label is never emitted",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin"
+      },
+      "error": "nipCO: invalid order connection: an encoder never emits an empty label"
+    },
+    {
+      "name": "K-CO-1 no relay",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": null,
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin"
+      },
+      "error": "nipCO: invalid order connection: no relay"
+    },
+    {
+      "name": "K-CO-1 only a blank relay",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          " "
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin"
+      },
+      "error": "nipCO: invalid order connection: relay hint is empty"
+    },
+    {
+      "name": "K-CO-1 non-ASCII relay",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relé.example"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin"
+      },
+      "error": "nipCO: invalid order connection: relay hint is not ASCII: \"wss://relé.example\""
+    },
+    {
+      "name": "K-CO-1 chain Bitcoin",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "Bitcoin"
+      },
+      "error": "nipCO: invalid order connection: connection string carries no valid chain name (TLV 6): \"Bitcoin\""
+    },
+    {
+      "name": "K-CO-1 short identity",
+      "kind": "cashorder",
+      "fields": {
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "secret": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "label": "Alice's cash counter",
+        "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817",
+        "signature": "1fe2ee8cdfe9fbe579a7e945c946845b87f16ef8b617d13ce8e1e820c5b1405a8078611658df2f31462bf14858fda192228a782985f0b6eb84fd450704ff443745",
+        "chain": "bitcoin"
+      },
+      "error": "nipCO: invalid order connection: connection string is not signed: TLV 4 and 5 are required: hub identity must be 32 bytes, got 31"
+    }
+  ],
+  "verify": [
+    {
+      "id": "K-CSIG-1",
+      "name": "K-CO-1 re-encoded with TLV 6 bitcoin-x, signature kept",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqjcnfw33k76tw94uqypgtyh",
+      "verify": "nipcash: connection string is not verified: nipcash: no signed-message prefix is known for this chain: \"bitcoin-x\""
+    },
+    {
+      "id": "K-CSIG-1",
+      "name": "K-CO-1 with TLV 3 Bob's cash counter, signature kept",
+      "kind": "cashorder",
+      "input": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qcjgfhkyfmnyp3kzumgyp3k7atww3jhyppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sgluthgehlfl0jhnflfghy5dpzmslcka79kzlgne68paqsvtv2qt2q8scgktr0j7v2x90c5sk8a5xfz9znc9xzlpdhtsn752pcylazrw3gxqa3xjarrda5kujr9u7g",
+      "verify": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+    },
+    {
+      "id": "K-CSIG-1",
+      "name": "K-CWH-1 signed by private key 2 with TLV 4 still key 1's",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcng9jxzfmnyprxzmtfd3ujqsmfwf3kcegyypumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtesp2pru3e2hah6lwmj65cul7a48j3xq6pfrfyqpxygqw6gu7s4m8nv7kvj3wfpxl9c6lfxafw2rpmtryqkwpmmaah83mwlt46navyy2uevdclqcrky6t5vdhkjmsdnttjn",
+      "verify": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+    },
+    {
+      "id": "K-CSIG-1",
+      "name": "K-CH-1 with an extra TLV 9",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcyssctw096xs6twvu0t4y6t",
+      "verify": ""
+    },
+    {
+      "name": "K-CH-1 with the relay changed, signature kept",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzdmhxue69uhk7argv4ezuetcv9khqmr9qgszqgfzyvjz2f389q5j52ev95hz7vp3xgengdfkxuurjw3m8s7nu0crzpqkc6trv5nhxgzrv9eksgzgw43qggrehen8a7wuhwk9tgrzjh8gwzc8q2dlekedec5djk0js9d3d7qhnqz5z8m6pydl06uxj8hdjzcv2wqrw3lak4sxcehw94hu73tzq2t6uwz53ptaychgk85gl75z7680ymfnten57rhxsptyxqx7kj8yss4kksfszps8vf5hgcm0d9hquplrxl",
+      "verify": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+    },
+    {
+      "name": "K-CH-1 with the secret changed, signature kept",
+      "kind": "cashhub",
+      "input": "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypzyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygqcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdcqgmvk6",
+      "verify": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+    },
+    {
+      "name": "K-CH-1 signature under the circlehub1 HRP",
+      "kind": "circlehub",
+      "input": "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyqszzg3rysjjvfeg9y4zktpd9chnqvfjxv6r2d3h8qun5weu85lr7qcsg9kxjcm9yaejqsmpwd5zqjr4vgzzq7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucq4q377sfr0m7hp53amvskrznsqm50ld4vpkxdm3ddl852cszj7hrs4yg2lfx9693az8l4qhk3mex6v67va8sae5q2epsph453eyy9d45zvqsvpmzd96xxmmfdc0vemgj",
+      "verify": "nipcash: connection string is not verified: nipcash: connection signature does not recover to the hub identity"
+    }
+  ],
+  "chainName": [
+    {
+      "value": "bitcoin",
+      "valid": true
+    },
+    {
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true
+    },
+    {
+      "value": "bitcoin-x",
+      "valid": true
+    },
+    {
+      "value": "flokicoin",
+      "valid": true
+    },
+    {
+      "value": "",
+      "valid": false
+    },
+    {
+      "value": "Bitcoin",
+      "valid": false
+    },
+    {
+      "value": "bit coin",
+      "valid": false
+    },
+    {
+      "value": "bit_coin",
+      "valid": false
+    },
+    {
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false
+    },
+    {
+      "value": "-bitcoin",
+      "valid": true
+    },
+    {
+      "value": "bitcoin-",
+      "valid": true
+    }
+  ],
+  "onlineCheck": [
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "infoChain": "bitcoin"
+    },
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "infoChain": "bitcoin"
+    },
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "0379be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "infoChain": "bitcoin"
+    },
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
+      "infoChain": "bitcoin"
+    },
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "infoChain": "bitcoin",
+      "error": "nipcash: get_info names another hub identity than the connection string: \"0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\", want \"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\""
+    },
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81799",
+      "infoChain": "bitcoin",
+      "error": "nipcash: get_info names another hub identity than the connection string: \"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81799\", want \"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\""
+    },
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "infoChain": "Bitcoin",
+      "error": "nipcash: get_info names another chain than the connection string: \"Bitcoin\", want \"bitcoin\""
+    },
+    {
+      "id": "K-ONL-1",
+      "hubIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "chain": "bitcoin",
+      "infoIdentity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "infoChain": "",
+      "error": "nipcash: get_info names another chain than the connection string: \"\", want \"bitcoin\""
+    }
+  ]
+}

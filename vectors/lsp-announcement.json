@@ -1,0 +1,6894 @@
+{
+  "description": "NIP-LSP Lightning service provider announcements (kind 10735): K-LSP-1 (the NIP example) and K-LSP-2..6 (closed, and one failure per client step 2-5), ParseAnnouncement cases in step order, ignored tags, the live check (same, worse, better, a missing protocol) and FromLSPSInfo in both unit dialects.",
+  "source": "niplsp/*.go; niplsp/parse_test.go, build_test.go, live_test.go, lsps_test.go (K-LSP-1..6)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "client": {
+    "chains": [
+      "bitcoin"
+    ],
+    "networks": [
+      "mainnet"
+    ],
+    "now": 1792800000
+  },
+  "events": [
+    {
+      "id": "K-LSP-1",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "step": 0
+    },
+    {
+      "id": "K-LSP-2",
+      "event": {
+        "id": "4888cfb893cec3cd2ab49f26504f9914e841933a8e3f3e5725eb27313b951158",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "closed"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "0aa992c27b8455b15f082843eadbd4f8b5bd19a45f49adf0ce9d9dcc2e19aa0dcf3dc3fbd124a5f99f13b0c181581a10ed45cdcaad9b50725b2479f09a3c0941"
+      },
+      "step": 0
+    },
+    {
+      "id": "K-LSP-3",
+      "event": {
+        "id": "9e63298039c075dc61ff438ff8b642ed7463d15f6d9e10b14f738f9cddf1c0ba",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "f07736a33f57887f8f641a5e90e2e94d0b5f0facd8a5300eff2c718463ae72feff9dbe271d0927a20a58220b0d5e6d86c52f2b0183b8a13efc8d77b120428e51"
+      },
+      "step": 2
+    },
+    {
+      "id": "K-LSP-4",
+      "event": {
+        "id": "b9d668ad9b8dc89a01df7fe8f8c429204e946110c9a8768bafbf76c9503d4b8c",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "20000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "e9e89c9ad9a3e50c386dd79bf2c26bf50eca02acb2bae789b21208e31f85315ca5f9f62f5ef60cdd4846556ccc5f761d6457d17fe9708e15ec806afeb3e8fb60"
+      },
+      "step": 3
+    },
+    {
+      "id": "K-LSP-5",
+      "event": {
+        "id": "c49b0d6188e1829ffd507ee217589a05cd4eeaed22014bcf3a57d41c58b9adff",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305601"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "094a56c9c69f6bc576e1976f09fdba61c1a0b5df5ef6209f28b7b621b509ace33e8df8646bc7b1b3b38f0798a8a4c4e214c91058f73a27c5157cdbd53a6fad10"
+      },
+      "step": 4
+    },
+    {
+      "id": "K-LSP-6",
+      "event": {
+        "id": "b9601b6f837a62e054285d0b2c62ece02d3db65be8f1d27c2ea107806ed3b974",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "regtest"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "cd12834f4382cab0d0a9ec982ee684e40fea42319fae97b7241776d0ac252d0ea57338ba12deac888fcd4177153def41fd8e3397b085280d6183b67f04cf91d6"
+      },
+      "step": 5
+    }
+  ],
+  "parse": [
+    {
+      "name": "K-LSP-1",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "step": 0,
+      "want": {
+        "Addrs": [
+          "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735",
+          "203.0.113.7:9735"
+        ],
+        "Chain": "bitcoin",
+        "Display": {
+          "Content": "Inbound channels and just-in-time channels.",
+          "Image": "",
+          "Languages": [
+            "en"
+          ],
+          "Operator": {
+            "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "Relay": "wss://relay.example.com"
+          },
+          "Title": "Alice's Liquidity",
+          "Website": "https://lsp.example.com"
+        },
+        "Expiration": 1795305600,
+        "LSPS1": [
+          {
+            "Name": "min_required_channel_confirmations",
+            "Value": "0"
+          },
+          {
+            "Name": "min_funding_confirms_within_blocks",
+            "Value": "6"
+          },
+          {
+            "Name": "supports_zero_channel_reserve",
+            "Value": "false"
+          },
+          {
+            "Name": "max_channel_expiry_blocks",
+            "Value": "12960"
+          },
+          {
+            "Name": "min_initial_client_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_client_balance",
+            "Value": "1000000"
+          },
+          {
+            "Name": "min_initial_lsp_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_lsp_balance",
+            "Value": "10000000"
+          },
+          {
+            "Name": "min_channel_balance",
+            "Value": "100000"
+          },
+          {
+            "Name": "max_channel_balance",
+            "Value": "10000000"
+          }
+        ],
+        "LSPS2": [
+          {
+            "MaxClientToSelfDelay": 2016,
+            "MaxPaymentSizeMillis": 4000000000,
+            "MinFeeMillis": 2000000,
+            "MinLifetime": 4320,
+            "MinPaymentSizeMillis": 10000000,
+            "Proportional": 4000
+          }
+        ],
+        "LSPS5": [
+          {
+            "Name": "max_webhooks",
+            "Value": "10"
+          }
+        ],
+        "Network": "mainnet",
+        "NodeKey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "Protocols": [
+          1,
+          2,
+          5
+        ],
+        "Relays": [
+          "wss://relay.example.com"
+        ],
+        "Status": "open",
+        "displayTitle": "Alice's Liquidity",
+        "nodeIds": [
+          "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "0379be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ],
+        "selling": true,
+        "shown": true
+      }
+    },
+    {
+      "name": "K-LSP-2: closed is read, not shown",
+      "event": {
+        "id": "4888cfb893cec3cd2ab49f26504f9914e841933a8e3f3e5725eb27313b951158",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "closed"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "0aa992c27b8455b15f082843eadbd4f8b5bd19a45f49adf0ce9d9dcc2e19aa0dcf3dc3fbd124a5f99f13b0c181581a10ed45cdcaad9b50725b2479f09a3c0941"
+      },
+      "step": 0,
+      "want": {
+        "Addrs": [
+          "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735",
+          "203.0.113.7:9735"
+        ],
+        "Chain": "bitcoin",
+        "Display": {
+          "Content": "Inbound channels and just-in-time channels.",
+          "Image": "",
+          "Languages": [
+            "en"
+          ],
+          "Operator": {
+            "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "Relay": "wss://relay.example.com"
+          },
+          "Title": "Alice's Liquidity",
+          "Website": "https://lsp.example.com"
+        },
+        "Expiration": 1795305600,
+        "LSPS1": [
+          {
+            "Name": "min_required_channel_confirmations",
+            "Value": "0"
+          },
+          {
+            "Name": "min_funding_confirms_within_blocks",
+            "Value": "6"
+          },
+          {
+            "Name": "supports_zero_channel_reserve",
+            "Value": "false"
+          },
+          {
+            "Name": "max_channel_expiry_blocks",
+            "Value": "12960"
+          },
+          {
+            "Name": "min_initial_client_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_client_balance",
+            "Value": "1000000"
+          },
+          {
+            "Name": "min_initial_lsp_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_lsp_balance",
+            "Value": "10000000"
+          },
+          {
+            "Name": "min_channel_balance",
+            "Value": "100000"
+          },
+          {
+            "Name": "max_channel_balance",
+            "Value": "10000000"
+          }
+        ],
+        "LSPS2": [
+          {
+            "MaxClientToSelfDelay": 2016,
+            "MaxPaymentSizeMillis": 4000000000,
+            "MinFeeMillis": 2000000,
+            "MinLifetime": 4320,
+            "MinPaymentSizeMillis": 10000000,
+            "Proportional": 4000
+          }
+        ],
+        "LSPS5": [
+          {
+            "Name": "max_webhooks",
+            "Value": "10"
+          }
+        ],
+        "Network": "mainnet",
+        "NodeKey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "Protocols": [
+          1,
+          2,
+          5
+        ],
+        "Relays": [
+          "wss://relay.example.com"
+        ],
+        "Status": "closed",
+        "displayTitle": "Alice's Liquidity",
+        "nodeIds": [
+          "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "0379be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ],
+        "selling": false,
+        "shown": false
+      }
+    },
+    {
+      "name": "step 1: a bad signature",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027d0"
+      },
+      "step": 1,
+      "error": "niplsp: announcement fails step 1: signature: invalid signature"
+    },
+    {
+      "name": "step 1: content changed",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Cheaper than anyone.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "step": 1,
+      "error": "niplsp: announcement fails step 1: signature: event ID mismatch generated ID=15426b2ff47413db63433471a466a309790216c94dd71c2152ff43c6e56ec6bb"
+    },
+    {
+      "name": "step 2: no n",
+      "event": {
+        "id": "f6b3b192c0e7061cc269679119a11b34b7d2c9455500474e5aff28f3b94a2925",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "704952d539b566fb3b9ec51330153de1b72d57773973d819bbd4fec3ce96d5fa098bdbc06382ae8b5571e9843143c32132a2df3a527d020f6d90f1c340d55e8c"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: 0 n tags, want exactly 1"
+    },
+    {
+      "name": "step 2: two n",
+      "event": {
+        "id": "09467c38ebe4c2e0800e11693728e7456d69196b38e5e48784dd168f0dfa178a",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "00c117ccd3586221ddfb7905dfff51a06bea36d852ae0f2759bbce701e8b86331423b425fadd60e9f0724c802fea0b39c8425c17f67a8c88a2ce301e039622ce"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: 2 n tags, want exactly 1"
+    },
+    {
+      "name": "step 2: no status",
+      "event": {
+        "id": "ffec28e1c85c2bcad2a40c1afa409b9c976002166a158153ade6e30580d579cc",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "c34712ba6555431d8ca217daae8999011b6184357387f3ee305357c7f03e3b49963e2297484e60f6926bfae5ba9e6e2a67f100ab7122a90264c066a4087f5dd2"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: 0 status tags, want exactly 1"
+    },
+    {
+      "name": "step 2: two expiration",
+      "event": {
+        "id": "3d44e35d9e4640454876d5aa5ff9e0def2e0e3bb24bb1423bed7128167d17ecd",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "bd4b0f6123252705da7867d21534e0275bbc124fd87f3b9aa271e95a1049d488f428b6463b500385c7825a4a67088c6ea661b1dcd9d2869bc22ea090960442db"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: 2 expiration tags, want exactly 1"
+    },
+    {
+      "name": "step 2: no addr",
+      "event": {
+        "id": "c5b74aaa490d9c3becd25f884646aebaee45f3f8943ea0503b9211326e86e786",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "2e0897de515f4bded66a7518c2f07e1bcc0c11172e63efeca08ccb77e76062f2d107e1657e17a3f40dde449c5b7e9387e6967932c109d22e306991d540ca6793"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: no addr tag"
+    },
+    {
+      "name": "step 2: no protocol",
+      "event": {
+        "id": "9d852772367df6a574224821b70cd098ec395e4ef5a5bbf5962150166d9ff689",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "e5137c85b702f628bfe05eb523032a2beb3fb6df0634898556ff553fe56757cc00d3a8c8088ad4a4a8175d9802869630263ebe4925dd419ffbaefacb444f8489"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: no protocol tag"
+    },
+    {
+      "name": "step 2: protocol 2 without lsps2_fee",
+      "event": {
+        "id": "306d0f1999d25510bada21fd4574a069ca8a16e37446de48aa94b2ae4746f4ab",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "b31c67e82ec35bd790f13bd3dec9b6fc86ed437668eec6172362c12aa21c9e4c592dce3cadb339cff727931483321fbc3a10866a2361f12be20b55412fa30668"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: protocol 2 without an lsps2_fee tag"
+    },
+    {
+      "name": "step 2: two titles",
+      "event": {
+        "id": "11b9d2e1c2f20ca7fcf21b1575f0fc1634df210e44131e844ee75a705ce6d3d2",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "title",
+            "Bob"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "2f92410704476e9ee18505c723b231f1cbfe62f9f4fb3d5991149b1d1ee9a0b961e4ca3a0dd03cda2a04cd4dff665f735b887b1963bcca474c59ccddcc6abf18"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: 2 title tags, want at most 1"
+    },
+    {
+      "name": "step 2: two p",
+      "event": {
+        "id": "8ac67966ae4598f1d5cd6d61aa613a16fbb73cc44aa773f966343c55e9e3b679",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "7dc7fad06031831ec4004b784ea7923b080685617cade5eb4b1848e7c4f0d0b75f228438c50b1508efc059e091fefa7289801d0f653ce25a7740f7c2c9d6dbdf"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: 2 p tags, want at most 1"
+    },
+    {
+      "name": "step 2 before step 3",
+      "event": {
+        "id": "ed6cfa710913615673a06ec4554727cdc58d38eba568734cf426080e1cdfdddb",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "nowhere"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "610b96f4b35f6d3c3904a87644dfc51a804e384606fcaa89fa6de3d307be98221bd1f0878376c3fbb5f808f7c1acadaaaf55b4f74544409c26bb94a11c23d64e"
+      },
+      "step": 2,
+      "error": "niplsp: announcement fails step 2: 0 network tags, want exactly 1"
+    },
+    {
+      "name": "step 3: addr hostname",
+      "event": {
+        "id": "0cc0329ba853684bc64c69b02c2c95d990074a6c74a271269d0a0e9b9824e46c",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "lsp.example.com:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "96e6c52e444c3068880a1f9f61ae11894d6950123ef72f60a8275f3629cceb3d089630b708885b48f9b039e3b2e0fd0d2b1ef51beb2a81313444c7f1707d6f47"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed addr tag [\"addr\" \"lsp.example.com:9735\"]"
+    },
+    {
+      "name": "step 3: addr port 0",
+      "event": {
+        "id": "2bb1015edfff75494796e24444a0cfb6c019b7c1191f020c8f1954b3ef8911c2",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "203.0.113.7:0"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "c66d12727a0a4506fd792ef801b2d01ecede42be00117c8962578d1b634de8de5540e87cd914a0932224011dcf18af624f6410456dfa35d5f15e7fb2d497b16a"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed addr tag [\"addr\" \"203.0.113.7:0\"]"
+    },
+    {
+      "name": "step 3: chain uppercase",
+      "event": {
+        "id": "379841de2a4cbad67bfc071a8f0efee6b547f870b533736d09b145b7f53ea714",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "Bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "8bb6b6d215b9f66bfdf1f1fba3f515a19a9d3458810239fe1d620b21c13d40d452ac7df5cb21b43936fe5b5cd5c3e1cf844fbb07aa41022815253b31e5f6e777"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed n tag [\"n\" \"Bitcoin\"]"
+    },
+    {
+      "name": "step 3: unknown network",
+      "event": {
+        "id": "6b7b7e838e25f75d2842af8dda6f0ec980587164e57a5d58e9ce39fff4a9da77",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "main"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "0ca5a48560fc41489ca75d6f88a8ac05fe97fc49fb1a0e473429862e22c3ee9bb47819ea92a68583622b236a3896462a88ac9d3c9e55952c9267243c11af3ac1"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed network tag [\"network\" \"main\"]"
+    },
+    {
+      "name": "step 3: unknown status",
+      "event": {
+        "id": "82f322cb78d0a702e97b41d28449cd94f2a643e51c65dade3d6e79acafddfc35",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "gone"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "c3d039d1db96635b8817bfd2120be44abe0a38ef1c1dc1764615a2bcfaa552d438a09184dfe54c851da826f0ab970ac5aa7cd0ffdeb6addafbd9ec658577acb6"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed status tag [\"status\" \"gone\"]"
+    },
+    {
+      "name": "step 3: expiration with a leading zero",
+      "event": {
+        "id": "81c1ab91dfd3f8fcf2e5127063ab83c79e37457f6d851774c11274197762a363",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "01795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "a87d9db4f568b937f23280b1782a74ce530129263d847e8aa7fec7e959ac4f6eb6d9dee82ad177274b86d77051c0fae2c7f74c925635aeacd553a114805b945a"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed expiration tag [\"expiration\" \"01795305600\"]"
+    },
+    {
+      "name": "step 3: protocol word",
+      "event": {
+        "id": "e38735ef4d185fefef70307429384bda90d3631a3e8b42d66bb90892a35ebe4c",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "protocol",
+            "two"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "7d84a91a1c6ca6c0e96e3cc06a3390eee919efb797cc27b770b401afd311de7e7ef97caf4d6f7cbdfd895186f3f4d03f45cef8903c901d7e27509672273b5bb1"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: protocol [\"protocol\" \"two\"]"
+    },
+    {
+      "name": "step 3: lsps1 number as bool",
+      "event": {
+        "id": "099b7f758de93f39e84569391c01820c3de19553f14992e7f0b3c768a2153352",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "false"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "b1c6bc8118764c7dcfbcec1f91b5226b4a08a3e87be7b22516322765a46e3931432d9a1012469ed005a20747e6e0ade0f1cf71dc524678dee884f601420fb3ec"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed lsps1 tag [\"lsps1\" \"min_required_channel_confirmations\" \"false\"]"
+    },
+    {
+      "name": "step 3: lsps2_fee five positions",
+      "event": {
+        "id": "b69e11d68f4f32da79880b40a17fd0349578aefee025d762c6eed1b36119106e",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "a45bf1cd08668002791560097da656f0463a974407c1dc5901ac6904967a5c1929d5b4540159f273cb6cc89e33be015c61455626d43998b60544a87467c4e463"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed lsps2_fee tag [\"lsps2_fee\" \"2000000\" \"4000\" \"4320\" \"2016\" \"10000000\"]"
+    },
+    {
+      "name": "step 3: lsps5 twice",
+      "event": {
+        "id": "288d19721cd7216e9ccb25caf7efd4a56a34684ecdad6101275ed0feed4a3597",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "3"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "8b6918d31726d74a2748903981468b3c12631a788903f0a8169ff7ecd39c680d14cb9d458d29bc2e296a23f192c22591d2933efee6efcaf12689e87f65657ffb"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: lsps5 \"max_webhooks\" appears twice"
+    },
+    {
+      "name": "step 3: http website",
+      "event": {
+        "id": "39e8f3c33fd09d2eb6ddb2c9883fd55ccd2df894b061816b2cc955ee5dc85e82",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "http://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "225c342c98cbdd1388aab8a42ddefe983863b8a4af26feee60e37b341b44b1e952c509a49dcbb0fc17f9d5dc77465fdbe5f8805b5e46234d07ca636378fde04d"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed website tag [\"website\" \"http://lsp.example.com\"]"
+    },
+    {
+      "name": "step 3: p relay not ws",
+      "event": {
+        "id": "764fa3ea3c515a50fac652e95886c49b2debd998807c30e03dad68973b921b94",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "https://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "70975a66d9e4b8a806b2fdd4e01be995022be1279ae5f009064190fdedf1fc85f4df02c88ca2c0b45e742470ce83518587233b6c0b130b86c40db9a89eceb011"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed p tag [\"p\" \"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\" \"https://relay.example.com\"]"
+    },
+    {
+      "name": "step 3: l three letters",
+      "event": {
+        "id": "1ae95e9f85d4fc37d9dbfa033b95bb6e3fed084909510bf622a933b985719ff8",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "eng",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "3ec29e7a66f8a82fad3a20d189ccd4a5904e23edbb3024908dea218e80d43504d69d061b3cf8c3d81da474496222a3509d4edd0e36f8ddbfddb2a59d80040daa"
+      },
+      "step": 3,
+      "error": "niplsp: announcement fails step 3: malformed l tag [\"l\" \"eng\" \"ISO-639-1\"]"
+    },
+    {
+      "name": "ignored: unknown tag, nonce, unknown option and field, other label namespace",
+      "event": {
+        "id": "d5aa9048e740bf7891e3071f3986f8637095ac9edc4808620a2cc26665e93013",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "x",
+            "an unknown tag"
+          ],
+          [
+            "nonce",
+            "1",
+            "0"
+          ],
+          [
+            "lsps1",
+            "future_option",
+            "not a number"
+          ],
+          [
+            "lsps5",
+            "future_field",
+            "1"
+          ],
+          [
+            "L",
+            "other.namespace"
+          ],
+          [
+            "l",
+            "anything at all",
+            "other.namespace"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "3ce681e54006789fe4d568632ded720e5d4d61976b018973d9426e0a59fa5fd51bbed409797ac7c60ae83bc97b86e174fde6fed967207bbeb173cfcb14a52506"
+      },
+      "step": 0,
+      "want": {
+        "Addrs": [
+          "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735",
+          "203.0.113.7:9735"
+        ],
+        "Chain": "bitcoin",
+        "Display": {
+          "Content": "Inbound channels and just-in-time channels.",
+          "Image": "",
+          "Languages": [
+            "en"
+          ],
+          "Operator": {
+            "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "Relay": "wss://relay.example.com"
+          },
+          "Title": "Alice's Liquidity",
+          "Website": "https://lsp.example.com"
+        },
+        "Expiration": 1795305600,
+        "LSPS1": [
+          {
+            "Name": "min_required_channel_confirmations",
+            "Value": "0"
+          },
+          {
+            "Name": "min_funding_confirms_within_blocks",
+            "Value": "6"
+          },
+          {
+            "Name": "supports_zero_channel_reserve",
+            "Value": "false"
+          },
+          {
+            "Name": "max_channel_expiry_blocks",
+            "Value": "12960"
+          },
+          {
+            "Name": "min_initial_client_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_client_balance",
+            "Value": "1000000"
+          },
+          {
+            "Name": "min_initial_lsp_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_lsp_balance",
+            "Value": "10000000"
+          },
+          {
+            "Name": "min_channel_balance",
+            "Value": "100000"
+          },
+          {
+            "Name": "max_channel_balance",
+            "Value": "10000000"
+          }
+        ],
+        "LSPS2": [
+          {
+            "MaxClientToSelfDelay": 2016,
+            "MaxPaymentSizeMillis": 4000000000,
+            "MinFeeMillis": 2000000,
+            "MinLifetime": 4320,
+            "MinPaymentSizeMillis": 10000000,
+            "Proportional": 4000
+          }
+        ],
+        "LSPS5": [
+          {
+            "Name": "max_webhooks",
+            "Value": "10"
+          }
+        ],
+        "Network": "mainnet",
+        "NodeKey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "Protocols": [
+          1,
+          2,
+          5
+        ],
+        "Relays": [
+          "wss://relay.example.com"
+        ],
+        "Status": "open",
+        "displayTitle": "Alice's Liquidity",
+        "nodeIds": [
+          "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "0379be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ],
+        "selling": true,
+        "shown": true
+      }
+    },
+    {
+      "name": "ignored: step data of a protocol not listed",
+      "event": {
+        "id": "7d4fdb6a2f9fd25c9ddf08f2d0b44d02aa1f40dfff62e71af1f9c8159df8fd6d",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "x"
+          ],
+          [
+            "lsps2_fee",
+            "1"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "11700af2b66a1961406f71d934b5e2ff1980c633535a508e8a009e8c395d7661e7b064979b4f4eec3cde303a351177b0fcdc9fb9d89d727eceba25c67c85bd25"
+      },
+      "step": 0,
+      "want": {
+        "Addrs": [
+          "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735",
+          "203.0.113.7:9735"
+        ],
+        "Chain": "bitcoin",
+        "Display": {
+          "Content": "Inbound channels and just-in-time channels.",
+          "Image": "",
+          "Languages": [
+            "en"
+          ],
+          "Operator": {
+            "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "Relay": "wss://relay.example.com"
+          },
+          "Title": "Alice's Liquidity",
+          "Website": "https://lsp.example.com"
+        },
+        "Expiration": 1795305600,
+        "LSPS1": [
+          {
+            "Name": "min_required_channel_confirmations",
+            "Value": "0"
+          },
+          {
+            "Name": "min_funding_confirms_within_blocks",
+            "Value": "6"
+          },
+          {
+            "Name": "supports_zero_channel_reserve",
+            "Value": "false"
+          },
+          {
+            "Name": "max_channel_expiry_blocks",
+            "Value": "12960"
+          },
+          {
+            "Name": "min_initial_client_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_client_balance",
+            "Value": "1000000"
+          },
+          {
+            "Name": "min_initial_lsp_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_lsp_balance",
+            "Value": "10000000"
+          },
+          {
+            "Name": "min_channel_balance",
+            "Value": "100000"
+          },
+          {
+            "Name": "max_channel_balance",
+            "Value": "10000000"
+          }
+        ],
+        "LSPS2": null,
+        "LSPS5": null,
+        "Network": "mainnet",
+        "NodeKey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "Protocols": [
+          1
+        ],
+        "Relays": [
+          "wss://relay.example.com"
+        ],
+        "Status": "open",
+        "displayTitle": "Alice's Liquidity",
+        "nodeIds": [
+          "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "0379be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ],
+        "selling": true,
+        "shown": true
+      }
+    },
+    {
+      "name": "at its expiration",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "client": {
+        "chains": [
+          "bitcoin"
+        ],
+        "networks": [
+          "mainnet"
+        ],
+        "now": 1795305600
+      },
+      "step": 0,
+      "want": {
+        "Addrs": [
+          "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735",
+          "203.0.113.7:9735"
+        ],
+        "Chain": "bitcoin",
+        "Display": {
+          "Content": "Inbound channels and just-in-time channels.",
+          "Image": "",
+          "Languages": [
+            "en"
+          ],
+          "Operator": {
+            "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "Relay": "wss://relay.example.com"
+          },
+          "Title": "Alice's Liquidity",
+          "Website": "https://lsp.example.com"
+        },
+        "Expiration": 1795305600,
+        "LSPS1": [
+          {
+            "Name": "min_required_channel_confirmations",
+            "Value": "0"
+          },
+          {
+            "Name": "min_funding_confirms_within_blocks",
+            "Value": "6"
+          },
+          {
+            "Name": "supports_zero_channel_reserve",
+            "Value": "false"
+          },
+          {
+            "Name": "max_channel_expiry_blocks",
+            "Value": "12960"
+          },
+          {
+            "Name": "min_initial_client_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_client_balance",
+            "Value": "1000000"
+          },
+          {
+            "Name": "min_initial_lsp_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_lsp_balance",
+            "Value": "10000000"
+          },
+          {
+            "Name": "min_channel_balance",
+            "Value": "100000"
+          },
+          {
+            "Name": "max_channel_balance",
+            "Value": "10000000"
+          }
+        ],
+        "LSPS2": [
+          {
+            "MaxClientToSelfDelay": 2016,
+            "MaxPaymentSizeMillis": 4000000000,
+            "MinFeeMillis": 2000000,
+            "MinLifetime": 4320,
+            "MinPaymentSizeMillis": 10000000,
+            "Proportional": 4000
+          }
+        ],
+        "LSPS5": [
+          {
+            "Name": "max_webhooks",
+            "Value": "10"
+          }
+        ],
+        "Network": "mainnet",
+        "NodeKey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "Protocols": [
+          1,
+          2,
+          5
+        ],
+        "Relays": [
+          "wss://relay.example.com"
+        ],
+        "Status": "open",
+        "displayTitle": "Alice's Liquidity",
+        "nodeIds": [
+          "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "0379be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ],
+        "selling": true,
+        "shown": true
+      }
+    },
+    {
+      "name": "step 4: a second after its expiration",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "client": {
+        "chains": [
+          "bitcoin"
+        ],
+        "networks": [
+          "mainnet"
+        ],
+        "now": 1795305601
+      },
+      "step": 4,
+      "error": "niplsp: announcement fails step 4: expired at 1795305600, now 1795305601"
+    },
+    {
+      "name": "step 5: a chain the client does not use",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "client": {
+        "chains": [
+          "flokicoin"
+        ],
+        "networks": [
+          "mainnet"
+        ],
+        "now": 1792800000
+      },
+      "step": 5,
+      "error": "niplsp: announcement fails step 5: chain \"bitcoin\" is not one the client uses"
+    },
+    {
+      "name": "step 5: a network the client does not use",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "client": {
+        "chains": [
+          "bitcoin"
+        ],
+        "networks": [
+          "testnet",
+          "regtest"
+        ],
+        "now": 1792800000
+      },
+      "step": 5,
+      "error": "niplsp: announcement fails step 5: network \"mainnet\" is not one the client uses"
+    },
+    {
+      "name": "step 4 before step 5",
+      "event": {
+        "id": "d87841c795e01ba75208a603bc0bdfe7f2015ab3876860501e2f09d0c257a45b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 10735,
+        "tags": [
+          [
+            "addr",
+            "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735"
+          ],
+          [
+            "addr",
+            "203.0.113.7:9735"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "protocol",
+            "1"
+          ],
+          [
+            "protocol",
+            "2"
+          ],
+          [
+            "protocol",
+            "5"
+          ],
+          [
+            "lsps1",
+            "min_required_channel_confirmations",
+            "0"
+          ],
+          [
+            "lsps1",
+            "min_funding_confirms_within_blocks",
+            "6"
+          ],
+          [
+            "lsps1",
+            "supports_zero_channel_reserve",
+            "false"
+          ],
+          [
+            "lsps1",
+            "max_channel_expiry_blocks",
+            "12960"
+          ],
+          [
+            "lsps1",
+            "min_initial_client_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_client_balance",
+            "1000000"
+          ],
+          [
+            "lsps1",
+            "min_initial_lsp_balance",
+            "0"
+          ],
+          [
+            "lsps1",
+            "max_initial_lsp_balance",
+            "10000000"
+          ],
+          [
+            "lsps1",
+            "min_channel_balance",
+            "100000"
+          ],
+          [
+            "lsps1",
+            "max_channel_balance",
+            "10000000"
+          ],
+          [
+            "lsps2_fee",
+            "2000000",
+            "4000",
+            "4320",
+            "2016",
+            "10000000",
+            "4000000000"
+          ],
+          [
+            "lsps5",
+            "max_webhooks",
+            "10"
+          ],
+          [
+            "title",
+            "Alice's Liquidity"
+          ],
+          [
+            "website",
+            "https://lsp.example.com"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Lightning service provider: Alice's Liquidity"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ]
+        ],
+        "content": "Inbound channels and just-in-time channels.",
+        "sig": "def435b4933e809b9fbd3b0c11730677f4279f418098b5a184f13092eb6327dda28f47b592d7fdf094efcd005fe923301f33916b73372370fbd5430d84a027dd"
+      },
+      "client": {
+        "chains": [
+          "flokicoin"
+        ],
+        "networks": [
+          "mainnet"
+        ],
+        "now": 1795305601
+      },
+      "step": 4,
+      "error": "niplsp: announcement fails step 4: expired at 1795305600, now 1795305601"
+    }
+  ],
+  "checkLive": [
+    {
+      "name": "same",
+      "protocols": [
+        1,
+        2,
+        5
+      ],
+      "lsps1": {
+        "options": [],
+        "max_channel_balance_loki": "10000000",
+        "min_channel_balance_loki": "100000",
+        "max_initial_lsp_balance_loki": "10000000",
+        "min_initial_lsp_balance_loki": "0",
+        "max_initial_client_balance_loki": "1000000",
+        "min_initial_client_balance_loki": "0",
+        "max_channel_expiry_blocks": 12960,
+        "supports_zero_channel_reserve": false,
+        "min_funding_confirms_within_blocks": 6,
+        "min_required_channel_confirmations": 0
+      },
+      "lsps2": {
+        "opening_fee_params_menu": [
+          {
+            "min_fee_msat": "2000000",
+            "proportional": 4000,
+            "valid_until": "2026-10-22T00:00:00.000Z",
+            "min_lifetime": 4320,
+            "max_client_to_self_delay": 2016,
+            "min_payment_size_msat": "10000000",
+            "max_payment_size_msat": "4000000000",
+            "promise": "abcdef"
+          }
+        ]
+      },
+      "missingProtocol": [],
+      "changed": [],
+      "same": true,
+      "worse": false,
+      "usable": true
+    },
+    {
+      "name": "same, the sat dialect",
+      "protocols": [
+        1,
+        2,
+        5
+      ],
+      "lsps1": {
+        "min_required_channel_confirmations": 0,
+        "min_funding_confirms_within_blocks": 6,
+        "supports_zero_channel_reserve": false,
+        "max_channel_expiry_blocks": 12960,
+        "min_initial_client_balance_sat": "0",
+        "max_initial_client_balance_sat": "1000000",
+        "min_initial_lsp_balance_sat": "0",
+        "max_initial_lsp_balance_sat": "10000000",
+        "min_channel_balance_sat": "100000",
+        "max_channel_balance_sat": "10000000"
+      },
+      "lsps2": [
+        {
+          "min_fee_mloki": "2000000",
+          "proportional": 4000,
+          "valid_until": "2026-10-22T00:00:00.000Z",
+          "min_lifetime": 4320,
+          "max_client_to_self_delay": 2016,
+          "min_payment_size_mloki": "10000000",
+          "max_payment_size_mloki": "4000000000",
+          "promise": "012345"
+        }
+      ],
+      "missingProtocol": [],
+      "changed": [],
+      "same": true,
+      "worse": false,
+      "usable": true
+    },
+    {
+      "name": "a higher live min_fee: worse",
+      "protocols": [
+        1,
+        2,
+        5
+      ],
+      "lsps1": {
+        "min_required_channel_confirmations": 0,
+        "min_funding_confirms_within_blocks": 6,
+        "supports_zero_channel_reserve": false,
+        "max_channel_expiry_blocks": 12960,
+        "min_initial_client_balance_sat": "0",
+        "max_initial_client_balance_sat": "1000000",
+        "min_initial_lsp_balance_sat": "0",
+        "max_initial_lsp_balance_sat": "10000000",
+        "min_channel_balance_sat": "100000",
+        "max_channel_balance_sat": "10000000"
+      },
+      "lsps2": {
+        "opening_fee_params_menu": [
+          {
+            "min_fee_msat": "2000001",
+            "proportional": 4000,
+            "valid_until": "2026-10-22T00:00:00.000Z",
+            "min_lifetime": 4320,
+            "max_client_to_self_delay": 2016,
+            "min_payment_size_msat": "10000000",
+            "max_payment_size_msat": "4000000000",
+            "promise": "abcdef"
+          }
+        ]
+      },
+      "missingProtocol": [],
+      "changed": [
+        {
+          "Field": "lsps2_fee[0].min_fee",
+          "Announced": "2000000",
+          "Live": "2000001",
+          "Verdict": 1
+        }
+      ],
+      "same": false,
+      "worse": true,
+      "usable": true
+    },
+    {
+      "name": "a lower max_channel_balance: worse",
+      "protocols": [
+        1,
+        2,
+        5
+      ],
+      "lsps1": {
+        "min_required_channel_confirmations": 0,
+        "min_funding_confirms_within_blocks": 6,
+        "supports_zero_channel_reserve": false,
+        "max_channel_expiry_blocks": 12960,
+        "min_initial_client_balance_sat": "0",
+        "max_initial_client_balance_sat": "1000000",
+        "min_initial_lsp_balance_sat": "0",
+        "max_initial_lsp_balance_sat": "10000000",
+        "min_channel_balance_sat": "100000",
+        "max_channel_balance_sat": "5000000"
+      },
+      "lsps2": {
+        "opening_fee_params_menu": [
+          {
+            "min_fee_msat": "2000000",
+            "proportional": 4000,
+            "valid_until": "2026-10-22T00:00:00.000Z",
+            "min_lifetime": 4320,
+            "max_client_to_self_delay": 2016,
+            "min_payment_size_msat": "10000000",
+            "max_payment_size_msat": "4000000000",
+            "promise": "abcdef"
+          }
+        ]
+      },
+      "missingProtocol": [],
+      "changed": [
+        {
+          "Field": "max_channel_balance",
+          "Announced": "10000000",
+          "Live": "5000000",
+          "Verdict": 1
+        }
+      ],
+      "same": false,
+      "worse": true,
+      "usable": true
+    },
+    {
+      "name": "a missing protocol: not usable",
+      "protocols": [
+        1,
+        2
+      ],
+      "lsps1": {
+        "min_required_channel_confirmations": 0,
+        "min_funding_confirms_within_blocks": 6,
+        "supports_zero_channel_reserve": false,
+        "max_channel_expiry_blocks": 12960,
+        "min_initial_client_balance_sat": "0",
+        "max_initial_client_balance_sat": "1000000",
+        "min_initial_lsp_balance_sat": "0",
+        "max_initial_lsp_balance_sat": "10000000",
+        "min_channel_balance_sat": "100000",
+        "max_channel_balance_sat": "10000000"
+      },
+      "lsps2": {
+        "opening_fee_params_menu": [
+          {
+            "min_fee_msat": "2000000",
+            "proportional": 4000,
+            "valid_until": "2026-10-22T00:00:00.000Z",
+            "min_lifetime": 4320,
+            "max_client_to_self_delay": 2016,
+            "min_payment_size_msat": "10000000",
+            "max_payment_size_msat": "4000000000",
+            "promise": "abcdef"
+          }
+        ]
+      },
+      "missingProtocol": [
+        5
+      ],
+      "changed": [],
+      "same": false,
+      "worse": false,
+      "usable": false
+    },
+    {
+      "name": "better live values",
+      "protocols": [
+        1,
+        2,
+        5
+      ],
+      "lsps1": {
+        "min_required_channel_confirmations": 0,
+        "min_funding_confirms_within_blocks": 6,
+        "supports_zero_channel_reserve": true,
+        "max_channel_expiry_blocks": 12960,
+        "min_initial_client_balance_sat": "0",
+        "max_initial_client_balance_sat": "1000000",
+        "min_initial_lsp_balance_sat": "0",
+        "max_initial_lsp_balance_sat": "10000000",
+        "min_channel_balance_sat": "100000",
+        "max_channel_balance_sat": "20000000"
+      },
+      "lsps2": {
+        "opening_fee_params_menu": [
+          {
+            "min_fee_msat": "2000000",
+            "proportional": 3000,
+            "valid_until": "2026-10-22T00:00:00.000Z",
+            "min_lifetime": 4320,
+            "max_client_to_self_delay": 2016,
+            "min_payment_size_msat": "10000000",
+            "max_payment_size_msat": "4000000000",
+            "promise": "abcdef"
+          }
+        ]
+      },
+      "missingProtocol": [],
+      "changed": [
+        {
+          "Field": "supports_zero_channel_reserve",
+          "Announced": "false",
+          "Live": "true",
+          "Verdict": 2
+        },
+        {
+          "Field": "max_channel_balance",
+          "Announced": "10000000",
+          "Live": "20000000",
+          "Verdict": 2
+        },
+        {
+          "Field": "lsps2_fee[0].proportional",
+          "Announced": "4000",
+          "Live": "3000",
+          "Verdict": 2
+        }
+      ],
+      "same": false,
+      "worse": false,
+      "usable": true
+    },
+    {
+      "name": "only list_protocols asked",
+      "protocols": [
+        1,
+        2,
+        5
+      ],
+      "lsps1": null,
+      "lsps2": null,
+      "missingProtocol": [],
+      "changed": [],
+      "same": true,
+      "worse": false,
+      "usable": true
+    }
+  ],
+  "fromLSPSInfo": [
+    {
+      "name": "the sat dialect",
+      "lsps1": {
+        "min_required_channel_confirmations": 0,
+        "min_funding_confirms_within_blocks": 6,
+        "supports_zero_channel_reserve": false,
+        "max_channel_expiry_blocks": 12960,
+        "min_initial_client_balance_sat": "0",
+        "max_initial_client_balance_sat": "1000000",
+        "min_initial_lsp_balance_sat": "0",
+        "max_initial_lsp_balance_sat": "10000000",
+        "min_channel_balance_sat": "100000",
+        "max_channel_balance_sat": "10000000"
+      },
+      "lsps2": {
+        "opening_fee_params_menu": [
+          {
+            "min_fee_msat": "2000000",
+            "proportional": 4000,
+            "valid_until": "2026-10-22T00:00:00.000Z",
+            "min_lifetime": 4320,
+            "max_client_to_self_delay": 2016,
+            "min_payment_size_msat": "10000000",
+            "max_payment_size_msat": "4000000000",
+            "promise": "abcdef"
+          }
+        ]
+      },
+      "lsps5": {
+        "num_webhooks": 2,
+        "max_webhooks": 10,
+        "no_change": false
+      },
+      "fields": {
+        "Addrs": [
+          "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735",
+          "203.0.113.7:9735"
+        ],
+        "Chain": "bitcoin",
+        "Display": {
+          "Content": "Inbound channels and just-in-time channels.",
+          "Image": "",
+          "Languages": [
+            "en"
+          ],
+          "Operator": {
+            "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "Relay": "wss://relay.example.com"
+          },
+          "Title": "Alice's Liquidity",
+          "Website": "https://lsp.example.com"
+        },
+        "Expiration": 1795305600,
+        "LSPS1": [
+          {
+            "Name": "min_required_channel_confirmations",
+            "Value": "0"
+          },
+          {
+            "Name": "min_funding_confirms_within_blocks",
+            "Value": "6"
+          },
+          {
+            "Name": "supports_zero_channel_reserve",
+            "Value": "false"
+          },
+          {
+            "Name": "max_channel_expiry_blocks",
+            "Value": "12960"
+          },
+          {
+            "Name": "min_initial_client_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_client_balance",
+            "Value": "1000000"
+          },
+          {
+            "Name": "min_initial_lsp_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_lsp_balance",
+            "Value": "10000000"
+          },
+          {
+            "Name": "min_channel_balance",
+            "Value": "100000"
+          },
+          {
+            "Name": "max_channel_balance",
+            "Value": "10000000"
+          }
+        ],
+        "LSPS2": [
+          {
+            "MaxClientToSelfDelay": 2016,
+            "MaxPaymentSizeMillis": 4000000000,
+            "MinFeeMillis": 2000000,
+            "MinLifetime": 4320,
+            "MinPaymentSizeMillis": 10000000,
+            "Proportional": 4000
+          }
+        ],
+        "LSPS5": [
+          {
+            "Name": "max_webhooks",
+            "Value": "10"
+          }
+        ],
+        "Network": "mainnet",
+        "NodeKey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "Protocols": [
+          1,
+          2,
+          5
+        ],
+        "Relays": [
+          "wss://relay.example.com"
+        ],
+        "Status": "open"
+      }
+    },
+    {
+      "name": "the loki dialect",
+      "lsps1": {
+        "options": [],
+        "max_channel_balance_loki": "10000000",
+        "min_channel_balance_loki": "100000",
+        "max_initial_lsp_balance_loki": "10000000",
+        "min_initial_lsp_balance_loki": "0",
+        "max_initial_client_balance_loki": "1000000",
+        "min_initial_client_balance_loki": "0",
+        "max_channel_expiry_blocks": 12960,
+        "supports_zero_channel_reserve": false,
+        "min_funding_confirms_within_blocks": 6,
+        "min_required_channel_confirmations": 0
+      },
+      "lsps2": [
+        {
+          "min_fee_mloki": "2000000",
+          "proportional": 4000,
+          "valid_until": "2026-10-22T00:00:00.000Z",
+          "min_lifetime": 4320,
+          "max_client_to_self_delay": 2016,
+          "min_payment_size_mloki": "10000000",
+          "max_payment_size_mloki": "4000000000",
+          "promise": "012345"
+        }
+      ],
+      "lsps5": {
+        "num_webhooks": 2,
+        "max_webhooks": 10,
+        "no_change": false
+      },
+      "fields": {
+        "Addrs": [
+          "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:9735",
+          "203.0.113.7:9735"
+        ],
+        "Chain": "bitcoin",
+        "Display": {
+          "Content": "Inbound channels and just-in-time channels.",
+          "Image": "",
+          "Languages": [
+            "en"
+          ],
+          "Operator": {
+            "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "Relay": "wss://relay.example.com"
+          },
+          "Title": "Alice's Liquidity",
+          "Website": "https://lsp.example.com"
+        },
+        "Expiration": 1795305600,
+        "LSPS1": [
+          {
+            "Name": "min_required_channel_confirmations",
+            "Value": "0"
+          },
+          {
+            "Name": "min_funding_confirms_within_blocks",
+            "Value": "6"
+          },
+          {
+            "Name": "supports_zero_channel_reserve",
+            "Value": "false"
+          },
+          {
+            "Name": "max_channel_expiry_blocks",
+            "Value": "12960"
+          },
+          {
+            "Name": "min_initial_client_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_client_balance",
+            "Value": "1000000"
+          },
+          {
+            "Name": "min_initial_lsp_balance",
+            "Value": "0"
+          },
+          {
+            "Name": "max_initial_lsp_balance",
+            "Value": "10000000"
+          },
+          {
+            "Name": "min_channel_balance",
+            "Value": "100000"
+          },
+          {
+            "Name": "max_channel_balance",
+            "Value": "10000000"
+          }
+        ],
+        "LSPS2": [
+          {
+            "MaxClientToSelfDelay": 2016,
+            "MaxPaymentSizeMillis": 4000000000,
+            "MinFeeMillis": 2000000,
+            "MinLifetime": 4320,
+            "MinPaymentSizeMillis": 10000000,
+            "Proportional": 4000
+          }
+        ],
+        "LSPS5": [
+          {
+            "Name": "max_webhooks",
+            "Value": "10"
+          }
+        ],
+        "Network": "mainnet",
+        "NodeKey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "Protocols": [
+          1,
+          2,
+          5
+        ],
+        "Relays": [
+          "wss://relay.example.com"
+        ],
+        "Status": "open"
+      }
+    },
+    {
+      "name": "an unreadable lsps1 answer",
+      "lsps1": {
+        "min_channel_balance_sat": true
+      },
+      "lsps2": {
+        "opening_fee_params_menu": [
+          {
+            "min_fee_msat": "2000000",
+            "proportional": 4000,
+            "valid_until": "2026-10-22T00:00:00.000Z",
+            "min_lifetime": 4320,
+            "max_client_to_self_delay": 2016,
+            "min_payment_size_msat": "10000000",
+            "max_payment_size_msat": "4000000000",
+            "promise": "abcdef"
+          }
+        ]
+      },
+      "lsps5": {
+        "num_webhooks": 2,
+        "max_webhooks": 10,
+        "no_change": false
+      },
+      "error": "niplsp: malformed LSPS answer: LSPS1 get_info min_channel_balance_sat = true"
+    }
+  ]
+}

@@ -1,0 +1,2224 @@
+{
+  "description": "NIP-CASH on-chain withdrawal: the quote (kind 23187) and receipt (kind 23188) events, request_hash, the claim proof with q, the withdraw fee, witness addresses (segwit v0/v1+, network, script types, case), error details, quote validity, cancellation, re-mint expiry, record retention, verification costs, the Hub's quote and payout refusals in row order, cash_withdraw request refusals, payout states and replies, cancel request shapes, and cash_status' withdraw object.",
+  "source": "nipcash/withdraw*.go, nipcash/reuse.go; nipcash/withdraw_test.go, withdraw_address_test.go, claim_proof_test.go, reuse_test.go (K-WQ-1..3, K-WR-1..4, K-CLAIM-5, K-WFEE-1..6, K-ADDR-1..13, K-WDET-1..3, K-WHOLD-1, K-WCAN-1..6, K-WREM-1..4, K-WRET-1..3, K-VB-2)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "inputs": {
+    "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+    "connectionKey": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d",
+    "hub": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+    "hubSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+    "requestId": "00112233445566778899aabbccddeeff",
+    "slice": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+    "sliceSecret": "0000000000000000000000000000000000000000000000000000000000000003",
+    "wallet": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+  },
+  "quotes": [
+    {
+      "id": "K-WQ-1",
+      "event": {
+        "id": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1720000000,
+        "kind": 23187,
+        "tags": [
+          [
+            "d",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "i",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "address",
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+          ],
+          [
+            "amount_millis",
+            "21000000"
+          ],
+          [
+            "network_fee_millis",
+            "1200000"
+          ],
+          [
+            "hub_fee_millis",
+            "542000"
+          ],
+          [
+            "payout_millis",
+            "19258000"
+          ],
+          [
+            "sent_by",
+            "1720003600"
+          ],
+          [
+            "holds_until",
+            "870413"
+          ]
+        ],
+        "content": "",
+        "sig": "81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779"
+      },
+      "feeMillis": 1742000,
+      "verify": ""
+    },
+    {
+      "id": "K-WQ-2",
+      "event": {
+        "id": "484362992237afca0ec22c8ab27a6abb6214ac0294e38f702a5bb75e4678d276",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1720000000,
+        "kind": 23187,
+        "tags": [
+          [
+            "d",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "i",
+            "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "address",
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+          ],
+          [
+            "amount_millis",
+            "21000000"
+          ],
+          [
+            "network_fee_millis",
+            "1200000"
+          ],
+          [
+            "hub_fee_millis",
+            "542000"
+          ],
+          [
+            "payout_millis",
+            "19258000"
+          ],
+          [
+            "sent_by",
+            "1720003600"
+          ],
+          [
+            "holds_until",
+            "870413"
+          ]
+        ],
+        "content": "",
+        "sig": "54fc2b87293975fd55eea79fb8895e073f358f0b33a61a2725afaf252332dcee323ffb640edd7697abac69fceb4750d8fff5516119cce355115b189438580a3d"
+      },
+      "feeMillis": 1742000,
+      "verify": ""
+    },
+    {
+      "id": "K-WQ-3",
+      "event": {
+        "id": "a913107c809253d590766e54f89cd2d323b460303f00650e7df9660d539227be",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1720000000,
+        "kind": 23187,
+        "tags": [
+          [
+            "holds_until",
+            "870413"
+          ],
+          [
+            "sent_by",
+            "1720003600"
+          ],
+          [
+            "payout_millis",
+            "19258000"
+          ],
+          [
+            "hub_fee_millis",
+            "542000"
+          ],
+          [
+            "network_fee_millis",
+            "1200000"
+          ],
+          [
+            "amount_millis",
+            "21000000"
+          ],
+          [
+            "address",
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+          ],
+          [
+            "i",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "d",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ]
+        ],
+        "content": "",
+        "sig": "67ff3904bb0bfb17cd2f0924f5843b838d26dbe44f9aa8a034703f55dd9f2fca772823f2f9277d1569ebe623fe0e3d05881d5ba001ddaec6a6a249a5b5529f9b"
+      },
+      "feeMillis": 1742000,
+      "verify": ""
+    }
+  ],
+  "requestHash": [
+    {
+      "id": "K-WR-1",
+      "requestIdHex": "00112233445566778899aabbccddeeff",
+      "hash": "5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720"
+    },
+    {
+      "id": "K-WR-3",
+      "requestIdHex": "1f0d61013abef39098ffb0a7c72008a17099c52aca3d5ee8d6ce8de065db5d37",
+      "note": "the derived id of a re-placed call (K-DID-1)",
+      "hash": "0f5019117b865df3d86a6856ba8cf5383850ae9d833ecf7cc9a609552cb6c413"
+    },
+    {
+      "id": "K-WR-4",
+      "requestIdHex": "00112233445566778899aabbccddeeff",
+      "note": "negative: over the 16 raw bytes",
+      "hash": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811"
+    }
+  ],
+  "receipts": [
+    {
+      "id": "K-WR-2",
+      "event": {
+        "id": "2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1720000100,
+        "kind": 23188,
+        "tags": [
+          [
+            "d",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "q",
+            "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22"
+          ],
+          [
+            "request_hash",
+            "5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720"
+          ],
+          [
+            "address",
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+          ],
+          [
+            "payout_millis",
+            "19258000"
+          ],
+          [
+            "sent_by",
+            "1720003600"
+          ]
+        ],
+        "content": "",
+        "sig": "2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19"
+      },
+      "verify": ""
+    },
+    {
+      "id": "K-WR-3",
+      "event": {
+        "id": "7060d4c8e4f8ab862a5105a4d0573465a70f62f9ec8e11e6c8d22595f73f4c90",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1720000200,
+        "kind": 23188,
+        "tags": [
+          [
+            "d",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "q",
+            "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22"
+          ],
+          [
+            "request_hash",
+            "0f5019117b865df3d86a6856ba8cf5383850ae9d833ecf7cc9a609552cb6c413"
+          ],
+          [
+            "address",
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+          ],
+          [
+            "payout_millis",
+            "19258000"
+          ],
+          [
+            "sent_by",
+            "1720003600"
+          ]
+        ],
+        "content": "",
+        "sig": "d3872073ae7fa8c2beac1f3824393bfcad1ea59f18096e195fdffb8de46e414b0440d093a1308127fd8fb046159f86c8aa88d4e23f649d95c029feefa939551a"
+      },
+      "verify": ""
+    }
+  ],
+  "claimProof": {
+    "id": "K-CLAIM-5",
+    "kind": 23198,
+    "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+    "createdAt": 1720000050,
+    "tags": [
+      [
+        "d",
+        "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      ],
+      [
+        "m",
+        "cash_withdraw"
+      ],
+      [
+        "q",
+        "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22"
+      ]
+    ],
+    "want": "d21236b945c9ae88e23fe8fd9bc3559b08b9a6ec6d4a74acd15825314b3d7428"
+  },
+  "withdrawFee": [
+    {
+      "id": "K-WFEE-1",
+      "amountMillis": 21000000,
+      "networkFeeMillis": 1200000,
+      "withdrawFeeBase": 500000,
+      "withdrawFeePpm": 2000,
+      "redeemFeeMillis": 105000,
+      "hubFeeMillis": 542000,
+      "feeMillis": 1742000,
+      "payoutMillis": 19258000
+    },
+    {
+      "id": "K-WFEE-2",
+      "amountMillis": 21000000,
+      "networkFeeMillis": 1200001,
+      "withdrawFeeBase": 500000,
+      "withdrawFeePpm": 2000,
+      "redeemFeeMillis": 105000,
+      "hubFeeMillis": 542000,
+      "feeMillis": 1743000,
+      "payoutMillis": 19257000
+    },
+    {
+      "id": "K-WFEE-3",
+      "amountMillis": 21000000,
+      "networkFeeMillis": 50000,
+      "withdrawFeeBase": 0,
+      "withdrawFeePpm": 0,
+      "redeemFeeMillis": 205000,
+      "hubFeeMillis": 0,
+      "feeMillis": 205000,
+      "payoutMillis": 20795000
+    },
+    {
+      "id": "K-WFEE-4",
+      "amountMillis": 1000000,
+      "networkFeeMillis": 1200000,
+      "withdrawFeeBase": 500000,
+      "withdrawFeePpm": 2000,
+      "redeemFeeMillis": 5000,
+      "hubFeeMillis": 502000,
+      "feeMillis": 1000000,
+      "payoutMillis": 0
+    },
+    {
+      "id": "K-WFEE-5",
+      "amountMillis": 21000500,
+      "networkFeeMillis": 1200000,
+      "withdrawFeeBase": 500000,
+      "withdrawFeePpm": 2000,
+      "redeemFeeMillis": 105002,
+      "hubFeeMillis": 542001,
+      "feeMillis": 1742500,
+      "payoutMillis": 19258000
+    },
+    {
+      "id": "K-WFEE-6",
+      "amountMillis": 21000000,
+      "networkFeeMillis": 0,
+      "withdrawFeeBase": 0,
+      "withdrawFeePpm": 1000001,
+      "redeemFeeMillis": 0,
+      "hubFeeMillis": 0,
+      "feeMillis": 0,
+      "payoutMillis": 0,
+      "error": "nipcash: a ppm rate is at most 1000000: withdraw_fee_ppm 1000001"
+    },
+    {
+      "id": "",
+      "amountMillis": 21000000,
+      "networkFeeMillis": 0,
+      "withdrawFeeBase": 0,
+      "withdrawFeePpm": 1000000,
+      "redeemFeeMillis": 0,
+      "hubFeeMillis": 21000000,
+      "feeMillis": 21000000,
+      "payoutMillis": 0
+    },
+    {
+      "id": "",
+      "amountMillis": 10,
+      "networkFeeMillis": 18446744073709551615,
+      "withdrawFeeBase": 1,
+      "withdrawFeePpm": 0,
+      "redeemFeeMillis": 0,
+      "hubFeeMillis": 0,
+      "feeMillis": 0,
+      "payoutMillis": 0,
+      "error": "nipcash: the withdraw fee overflows"
+    }
+  ],
+  "address": [
+    {
+      "id": "K-ADDR-1",
+      "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+      "hrp": "bc",
+      "scriptType": [
+        0,
+        20
+      ],
+      "paidByHub": true
+    },
+    {
+      "id": "K-ADDR-2",
+      "address": "bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3",
+      "hrp": "bc",
+      "scriptType": [
+        0,
+        32
+      ],
+      "paidByHub": true
+    },
+    {
+      "id": "K-ADDR-3",
+      "address": "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0",
+      "hrp": "bc",
+      "scriptType": [
+        1,
+        32
+      ],
+      "paidByHub": true
+    },
+    {
+      "id": "K-ADDR-4",
+      "address": "bc1zw508d6qejxtdg4y5r3zarvaryvaxxpcs",
+      "hrp": "bc",
+      "scriptType": [
+        2,
+        16
+      ],
+      "paidByHub": false
+    },
+    {
+      "id": "K-ADDR-5",
+      "address": "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kj9wkru",
+      "hrp": "bc",
+      "scriptType": [
+        1,
+        20
+      ],
+      "paidByHub": false
+    },
+    {
+      "id": "K-ADDR-6",
+      "address": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+      "hrp": "bc",
+      "error": "nipcash: the address is for another network: \"tb\"",
+      "class": "network"
+    },
+    {
+      "id": "K-ADDR-7",
+      "address": "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqh2y7hd",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: a version 1 address takes a bech32m checksum",
+      "class": "malformed"
+    },
+    {
+      "id": "K-ADDR-8",
+      "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kemeawh",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: a version 0 address takes a bech32 checksum",
+      "class": "malformed"
+    },
+    {
+      "id": "K-ADDR-9",
+      "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kqq7e2cw9",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: a version 0 program of 21 bytes",
+      "class": "malformed"
+    },
+    {
+      "id": "K-ADDR-10",
+      "address": "BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: not lowercase",
+      "class": "malformed"
+    },
+    {
+      "id": "K-ADDR-11",
+      "address": "BC1QW508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: not bech32",
+      "class": "malformed"
+    },
+    {
+      "id": "K-ADDR-12",
+      "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+      "hrp": "bc",
+      "error": "nipcash: the address has no witness program",
+      "class": "script_type"
+    },
+    {
+      "address": "bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: longer than 90 characters",
+      "class": "malformed"
+    },
+    {
+      "address": "bc1",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: not bech32",
+      "class": "malformed"
+    },
+    {
+      "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3tb",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: not bech32",
+      "class": "malformed"
+    },
+    {
+      "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5",
+      "hrp": "bc",
+      "error": "nipcash: malformed withdrawal address: not bech32",
+      "class": "malformed"
+    },
+    {
+      "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+      "hrp": "",
+      "scriptType": [
+        0,
+        20
+      ],
+      "paidByHub": true
+    }
+  ],
+  "normalizeAddress": [
+    {
+      "id": "K-ADDR-10",
+      "input": "BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4",
+      "output": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+    },
+    {
+      "id": "K-ADDR-11",
+      "input": "BC1QW508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+      "error": "nipcash: malformed withdrawal address: mixed case"
+    },
+    {
+      "input": "  bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\t",
+      "output": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+    },
+    {
+      "input": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+      "error": "nipcash: malformed withdrawal address: mixed case"
+    }
+  ],
+  "classifyAddressAmong": [
+    {
+      "id": "K-ADDR-13",
+      "address": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+      "hrps": [
+        "bc",
+        "tb",
+        "bcrt"
+      ],
+      "scriptType": [
+        0,
+        20
+      ],
+      "hrp": "tb"
+    },
+    {
+      "id": "K-ADDR-13",
+      "address": "bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
+      "hrps": [
+        "bc",
+        "tb",
+        "bcrt"
+      ],
+      "scriptType": [
+        0,
+        20
+      ],
+      "hrp": "bcrt"
+    },
+    {
+      "id": "K-ADDR-13",
+      "address": "zz1qw508d6qejxtdg4y5r3zarvary0c5xw7k3c49eg",
+      "hrps": [
+        "bc",
+        "tb",
+        "bcrt"
+      ],
+      "error": "nipcash: the address is for another network: \"zz\"",
+      "class": "network"
+    }
+  ],
+  "detail": [
+    {
+      "id": "K-WDET-1",
+      "error": "{\"code\":\"RESTRICTED\",\"message\":\"x\",\"detail\":\"own_address\"}",
+      "detail": "own_address"
+    },
+    {
+      "id": "K-WDET-2",
+      "error": "{\"code\":\"RESTRICTED\",\"message\":\"x\",\"detail\":\"fee_over_cap\"}",
+      "detail": ""
+    },
+    {
+      "id": "K-WDET-3",
+      "error": "{\"code\":\"RESTRICTED\",\"message\":\"x\"}",
+      "detail": ""
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"message\":\"x\",\"detail\":\"OWN_ADDRESS\"}",
+      "detail": ""
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"network\"}",
+      "detail": "network"
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"script_type\"}",
+      "detail": "script_type"
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"below_min\"}",
+      "detail": "below_min"
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"too_slow\"}",
+      "detail": "too_slow"
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"quote_invalid\"}",
+      "detail": "quote_invalid"
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"quote_expired\"}",
+      "detail": "quote_expired"
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"unfinal\"}",
+      "detail": "unfinal"
+    },
+    {
+      "id": "",
+      "error": "{\"code\":\"RESTRICTED\",\"detail\":\"own_address\"}",
+      "detail": "own_address"
+    }
+  ],
+  "quoteValidAt": [
+    {
+      "id": "K-WHOLD-1",
+      "holdsUntil": 870413,
+      "tip": 870413,
+      "valid": true
+    },
+    {
+      "id": "K-WHOLD-1",
+      "holdsUntil": 870413,
+      "tip": 870414,
+      "valid": false
+    }
+  ],
+  "cancel": [
+    {
+      "id": "K-WCAN-1",
+      "call": "CancelDue",
+      "aboutToSign": false,
+      "broadcast": false,
+      "state": "queued",
+      "sentBy": 1720003600,
+      "now": 1720089999,
+      "step": "not_due",
+      "invalidate": false
+    },
+    {
+      "id": "K-WCAN-2",
+      "call": "CancelDue",
+      "aboutToSign": false,
+      "broadcast": false,
+      "state": "queued",
+      "sentBy": 1720003600,
+      "now": 1720090000,
+      "step": "cancel_now",
+      "invalidate": false
+    },
+    {
+      "id": "K-WCAN-3",
+      "call": "CancelDue",
+      "aboutToSign": true,
+      "broadcast": false,
+      "state": "queued",
+      "sentBy": 1720003600,
+      "now": 1720090000,
+      "step": "invalidate_then_cancel",
+      "invalidate": false
+    },
+    {
+      "id": "",
+      "call": "CancelDue",
+      "aboutToSign": false,
+      "broadcast": false,
+      "state": "confirmed",
+      "sentBy": 1720003600,
+      "now": 1720090000,
+      "step": "not_due",
+      "invalidate": false
+    },
+    {
+      "id": "",
+      "call": "CancelDue",
+      "aboutToSign": false,
+      "broadcast": false,
+      "state": "final",
+      "sentBy": 1720003600,
+      "now": 1720090000,
+      "step": "not_due",
+      "invalidate": false
+    },
+    {
+      "id": "",
+      "call": "CancelDue",
+      "aboutToSign": false,
+      "broadcast": false,
+      "state": "cancelled",
+      "sentBy": 1720003600,
+      "now": 1720090000,
+      "step": "not_due",
+      "invalidate": false
+    },
+    {
+      "id": "K-WCAN-4",
+      "call": "CancelRequestAnswer",
+      "aboutToSign": true,
+      "broadcast": true,
+      "state": "broadcast",
+      "sentBy": 1720003600,
+      "now": 1720608399,
+      "invalidate": false,
+      "code": "RESTRICTED"
+    },
+    {
+      "id": "K-WCAN-5",
+      "call": "CancelRequestAnswer",
+      "aboutToSign": true,
+      "broadcast": true,
+      "state": "broadcast",
+      "sentBy": 1720003600,
+      "now": 1720608400,
+      "invalidate": true
+    },
+    {
+      "id": "K-WCAN-6",
+      "call": "CancelRequestAnswer",
+      "aboutToSign": false,
+      "broadcast": false,
+      "state": "confirmed",
+      "sentBy": 1720003600,
+      "now": 1720608400,
+      "invalidate": false
+    },
+    {
+      "id": "",
+      "call": "CancelRequestAnswer",
+      "aboutToSign": false,
+      "broadcast": false,
+      "state": "queued",
+      "sentBy": 1720003600,
+      "now": 1720608400,
+      "invalidate": false
+    }
+  ],
+  "remintExpiry": [
+    {
+      "id": "K-WREM-1",
+      "sliceExpiresAt": 1720086400,
+      "cancelAt": 1720090000,
+      "defaultExpiry": 2592000,
+      "expiresAt": 1722682000
+    },
+    {
+      "id": "K-WREM-2",
+      "sliceExpiresAt": null,
+      "cancelAt": 1720090000,
+      "defaultExpiry": 2592000,
+      "expiresAt": null
+    },
+    {
+      "id": "K-WREM-3",
+      "sliceExpiresAt": 1730000000,
+      "cancelAt": 1720090000,
+      "defaultExpiry": 2592000,
+      "expiresAt": 1730000000
+    },
+    {
+      "id": "K-WREM-4",
+      "sliceExpiresAt": 1720086400,
+      "cancelAt": 1720090000,
+      "defaultExpiry": null,
+      "expiresAt": null
+    }
+  ],
+  "retention": [
+    {
+      "id": "K-WRET-1",
+      "retention": {
+        "Deadline": 1720000060,
+        "Horizon": 300,
+        "EndedAt": 0,
+        "TombstoneWindow": 2592000,
+        "RemintLive": false
+      },
+      "now": 1720000000,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "id": "K-WRET-1",
+      "retention": {
+        "Deadline": 1720000060,
+        "Horizon": 300,
+        "EndedAt": 0,
+        "TombstoneWindow": 2592000,
+        "RemintLive": false
+      },
+      "now": 1099511627776,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "id": "K-WRET-2",
+      "retention": {
+        "Deadline": 1720000060,
+        "Horizon": 300,
+        "EndedAt": 1720100000,
+        "TombstoneWindow": 2592000,
+        "RemintLive": false
+      },
+      "now": 1722692000,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "id": "K-WRET-2",
+      "retention": {
+        "Deadline": 1720000060,
+        "Horizon": 300,
+        "EndedAt": 1720100000,
+        "TombstoneWindow": 2592000,
+        "RemintLive": false
+      },
+      "now": 1722692001,
+      "retained": false,
+      "blocksHubDelete": false
+    },
+    {
+      "id": "K-WRET-3",
+      "retention": {
+        "Deadline": 1720000060,
+        "Horizon": 300,
+        "EndedAt": 1720100000,
+        "TombstoneWindow": 2592000,
+        "RemintLive": true
+      },
+      "now": 1099511627776,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "id": "",
+      "retention": {
+        "Deadline": 1720000060,
+        "Horizon": 300,
+        "EndedAt": 1720000000,
+        "TombstoneWindow": 0,
+        "RemintLive": false
+      },
+      "now": 1720000360,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "id": "",
+      "retention": {
+        "Deadline": 1720000060,
+        "Horizon": 300,
+        "EndedAt": 1720000000,
+        "TombstoneWindow": 0,
+        "RemintLive": false
+      },
+      "now": 1720000361,
+      "retained": false,
+      "blocksHubDelete": false
+    }
+  ],
+  "verificationCost": [
+    {
+      "id": "K-VB-2",
+      "name": "pubkey quote",
+      "params": "{}",
+      "hasProof": true,
+      "cost": 2
+    },
+    {
+      "id": "K-VB-2",
+      "name": "CK quote",
+      "params": "{\"attestation_event\":\"{}\"}",
+      "hasProof": true,
+      "cost": 3
+    },
+    {
+      "id": "K-VB-2",
+      "name": "cash-mode quote",
+      "params": "{}",
+      "hasProof": false,
+      "cost": 1
+    },
+    {
+      "id": "K-VB-2",
+      "name": "pubkey withdraw",
+      "params": "{\"identity_event\":\"{}\",\"quote\":{\"kind\":23187}}",
+      "hasProof": true,
+      "cost": 4
+    },
+    {
+      "id": "K-VB-2",
+      "name": "CK withdraw",
+      "params": "{\"identity_event\":\"{}\",\"attestation_event\":\"{}\",\"quote\":{\"kind\":23187}}",
+      "hasProof": true,
+      "cost": 5
+    },
+    {
+      "id": "K-VB-2",
+      "name": "bearer withdraw",
+      "params": "{\"cash_secret\":\"s\",\"quote\":{\"kind\":23187}}",
+      "hasProof": false,
+      "cost": 2
+    },
+    {
+      "id": "K-VB-2",
+      "name": "cancel by pubkey",
+      "params": "{\"cancel\":true}",
+      "hasProof": true,
+      "cost": 2
+    },
+    {
+      "id": "K-VB-2",
+      "name": "bearer cancel",
+      "params": "{\"cancel\":true,\"cash_secret\":\"s\"}",
+      "hasProof": false,
+      "cost": 1
+    }
+  ],
+  "parseQuote": [
+    {
+      "name": "K-WQ-1",
+      "input": "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}"
+    },
+    {
+      "name": "an extra tag",
+      "input": "{\"id\":\"51259f74f683f126cc117fbf73d64fbd7cc1fa9dafef4651e6f08b63aa676345\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"],[\"x\",\"1\"]],\"content\":\"\",\"sig\":\"d119c73474d0933f7fa396037617d162576f55bb199d2dc94ac7b7f078f1b08b52cc622fac180d303095d2796a819ef152eea639de8ef471f304d6afe5f8d3e5\"}",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: unexpected tag \"x\"",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "a repeated d",
+      "input": "{\"id\":\"e32d445f16e99c450c2c4842577ae5d0076f9e6f68052eeff9f0b53afbf5c240\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"],[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"]],\"content\":\"\",\"sig\":\"a6f3274f60c13facbb4311b4989b041f8759d69a3b145f4804b725be7b15cec7e40ef3f21a97329a82bb121659349a1bff97a8efe643f616c0d218cb043424c3\"}",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: repeated tag \"d\"",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "a leading zero",
+      "input": "{\"id\":\"dcf60337341446c30edcaa85cacc5bfc8d34270f32a282d7a3a9de79d57639ef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"021000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"6e208baf8ee5d37d8cd967a69160545b880fad9b5f4b768115e1c8a07509d379896794649209a5ae5dfe90b5d527ec7de97608b65645075234432ad956971205\"}",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: amount_millis",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "content",
+      "input": "{\"id\":\"90f65ddb9c6113253b32648227d1ec39ef506fd851ca7e877631300517816b84\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"x\",\"sig\":\"874577f9d4902f428206c7df57ec4b8258682fd9f770456b92383391c1acaed25bb125c5b59501c59152c16fd811618d4d809027865925bfa1b3ad4bcae3dc97\"}",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: content is not empty",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "kind 23188",
+      "input": "{\"id\":\"24ab42a83dd730856ffe71f596d55c9f4a9e43db0c81338846c62917dbc44912\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"a067c0eef7031ed37d44598b4ac691215a5134b32ef6984f5e4ac43a16e10a59d0fc6589127337cbf9894d22f101c2c6cc5cbf4dd70c57d522942602df5fad27\"}",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: kind 23188",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "no holds_until",
+      "input": "{\"id\":\"5c8cf56a706c35b063c9f046909dfd8eaeb60caed0923d3eccc0e413eac8096f\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2c3dca18f2eb1a0a6e8ad7e580ee40591d839827d890671508b6415932d0fcdb30a9973ac2c5cc4bfe585b91f66d2cc57b30a3c40e1daabcee7f184e6ddb4f45\"}",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: missing tag \"holds_until\"",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "i with four elements",
+      "input": "{\"id\":\"5b83a7ee74a0d0c597457d8251602f3404b8abdf23eb76cd1ed68cb261820fe4\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"3480d4f69a8c5db10dcfdc58fa2270a6fb125c3218028248588234ad55e7185ce5d3c945a6c3f0dd43f2d24aad624155ba27a384eeaeaf6c1f9d54846519ec36\"}",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: tag \"i\" has 4 elements",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "signed by another key",
+      "input": "{\"id\":\"9b510bcc83708d5d858663df268757ebfff49dd0cdde8e6fa1e6cdd1efedf992\",\"pubkey\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"49d63d58f159529a9ddcdbc797f787ad01fbe6ec302ab0fb4015000efd38449459f55f337c5f31c55fd3846cf3d33f6212a17c4d7b856397f221608d78e5c719\"}",
+      "error": "nipcash: withdrawal refused RESTRICTED/quote_invalid (row 1): the quote is not signed by this Hub",
+      "code": "RESTRICTED",
+      "detail": "quote_invalid"
+    },
+    {
+      "name": "not JSON",
+      "input": "{",
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote: not an event",
+      "code": "BAD_REQUEST"
+    }
+  ],
+  "quoteRefusals": [
+    {
+      "name": "all clear",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      }
+    },
+    {
+      "name": "not found and malformed: row 1",
+      "facts": {
+        "found": false,
+        "address": "x",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "NOT_FOUND",
+      "row": 1
+    },
+    {
+      "name": "malformed: row 2",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kemeawh",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "BAD_REQUEST",
+      "row": 2
+    },
+    {
+      "name": "another network and not paid: row 3",
+      "facts": {
+        "found": true,
+        "address": "tb1zqurswpc8qurswpc8qurswpc8quhwe95q",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "detail": "network",
+      "row": 3
+    },
+    {
+      "name": "a testnet address: row 3",
+      "facts": {
+        "found": true,
+        "address": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "detail": "network",
+      "row": 3
+    },
+    {
+      "name": "not paid and claimed: row 4",
+      "facts": {
+        "found": true,
+        "address": "bc1zw508d6qejxtdg4y5r3zarvaryvaxxpcs",
+        "networkHrp": "bc",
+        "claimable": false,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "detail": "script_type",
+      "row": 4
+    },
+    {
+      "name": "no witness: row 4",
+      "facts": {
+        "found": true,
+        "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "detail": "script_type",
+      "row": 4
+    },
+    {
+      "name": "not claimable and above max: row 5",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "networkHrp": "bc",
+        "claimable": false,
+        "amountMillis": 5000,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "row": 5
+    },
+    {
+      "name": "above max and dust: row 6",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 5000,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 0,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "QUOTA_EXCEEDED",
+      "row": 6
+    },
+    {
+      "name": "below min: row 7",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 50,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "detail": "below_min",
+      "row": 7
+    },
+    {
+      "name": "payout below dust: row 7",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 1000,
+        "dustMillis": 2000,
+        "sendBefore": null,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "detail": "below_min",
+      "row": 7
+    },
+    {
+      "name": "send_before = earliest",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": 100,
+        "earliestSentBy": 100,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      }
+    },
+    {
+      "name": "too slow: row 8",
+      "facts": {
+        "found": true,
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "networkHrp": "bc",
+        "claimable": true,
+        "amountMillis": 500,
+        "minMillis": 100,
+        "maxMillis": 1000,
+        "payoutMillis": 400000,
+        "dustMillis": 1,
+        "sendBefore": 100,
+        "earliestSentBy": 101,
+        "pays": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ]
+      },
+      "code": "RESTRICTED",
+      "detail": "too_slow",
+      "row": 8
+    }
+  ],
+  "withdrawRequestRefusals": [
+    {
+      "name": "the NIP example (pubkey slice)",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"identity_event\":\"{}\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "want": {
+        "identity_event": "{}",
+        "identity_type": "pubkey",
+        "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "quote": "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}",
+        "request_id": "00112233445566778899aabbccddeeff"
+      }
+    },
+    {
+      "name": "cash mode",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"remint_commitment\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"cash_secret\":\"abababababababababababababababababababababababababababababababab\"}",
+      "slice": {
+        "CashMode": true,
+        "Commitment": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "want": {
+        "cash_secret": "abababababababababababababababababababababababababababababababab",
+        "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "quote": "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}",
+        "remint_commitment": "2222222222222222222222222222222222222222222222222222222222222222",
+        "request_id": "00112233445566778899aabbccddeeff"
+      }
+    },
+    {
+      "name": "missing quote",
+      "input": "{\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: missing quote",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "quote not a string",
+      "input": "{\"quote\":{},\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: quote is not a string",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "malformed quote",
+      "input": "{\"quote\":\"{}\",\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed quote",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "missing request_id",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed request_id",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "invalid request_id",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"XYZ\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed request_id",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "missing notify",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed notify",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "uppercase notify",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed notify",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "cash mode without remint_commitment",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"cash_secret\":\"abababababababababababababababababababababababababababababababab\"}",
+      "slice": {
+        "CashMode": true,
+        "Commitment": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: missing remint_commitment",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "cash mode with remint_commitment equal to the slice's",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"remint_commitment\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"cash_secret\":\"abababababababababababababababababababababababababababababababab\"}",
+      "slice": {
+        "CashMode": true,
+        "Commitment": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: remint_commitment is the slice's own",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "remint_commitment on a pubkey slice",
+      "input": "{\"quote\":\"{\\\"id\\\":\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23187,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"i\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"amount_millis\\\",\\\"21000000\\\"],[\\\"network_fee_millis\\\",\\\"1200000\\\"],[\\\"hub_fee_millis\\\",\\\"542000\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"],[\\\"holds_until\\\",\\\"870413\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\\\"}\",\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"remint_commitment\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"identity_event\":\"{}\"}",
+      "slice": {
+        "CashMode": false,
+        "Commitment": ""
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: remint_commitment on a slice that is not cash-mode",
+      "code": "BAD_REQUEST"
+    }
+  ],
+  "payoutRefusals": [
+    {
+      "name": "all clear",
+      "facts": {
+        "QuoteOK": true,
+        "QuoteValid": true,
+        "AtUnconfirmedBound": false,
+        "CoinsSetAside": true,
+        "OrderedUnfinal": false,
+        "RefuseUnfinal": false,
+        "OwnAddress": false
+      }
+    },
+    {
+      "name": "quote invalid",
+      "facts": {
+        "QuoteOK": false,
+        "QuoteValid": false,
+        "AtUnconfirmedBound": true,
+        "CoinsSetAside": false,
+        "OrderedUnfinal": false,
+        "RefuseUnfinal": false,
+        "OwnAddress": true
+      },
+      "code": "RESTRICTED",
+      "detail": "quote_invalid",
+      "row": 1
+    },
+    {
+      "name": "quote expired, at the bound",
+      "facts": {
+        "QuoteOK": true,
+        "QuoteValid": false,
+        "AtUnconfirmedBound": true,
+        "CoinsSetAside": false,
+        "OrderedUnfinal": false,
+        "RefuseUnfinal": false,
+        "OwnAddress": false
+      },
+      "code": "RESTRICTED",
+      "detail": "quote_expired",
+      "row": 2
+    },
+    {
+      "name": "at the unconfirmed bound, no coins",
+      "facts": {
+        "QuoteOK": true,
+        "QuoteValid": true,
+        "AtUnconfirmedBound": true,
+        "CoinsSetAside": false,
+        "OrderedUnfinal": false,
+        "RefuseUnfinal": false,
+        "OwnAddress": false
+      },
+      "code": "RATE_LIMITED",
+      "row": 3
+    },
+    {
+      "name": "no coins, own address",
+      "facts": {
+        "QuoteOK": true,
+        "QuoteValid": true,
+        "AtUnconfirmedBound": false,
+        "CoinsSetAside": false,
+        "OrderedUnfinal": false,
+        "RefuseUnfinal": false,
+        "OwnAddress": true
+      },
+      "code": "INSUFFICIENT_BALANCE",
+      "row": 4
+    },
+    {
+      "name": "unfinal kept, own address",
+      "facts": {
+        "QuoteOK": true,
+        "QuoteValid": true,
+        "AtUnconfirmedBound": false,
+        "CoinsSetAside": true,
+        "OrderedUnfinal": true,
+        "RefuseUnfinal": false,
+        "OwnAddress": true
+      },
+      "code": "RESTRICTED",
+      "detail": "own_address",
+      "row": 6
+    },
+    {
+      "name": "unfinal refused",
+      "facts": {
+        "QuoteOK": true,
+        "QuoteValid": true,
+        "AtUnconfirmedBound": false,
+        "CoinsSetAside": true,
+        "OrderedUnfinal": true,
+        "RefuseUnfinal": true,
+        "OwnAddress": true
+      },
+      "code": "RESTRICTED",
+      "detail": "unfinal",
+      "row": 5
+    },
+    {
+      "name": "unfinal not refused",
+      "facts": {
+        "QuoteOK": true,
+        "QuoteValid": true,
+        "AtUnconfirmedBound": false,
+        "CoinsSetAside": true,
+        "OrderedUnfinal": true,
+        "RefuseUnfinal": false,
+        "OwnAddress": false
+      }
+    }
+  ],
+  "verifyReceipt": [
+    {
+      "id": "K-WR-2",
+      "name": "the receipt as expected",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "Target": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "QuoteID": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+          "RequestID": "00112233445566778899aabbccddeeff",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258000,
+          "SentBy": 1720003600
+        }
+      }
+    },
+    {
+      "id": "K-WR-4",
+      "name": "request_hash over the raw bytes",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "Target": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "QuoteID": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+          "RequestID": "\u0000\u0011\"3DUfw\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258000,
+          "SentBy": 1720003600
+        }
+      },
+      "error": "nipcash: the withdrawal receipt is invalid: request_hash"
+    },
+    {
+      "name": "another quote",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "Target": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "QuoteID": "4444444444444444444444444444444444444444444444444444444444444444",
+          "RequestID": "00112233445566778899aabbccddeeff",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258000,
+          "SentBy": 1720003600
+        }
+      },
+      "error": "nipcash: the withdrawal receipt is invalid: q"
+    },
+    {
+      "name": "another bill",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "Target": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+          "QuoteID": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+          "RequestID": "00112233445566778899aabbccddeeff",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258000,
+          "SentBy": 1720003600
+        }
+      },
+      "error": "nipcash: the withdrawal receipt is invalid: d"
+    },
+    {
+      "name": "another payout",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "Target": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "QuoteID": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+          "RequestID": "00112233445566778899aabbccddeeff",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258001,
+          "SentBy": 1720003600
+        }
+      },
+      "error": "nipcash: the withdrawal receipt is invalid: payout_millis"
+    },
+    {
+      "name": "another sent_by",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "Target": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "QuoteID": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+          "RequestID": "00112233445566778899aabbccddeeff",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258000,
+          "SentBy": 1720003601
+        }
+      },
+      "error": "nipcash: the withdrawal receipt is invalid: sent_by"
+    },
+    {
+      "name": "another author",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+          "Target": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "QuoteID": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+          "RequestID": "00112233445566778899aabbccddeeff",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258000,
+          "SentBy": 1720003600
+        }
+      },
+      "error": "nipcash: the withdrawal receipt is invalid: author"
+    },
+    {
+      "name": "a recovered call: no quote id",
+      "input": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+      "want": {
+        "expectation": {
+          "HubXOnly": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "Target": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "QuoteID": "",
+          "RequestID": "00112233445566778899aabbccddeeff",
+          "Address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+          "PayoutMillis": 19258000,
+          "SentBy": 1720003600
+        }
+      }
+    }
+  ],
+  "payoutStates": [
+    {
+      "facts": {
+        "Cancelled": false,
+        "Broadcast": false,
+        "FinalReached": false,
+        "Depth": 0,
+        "FinalDepth": 6
+      },
+      "state": "queued"
+    },
+    {
+      "facts": {
+        "Cancelled": false,
+        "Broadcast": true,
+        "FinalReached": false,
+        "Depth": 0,
+        "FinalDepth": 6
+      },
+      "state": "broadcast"
+    },
+    {
+      "facts": {
+        "Cancelled": false,
+        "Broadcast": true,
+        "FinalReached": false,
+        "Depth": 1,
+        "FinalDepth": 6
+      },
+      "state": "confirmed"
+    },
+    {
+      "facts": {
+        "Cancelled": false,
+        "Broadcast": true,
+        "FinalReached": false,
+        "Depth": 6,
+        "FinalDepth": 6
+      },
+      "state": "final"
+    },
+    {
+      "facts": {
+        "Cancelled": true,
+        "Broadcast": true,
+        "FinalReached": false,
+        "Depth": 3,
+        "FinalDepth": 6
+      },
+      "state": "cancelled"
+    },
+    {
+      "facts": {
+        "Cancelled": false,
+        "Broadcast": true,
+        "FinalReached": false,
+        "Depth": 0,
+        "FinalDepth": 6
+      },
+      "state": "broadcast"
+    },
+    {
+      "facts": {
+        "Cancelled": false,
+        "Broadcast": true,
+        "FinalReached": true,
+        "Depth": 0,
+        "FinalDepth": 6
+      },
+      "state": "final"
+    }
+  ],
+  "payouts": [
+    {
+      "name": "queued",
+      "input": "{\"state\":\"queued\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\"}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "fee_millis": 1742000,
+        "final_depth": 6,
+        "payout_millis": 19258000,
+        "receipt": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+        "sent_by": 1720003600,
+        "signed": false,
+        "state": "queued"
+      }
+    },
+    {
+      "name": "queued, signed",
+      "input": "{\"state\":\"queued\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":true,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\"}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "fee_millis": 1742000,
+        "final_depth": 6,
+        "payout_millis": 19258000,
+        "receipt": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+        "sent_by": 1720003600,
+        "signed": true,
+        "state": "queued"
+      }
+    },
+    {
+      "name": "broadcast",
+      "input": "{\"state\":\"broadcast\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":true,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"tx\":\"00\",\"txid\":\"abababababababababababababababababababababababababababababababab\",\"vout\":1,\"depth\":0}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "depth": 0,
+        "fee_millis": 1742000,
+        "final_depth": 6,
+        "payout_millis": 19258000,
+        "receipt": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+        "sent_by": 1720003600,
+        "signed": true,
+        "state": "broadcast",
+        "tx": "00",
+        "txid": "abababababababababababababababababababababababababababababababab",
+        "vout": 1
+      }
+    },
+    {
+      "name": "confirmed",
+      "input": "{\"state\":\"confirmed\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":true,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"txid\":\"abababababababababababababababababababababababababababababababab\",\"vout\":1,\"depth\":2}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "depth": 2,
+        "fee_millis": 1742000,
+        "final_depth": 6,
+        "payout_millis": 19258000,
+        "receipt": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+        "sent_by": 1720003600,
+        "signed": true,
+        "state": "confirmed",
+        "txid": "abababababababababababababababababababababababababababababababab",
+        "vout": 1
+      }
+    },
+    {
+      "name": "final",
+      "input": "{\"state\":\"final\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":true,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"txid\":\"abababababababababababababababababababababababababababababababab\",\"vout\":1,\"depth\":6}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "depth": 6,
+        "fee_millis": 1742000,
+        "final_depth": 6,
+        "payout_millis": 19258000,
+        "receipt": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+        "sent_by": 1720003600,
+        "signed": true,
+        "state": "final",
+        "txid": "abababababababababababababababababababababababababababababababab",
+        "vout": 1
+      }
+    },
+    {
+      "name": "cancelled, re-minted",
+      "input": "{\"state\":\"cancelled\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"new_wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"new_wallet_token\":\"satscash1x\"}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "fee_millis": 1742000,
+        "final_depth": 6,
+        "new_wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "new_wallet_token": "satscash1x",
+        "payout_millis": 19258000,
+        "receipt": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+        "sent_by": 1720003600,
+        "signed": false,
+        "state": "cancelled"
+      }
+    },
+    {
+      "name": "cancelled, the re-minted bill already destroyed",
+      "input": "{\"state\":\"cancelled\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"new_wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"new_wallet_token\":{\"status\":\"spent\",\"reason\":\"redeemed\"}}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "fee_millis": 1742000,
+        "final_depth": 6,
+        "new_wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "new_wallet_token": {
+          "reason": "redeemed",
+          "status": "spent"
+        },
+        "payout_millis": 19258000,
+        "receipt": "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}",
+        "sent_by": 1720003600,
+        "signed": false,
+        "state": "cancelled"
+      }
+    },
+    {
+      "name": "a tombstone: the bill is gone",
+      "input": "{\"status\":\"spent\",\"withdraw_request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "want": {
+        "gone": {
+          "status": "spent",
+          "withdraw_request_id": "00112233445566778899aabbccddeeff"
+        }
+      },
+      "error": "nipcash: cash_withdraw answered for a destroyed bill (spent, no reason)"
+    },
+    {
+      "name": "cancelled with a txid",
+      "input": "{\"state\":\"cancelled\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"txid\":\"abababababababababababababababababababababababababababababababab\",\"new_wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"new_wallet_token\":\"t\"}",
+      "error": "nipcash: malformed payout: cancelled carries a transaction"
+    },
+    {
+      "name": "no receipt",
+      "input": "{\"state\":\"queued\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false}",
+      "error": "nipcash: malformed payout: no receipt"
+    },
+    {
+      "name": "unknown state",
+      "input": "{\"state\":\"failed\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\"}",
+      "error": "nipcash: malformed payout: unknown state"
+    },
+    {
+      "name": "no signed",
+      "input": "{\"state\":\"queued\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\"}",
+      "error": "nipcash: malformed payout: no signed"
+    },
+    {
+      "name": "queued with a txid",
+      "input": "{\"state\":\"queued\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"txid\":\"abababababababababababababababababababababababababababababababab\",\"vout\":0,\"depth\":0}",
+      "error": "nipcash: malformed payout: queued carries a broadcast"
+    },
+    {
+      "name": "broadcast without txid",
+      "input": "{\"state\":\"broadcast\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":true,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\"}",
+      "error": "nipcash: malformed payout: a broadcast payout needs txid, vout and depth"
+    },
+    {
+      "name": "tx while unsigned",
+      "input": "{\"state\":\"queued\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"tx\":\"00\"}",
+      "error": "nipcash: malformed payout: tx"
+    },
+    {
+      "name": "re-mint fields while queued",
+      "input": "{\"state\":\"queued\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":6,\"signed\":false,\"receipt\":\"{\\\"id\\\":\\\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000100,\\\"kind\\\":23188,\\\"tags\\\":[[\\\"d\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"q\\\",\\\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\\\"],[\\\"request_hash\\\",\\\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\\\"],[\\\"address\\\",\\\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\\\"],[\\\"payout_millis\\\",\\\"19258000\\\"],[\\\"sent_by\\\",\\\"1720003600\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\\\"}\",\"new_wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"}",
+      "error": "nipcash: malformed payout: a re-minted bill outside cancelled"
+    }
+  ],
+  "cancelShapes": [
+    {
+      "name": "cancel by request_id",
+      "input": "{\"cancel\":true,\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "want": {
+        "isCancel": true,
+        "request": {
+          "cancel": true,
+          "request_id": "00112233445566778899aabbccddeeff"
+        }
+      }
+    },
+    {
+      "name": "bearer cancel",
+      "input": "{\"cancel\":true,\"request_id\":\"00112233445566778899aabbccddeeff\",\"cash_secret\":\"abababababababababababababababababababababababababababababababab\"}",
+      "want": {
+        "isCancel": true,
+        "request": {
+          "cancel": true,
+          "request_id": "00112233445566778899aabbccddeeff",
+          "cash_secret": "abababababababababababababababababababababababababababababababab"
+        }
+      }
+    },
+    {
+      "name": "a call is not a cancel",
+      "input": "{\"quote\":\"x\"}",
+      "want": {
+        "isCancel": false
+      }
+    },
+    {
+      "name": "cancel false",
+      "input": "{\"cancel\":false,\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "want": {
+        "isCancel": true
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed cancel request: cancel must be true",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "cancel as a string",
+      "input": "{\"cancel\":\"true\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "want": {
+        "isCancel": true
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed cancel request: cancel must be true",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "no request_id",
+      "input": "{\"cancel\":true}",
+      "want": {
+        "isCancel": true
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed cancel request: request_id",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "another field",
+      "input": "{\"cancel\":true,\"request_id\":\"00112233445566778899aabbccddeeff\",\"notify\":\"x\"}",
+      "want": {
+        "isCancel": true
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed cancel request: a field other than cancel, request_id and cash_secret",
+      "code": "BAD_REQUEST"
+    },
+    {
+      "name": "a bad cash_secret",
+      "input": "{\"cancel\":true,\"request_id\":\"00112233445566778899aabbccddeeff\",\"cash_secret\":\"zz\"}",
+      "want": {
+        "isCancel": true
+      },
+      "error": "nipcash: withdrawal refused BAD_REQUEST: malformed cancel request: cash_secret",
+      "code": "BAD_REQUEST"
+    }
+  ],
+  "withdrawObject": [
+    {
+      "name": "the NIP example",
+      "input": "{\"withdraw_fee_base\":500000,\"withdraw_fee_ppm\":2000,\"min_millis\":10000000,\"max_millis\":1000000000,\"script_types\":[[0,20],[0,32],[1,32]],\"final_depth\":6}",
+      "want": {
+        "scriptTypes": [
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            1,
+            32
+          ]
+        ],
+        "terms": {
+          "withdraw_fee_base": 500000,
+          "withdraw_fee_ppm": 2000,
+          "min_millis": 10000000,
+          "max_millis": 1000000000,
+          "script_types": [
+            [
+              0,
+              20
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              1,
+              32
+            ]
+          ],
+          "final_depth": 6
+        }
+      }
+    },
+    {
+      "name": "no bounds",
+      "input": "{\"withdraw_fee_base\":0,\"withdraw_fee_ppm\":0,\"script_types\":[[0,20]],\"final_depth\":1}",
+      "want": {
+        "scriptTypes": [
+          [
+            0,
+            20
+          ]
+        ],
+        "terms": {
+          "withdraw_fee_base": 0,
+          "withdraw_fee_ppm": 0,
+          "script_types": [
+            [
+              0,
+              20
+            ]
+          ],
+          "final_depth": 1
+        }
+      }
+    },
+    {
+      "name": "ppm above 1000000",
+      "input": "{\"withdraw_fee_base\":0,\"withdraw_fee_ppm\":1000001,\"script_types\":[[0,20]],\"final_depth\":1}",
+      "error": "nipcash: a ppm rate is at most 1000000: withdraw_fee_ppm 1000001"
+    },
+    {
+      "name": "no script type",
+      "input": "{\"withdraw_fee_base\":0,\"withdraw_fee_ppm\":0,\"script_types\":[],\"final_depth\":1}",
+      "want": {
+        "scriptTypes": [],
+        "terms": {
+          "withdraw_fee_base": 0,
+          "withdraw_fee_ppm": 0,
+          "script_types": [],
+          "final_depth": 1
+        }
+      }
+    },
+    {
+      "name": "an invalid script type",
+      "input": "{\"withdraw_fee_base\":0,\"withdraw_fee_ppm\":0,\"script_types\":[[0,21]],\"final_depth\":1}",
+      "error": "nipcash: a version-0 program is 20 or 32 bytes, not 21"
+    },
+    {
+      "name": "final_depth 0",
+      "input": "{\"withdraw_fee_base\":0,\"withdraw_fee_ppm\":0,\"script_types\":[[0,20]],\"final_depth\":0}",
+      "error": "nipcash: final_depth is at least 1"
+    },
+    {
+      "name": "min above max",
+      "input": "{\"withdraw_fee_base\":0,\"withdraw_fee_ppm\":0,\"min_millis\":2000,\"max_millis\":1000,\"script_types\":[[0,20]],\"final_depth\":1}",
+      "error": "nipcash: min_millis exceeds max_millis"
+    }
+  ]
+}

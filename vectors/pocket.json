@@ -1,0 +1,2069 @@
+{
+  "description": "NIP-CP pocket entries (kind 9525 rumors): bill and pending entries as tags (K-POCKET-1..2), rumor parsing refusals, version resolution (K-POCKET-3), the per-chain balance (K-POCKET-4), the cash_order pending entry and its close rule (K-POCKET-5), and the cash_withdraw pending entry with its receipt, source spent, done and rewrite (K-POCKET-6).",
+  "source": "nipCP/{entry,pending,order,withdraw,resolve}.go; nipCP/entry_test.go, seal_test.go, pending_test.go, order_test.go, withdraw_test.go (K-POCKET-1..6)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "user": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+  "wrapKey": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "createdAt": 1720000000,
+  "rumors": [
+    {
+      "id": "K-POCKET-1",
+      "name": "a bill entry",
+      "rumor": {
+        "id": "e284c7c39231796c650f29c2ac6b092e778a6386b558db678c678fedd6ff9489",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "name": "a cash-mode bill entry",
+      "rumor": {
+        "id": "197f8c80e8e94c2a4d82908806c35591b2e567abeb2e6c1f5e3b501d83f71cd3",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "2222222222222222222222222222222222222222222222222222222222222222"
+          ],
+          [
+            "rev",
+            "3"
+          ],
+          [
+            "cash",
+            "satscash122222222"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "cash"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "secret",
+            "6666666666666666666666666666666666666666666666666666666666666666"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "name": "an entry from a tombstone",
+      "rumor": {
+        "id": "898037a7d58f71aec0d7c18ab7ed2dcf743489681fecf7ab96d5329c4c1a42d6",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "3333333333333333333333333333333333333333333333333333333333333333"
+          ],
+          [
+            "rev",
+            "5"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "spent",
+            "1720000000"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "id": "K-POCKET-2",
+      "name": "a pending cash_transfer entry",
+      "rumor": {
+        "id": "b606d719b13bf64c36333ac4c0855dd2768e9b657cda69b7604a1aac5dca85eb",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "amount",
+            "5000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "state",
+            "pending",
+            "1720000000"
+          ],
+          [
+            "request_id",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "deadline",
+            "1720000300"
+          ],
+          [
+            "target",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "device",
+            "dddddddddddddddddddddddddddddddd"
+          ],
+          [
+            "secret",
+            "7777777777777777777777777777777777777777777777777777777777777777"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "name": "the done entry that closes it",
+      "rumor": {
+        "id": "ed485362565988ddb0d4f72881e01ad1b561966fb90884231050dcc5dda8a81f",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "rev",
+            "2"
+          ],
+          [
+            "amount",
+            "5000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "state",
+            "done",
+            "1720000000"
+          ],
+          [
+            "request_id",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "deadline",
+            "1720000300"
+          ],
+          [
+            "target",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "device",
+            "dddddddddddddddddddddddddddddddd"
+          ],
+          [
+            "secret",
+            "7777777777777777777777777777777777777777777777777777777777777777"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "a cash_order entry with secret and notify",
+      "rumor": {
+        "id": "a6f66587e3af2ee863db7d34b5bef056648aef576ae03cb50abafa6aa168c7d0",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "state",
+            "pending",
+            "1720000000"
+          ],
+          [
+            "request_id",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "deadline",
+            "1720000300"
+          ],
+          [
+            "target",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "device",
+            "dddddddddddddddddddddddddddddddd"
+          ],
+          [
+            "secret",
+            "8888888888888888888888888888888888888888888888888888888888888888"
+          ],
+          [
+            "notify",
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "a cash_order entry with order_key and notify",
+      "rumor": {
+        "id": "f21833dbf0339ba251ac226029deb4f9cb252dfcfe676ba902991138d649283f",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "state",
+            "pending",
+            "1720000000"
+          ],
+          [
+            "request_id",
+            "22222222222222222222222222222222"
+          ],
+          [
+            "deadline",
+            "1720000300"
+          ],
+          [
+            "target",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "device",
+            "dddddddddddddddddddddddddddddddd"
+          ],
+          [
+            "order_key",
+            "2f8b08b12d4ee29d97aa987507ff174bcf327af585c7a25b97724d16b5f9ded0"
+          ],
+          [
+            "notify",
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "name": "a cash_order entry without notify",
+      "rumor": {
+        "id": "",
+        "pubkey": "",
+        "created_at": 0,
+        "kind": 0,
+        "tags": null,
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: a cash_order entry keeps its notify, and its secret or order_key"
+    }
+  ],
+  "parseRumor": [
+    {
+      "name": "K-POCKET-1",
+      "rumor": {
+        "id": "e284c7c39231796c650f29c2ac6b092e778a6386b558db678c678fedd6ff9489",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "want": {
+        "amount": 21000,
+        "chain": "bitcoin",
+        "rawState": "",
+        "rev": 1,
+        "state": "live",
+        "w": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "name": "rev 07",
+      "rumor": {
+        "id": "f1e4e8e44d4645770d37b67b089df9075f2132aa35992a8d194ba306755bf105",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "07"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: rev: \"07\" is not a canonical unsigned integer"
+    },
+    {
+      "name": "amount +21000",
+      "rumor": {
+        "id": "bc8c5e803a0eb6feb1f007af509ec2e0962ea4b78e85231e02ed2ca347171da8",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "+21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: amount: \"+21000\" is not a canonical unsigned integer"
+    },
+    {
+      "name": "amount 21000.0",
+      "rumor": {
+        "id": "1f1adcfaf3dd3bd24b7942b672e086756d6f773911de17fb1d1a32c167c2a517",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000.0"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: amount: \"21000.0\" is not a canonical unsigned integer"
+    },
+    {
+      "name": "uppercase w",
+      "rumor": {
+        "id": "a1595fe9faa8f8d0107b4c1318d37bcf0ebc3538e2ee85ef54032a6cfd4e8be3",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: w or rev"
+    },
+    {
+      "name": "64-hex mint",
+      "rumor": {
+        "id": "b79e7da7a4fee2550008ae4dc0d886ec9c8b8219bca84ea63e73e9af28172734",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: mint is a 66-hex compressed pubkey"
+    },
+    {
+      "name": "state time 01",
+      "rumor": {
+        "id": "e4adb6478606e69fcf9447d843681776a25f5dd384a2c05e1ea3bf4229573c06",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "01"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: state check time: \"01\" is not a canonical unsigned integer"
+    },
+    {
+      "name": "no state time",
+      "rumor": {
+        "id": "8b497ad0f43ae1577a0d0a145cf92094feef783c14d0d17973ca14a9022b8264",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: state needs its check time"
+    },
+    {
+      "name": "two amounts",
+      "rumor": {
+        "id": "92849e79c85bb42f09bdce6442f8c3ce0695e28b98dfbccb7a599bb70e21d7ae",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "amount",
+            "1"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: two \"amount\" tags"
+    },
+    {
+      "name": "expires_at 0",
+      "rumor": {
+        "id": "d4c44320e1cf51e136208751a5f2176a560a5eaa8e2b6e5ca281e1e1fb60f543",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "live",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "0"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: expires_at 0 means never and is not stored"
+    },
+    {
+      "name": "an unrecognised state is kept raw",
+      "rumor": {
+        "id": "8e4dc0d4bab993ebd64ac11e65e6b4a8a056070c34def4ee80b6c8f3dd6d9210",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "cash",
+            "satscash111111111"
+          ],
+          [
+            "amount",
+            "21000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "identity",
+            "pubkey",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "state",
+            "frozen",
+            "1720000000"
+          ],
+          [
+            "mint",
+            "02eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          [
+            "expires_at",
+            "1790000000"
+          ],
+          [
+            "source",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      },
+      "want": {
+        "amount": 21000,
+        "chain": "bitcoin",
+        "rawState": "frozen",
+        "rev": 1,
+        "state": "",
+        "w": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    }
+  ],
+  "resolve": [
+    {
+      "name": "v5 spent over v3 live",
+      "entries": [
+        {
+          "rev": 5,
+          "state": "spent",
+          "rumorId": "5555555555555555555555555555555555555555555555555555555555555555",
+          "createdAt": 1
+        },
+        {
+          "rev": 3,
+          "state": "live",
+          "rumorId": "3333333333333333333333333333333333333333333333333333333333333333",
+          "createdAt": 1
+        }
+      ],
+      "winnerRumorId": "5555555555555555555555555555555555555555555555555555555555555555",
+      "winnerState": "spent",
+      "conflicts": []
+    },
+    {
+      "id": "K-POCKET-3",
+      "name": "the S-CP-11 tie: the lowest rumor id, a conflict",
+      "entries": [
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "createdAt": 10
+        },
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "createdAt": 10,
+          "wrapId": "9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "0000000000000000000000000000000000000000000000000000000000000000",
+          "createdAt": 10
+        }
+      ],
+      "winnerRumorId": "0000000000000000000000000000000000000000000000000000000000000000",
+      "winnerState": "live",
+      "conflicts": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ]
+    },
+    {
+      "name": "a rewrapped copy is no conflict",
+      "entries": [
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "createdAt": 10
+        },
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "createdAt": 10,
+          "wrapId": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      ],
+      "winnerRumorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "winnerState": "live",
+      "conflicts": []
+    },
+    {
+      "name": "a later created_at wins a rev tie",
+      "entries": [
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "createdAt": 10
+        },
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "0000000000000000000000000000000000000000000000000000000000000000",
+          "createdAt": 11
+        }
+      ],
+      "winnerRumorId": "0000000000000000000000000000000000000000000000000000000000000000",
+      "winnerState": "live",
+      "conflicts": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ]
+    },
+    {
+      "name": "final v4 over live v4, a conflict",
+      "entries": [
+        {
+          "rev": 4,
+          "state": "live",
+          "rumorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "createdAt": 10
+        },
+        {
+          "rev": 4,
+          "state": "spent",
+          "rumorId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "createdAt": 1
+        }
+      ],
+      "winnerRumorId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "winnerState": "spent",
+      "conflicts": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ]
+    },
+    {
+      "name": "a higher rev supersedes a final state",
+      "entries": [
+        {
+          "rev": 5,
+          "state": "spent",
+          "rumorId": "5555555555555555555555555555555555555555555555555555555555555555",
+          "createdAt": 1
+        },
+        {
+          "rev": 6,
+          "state": "live",
+          "rumorId": "6666666666666666666666666666666666666666666666666666666666666666",
+          "createdAt": 1
+        }
+      ],
+      "winnerRumorId": "6666666666666666666666666666666666666666666666666666666666666666",
+      "winnerState": "live",
+      "conflicts": []
+    }
+  ],
+  "balance": {
+    "id": "K-POCKET-4",
+    "entries": [
+      {
+        "w": "1111111111111111111111111111111111111111111111111111111111111111",
+        "chain": "bitcoin",
+        "amount": 21000,
+        "state": "live"
+      },
+      {
+        "w": "2222222222222222222222222222222222222222222222222222222222222222",
+        "chain": "flokicoin",
+        "amount": 7000,
+        "state": "live"
+      },
+      {
+        "w": "3333333333333333333333333333333333333333333333333333333333333333",
+        "chain": "bitcoin",
+        "amount": 21000,
+        "state": "spent"
+      },
+      {
+        "w": "4444444444444444444444444444444444444444444444444444444444444444",
+        "chain": "bitcoin",
+        "amount": 21000,
+        "state": "unknown"
+      },
+      {
+        "w": "5555555555555555555555555555555555555555555555555555555555555555",
+        "chain": "bitcoin",
+        "amount": 21000,
+        "state": "live"
+      }
+    ],
+    "balance": {
+      "bitcoin": 42000,
+      "flokicoin": 7000
+    }
+  },
+  "order": [
+    {
+      "id": "K-POCKET-5",
+      "name": "Lightning open",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "lightning",
+        "state": "open"
+      },
+      "keeps": true,
+      "writes": [],
+      "done": false
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "Lightning paid",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "lightning",
+        "state": "paid"
+      },
+      "keeps": true,
+      "writes": [],
+      "done": false
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "Lightning minted: the bill then done",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [
+          {
+            "amount_millis": 21000,
+            "cash_token": "satscash1b",
+            "paid_millis": 21000,
+            "wallet_pubkey": "5555555555555555555555555555555555555555555555555555555555555555"
+          }
+        ],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "lightning",
+        "state": "minted"
+      },
+      "keeps": true,
+      "writes": [
+        {
+          "amount": 21000,
+          "cash": "satscash1b",
+          "identity": "cash",
+          "secrets": 1,
+          "state": "live",
+          "w": "5555555555555555555555555555555555555555555555555555555555555555"
+        }
+      ],
+      "done": true,
+      "doneRev": 2
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "Lightning expired",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "lightning",
+        "state": "expired"
+      },
+      "keeps": true,
+      "writes": [],
+      "done": true,
+      "doneRev": 2
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "on-chain minted stays open",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [
+          {
+            "amount_millis": 21000,
+            "cash_token": "satscash1b",
+            "paid_millis": 21000,
+            "wallet_pubkey": "5555555555555555555555555555555555555555555555555555555555555555"
+          }
+        ],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "onchain",
+        "state": "minted"
+      },
+      "keeps": true,
+      "writes": [
+        {
+          "amount": 21000,
+          "cash": "satscash1b",
+          "identity": "cash",
+          "secrets": 1,
+          "state": "live",
+          "w": "5555555555555555555555555555555555555555555555555555555555555555"
+        }
+      ],
+      "done": false
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "on-chain expired",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "onchain",
+        "state": "expired"
+      },
+      "keeps": true,
+      "writes": [],
+      "done": true,
+      "doneRev": 2
+    },
+    {
+      "id": "K-POCKET-5",
+      "name": "on-chain closed",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "onchain",
+        "state": "closed"
+      },
+      "keeps": true,
+      "writes": [],
+      "done": true,
+      "doneRev": 2
+    },
+    {
+      "name": "a gift: no bill entry",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [
+          {
+            "amount_millis": 21000,
+            "cash_token": "satscash1b",
+            "paid_millis": 21000,
+            "wallet_pubkey": "5555555555555555555555555555555555555555555555555555555555555555"
+          }
+        ],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "lightning",
+        "state": "minted"
+      },
+      "keeps": false,
+      "writes": [],
+      "done": true,
+      "doneRev": 2
+    },
+    {
+      "name": "a tombstone bill",
+      "order": {
+        "amount_millis": 21000,
+        "bills": [
+          {
+            "amount_millis": 21000,
+            "cash_token": {
+              "reason": "expired",
+              "status": "spent"
+            },
+            "paid_millis": 0,
+            "wallet_pubkey": "6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        ],
+        "fee_millis": 0,
+        "pay_by": 1720003600,
+        "pay_millis": 21000,
+        "payment": "lightning",
+        "state": "minted"
+      },
+      "keeps": true,
+      "writes": [
+        {
+          "amount": 21000,
+          "cash": "",
+          "identity": "cash",
+          "secrets": 0,
+          "state": "expired",
+          "w": "6666666666666666666666666666666666666666666666666666666666666666"
+        }
+      ],
+      "done": true,
+      "doneRev": 2
+    }
+  ],
+  "withdraw": [
+    {
+      "id": "K-POCKET-6",
+      "name": "the pending entry: pubkey slice",
+      "rumor": {
+        "id": "c49dbd482343b3c68e9ba59ae6d120b991f17bd88b98620145eac562ad6b2c39",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "00112233445566778899aabbccddeeff"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "amount",
+            "21000000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "state",
+            "pending",
+            "1720000000"
+          ],
+          [
+            "request_id",
+            "00112233445566778899aabbccddeeff"
+          ],
+          [
+            "deadline",
+            "1720000300"
+          ],
+          [
+            "target",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "device",
+            "dddddddddddddddddddddddddddddddd"
+          ],
+          [
+            "notify",
+            "5555555555555555555555555555555555555555555555555555555555555555"
+          ],
+          [
+            "address",
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+          ],
+          [
+            "quote",
+            "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "id": "K-POCKET-6",
+      "name": "the pending entry: cash-mode slice (remint secret)",
+      "rumor": {
+        "id": "1add82fd822acf561e8934d09f063894eb5dbb38979794c392135676899ba246",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "00112233445566778899aabbccddeeff"
+          ],
+          [
+            "rev",
+            "1"
+          ],
+          [
+            "amount",
+            "21000000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "state",
+            "pending",
+            "1720000000"
+          ],
+          [
+            "request_id",
+            "00112233445566778899aabbccddeeff"
+          ],
+          [
+            "deadline",
+            "1720000300"
+          ],
+          [
+            "target",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "device",
+            "dddddddddddddddddddddddddddddddd"
+          ],
+          [
+            "secret",
+            "7777777777777777777777777777777777777777777777777777777777777777",
+            "remint"
+          ],
+          [
+            "notify",
+            "5555555555555555555555555555555555555555555555555555555555555555"
+          ],
+          [
+            "address",
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+          ],
+          [
+            "quote",
+            "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    },
+    {
+      "name": "refused: no notify",
+      "rumor": {
+        "id": "",
+        "pubkey": "",
+        "created_at": 0,
+        "kind": 0,
+        "tags": null,
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: a cash_withdraw entry keeps its notify, address and quote"
+    },
+    {
+      "name": "refused: no address",
+      "rumor": {
+        "id": "",
+        "pubkey": "",
+        "created_at": 0,
+        "kind": 0,
+        "tags": null,
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: a cash_withdraw entry keeps its notify, address and quote"
+    },
+    {
+      "name": "refused: no quote",
+      "rumor": {
+        "id": "",
+        "pubkey": "",
+        "created_at": 0,
+        "kind": 0,
+        "tags": null,
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: a cash_withdraw entry keeps its notify, address and quote"
+    },
+    {
+      "name": "refused: a remainder secret",
+      "rumor": {
+        "id": "",
+        "pubkey": "",
+        "created_at": 0,
+        "kind": 0,
+        "tags": null,
+        "content": "",
+        "sig": ""
+      },
+      "error": "nipCP: malformed pocket entry: a cash_withdraw entry's only secret is its remint secret"
+    },
+    {
+      "id": "K-POCKET-6",
+      "name": "the done entry rewritten",
+      "rumor": {
+        "id": "3137f0f66c68af647fe3f2f2942042c8346ce4e6c63ad952c5aea820373fa0e4",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1720000000,
+        "kind": 9525,
+        "tags": [
+          [
+            "w",
+            "00112233445566778899aabbccddeeff"
+          ],
+          [
+            "rev",
+            "4"
+          ],
+          [
+            "amount",
+            "21000000"
+          ],
+          [
+            "chain",
+            "bitcoin"
+          ],
+          [
+            "state",
+            "done",
+            "1720000000"
+          ],
+          [
+            "request_id",
+            "00112233445566778899aabbccddeeff"
+          ],
+          [
+            "deadline",
+            "1720000300"
+          ],
+          [
+            "target",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "device",
+            "dddddddddddddddddddddddddddddddd"
+          ],
+          [
+            "notify",
+            "5555555555555555555555555555555555555555555555555555555555555555"
+          ],
+          [
+            "wrap_key",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "sig": ""
+      }
+    }
+  ],
+  "applyWithdraw": [
+    {
+      "name": "first receipt (queued)",
+      "payoutState": "queued",
+      "writes": [
+        {
+          "id": "K-POCKET-6",
+          "name": "00112233445566778899aabbccddeeff",
+          "rumor": {
+            "id": "37e38de3fba644966e59095d2da2b7d51277137ee6ee43024ea0b227dcf7a661",
+            "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+            "created_at": 1720000000,
+            "kind": 9525,
+            "tags": [
+              [
+                "w",
+                "00112233445566778899aabbccddeeff"
+              ],
+              [
+                "rev",
+                "2"
+              ],
+              [
+                "amount",
+                "21000000"
+              ],
+              [
+                "chain",
+                "bitcoin"
+              ],
+              [
+                "state",
+                "pending",
+                "1720000000"
+              ],
+              [
+                "request_id",
+                "00112233445566778899aabbccddeeff"
+              ],
+              [
+                "deadline",
+                "1720000300"
+              ],
+              [
+                "target",
+                "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+              ],
+              [
+                "device",
+                "dddddddddddddddddddddddddddddddd"
+              ],
+              [
+                "notify",
+                "5555555555555555555555555555555555555555555555555555555555555555"
+              ],
+              [
+                "address",
+                "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+              ],
+              [
+                "quote",
+                "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}"
+              ],
+              [
+                "receipt",
+                "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}"
+              ],
+              [
+                "wrap_key",
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              ]
+            ],
+            "content": "",
+            "sig": ""
+          }
+        },
+        {
+          "name": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "rumor": {
+            "id": "8d5d5fd3199b438240030c20947d48f87f36163ad21f3991b910627a13bbd544",
+            "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+            "created_at": 1720000000,
+            "kind": 9525,
+            "tags": [
+              [
+                "w",
+                "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+              ],
+              [
+                "rev",
+                "4"
+              ],
+              [
+                "cash",
+                "satscash1c6047f94"
+              ],
+              [
+                "amount",
+                "21000000"
+              ],
+              [
+                "chain",
+                "bitcoin"
+              ],
+              [
+                "identity",
+                "pubkey",
+                "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+              ],
+              [
+                "state",
+                "spent",
+                "1720000000"
+              ],
+              [
+                "wrap_key",
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              ]
+            ],
+            "content": "",
+            "sig": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "no receipt",
+      "payoutState": "queued",
+      "writes": [],
+      "error": "nipcash: the withdrawal receipt is invalid: not an event"
+    },
+    {
+      "name": "broadcast after the receipt",
+      "payoutState": "broadcast",
+      "writes": []
+    },
+    {
+      "name": "final",
+      "payoutState": "final",
+      "writes": [],
+      "done": {
+        "name": "done",
+        "rumor": {
+          "id": "639108fc929eccbda8ecf07c67d68ce5fa7b0d20a8df986b137271d8a141f4a1",
+          "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+          "created_at": 1720000000,
+          "kind": 9525,
+          "tags": [
+            [
+              "w",
+              "00112233445566778899aabbccddeeff"
+            ],
+            [
+              "rev",
+              "3"
+            ],
+            [
+              "amount",
+              "21000000"
+            ],
+            [
+              "chain",
+              "bitcoin"
+            ],
+            [
+              "state",
+              "done",
+              "1720000000"
+            ],
+            [
+              "request_id",
+              "00112233445566778899aabbccddeeff"
+            ],
+            [
+              "deadline",
+              "1720000300"
+            ],
+            [
+              "target",
+              "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+            ],
+            [
+              "device",
+              "dddddddddddddddddddddddddddddddd"
+            ],
+            [
+              "notify",
+              "5555555555555555555555555555555555555555555555555555555555555555"
+            ],
+            [
+              "address",
+              "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+            ],
+            [
+              "quote",
+              "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}"
+            ],
+            [
+              "receipt",
+              "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}"
+            ],
+            [
+              "wrap_key",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            ]
+          ],
+          "content": "",
+          "sig": ""
+        }
+      }
+    },
+    {
+      "name": "cancelled: the re-mint entry",
+      "payoutState": "cancelled",
+      "writes": [
+        {
+          "name": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "rumor": {
+            "id": "21c996cd3754ad14c8368d18f9a8a2bf7696b740ec38100a0eb0e682dd31974c",
+            "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+            "created_at": 1720000000,
+            "kind": 9525,
+            "tags": [
+              [
+                "w",
+                "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+              ],
+              [
+                "rev",
+                "1"
+              ],
+              [
+                "cash",
+                "satscash1remint"
+              ],
+              [
+                "amount",
+                "21000000"
+              ],
+              [
+                "chain",
+                "bitcoin"
+              ],
+              [
+                "identity",
+                "pubkey",
+                "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+              ],
+              [
+                "state",
+                "live",
+                "1720000000"
+              ],
+              [
+                "wrap_key",
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              ]
+            ],
+            "content": "",
+            "sig": ""
+          }
+        }
+      ],
+      "done": {
+        "name": "done",
+        "rumor": {
+          "id": "639108fc929eccbda8ecf07c67d68ce5fa7b0d20a8df986b137271d8a141f4a1",
+          "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+          "created_at": 1720000000,
+          "kind": 9525,
+          "tags": [
+            [
+              "w",
+              "00112233445566778899aabbccddeeff"
+            ],
+            [
+              "rev",
+              "3"
+            ],
+            [
+              "amount",
+              "21000000"
+            ],
+            [
+              "chain",
+              "bitcoin"
+            ],
+            [
+              "state",
+              "done",
+              "1720000000"
+            ],
+            [
+              "request_id",
+              "00112233445566778899aabbccddeeff"
+            ],
+            [
+              "deadline",
+              "1720000300"
+            ],
+            [
+              "target",
+              "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+            ],
+            [
+              "device",
+              "dddddddddddddddddddddddddddddddd"
+            ],
+            [
+              "notify",
+              "5555555555555555555555555555555555555555555555555555555555555555"
+            ],
+            [
+              "address",
+              "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+            ],
+            [
+              "quote",
+              "{\"id\":\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000000,\"kind\":23187,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"i\",\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"amount_millis\",\"21000000\"],[\"network_fee_millis\",\"1200000\"],[\"hub_fee_millis\",\"542000\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"],[\"holds_until\",\"870413\"]],\"content\":\"\",\"sig\":\"81cb67d07115a5358c661d90bd1293e03a73554dcd119a5ac0435be27bb6c15cab084c2eedb666b654b7c32d778b6435020785b47055105084443e98732af779\"}"
+            ],
+            [
+              "receipt",
+              "{\"id\":\"2b376b910505799c6f92edcb3c3543e47e73fc210b877cdd91738c367d21cfef\",\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"created_at\":1720000100,\"kind\":23188,\"tags\":[[\"d\",\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"],[\"request_hash\",\"5947d7c33d783f94b3b4c1a96ebc8991ed28f1b069b71e03376cba8caa98a720\"],[\"address\",\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\"],[\"payout_millis\",\"19258000\"],[\"sent_by\",\"1720003600\"]],\"content\":\"\",\"sig\":\"2b61c6a23e5cfdb3a6fd01c51ba70ea3f393139238df9952ae4f044cc6a80ab02eb3f9fc8984a7b90189a53fd8443caba2bfbb25b056bc4e6fe7710d985f4d19\"}"
+            ],
+            [
+              "wrap_key",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            ]
+          ],
+          "content": "",
+          "sig": ""
+        }
+      }
+    }
+  ]
+}

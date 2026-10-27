@@ -1,20 +1,202 @@
 {
-  "description": "NIP-CW create_circle_wallet: the request with its kind 23199 identity proof, and the result with its encrypted wallet details.",
-  "source": "nipcw/{create_circle_wallet,identity,connection_key}.go; nipcw/{create_circle_wallet,connection_key_kat}_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "description": "NIP-CW: the terms tag, the join proof (kind 23199) and create_circle_wallet request, the Hub's join-proof check, the reply's encrypted details, get_info's circle_wallet block with network and chain, member requests, rotation notifications and get_budget.",
+  "source": "nipcw/{terms,create_circle_wallet,join_proof,member_request,identity}.go, nip47/methods.go; nipcw/{terms,prepared_join,join_proof,member_request}_test.go (K-TERMS-1..2, K-JOIN-1)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "terms": [
+    {
+      "id": "K-TERMS-1",
+      "terms": {
+        "maxAmount": 100000,
+        "maxReceive": 200000,
+        "expiry": 0,
+        "renewal": "monthly"
+      },
+      "tag": "100000:200000:0:monthly"
+    },
+    {
+      "id": "K-TERMS-2",
+      "terms": {
+        "maxAmount": 20000000,
+        "maxReceive": 50000000,
+        "expiry": 0,
+        "renewal": ""
+      },
+      "tag": "20000000:50000000:0:never"
+    },
+    {
+      "terms": {
+        "maxAmount": 9223372036854775807,
+        "maxReceive": 0,
+        "expiry": 0,
+        "renewal": "daily"
+      },
+      "tag": "9223372036854775807:0:0:daily"
+    },
+    {
+      "terms": {
+        "maxAmount": 9223372036854775808,
+        "maxReceive": 0,
+        "expiry": 0,
+        "renewal": ""
+      },
+      "error": "nipcw: malformed terms: max_amount 9223372036854775808 is above 2^63-1"
+    },
+    {
+      "terms": {
+        "maxAmount": 0,
+        "maxReceive": 0,
+        "expiry": 0,
+        "renewal": "Monthly"
+      },
+      "error": "nipcw: malformed terms: budget_renewal \"Monthly\""
+    },
+    {
+      "terms": {
+        "maxAmount": 0,
+        "maxReceive": 0,
+        "expiry": 0,
+        "renewal": "fortnightly"
+      },
+      "error": "nipcw: malformed terms: budget_renewal \"fortnightly\""
+    }
+  ],
+  "parseTerms": [
+    {
+      "input": "100000:200000:0:monthly",
+      "terms": {
+        "maxAmount": 100000,
+        "maxReceive": 200000,
+        "expiry": 0,
+        "renewal": "monthly"
+      }
+    },
+    {
+      "input": "20000000:50000000:0:never",
+      "terms": {
+        "maxAmount": 20000000,
+        "maxReceive": 50000000,
+        "expiry": 0,
+        "renewal": "never"
+      }
+    },
+    {
+      "input": "0:0:0:daily",
+      "terms": {
+        "maxAmount": 0,
+        "maxReceive": 0,
+        "expiry": 0,
+        "renewal": "daily"
+      }
+    },
+    {
+      "input": "9223372036854775807:0:0:yearly",
+      "terms": {
+        "maxAmount": 9223372036854775807,
+        "maxReceive": 0,
+        "expiry": 0,
+        "renewal": "yearly"
+      }
+    },
+    {
+      "input": "9223372036854775808:0:0:yearly",
+      "error": "nipcw: malformed terms: \"9223372036854775808\" is above 2^63-1"
+    },
+    {
+      "input": "01:0:0:never",
+      "error": "nipcw: malformed terms: \"01\" has a leading zero"
+    },
+    {
+      "input": "+1:0:0:never",
+      "error": "nipcw: malformed terms: \"+1\" is not unsigned decimal"
+    },
+    {
+      "input": "1:0:0",
+      "error": "nipcw: malformed terms: 3 parts, want 4"
+    },
+    {
+      "input": "1:0:0:never:x",
+      "error": "nipcw: malformed terms: 5 parts, want 4"
+    },
+    {
+      "input": "1:0:0:",
+      "error": "nipcw: malformed terms: budget_renewal \"\""
+    },
+    {
+      "input": "1:0:0:Never",
+      "error": "nipcw: malformed terms: budget_renewal \"Never\""
+    },
+    {
+      "input": ":0:0:never",
+      "error": "nipcw: malformed terms: empty number"
+    },
+    {
+      "input": "1: 0:0:never",
+      "error": "nipcw: malformed terms: \" 0\" is not unsigned decimal"
+    },
+    {
+      "input": "1:0:0:weekly",
+      "terms": {
+        "maxAmount": 1,
+        "maxReceive": 0,
+        "expiry": 0,
+        "renewal": "weekly"
+      }
+    }
+  ],
+  "joinProof": {
+    "id": "K-JOIN-1",
+    "signerSecret": "0000000000000000000000000000000000000000000000000000000000000001",
+    "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+    "connectionSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+    "terms": "100000:200000:0:monthly",
+    "createdAt": 1720000000,
+    "proofId": "f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8",
+    "deadline": 1720000300,
+    "request": {
+      "budget_renewal": "monthly",
+      "connection_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "expiry": 0,
+      "identity_event": {
+        "content": "",
+        "kind": 23199,
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "connection",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "terms",
+            "100000:200000:0:monthly"
+          ]
+        ],
+        "valid": true
+      },
+      "max_amount": 100000,
+      "max_receive": 200000,
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    }
+  },
   "requests": [
     {
       "name": "full",
       "inputs": {
         "budgetRenewal": "monthly",
-        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "connectionSecret": "0000000000000000000000000000000000000000000000000000000000000002",
         "expirySeconds": 2592000,
-        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
-        "maxAmountMillis": 100000
+        "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "maxAmountMillis": 100000,
+        "maxReceiveMillis": 50000,
+        "memberSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "now": 1720000000
       },
       "request": {
         "budget_renewal": "monthly",
-        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "connection_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
         "expiry": 2592000,
         "identity_event": {
           "content": "",
@@ -23,30 +205,39 @@
           "tags": [
             [
               "d",
-              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+              "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
             ],
             [
               "connection",
-              "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+              "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+            ],
+            [
+              "terms",
+              "100000:50000:2592000:monthly"
             ]
           ],
           "valid": true
         },
         "max_amount": 100000,
+        "max_receive": 50000,
         "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
       }
     },
     {
-      "name": "no budget renewal",
+      "name": "empty renewal is never",
       "inputs": {
         "budgetRenewal": "",
-        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "connectionSecret": "0000000000000000000000000000000000000000000000000000000000000002",
         "expirySeconds": 0,
-        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
-        "maxAmountMillis": 1
+        "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "maxAmountMillis": 1,
+        "maxReceiveMillis": 0,
+        "memberSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "now": 1720000000
       },
       "request": {
-        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "budget_renewal": "never",
+        "connection_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
         "expiry": 0,
         "identity_event": {
           "content": "",
@@ -55,16 +246,21 @@
           "tags": [
             [
               "d",
-              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+              "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
             ],
             [
               "connection",
-              "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+              "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+            ],
+            [
+              "terms",
+              "1:0:0:never"
             ]
           ],
           "valid": true
         },
         "max_amount": 1,
+        "max_receive": 0,
         "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
       }
     },
@@ -72,13 +268,17 @@
       "name": "sub-second expiry truncates",
       "inputs": {
         "budgetRenewal": "",
-        "connectionSecret": "1111111111111111111111111111111111111111111111111111111111111111",
+        "connectionSecret": "0000000000000000000000000000000000000000000000000000000000000002",
         "expirySeconds": 1,
-        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
-        "maxAmountMillis": 0
+        "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "maxAmountMillis": 0,
+        "maxReceiveMillis": 0,
+        "memberSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "now": 1720000000
       },
       "request": {
-        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "budget_renewal": "never",
+        "connection_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
         "expiry": 1,
         "identity_event": {
           "content": "",
@@ -87,18 +287,51 @@
           "tags": [
             [
               "d",
-              "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"
+              "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
             ],
             [
               "connection",
-              "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+              "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+            ],
+            [
+              "terms",
+              "0:0:1:never"
             ]
           ],
           "valid": true
         },
         "max_amount": 0,
+        "max_receive": 0,
         "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
       }
+    },
+    {
+      "name": "unknown renewal",
+      "inputs": {
+        "budgetRenewal": "Monthly",
+        "connectionSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+        "expirySeconds": 0,
+        "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "maxAmountMillis": 0,
+        "maxReceiveMillis": 0,
+        "memberSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "now": 1720000000
+      },
+      "error": "nipcw: malformed terms: budget_renewal \"Monthly\""
+    },
+    {
+      "name": "cap above 2^63-1",
+      "inputs": {
+        "budgetRenewal": "",
+        "connectionSecret": "0000000000000000000000000000000000000000000000000000000000000002",
+        "expirySeconds": 0,
+        "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "maxAmountMillis": 9223372036854775808,
+        "maxReceiveMillis": 0,
+        "memberSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "now": 1720000000
+      },
+      "error": "nipcw: malformed terms: max_amount 9223372036854775808 is above 2^63-1"
     },
     {
       "name": "no connection key",
@@ -106,8 +339,11 @@
         "budgetRenewal": "",
         "connectionSecret": "",
         "expirySeconds": 0,
-        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
-        "maxAmountMillis": 0
+        "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "maxAmountMillis": 0,
+        "maxReceiveMillis": 0,
+        "memberSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "now": 1720000000
       },
       "error": "nipcw: create_circle_wallet requires a member-generated connection key"
     },
@@ -117,113 +353,1194 @@
         "budgetRenewal": "",
         "connectionSecret": "0202020202020202020202020202020202020202020202020202020202020202",
         "expirySeconds": 0,
-        "hub": "f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a",
-        "maxAmountMillis": 0
+        "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "maxAmountMillis": 0,
+        "maxReceiveMillis": 0,
+        "memberSecret": "0202020202020202020202020202020202020202020202020202020202020202",
+        "now": 1720000000
       },
       "error": "nipcw: the connection key must differ from the requester's own key"
     }
   ],
+  "verifyJoinProof": [
+    {
+      "name": "K-JOIN-1 at created_at",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "proofId": "f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8"
+    },
+    {
+      "name": "300 s later",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000300,
+      "consumed": false,
+      "proofId": "f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8"
+    },
+    {
+      "name": "301 s later",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000301,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: created_at 1720000000 is outside [1720000001, 1720000361]"
+    },
+    {
+      "name": "60 s before",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1719999940,
+      "consumed": false,
+      "proofId": "f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8"
+    },
+    {
+      "name": "61 s before",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1719999939,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: created_at 1720000000 is outside [1719999639, 1719999999]"
+    },
+    {
+      "name": "already used",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": true,
+      "error": "nipcw: REQUEST_REUSED: proof already used"
+    },
+    {
+      "name": "another Hub",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: d tag is not this Hub's pubkey"
+    },
+    {
+      "name": "terms changed after signing",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100001,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: terms tag does not match the request"
+    },
+    {
+      "name": "connection changed after signing",
+      "params": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"connection_pubkey\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: connection tag is not the request's connection_pubkey"
+    },
+    {
+      "name": "pubkey is not the signer",
+      "params": "{\"pubkey\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"connection_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"max_amount\":100000,\"max_receive\":200000,\"expiry\":0,\"budget_renewal\":\"monthly\",\"identity_event\":\"{\\\"id\\\":\\\"f796fb3c192db23c1ea2636c580408c6e574e290c6193e7694d170abedbc65b8\\\",\\\"pubkey\\\":\\\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\\\",\\\"created_at\\\":1720000000,\\\"kind\\\":23199,\\\"tags\\\":[[\\\"d\\\",\\\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\\\"],[\\\"connection\\\",\\\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\\\"],[\\\"terms\\\",\\\"100000:200000:0:monthly\\\"]],\\\"content\\\":\\\"\\\",\\\"sig\\\":\\\"a8edcea34d1d61279e0cb9f0c04196c9698243d33aacc20ddf9355c1dc6630ed982eb8e870d3b48a4b9f1e62a1bfde7fe954d2f2af2054bfbffbd549d54b379c\\\"}\"}",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: proof signer is not the request's pubkey"
+    },
+    {
+      "name": "params not JSON",
+      "params": "{",
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: BAD_REQUEST: params are not a JSON object"
+    }
+  ],
   "results": [
     {
-      "name": "full details",
-      "result": "{\"encrypted_details\":\"AjyWShhVWqFdETgckd5mSKZGBfAyjj/Um6ZLPkxFZzd/IpvGCpOZljH0VjEigCr1ZBHGXveMRYQyfGeOJ+cYahlrcBAOL/JXJZudd3PobymKg/o0h+Io7SWcI87NZ759TbIb4Hfhn0+hxJdmDTjjmm9Id+vBFp3we1RKlAiF+WdN3TarOGN50SN88JEHBFAw1ckEPQMkjyAszY+lmAiLzKzWOm1TKEQcQPrqlvak3tQ/p4mqUUHW2x008mPXSCtPrzNgBNwe9lTtyBmeZNGnv5XPxKTiW1S7Jmb+y11UckUhHi01lpMASKi7Vp4TSue95CozxjaaKChFMsgb3q23nESU1XRxQdiB1hTvgkwKjOaypevdgKG7TlRzFoP++6UdQ/7T\"}",
+      "name": "EncryptDetails, every term",
+      "result": "{\"encrypted_details\":\"AjyWShhVWqFdETgckd5mSKZGBfAyjj/Um6ZLPkxFZzd/IiOhAYjI2wZxe7QVmj391P2kJB7vcRp0GGbvSMrAu7w8ur/exMEV94tkBy3DbYFCwqYfFDhQn5wOJAulKPz6eYq+7AAUX+nAvthr5PTqDeFpMtIxgrZvAIv7zsqUD2C1g8dTn/CXeoYVUYtH+oDK0fOjh/quMelrai1pfYN+LyCEwZlRQA78w8fcUn+vW9IoRN95RayuXz1VTrBNrveco4e1xIhQVEGR2WgTgL0n31/0242ZIVzn5GGPXGgQhUPLBysfyKnJIhYGjkkpgjDYJvnjlu1YInbum2X44KLXeV+BMKP4qy17uIkZOJ474gRAYd7TzHk71TYO37JRuuSi2aAJFmPt5wb4pxicMGMYe8nRdMYDIn7QjSN2aJ1CARB8S+L9hOQpB0SSB5Wp9iTmqutDeSfqUcARpXzT5tLA/Jg4Tuc9Izd8AMmsD4FyMrjaPDj55mvCCnXGzn7alKufhUvgKDiQ89mfJ2ZB9hwiOv9MEAZ03t+0pSD0MY5gXNyfvullVUQt98HJUBit//OMetRB0d1AbJmTx15YpO78Qia84w==\"}",
       "want": {
         "BudgetRenewal": "monthly",
+        "CapsRaised": false,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 1000,
         "ExpiresAt": 1800000000,
         "FeesPpm": 2500,
+        "LeakedFields": null,
         "MaxAmountMillis": 100000,
-        "PairingURI": "nostr+walletconnect://9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a?relay=wss%3A%2F%2Fr1.example&relay=wss%3A%2F%2Fr2.example&secret=1111111111111111111111111111111111111111111111111111111111111111",
+        "MaxReceiveMillis": 50000,
+        "MissingTerms": null,
+        "Relays": [
+          "wss://r1.example"
+        ],
+        "RotationDelaySecs": null,
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
+    },
+    {
+      "name": "full details",
+      "result": "{\"encrypted_details\":\"ApQ96m5vCw33/qKp8cV8szfJ+H4Z8EKoONjpu1h0+QZ3izeolq3UIMsdHAi+ZkOE2D4Splw3hmNJsJRS8bvxJBA0f/k1+FeTYfr+GpjSfdN3wZLF/7MIlbWBDu5QSssstpAdg/UB4L4uR4mzeURW1QBFExo0oCFyZtwxSaYCoURKj2NVhAk3aUSdgCzCclBItraD5mu3Q5IDwMusnQQ7HEejlbLoxQA8OVqgdK9hUx5odBtQO/LL3XvrbFiNeQKOGAzgD9DBz4ghCZuFrTwVSoVe+Lj4WB9uVo3BXvhN+uXlmgXoswf6ta0Dc9t6D4aF7Yp8AmOQENYBF+lbjs+2QYyZL6mT54sRil53cmD242ysoNGx0jt9JveyJRNChybwGYOrhDNgMAwKj2JbTm6t/XGL/Hpui3yyx6JOkV6RycjCctEPVo8E0bRIxCNX9qlkdKnL1MNXlTrLibJvoh+MkiyXKaAGxkmQ/75kqGK8butPBoFpH/K0uG/9iZ+GGd6FCcr593hVUED1umQwsFyQYnsiT0r/Z9JRtxR2mjfUbzO0hoXPpMyRGojs8gercVlhVHa308q1ypVOlAMt0yfbl9mFiA==\"}",
+      "want": {
+        "BudgetRenewal": "monthly",
+        "CapsRaised": false,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 1000,
+        "ExpiresAt": 1800000000,
+        "FeesPpm": 2500,
+        "LeakedFields": null,
+        "MaxAmountMillis": 100000,
+        "MaxReceiveMillis": 50000,
+        "MissingTerms": null,
         "Relays": [
           "wss://r1.example",
           "wss://r2.example"
         ],
+        "RotationDelaySecs": 86400,
         "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
       }
     },
     {
-      "name": "minimal details",
-      "result": "{\"encrypted_details\":\"ApQ96m5vCw33/qKp8cV8szfJ+H4Z8EKoONjpu1h0+QZ3JmfFM3kHqAoetS+VhwIkOwAFwe692iSvseKcF2ut/Ru6D0l1R73LdN4CqtYOOLn4yxXBdvifIDSyPvOyYbZ2bdmkqleyRoSNVQuBcdCjH8MJUoCVahvufjkuGZpzGN/1c6bTpMSCuROfjtxKQZ4RNsaNJVPnaBMuZH7FwobeAFL8EuJ7e7NbbkdvFiSgBV3RfUCpXEhbGWGhB18kBkdg8CIR\"}",
+      "name": "missing terms are named",
+      "result": "{\"encrypted_details\":\"Aj5dC61Avwh9OQc8MiCwJjGYmKmbOQvFDsVHf8uo2hfXQzAQow5Ik1qmX+puEujib/gXZC2FVcsaCaqOUcbtT0BFfVma5SNpQUAVn/t2357KwHE+onrF90A8L+c1KZWgETFVLvTgJQ9hNhP+/uKoc6OG4RnJWOIsdJoDr9WhEcIPCT2PoG+UdKWJ4zZ8+/w0ZWKjyDoJEtqouH5OjyQz3Z1P4UN151YIK4hrb8YXy7hJ8Od5iBOlCCPQ6QLEZOHCYPM8qEJRk3tmQ2FftOxjjwaRUnN53YPJAXZu5IMxRdygrlMge/1tXtDcYqWK1kfpBrsf/+VxkUbDXYTJUwSQZ460ryIuWDg4cJxqXvmXicb5TH058VHrzT3OD0edlqMs8Bji\"}",
       "want": {
         "BudgetRenewal": "",
+        "CapsRaised": false,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 0,
         "ExpiresAt": 0,
         "FeesPpm": 0,
-        "MaxAmountMillis": null,
-        "PairingURI": "nostr+walletconnect://9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a?relay=wss%3A%2F%2Fr1.example&secret=1111111111111111111111111111111111111111111111111111111111111111",
+        "LeakedFields": null,
+        "MaxAmountMillis": 0,
+        "MaxReceiveMillis": 0,
+        "MissingTerms": [
+          "max_amount",
+          "max_receive",
+          "expires_at",
+          "fees_ppm",
+          "dust_threshold_millis",
+          "budget_renewal"
+        ],
         "Relays": [
           "wss://r1.example"
         ],
+        "RotationDelaySecs": null,
         "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
       }
+    },
+    {
+      "name": "a cap above the request",
+      "result": "{\"encrypted_details\":\"Anh6PqD55LDxgwag1lvmMbMn1OijJTFXhmy0RQS5MbW45xwNxBMvJGUcO/vgjfPT+iqJfO4GC97CABOOFils42mUpILox7S5/2hMEk8V1x9jdakQtwuRkHLD2Q5t+Azw24gPtQ7KNLHCWkyMHNldR4EyWcKZH5FKSDrurFAo6eUrjyx9nVv3THiNYxIIws5x7QuZiA6gsu+85e9dVJkudjKGvxb/LoJQhhm2gZM865ysWjR6msg/7auLa4QUENfpHP/O8XFsFY8CiCL7GuSwipJkdwoEZmz3hVTNAJt3/42vuj65iKkOtQKyLXIGM1CQ8Br2sx1MqGLkf7Yzo2Uszw2TjyC4c42YumSrBkhQ86rPZCsYEJxVxbnLanOi/SuJ8rTpkN6fwjntiad9N1qvNRtj4ezr6wICVWQ36WybzmO2R0O/1I6T1NhUeUNQxXBHiAXpVIZJLjTDiPL0s2SP6+mHb5x0jdAkwb4uKz0hO5cgKoXocEwt4UXCDUUaQ36VT/lzT2iZIBP346Vwac0GP+Q9PydwRQhurr3I+APOh0KGNKRu37d/IMZFdyksO6Ztns6sWj3kjzgRTJH/lzZv4KDFZw==\"}",
+      "want": {
+        "BudgetRenewal": "monthly",
+        "CapsRaised": true,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 1000,
+        "ExpiresAt": 1800000000,
+        "FeesPpm": 2500,
+        "LeakedFields": null,
+        "MaxAmountMillis": 100001,
+        "MaxReceiveMillis": 50000,
+        "MissingTerms": null,
+        "Relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "RotationDelaySecs": 86400,
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
+    },
+    {
+      "name": "a leaked secret",
+      "result": "{\"encrypted_details\":\"Ar6R1s9faop0ax3PkZe4Jo5JCxUDqGMsOKnTZasgN8KJUlJuYRHpxd1C/QrpOL+sQfLR8qcshLAkq6psJaWj7GorP1pSFT+t+zY9OgGXEOTNtdRJX+0TnvIiU2zJ6InwsZ8YGBE6hE7sSfm8kGgLAfIWoR+gckPAw8YcxbfdxakDfOyjsdxa8C84unkTlderjZfWZn7WbDOwgqvZYIUbbQQI4pw6BCTy5AKgAOVcTyz0tNSWPeHfTPNlWP3bsIA3s/a+H95LlrVi4M3X1zPeISqxPxJLBzmaIXwQueGKPdO1wFPCcR0YR8wpxfL/XsPjHC7GJx140Ya0neYyoALPTCJtJNU0scRGUoF6Q1UNQlrz/UOGRdb2pQK/Og4aERDnwFrVIvHuVcS7P6VgOZpQt1P2jjTIN8l4gY/4MnWfTTih1p/9j+Gbp1fkmx+huTnT2L4xIRd5tbllCwrTQR7KW8lE7g/kSNv7mhoaBiY5GOwxnKiNAxxj/Ki/Vl36f5cPw6jGbT5G5iCtId4ed4fOIAl73jrV+LmYsk+AfFq/OrZsV4yOo47gQQhWs3MA4+P5JRmPjRUIq8JBbbuCmEw4d6M/tPHN2+Ztgvhg1tqgMlQvBKqYaG0r7iFPBjNZYkBAnGqLDSg8PvS4WLLb9WpmdmfutfBDu/Qo+Odwfr0ISNDF2NqZAoFMPIdgGA0RmPvsvoLU5UjdlI6Aj3YbWvFFWE3MZOkfd2+EwFKbbvtMwaCQb+5wfXh6XL72oYdE1vE78EIO\"}",
+      "want": {
+        "BudgetRenewal": "monthly",
+        "CapsRaised": false,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 1000,
+        "ExpiresAt": 1800000000,
+        "FeesPpm": 2500,
+        "LeakedFields": [
+          "secret"
+        ],
+        "MaxAmountMillis": 100000,
+        "MaxReceiveMillis": 50000,
+        "MissingTerms": null,
+        "Relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "RotationDelaySecs": 86400,
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
+    },
+    {
+      "name": "a leaked URI",
+      "result": "{\"encrypted_details\":\"AgTiqLJpm6mfzRerl0LSMV3OZu4glVMRAgphAwGEM1yCi9B3S44KgE3WV+uZ4PQu28DwFHSHOyY3UiPFRYoklbITrXd3aXU/KyRvByDqyTtYcCfQGqGSh5q43ES2yTXf8UWhn/7pQgosjkro5uOe3moGtEbH8L3uPpVyz80zpw94vCYmdbSAyjqA+FmmE/8DE4wyidDngn1QDTNHqzCOqmMq2HpfOmhdnReQnMN9cVYZngW/uZ3VZ2E/DInGzwTvjpZqWwCDpOXUQnKeUGJF6lY41Su9BaM2myxyGLPxenfYbGfFXwort15UujF+UGM5KRDnvCASX/fpqCEij9Y/jlB2sx11S1EnQuD3qeX+vhpLmk1iVdQQngOegPkq+zSIsO2EFE76irUw2eH83zudRd8Yv4GMuaEtBBSmKfdJLRo+mVouQKxujAjQ4aqh4pBRBgxgpQ9cI5NsoNnAX96GLkcbqqVl/AJ1JEhYwn2WE1sdnBAMWW0AqwF9W68tlnHP9ZCvG9YTYCgmKVk1so/NgCnE7Ekm1WPb83NAsixm2AI0ApO9GehXZKt+Emr7ktk9sc5guR7kKY3yxHnFgbK673dQh6yG+scNAfJMVvPhGXaFsubpllCE+pW+N7YLpLq7hX1wUjE3Pr4qBAg+uYygnaK7gyjGeEBIsjfVSRLTFeeLbYQ=\"}",
+      "want": {
+        "BudgetRenewal": "monthly",
+        "CapsRaised": false,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 1000,
+        "ExpiresAt": 1800000000,
+        "FeesPpm": 2500,
+        "LeakedFields": [
+          "uri"
+        ],
+        "MaxAmountMillis": 100000,
+        "MaxReceiveMillis": 50000,
+        "MissingTerms": null,
+        "Relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "RotationDelaySecs": 86400,
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
+    },
+    {
+      "name": "another connection pubkey",
+      "result": "{\"encrypted_details\":\"AgeeWW1mR+y8N3sg4Hqf/BSS3sr6uTBnmizcWzi+Eh9UCJ3o9qpK3Ffa6aDGCdLYo24ztLk2VeNTcWwmf0eN/+DS5FrcW3JjnabX3krv1nKY+M4widBeGOQb0Qhj7N6CVj3kQQsPdDLjHKxEU8lGDW5YKGHklGAqBBB97bZZGn7Ut4V5wN/8iRitGRns3/XaunJ1VEpwfq2M1mErMXXOqXEwVCl+YTFxdlc1+TyZVqVlZM+ccRDqH1KIC+omSz9YIhTxt10PaMUOyUTA/n6jF7bxgn57TkpaHlwJ0jdS2J73AyhXRlBQwwixl7NNk8knz0Ltp4/YrJFV8zqrIvrntejSv6klvPxNN8eQNTYvP229BRHrEb8W6uc2h1oaFRxviru2HPYynhiv4J1+N0Y17pSH1LAEfX0HEim5GWmuHsM05/cR6PXqCURsIHEIJXClo/DulIFSGcff86ynM4wXK9XhjRGgPLPPsRnI7uqFegHAN7MgP8B5NthbGraOtkpGblt5pYg/qryZxdPc71BiHnYpT6SltxzPHWYNq42PvKiJlq9BVS54m2+aPrziXc/Rf5bGa9jsEBledrcWiBchEEr0xQ==\"}",
+      "error": "nipcw: the details name another connection_pubkey than the request: \"9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\", want \"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\""
     },
     {
       "name": "blank relays are dropped",
-      "result": "{\"encrypted_details\":\"Aj5dC61Avwh9OQc8MiCwJjGYmKmbOQvFDsVHf8uo2hfXfwJQug+HLmyusxI9APh4FYJTT1da8BT3Mcbc+RwkCeDTG3nS1982/wP+tHY4/JWP5OF+otTOtZVhxrbTpydvo6dhycgAEa/bkBuqoEN4jGRDX1uh1UYRKaEH9pssSvZSxPVuJ4upA+51P0o7dXPpaCOvVarv3DMe0CqpjYEjTJOdBFBrco2PrxR8jukNadN3nyNT2N+k5yq/D2l1dQOmiCi0\"}",
+      "result": "{\"encrypted_details\":\"ApXKej81IhUfC3JboJeZ26Q4Aos3+TVPim2FY/PWfDCRfQb/rOYzbdfiXFcgb222gZsyuwS2jX8v58QthHxV5q3mp+/s/qUMHcFNYfzjPrvfFQ/+rUIZA+zltK2F9exQq6gKiJC7A8mleXCCrvQFeKb7n8XWxFt8OvJziP/kCMYlu/dUGY+yVKNdqqIxJwxoaMnEeKTpp0cpPQ49wZeU17IecxGLIVn52ZGCIRC5CXrxgw11xLp4PG/VlVqvhSHxcfXgEvXsKM2Uzy7I8u0ScMMWmKCIwoeXhJZr6S7qef0DEgtKFwrNdptL3BgEKWZ6dgHGVO5/YoOEiDHGxFIqm3p0n+1DRJD6BDIyw6+DjS3L0MnTOOovxTqohOs16Qz91lWVDRv5EeKbMppparjCTAxBA+wMyE/eir7T2jtU3kxwpHL072ifMallICzitK0tZqV8PnZrAzavs+OEJhBQaCzbsKMKJ2bignp6YmhMMM+421lzOF2upNl9f5RZeoyS0KeG+/midLONsh2kBf1kPnLD2h+T9yt4pjanUmdaD6RdyN1IfFbntSiSgGJ+zf/Xo7oiv/Ct2mZTPrntd+UH7tJLvw==\"}",
       "want": {
-        "BudgetRenewal": "",
-        "ExpiresAt": 0,
-        "FeesPpm": 0,
-        "MaxAmountMillis": null,
-        "PairingURI": "nostr+walletconnect://9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a?relay=wss%3A%2F%2Fr1.example&secret=1111111111111111111111111111111111111111111111111111111111111111",
+        "BudgetRenewal": "monthly",
+        "CapsRaised": false,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 1000,
+        "ExpiresAt": 1800000000,
+        "FeesPpm": 2500,
+        "LeakedFields": null,
+        "MaxAmountMillis": 100000,
+        "MaxReceiveMillis": 50000,
+        "MissingTerms": null,
         "Relays": [
           "wss://r1.example"
         ],
+        "RotationDelaySecs": 86400,
         "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
       }
     },
     {
       "name": "only blank relays",
-      "result": "{\"encrypted_details\":\"Anh6PqD55LDxgwag1lvmMbMn1OijJTFXhmy0RQS5MbW4w2+EEnsHyG7oJJjH+G+F5DJHm8pEyF9H0QMRhuf6Uvf7RL35CkYbypKVBe2ki0vVCuwDkXItpD9BKhE142CLsZmKxtlqmftJeswdTls6yHNSvmweCfpHXj08peqOMe+bbwXt5fghIMFTmevxdj4KwLGi3RmU/71+BC0mfJyuNLMZsGm1M43UYyEL61Xdg2n8TxsqsPlMc7iWOwMap+r26QZF\"}",
-      "error": "nipcw: wallet details carry no usable relay, so the wallet is unreachable"
-    },
-    {
-      "name": "no relays",
-      "result": "{\"encrypted_details\":\"Ar6R1s9faop0ax3PkZe4Jo5JCxUDqGMsOKnTZasgN8KJXD/5cv93M9SpQjbWmeBPgdtkDGplt5MqSUyNdz0LqI4QSU04cLQJa4CoOppYYgvN+U1avOhD3cQOlzdNxiPVKtgcfk9OuqWhr1L1GjM4QhU9hQTVFl0429IylKk+3cPwKdFZAuW4w3GN6y4WAYnouv11SmZ79xouYBCy0/QK7bwF7Q==\"}",
-      "error": "nipcw: wallet details carry no usable relay, so the wallet is unreachable"
+      "result": "{\"encrypted_details\":\"AslpsMX/+gGMLLz5e+v9TgncAjzw94wRF+EWa/co6IdI4+vK8CtQsZ6EyyA2Q5aAQzvVt1b9tDnEx7e21pKMwOIvalrZy9c+lxF33atFUysl2nM4wILK/I9VKcsFGtuM3ujAgG+eM+ONo7Mgeup/ZzqObzm7eyDr0l6EwDNpbenDgu7Z36ry8hTWa4NXr8TVw84hlExsimNHf0P1hackP6k8k01kfJqrkmMMYCmtrPOrCjt4gaDyE9gvzP0PufbFyxB6+GUKU9CBmmcEQ79vpTMrz8xpERHQdK22p8pCcS9CMFMGhygxJbQXu7zplAdNvRer7c4VhRq2bsmqcb6Ck3VPDoL5TofwYw7rv2iS7b5h5sGP/bVTkaQ0GjfQmR0H+wvZVojeez21KAsVft9qWRLWxdtDy97bnM11PWbwMjkmXUaQOwKYCF5rHI6SvELvcGF0z/FOymbpjcVqQ5n7gm/4eFPC4LXYEm8fiGz6SfLXrdKJ3nPShewzgXRVEXAVDVQMLuCBUbxOJuWdKKZpfSaa4ocgUZOPldh8zagVEPV7H11QrFUTCWgvl9zO8YGHNJ6aj/D6X9LIYG/AIzrAj7Ym4g==\"}",
+      "error": "nipcw: details carry no usable relay, so the wallet is unreachable"
     },
     {
       "name": "bad wallet pubkey",
-      "result": "{\"encrypted_details\":\"AgTiqLJpm6mfzRerl0LSMV3OZu4glVMRAgphAwGEM1yCBCAPtr9zHWaYvbmIrP/YK8JeM1uhVbFLquYKjbnhxGN4dXv8I1B7CUbhyqOqHp4rewnB4i/VpFQ+lHYZT4uSvNG7bXrQwmeYN7z5W6e9CoGPG9AIg8sxV/uLe5OADuxv/t8=\"}",
-      "error": "nipcw: wallet details carry no valid wallet_pubkey: invalid key, bad size: 3"
-    },
-    {
-      "name": "uppercase wallet pubkey",
-      "result": "{\"encrypted_details\":\"AgeeWW1mR+y8N3sg4Hqf/BSS3sr6uTBnmizcWzi+Eh9Udeki6D4zw7pYNY3aTntiMi5CbkWl37sHf+XvINbcanGdthnl4KHvmXPRoB0/LSkBSIWMNI9ndPQnU/Cer+OhtQ3g2WPSgNCRmdRYQMk6SIxLYuvfW6fl+2QzCLkfWH8tf7oIWYl3uzb9Qo63G7Cqqamd95RpT05V8N1N1iNsPn0j2KuM3PVtkEXkxc7c1YO3SKjR7iKkBqpRMGCcvVxqVhJ4\"}",
-      "want": {
-        "BudgetRenewal": "",
-        "ExpiresAt": 0,
-        "FeesPpm": 0,
-        "MaxAmountMillis": null,
-        "PairingURI": "nostr+walletconnect://9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A?relay=wss%3A%2F%2Fr&secret=1111111111111111111111111111111111111111111111111111111111111111",
-        "Relays": [
-          "wss://r"
-        ],
-        "WalletPubkey": "9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A9A"
-      }
+      "result": "{\"encrypted_details\":\"AsdG9RCnR7NIA/pmCec5aqIokMw44/RobbGuyE2E8uF98sH01Z+D8Q1pRcGisrcqULFWWXJB0nfjbAP5IQayBo3tEXYOIiqrvB+boy6oU5zkt/MHcn92wE9liYonId2yTXhKvivBSr2uAVRdOgBFKt26j9iIvJmbIJPhmcJKP27yI2R/3GcLEajGR0fZ0RbwLXfXNcLgAXshgccK2R3yXkQkYedAiPMaN+sI4Z7AxrMM4r6tz60z57RPxYsl0wyH2+qTru98Ss75FcTBk4CffxFhbMZZM0KlA4+ZLpcvj/fx4VL/oqGJUfSB+GvV0ju2IKum5fxiQgpgq3X/s8Cx0IV+i07ETlDQrmHWwnXEPX6bjjBO30xbktE98fiXHTY1luTPLWF6+tZsF2sSyQ6Df5l8Dbc38TCsZzAKGfsSx6NIekR+kpDIK/2+PAVPbViKVT0nATBtERcE1JRhZ/2sK2m28/RXk8iGlfpEOXHFTMFQ6RkosaruxVWxQlUF0EbTpdvXMzWb6aupM9o8Fo5SlyOqMNNrRdYVOHAxE7H7IeztwNPiZLPIPGyZhRPR8jb2XfDy8AiPRak6qzJOcsxDg/NmTg==\"}",
+      "error": "nipcw: details carry no valid wallet_pubkey"
     },
     {
       "name": "details not JSON",
-      "result": "{\"encrypted_details\":\"ApXKej81IhUfC3JboJeZ26Q4Aos3+TVPim2FY/PWfDCROWmmdRftwJ4B349rV/HV59oQ6ajd74fIGTQ+3Y05CrdBsT/tRu+YXIImpOqM2awm/eErp2L1jmaO3nTtzv541qay\"}",
-      "error": "nipcw: parse wallet details: invalid character 'o' in literal null (expecting 'u')"
+      "result": "{\"encrypted_details\":\"AuD9kzfoQ1mwT33HP4F+ztvu3FTJB6zQNEEnUGl4hXjHV7C67kCEMDrPMqkhpYwIIn6dCmZ1Za/+u9MCqjXt8r+QpsEErcI8D/1AaRljdoZbLvoKRw2SOLCGNbKpRiq4Uzh1\"}",
+      "error": "nipcw: details are not a JSON object: invalid character 'o' in literal null (expecting 'u')"
     },
     {
-      "name": "max_amount as a string",
-      "result": "{\"encrypted_details\":\"AslpsMX/+gGMLLz5e+v9TgncAjzw94wRF+EWa/co6IdI2cZlmRB+BIIOQjyio71mRbDjaOfpbk9fvzZWIY0uFpYFrsK/dshg2Vzh0deol3Qp88/on78mrIZ+RAGcZtyQslDipRk3W8uK2pCEhushbKQ07vYVtrqQdYUSIHbkd8G8butLBNosjq5OweWu3qVXMWftd9BAqrYpdsbtg8vxVcxjD2O+9vNonCLSEz7KA1OhjBsEUqqbQPknjIsmwicYe8uR\"}",
-      "error": "nipcw: parse wallet details: json: cannot unmarshal string into Go struct field circleWalletDetailsWire.max_amount of type uint64"
+      "name": "a field beside encrypted_details",
+      "result": "{\"encrypted_details\":\"AvEkhZohXWF7tXISGV0oqpAky/zzxY6aLudtWgl1ZkE8/MW2sSNa/TCe0Bnj7mgy6e5Q34Pcp3EXU+DlQcZtPPuUcipHut4BbUtwUYzofsAdqWvU2VpMaeHLqICinKqy4o2sdlNVgiAkYP3p9VoZNk4hOK7gK3UWeGZZhzb56zne1cKsoRsRGpMkLOOMepXp0e3Lru5v5lC7xaR+rjrCSwIdIPFoEe46eO8gEFPnFf/m2m9lUyPlDvyyUwcsz8xO/Jl1sT4JkqqD7WSQqwu3S7UHXtbLEl8N9kbvCJt5nHjpPF5ZVhX7dUZVuJocMnmi3b8Exg3atob/h21h2TnG2lVkIG25sycjuUpO2IGO0P5sD7PfKXFOVcxnfSUjvu4LJVTa9Ihodp5x4vAuu8FELoyZxkUufuopCuGns5a3VNXIGJQmdRO2WT5lBs24/mxBZw3/vb69jOt9X7pLqGXvRvfGwjOyk9YClOizSWq9zoBCBMo00O7ynmisjy9GUtg8YRhkDXnxflNjscM2DKeJfrNTYcyJ5T7gJfZjlp41JU70CJEYiuYg+UkG3mRzgDE5p8R5Tx4ytxBto/YeqRbAHBalPQ==\",\"wallet_pubkey\":\"9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a\"}",
+      "want": {
+        "BudgetRenewal": "monthly",
+        "CapsRaised": false,
+        "ConnectionPubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "DustThresholdMillis": 1000,
+        "ExpiresAt": 1800000000,
+        "FeesPpm": 2500,
+        "LeakedFields": [
+          "wallet_pubkey"
+        ],
+        "MaxAmountMillis": 100000,
+        "MaxReceiveMillis": 50000,
+        "MissingTerms": null,
+        "Relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "RotationDelaySecs": 86400,
+        "WalletPubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+      }
     },
     {
       "name": "no encrypted_details",
       "result": "{}",
-      "error": "nipcw: response carries no encrypted_details"
+      "error": "nipcw: reply carries no encrypted_details"
     },
     {
       "name": "result not JSON",
       "result": "[",
-      "error": "unexpected end of JSON input"
+      "error": "nipcw: reply is not a JSON object: unexpected end of JSON input"
     },
     {
-      "name": "details sealed to someone else",
-      "result": "{\"encrypted_details\":\"AsdG9RCnR7NIA/pmCec5aqIokMw44/RobbGuyE2E8uF9zBve6W9PJvetT0iB/gV7zhLfVsyt8YIZe2TAVgG7+onBiV3gczurxrhY9iS2o2ABZf921Jz/kAs9rLhFQrHIXYHinzF8hBuWe3OvUIxg2D6ywSgw84NT3trN/5CEwr+nFYM+CQHuigzzTjq4vv2cYbe4joa9nxuyUSmxXDh347D2LiAqVyYRyuvSEoFWFXb9Efww6+6Y3oxL0/F9Krxif+bn\"}",
-      "error": "nipcw: decrypt wallet details: invalid MAC"
+      "name": "details sealed by another key than the Hub connection",
+      "result": "{\"encrypted_details\":\"AuxX46bDhMoXqYWIEWUrtECd9oHRmFelpfDq9syefI680Ohx2pC7iGOsiCgQdw8H4iXchyio8P1tq0oGzXYypNd+p8utlSlNVkYiJilLDwzRxAVPLzJQ6+ns5+6RJwiI/GZGoQFSQdxBf3EN/NJlOl+FT2FbnuZDWxnT0rWCX1ZMHIVVGWe/u4C0qtcaIlt4w5NZ08ICp5LFfSy8Bd/S9kpP6VHdd5CK6U1j6ibAEKB+dnUsO7NaIS9TMVaZt8qJObrEPyuVUyMdj8HCxHD4H1eN2HURmw7ARvhvDiXQch8XZ//8PkGkJO/7BWshqpbfaVWvWgxDbSpzURJ4E2kiVxm1iyJmvQXCc1aMHCqiQJ0kBimNmQ5X5GkIzNPZuYjiPWv/IjkxKLZcqk4HA26v/Pp4HyLu7trCY9DvDq37YLpAwd17noDzQAB6wxCf/jFW2RmAirWmxpB43PzxJwIGauqSf0tp7fDPHQBxhvC0tSivqzApfrjCBxzUbtBu9Cs5gJdCDNi7+sePID2l8gVezxJ1MfKHZwQVshzsNJzuIY4BM5aVwG0fc01l+w8DrRY6jfKl+hvXAK1BcL4zhqkuP9qbhg==\"}",
+      "error": "nipcw: details do not decrypt under the Hub connection key: invalid MAC"
+    }
+  ],
+  "circleWallet": [
+    {
+      "name": "full",
+      "result": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":5000000,\"max_exp_secs\":2592000,\"fees_ppm\":2500,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"per_wallet_max_millis\":10000000,\"min_budget_renewal\":\"monthly\",\"fee_reserve\":{\"ppm\":5000,\"min_millis\":10000},\"dust_threshold_millis\":1000,\"rotation_delay_secs\":86400,\"accepting\":true}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "accepting": true,
+          "available_millis": 5000000,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": 1000,
+          "fee_reserve": {
+            "min_millis": 10000,
+            "ppm": 5000
+          },
+          "fees_ppm": 2500,
+          "identity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "max_exp_secs": 2592000,
+          "min_budget_renewal": "monthly",
+          "per_wallet_max_millis": 10000000,
+          "rotation_delay_secs": 86400
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+      },
+      "missingAlways": [],
+      "accepting": true,
+      "validNetwork": true
+    },
+    {
+      "name": "not accepting",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":5000000,\"max_exp_secs\":2592000,\"fees_ppm\":2500,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"per_wallet_max_millis\":10000000,\"min_budget_renewal\":\"monthly\",\"fee_reserve\":{\"ppm\":5000,\"min_millis\":10000},\"dust_threshold_millis\":1000,\"rotation_delay_secs\":86400,\"accepting\":false}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "accepting": false,
+          "available_millis": 5000000,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": 1000,
+          "fee_reserve": {
+            "min_millis": 10000,
+            "ppm": 5000
+          },
+          "fees_ppm": 2500,
+          "identity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "max_exp_secs": 2592000,
+          "min_budget_renewal": "monthly",
+          "per_wallet_max_millis": 10000000,
+          "rotation_delay_secs": 86400
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [],
+      "accepting": false,
+      "validNetwork": true
+    },
+    {
+      "name": "accepting absent",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":5000000,\"max_exp_secs\":2592000,\"fees_ppm\":2500,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"per_wallet_max_millis\":10000000,\"min_budget_renewal\":\"monthly\",\"fee_reserve\":{\"ppm\":5000,\"min_millis\":10000},\"dust_threshold_millis\":1000,\"rotation_delay_secs\":86400}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "available_millis": 5000000,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": 1000,
+          "fee_reserve": {
+            "min_millis": 10000,
+            "ppm": 5000
+          },
+          "fees_ppm": 2500,
+          "identity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "max_exp_secs": 2592000,
+          "min_budget_renewal": "monthly",
+          "per_wallet_max_millis": 10000000,
+          "rotation_delay_secs": 86400
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [
+        "accepting"
+      ],
+      "accepting": null,
+      "validNetwork": true
+    },
+    {
+      "name": "fee_reserve and dust_threshold_millis absent",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":0,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"follow_set\",\"accepting\":true}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "accepting": true,
+          "available_millis": 0,
+          "circle_policy": "follow_set",
+          "dust_threshold_millis": null,
+          "fee_reserve": null,
+          "fees_ppm": 0,
+          "max_exp_secs": 0
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [
+        "fee_reserve",
+        "dust_threshold_millis",
+        "identity"
+      ],
+      "accepting": true,
+      "validNetwork": true
+    },
+    {
+      "name": "test network",
+      "result": "{\"network\":\"regtest\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":5000000,\"max_exp_secs\":2592000,\"fees_ppm\":2500,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"per_wallet_max_millis\":10000000,\"min_budget_renewal\":\"monthly\",\"fee_reserve\":{\"ppm\":5000,\"min_millis\":10000},\"dust_threshold_millis\":1000,\"rotation_delay_secs\":86400,\"accepting\":true}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "accepting": true,
+          "available_millis": 5000000,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": 1000,
+          "fee_reserve": {
+            "min_millis": 10000,
+            "ppm": 5000
+          },
+          "fees_ppm": 2500,
+          "identity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "max_exp_secs": 2592000,
+          "min_budget_renewal": "monthly",
+          "per_wallet_max_millis": 10000000,
+          "rotation_delay_secs": 86400
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "regtest"
+      },
+      "missingAlways": [],
+      "accepting": true,
+      "validNetwork": true
+    },
+    {
+      "name": "unknown network",
+      "result": "{\"network\":\"moonnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":5000000,\"max_exp_secs\":2592000,\"fees_ppm\":2500,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"per_wallet_max_millis\":10000000,\"min_budget_renewal\":\"monthly\",\"fee_reserve\":{\"ppm\":5000,\"min_millis\":10000},\"dust_threshold_millis\":1000,\"rotation_delay_secs\":86400,\"accepting\":true}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "accepting": true,
+          "available_millis": 5000000,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": 1000,
+          "fee_reserve": {
+            "min_millis": 10000,
+            "ppm": 5000
+          },
+          "fees_ppm": 2500,
+          "identity": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "max_exp_secs": 2592000,
+          "min_budget_renewal": "monthly",
+          "per_wallet_max_millis": 10000000,
+          "rotation_delay_secs": 86400
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "moonnet"
+      },
+      "missingAlways": [],
+      "accepting": true,
+      "validNetwork": false
+    },
+    {
+      "name": "no circle_wallet",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": true
+    }
+  ],
+  "memberRequests": [
+    {
+      "name": "rotate",
+      "event": {
+        "id": "d3326d8b7f689594dad2f1dd9dcda377da8f5a344523d802d9d7a6647efab0c9",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "391c14b30e54fcce695139c38542f98c59f069b817388a357bfaecd154d5558d9a76c4278fc85ecd06103cf60a5f9dd6bcb4faa3c9c7ae0e0eaa13cfe5ef2e77"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "want": {
+        "Action": "rotate",
+        "Connection": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "CreatedAt": 1720000000,
+        "ID": "d3326d8b7f689594dad2f1dd9dcda377da8f5a344523d802d9d7a6647efab0c9",
+        "Pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "Wallet": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "freeze",
+      "event": {
+        "id": "c8f77ac98b228ce97e1cad34ad5d6a519ec93d51f2ff77797d97ce9c1b16d46f",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "freeze"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ]
+        ],
+        "content": "",
+        "sig": "187583355b270a825f6b05f3d15d289727c263fc3d129fe62f3518ce520a61aeac3d98fcc070d80fa55a8bcc0e50cf9ad8b8c0e6a42e20b9d739fbddaace34b3"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "want": {
+        "Action": "freeze",
+        "Connection": "",
+        "CreatedAt": 1720000000,
+        "ID": "c8f77ac98b228ce97e1cad34ad5d6a519ec93d51f2ff77797d97ce9c1b16d46f",
+        "Pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "Wallet": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "unfreeze",
+      "event": {
+        "id": "990f18cfc102ec6923000f43f2623eb7d3a2ffa74c764420a47938a9dbb2f579",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "unfreeze"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ]
+        ],
+        "content": "",
+        "sig": "b64be2c2ff7defcaa5724081f35505e73723360137dda09c7ea7610831a2c77e1a3b05a4e687524f7ca1c3da42fec56960656a78d3a609c3ad054f2c10394b58"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "want": {
+        "Action": "unfreeze",
+        "Connection": "",
+        "CreatedAt": 1720000000,
+        "ID": "990f18cfc102ec6923000f43f2623eb7d3a2ffa74c764420a47938a9dbb2f579",
+        "Pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "Wallet": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "a day old",
+      "event": {
+        "id": "78fbf088d900eeecd4dc80e4af71dae59e47b7d834998039d1bf80fced2e122d",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1719913600,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "559ae4e64a367005b93d7f6e0b7fe462075aa2b42cc48627006e4dc24ee3a60ab0e7516e8f682a4cfdcf91ed8c83850d834bb959aded8e7cd5d6ebb7717b13b5"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "want": {
+        "Action": "rotate",
+        "Connection": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "CreatedAt": 1719913600,
+        "ID": "78fbf088d900eeecd4dc80e4af71dae59e47b7d834998039d1bf80fced2e122d",
+        "Pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "Wallet": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "a day and a second old",
+      "event": {
+        "id": "2716362a48a43d1160a36f1c6b63d47d88f48ea8b297e17295a278b2c6cba1e4",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1719913599,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "345c3e7327c3dd021b7e3aa80b3ed0360dafb4b7509480366e851ec3d0c037cec09c415ac03e71e655b28f421f2ae8dd7c7f5ae0c0b61c052a5a341397e5c282"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: created_at 1719913599 is outside [1719913600, 1720000060]"
+    },
+    {
+      "name": "60 s ahead",
+      "event": {
+        "id": "884212099da32f7284704403b2b87bcb934b0f9b825f516382a44baad9af3a32",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000060,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "54545caec26fdc06820fcf8c46da0da9551fc4ff88ea274003daa77f0d2fafc7ff03897b3d2cf8c9afcc35e840788ef8adfc9f39ac4cb689edc83a479b63e953"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "want": {
+        "Action": "rotate",
+        "Connection": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "CreatedAt": 1720000060,
+        "ID": "884212099da32f7284704403b2b87bcb934b0f9b825f516382a44baad9af3a32",
+        "Pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "Wallet": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "61 s ahead",
+      "event": {
+        "id": "471f01d17857ed13c4baf88747525992f7c62d3dea6d4a32d2e139ba54b17c11",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000061,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "17f6f11e7169957aa787cdb229f9a9a0ab90a5c7687c72287fc0dcc1c539259c93e5b620f4ba8d153effc90b3b38c16060a5f8e67ce52ae318ab440ec4137547"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: created_at 1720000061 is outside [1719913600, 1720000060]"
+    },
+    {
+      "name": "already used",
+      "event": {
+        "id": "d3326d8b7f689594dad2f1dd9dcda377da8f5a344523d802d9d7a6647efab0c9",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "391c14b30e54fcce695139c38542f98c59f069b817388a357bfaecd154d5558d9a76c4278fc85ecd06103cf60a5f9dd6bcb4faa3c9c7ae0e0eaa13cfe5ef2e77"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": true,
+      "error": "nipcw: REQUEST_REUSED: member request already used"
+    },
+    {
+      "name": "another Hub",
+      "event": {
+        "id": "18ef636aaac8509a2cb057642a95d486121945ab293369c6804b3e2de8dcb899",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "ef75856c41c3fb7a57b7a6c3944a9a656e5df2b241d6d6e7453d1d89113901c209d649b83799a59f8013cac09550167e71ed3feb4aec62bbcd82d3e3f5a386da"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: d tag is not this Hub's pubkey"
+    },
+    {
+      "name": "unknown action",
+      "event": {
+        "id": "3a34a79aff0f3a9d7a8c6bce2835e48095d1c9350043a93a18fd4bfdc529fbab",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "delete"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ]
+        ],
+        "content": "",
+        "sig": "5a8bb1c2cbfe6383cf9b99e26833d4bf82a5182c7cd8c84f2f0d1fe84ea17010aca1670cc10514901b0283f0b741b6a0ce3bf86fa43b867cb68fd2af1c9e3312"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: a member request carries exactly one action: rotate, freeze or unfreeze"
+    },
+    {
+      "name": "two actions",
+      "event": {
+        "id": "876903826d5692e683b44898d549e5853f316bde25893900fd1e1eed399d88b3",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "action",
+            "freeze"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "532474c2a86142443c0bbc8048d82845aed321dc9e3cd47ca3a9fd3fa90a308639a2ae9a053134094191906c46902836df27634575d36cebe135005956047c3a"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: a member request carries exactly one action: rotate, freeze or unfreeze"
+    },
+    {
+      "name": "no wallet",
+      "event": {
+        "id": "f301916a8a85977bdf8131e6a4c7480c84e8383b5d349015540d56cad47889d3",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "6b76f2ed0e6b55c32e6ad1a810b46359c1712a00def2235ba95fbf7bee75ee8f9a7452d3bc47232221bd2825c1b390bac9cf1337d1c54461eb2ed8bb9e3ce8f2"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: a member request carries exactly one wallet tag"
+    },
+    {
+      "name": "rotate without a connection",
+      "event": {
+        "id": "b96f9edde82921e61086d8745451bc736f10f2f846c9f1fbc7b050e33e624d2f",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ]
+        ],
+        "content": "",
+        "sig": "2c4e80777f7c7e2b9dd499d2c4becdebcd6d2d470b65d5d3bb1f4a6a8ce500d353c6155df64e2e19ea9079b6416d40226b22b150ea89181dfbc0579c7d7be61b"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: a rotate carries exactly one connection tag, and nothing else carries one"
+    },
+    {
+      "name": "freeze with a connection",
+      "event": {
+        "id": "fb54a6266173861ac546827c1b82bd22ecc8df00bd611b683d3f80162e71f91a",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "freeze"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ]
+        ],
+        "content": "",
+        "sig": "ffab5e8fecd435a6cdd6fcafe5d4f5f1c7fb19ca7ceb7f526a6cb4324732cdd78b01c68badd4b6949a8495b74726769b50fcb856be21629b958c6f52d0e04f16"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: a rotate carries exactly one connection tag, and nothing else carries one"
+    },
+    {
+      "name": "with a terms tag",
+      "event": {
+        "id": "01bb337c24201291ade719fb826e5f1b95a02dd402c5832b839a1c90dffc9474",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+          ],
+          [
+            "terms",
+            "1:0:0:never"
+          ]
+        ],
+        "content": "",
+        "sig": "5f00efcafcac3d8249d0886a740913d01ed4ce872b8e37f95ad95279c3834e647a33360469c01a19f5d8e2c00a24286dd47324fba76e7d81b28fd78c20643ecc"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: UNAUTHORIZED: a member request carries no terms tag"
+    },
+    {
+      "name": "rotate to an invalid key",
+      "event": {
+        "id": "c5a8ca88899055273ae7edc806768fd3ed9f0b5d77ad6ef30cc044513ee6b5ce",
+        "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "created_at": 1720000000,
+        "kind": 23199,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "action",
+            "rotate"
+          ],
+          [
+            "wallet",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "connection",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ]
+        ],
+        "content": "",
+        "sig": "64c05feb0803d70b5833a6fe0356d624cb9b99b77d652ee89c6490f369d03dc24d5be2ea68a65a053e3188fcf9afab0b81bd2a2bd929235c834cc4c227de7f97"
+      },
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "now": 1720000000,
+      "consumed": false,
+      "error": "nipcw: RESTRICTED: the new connection is not a valid x-only key"
+    }
+  ],
+  "notifications": [
+    {
+      "name": "rotation_pending",
+      "event": {
+        "id": "3cb79d327d8c90bee31990ad9d98a609d9538d8d7ca9ad8553d58959253f4a12",
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "created_at": 1720000000,
+        "kind": 23197,
+        "tags": [
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ]
+        ],
+        "content": "ArgfDvrC2VOtmIW7dQxz6uYEG/ItYPhCPEX+E5i0O0Lg69CBypU6zJgP+4pqtLP0NT2R09LH0BU7CH6gueaWSFY/fdqa59e11PDyzXbFZj/NhEwFoqqPvqtjzOyvXfUQl5Xn5IJ4OXFiJARZP4MiTFI6iYGZqBoi46xZi5GEykkVV7nw1CU9ogCKAMm6wgnJCtw4QQ3ptgTZ3jyMc/lZjQ69Rb33neTJ3gQJyW61BLomsAnTDFpaQrxv+7uN+zW6Jl8+LmZmy0KymU3XNWrDiygOJdNp+/XIxl79pUDppODdzljgamR6MKTSUMlfjFtGxyPfNEMYTyeeRUlO3EO5hwc0Aw==",
+        "sig": "adc9ec022634e0b7701ef6ae7020b18409c0b22799d7029370131ef08be7d34c1c8dabae3d902a6dfa758d1a53aa93ba469d3d799cfa3b65771d6839bbda7f25"
+      },
+      "type": "rotation_pending",
+      "payload": {
+        "completes_at": 1720086400,
+        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+      }
+    },
+    {
+      "name": "rotation_cancelled",
+      "event": {
+        "id": "9416394d2488b09ec73ea98f470927759af0b88c800232164f55f3b26e08b646",
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "created_at": 1720000000,
+        "kind": 23197,
+        "tags": [
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ]
+        ],
+        "content": "Aik6rP2wOMGCQqvYeXPb4cGDjnUvFv5buvkN+xPIAiTtsrdiMoH2U0brcRnHvYMzPuKYfP7zgfCsCSskFTOdJ3NGrA6xZqjf6I5YOoStkf2R0KhHH6Htbm3XCKrVpAqZ4gj1LRLCcvz5HR9F0onersx46FvpvuEbbcx5WJlSoTRrdpA6jlh9Yg8cRF0uEataFSDfgp8gUTH0FwI1CwHhz39DhcC4iC9wBybQwNP1b4RL160PJv7AGFB3DRm5KxHU2dFqpELkzER8KBbtWd1N+BL0GAyFnAp4rEY7ZjbJsIQ/yEM=",
+        "sig": "2a11a159567e2dbb38445bec2f635353b3ed916579797e4bf5dc343dca56205878ec140270632ade84b69887f8f389667aed3ab6c344ff2cbcb012a23411f254"
+      },
+      "type": "rotation_cancelled",
+      "payload": {
+        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+      }
+    },
+    {
+      "name": "rotation_completed",
+      "event": {
+        "id": "98aa78c1ac3b988196ca59d41bb714606dfb5ff202018bb12787af6e93fb2d1d",
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "created_at": 1720000000,
+        "kind": 23197,
+        "tags": [
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ]
+        ],
+        "content": "AtS6+CFR+N80bPb8xgxcmiJYZ0xbzIMvCG0PyUuLc1BEYuWrwLpVgocnAsegr/WlaUsl9E9COAYpmj4HwBZNGXTuTclWMlptUIeE+u9LAcQ2LAehbt0R57qXS5sZJpDQUUx2KwuAThlz1dOQ/yiR/bn0n+b3r1SgIhffK5cIjwMRta1VvxmdL3KtDtOTBFJkHvGGsjidQeqGIjoItp6YpXXwnSB77oB8DCc3IbBYV9m6JcPEWPiw4LlZXD+Sd/YL1HTn9KyI8AdmCQz2soplDF19jcIiS0w88ESL68g1BZuRTbU=",
+        "sig": "5615943ccd5e2dc121e46b5dee483cbee881624943193115922d096b37a52551f730e8a238a6ba9dabea4efe4cddd4b8f40e5327a9a45b61c1d577105449a174"
+      },
+      "type": "rotation_completed",
+      "payload": {
+        "connection_pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+      }
+    },
+    {
+      "name": "wallet_frozen",
+      "event": {
+        "id": "67c338ed911ec2204dfd10e409ade1b16244352df281d051b8caf69477cc9cc0",
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "created_at": 1720000000,
+        "kind": 23197,
+        "tags": [
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ]
+        ],
+        "content": "AjLFMv22i/BK92pF30c2IWyH1QuNykc4GgSGkVnuL6meUF8Yr9RWzLMtPi6M2x0fGKUiO9s5wuYjCMVXq7xEIRG9jcz/Qn5E2GzCmbOYllewno5Za8H6tyigEaci3sEg7DtvyF5L+mLimmrGkg2IHCjUlHp/E0tN4XQxlAe9+8+FifUJfHQ9p/jqAiFKOT1XWm9+WeLjdzq976NXWZqyUmO898lxiFnU4udkdvxeq6Hi8bLGOR1qotx25D213KKYhISVpyzqr4b+bp5r75MJDUzo78oTz1HOdg/AOd2d42iIYcw=",
+        "sig": "9e7a358acc16f55718ec01683153a9f156f2a523dcf2693b5ef210183b6f6ff0ddfd606b1c69aecd8fe50471cb1d0f1075a3932b5b2b80dfaff7120056575a39"
+      },
+      "type": "wallet_frozen",
+      "payload": {
+        "wallet_pubkey": "abababababababababababababababababababababababababababababababab"
+      }
+    }
+  ],
+  "getBudget": [
+    {
+      "name": "send and receive",
+      "result": "{\"used_budget\":15000000,\"total_budget\":20000000,\"renews_at\":1722678400,\"renewal_period\":\"monthly\",\"total_receive_budget\":50000000,\"used_receive_budget\":1000}",
+      "remainingSend": 5000000,
+      "remainingReceive": 49999000
+    },
+    {
+      "name": "send only",
+      "result": "{\"used_budget\":0,\"total_budget\":100000,\"renewal_period\":\"never\"}",
+      "remainingSend": 100000,
+      "remainingReceive": null
+    },
+    {
+      "name": "overspent",
+      "result": "{\"used_budget\":30000,\"total_budget\":20000,\"renewal_period\":\"daily\"}",
+      "remainingSend": 0,
+      "remainingReceive": null
+    },
+    {
+      "name": "receive overspent",
+      "result": "{\"used_budget\":0,\"total_budget\":1,\"renewal_period\":\"never\",\"total_receive_budget\":5,\"used_receive_budget\":9}",
+      "remainingSend": 1,
+      "remainingReceive": 0
+    },
+    {
+      "name": "not JSON",
+      "result": "[",
+      "error": "unexpected end of JSON input",
+      "remainingSend": 0,
+      "remainingReceive": null
     }
   ]
 }

@@ -1,0 +1,96 @@
+{
+  "description": "The relay hash a mint and zap payload and every connection signature bind: sha256 over each relay hint in the order given as a 1-byte length then its bytes, then the 32-byte secret. Every entry counts as given, an empty or blank one included.",
+  "source": "nipcash/provenance.go RelayHash; nipcash/token_codec_test.go, kat_test.go (K-RH-1..8)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "secret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "hash": [
+    {
+      "id": "K-RH-1",
+      "relays": [
+        "wss://relay.example.com",
+        "wss://backup.example.net"
+      ],
+      "hash": "487f70e79899e5f04dabdeaa62db4654d0d005db40496df0930c5e12e8d2775c"
+    },
+    {
+      "id": "K-RH-4",
+      "relays": [
+        "wss://relay.example.com",
+        "",
+        "wss://backup.example.net"
+      ],
+      "hash": "abe08272a5cca81fdf51ce0774373822ae4aa3130d6148c10c05321588c9b153"
+    },
+    {
+      "id": "K-RH-5",
+      "relays": [
+        "wss://backup.example.net",
+        "wss://relay.example.com"
+      ],
+      "hash": "eb757e18a18ae11158c67b20196890ac7cc92a12c87f4a6e5e17568f28a3a53f"
+    },
+    {
+      "id": "K-RH-7",
+      "relays": [
+        " ",
+        "wss://relay.example.com"
+      ],
+      "hash": "5eef6ec81f3de6610fb473f95c9235e979c461d42fe97227059e1a64b20f2edb"
+    },
+    {
+      "id": "K-RH-8",
+      "relays": [
+        "wss://relay.example.com"
+      ],
+      "hash": "454ad3fbd842bc4afd94753d5efc1ee9e6df6a9313ee33291588e21a9232c958"
+    },
+    {
+      "id": "no hint",
+      "relays": [],
+      "hash": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd"
+    },
+    {
+      "id": "255-byte hint",
+      "relays": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "hash": "a959069dd6f6e6c08d9c75be32302d34fd782332b7df9c837015eefd61819ed1"
+    },
+    {
+      "id": "256-byte hint is refused",
+      "relays": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "error": "nipcash: relay hint exceeds 255 bytes"
+    }
+  ],
+  "negative": [
+    {
+      "id": "K-RH-2",
+      "relays": [
+        "wss://relay.example.com",
+        "wss://backup.example.net"
+      ],
+      "note": "no length bytes",
+      "hash": "1105ab44514b1aa0f20b14313c7c801448daa546a3ef06dcc4cb25b8c4fd7740"
+    },
+    {
+      "id": "K-RH-3",
+      "relays": [
+        "wss://relay.example.com",
+        "wss://backup.example.net"
+      ],
+      "note": "no secret",
+      "hash": "69900c591bcd6978a183599c4d21f355da493a4b26e440035c511739562045a7"
+    },
+    {
+      "id": "K-RH-6",
+      "relays": [
+        "wss://relay.example.com",
+        "wss://backup.example.net"
+      ],
+      "note": "secret as hex text",
+      "hash": "a6a986b2e479b623370ae8d4b6f27a0ebcdb9de06ddf65357e0b40977c342d0f"
+    }
+  ]
+}

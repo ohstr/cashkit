@@ -1,0 +1,241 @@
+{
+  "description": "NIP-IC nconnection1: TLV 0 the connection key (32 bytes, exactly once), TLV 1 relays, TLV 2 the platform (at most once, a valid platform name); unknown types ignored; the strict decoder refuses an overrun.",
+  "source": "nipIC/nconnection.go; nipIC/nconnection_test.go (K-NCN-1)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "kat": {
+    "id": "K-NCN-1",
+    "fields": {
+      "connectionKey": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d",
+      "relays": [
+        "wss://relay.example.com"
+      ],
+      "platform": "discord"
+    },
+    "tlv": "002022ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d01177773733a2f2f72656c61792e6578616d706c652e636f6d0207646973636f7264",
+    "string": "nconnection1qqsz9nk30lrm8fhhyckjm0sqksknq22gt92x3cp97sujkzjsy2urr8gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzqajxjumrdaexg6u9jzw"
+  },
+  "decode": [
+    {
+      "name": "K-NCN-1",
+      "kind": "nconnection",
+      "input": "nconnection1qqsz9nk30lrm8fhhyckjm0sqksknq22gt92x3cp97sujkzjsy2urr8gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzqajxjumrdaexg6u9jzw",
+      "want": {
+        "connectionKey": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "platform": "discord"
+      }
+    },
+    {
+      "name": "K-NCN-1 uppercase",
+      "kind": "nconnection",
+      "input": "NCONNECTION1QQSZ9NK30LRM8FHHYCKJM0SQKSKNQ22GT92X3CP97SUJKZJSY2URR8GPZAMHXUE69UHHYETVV9UJUETCV9KHQMR99E3K7MGZQAJXJUMRDAEXG6U9JZW",
+      "want": {
+        "connectionKey": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "platform": "discord"
+      }
+    },
+    {
+      "name": "key only",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qcu06v8",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "key, relays and platform",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qppamhxue69uhhytn90psk6urvv5q3qamnwvaz7tmjxghx27rpd4cxcegzqenkjargw43qpljkj2",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          "wss://r.example",
+          "wss://r2.example"
+        ],
+        "platform": "github"
+      }
+    },
+    {
+      "name": "platform before key",
+      "kind": "nconnection",
+      "input": "nconnection1qgqhsqpqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zq07636l",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": "x"
+      }
+    },
+    {
+      "name": "unknown types are ignored",
+      "kind": "nconnection",
+      "input": "nconnection1qqsz9nk30lrm8fhhyckjm0sqksknq22gt92x3cp97sujkzjsy2urr8grq9u07qqywa824",
+      "want": {
+        "connectionKey": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d",
+        "relays": [],
+        "platform": ""
+      }
+    },
+    {
+      "name": "missing key",
+      "kind": "nconnection",
+      "input": "nconnection1qy8hwumn8ghj7u3wv4uxzmtsd3jsp5skca",
+      "error": "nipIC: nconnection missing ConnectionKey"
+    },
+    {
+      "name": "short key",
+      "kind": "nconnection",
+      "input": "nconnection1qq05g3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg5ugspl",
+      "error": "nipIC: ConnectionKey must be 32 bytes, got 31"
+    },
+    {
+      "name": "two keys",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qqyp242424242424242424242424242424242424242424242424242f27dxm",
+      "error": "nipIC: more than one ConnectionKey"
+    },
+    {
+      "name": "two platforms",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qzqenkjargw43qyqtcxewuzw",
+      "error": "nipIC: more than one platform"
+    },
+    {
+      "name": "platform Discord",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qzqazxjumrdaexgalp6l6",
+      "error": "nipIC: platform name must match [a-z0-9._-]+"
+    },
+    {
+      "name": "platform git:hub",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qzqankjap6dp6kyc5npa3",
+      "error": "nipIC: platform name must match [a-z0-9._-]+"
+    },
+    {
+      "name": "blank relay",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qpqqw7tydn",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          ""
+        ],
+        "platform": ""
+      }
+    },
+    {
+      "name": "overrun",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qpp9ssuwk8zn",
+      "error": "nipIC: TLV at offset 34 runs past the end"
+    },
+    {
+      "name": "lone trailing byte",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qp2vzdsa",
+      "error": "nipIC: truncated TLV at offset 34"
+    },
+    {
+      "name": "wrong prefix",
+      "kind": "nconnection",
+      "input": "lokicash1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qac23v4",
+      "error": "nipIC: expected prefix \"nconnection\", got \"lokicash\""
+    },
+    {
+      "name": "bech32m checksum",
+      "kind": "nconnection",
+      "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qdqlkf9",
+      "want": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      }
+    }
+  ],
+  "encode": [
+    {
+      "name": "K-NCN-1",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d",
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "platform": "discord"
+      },
+      "output": "nconnection1qqsz9nk30lrm8fhhyckjm0sqksknq22gt92x3cp97sujkzjsy2urr8gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzqajxjumrdaexg6u9jzw"
+    },
+    {
+      "name": "key only",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      },
+      "output": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qcu06v8"
+    },
+    {
+      "name": "relays and platform",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "platform": "github"
+      },
+      "output": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qpzpmhxue69uhhyvfwv4uxzmtsd3jszyrhwden5te0wgezuetcv9khqmr9qgrxw6t5dp6ky07t4ku"
+    },
+    {
+      "name": "short key",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "44444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      },
+      "error": "nipIC: a ConnectionKey is 64 lowercase hex characters"
+    },
+    {
+      "name": "uppercase key",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": ""
+      },
+      "output": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qcu06v8"
+    },
+    {
+      "name": "platform Discord",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [],
+        "platform": "Discord"
+      },
+      "error": "nipIC: platform name must match [a-z0-9._-]+"
+    },
+    {
+      "name": "non-ASCII relay",
+      "kind": "nconnection",
+      "fields": {
+        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
+        "relays": [
+          "wss://ü.example"
+        ],
+        "platform": ""
+      },
+      "error": "nipIC: relay \"wss://ü.example\" is not an ASCII URL of at most 255 bytes"
+    }
+  ]
+}

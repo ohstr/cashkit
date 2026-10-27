@@ -19,9 +19,11 @@ build:
 browser:
     pnpm test:browser
 
-# Regenerate vectors/*.json from nmilat (pinned in tools/export-vectors/go.mod).
+# Regenerate vectors/*.json from nmilat's vectors package (pinned in
+# tools/export-vectors/go.mod). Until nmilat tags the release that ships the
+# package, put a go.work next to that go.mod that uses an nmilat checkout.
 vectors:
-    GOWORK=off go -C tools/export-vectors run . -out ../../vectors
+    go -C tools/export-vectors run . -out ../../vectors
 
 # Fail if the committed vectors differ from what nmilat produces.
 vectors-check:

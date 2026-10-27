@@ -1,0 +1,1647 @@
+{
+  "description": "NIP-CO cash orders: get_info's cash_order terms (with pubkey, network and chain; a retired connection's \"cash_order\": {}), the buyer key derived from the cash secret, the order fee, confirmation tiers, the mint split, the order notice (kind 23189), cash_order requests and their refusals in step order, placement checks, order replies and lookup done results, order states and retention.",
+  "source": "nipCO/*.go; nipCO/terms_test.go, order_test.go, request_test.go (K-BK-1, K-OFEE-1..3, K-TIER-1..3, K-SPLIT-1, K-OMINT-1..5, K-ON-1)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "getInfo": [
+    {
+      "name": "the NIP-CO example",
+      "getInfo": "{\"methods\":[\"get_info\"],\"private_methods\":[\"cash_lookup\",\"cash_order\"],\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600},\"onchain\":{\"min_millis\":10000000,\"max_millis\":1000000000,\"fee_base\":21000,\"fee_ppm\":2000,\"window\":86400,\"confirmations\":[{\"up_to_millis\":100000000,\"n\":1},{\"up_to_millis\":1000000000,\"n\":3},{\"n\":6}]},\"bill\":{\"redeem_fee_base\":0,\"redeem_fee_ppm\":5000,\"min_transfer_millis\":1000}}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 1000,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 5000
+        },
+        "lightning": {
+          "fee_base": 1000,
+          "fee_ppm": 1000,
+          "max_millis": 1000000000,
+          "min_millis": 1000000,
+          "window": 3600
+        },
+        "onchain": {
+          "confirmations": [
+            {
+              "n": 1,
+              "up_to_millis": 100000000
+            },
+            {
+              "n": 3,
+              "up_to_millis": 1000000000
+            },
+            {
+              "n": 6
+            }
+          ],
+          "fee_base": 21000,
+          "fee_ppm": 2000,
+          "max_millis": 1000000000,
+          "min_millis": 10000000,
+          "window": 86400
+        }
+      },
+      "sellsNothing": false
+    },
+    {
+      "name": "a retired connection: cash_order {}",
+      "getInfo": "{\"methods\":[\"get_info\"],\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"cash_order\":{}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 0,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 0
+        }
+      },
+      "sellsNothing": true
+    },
+    {
+      "name": "no cash_order",
+      "getInfo": "{\"methods\":[\"get_info\"]}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 0,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 0
+        }
+      },
+      "sellsNothing": true
+    },
+    {
+      "name": "only bill terms",
+      "getInfo": "{\"cash_order\":{\"bill\":{}}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 0,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 0
+        }
+      },
+      "sellsNothing": true
+    },
+    {
+      "name": "on-chain only",
+      "getInfo": "{\"cash_order\":{\"onchain\":{\"min_millis\":1,\"max_millis\":2,\"fee_base\":0,\"fee_ppm\":0,\"window\":1,\"confirmations\":[{\"n\":1}]}}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 0,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 0
+        },
+        "onchain": {
+          "confirmations": [
+            {
+              "n": 1
+            }
+          ],
+          "fee_base": 0,
+          "fee_ppm": 0,
+          "max_millis": 2,
+          "min_millis": 1,
+          "window": 1
+        }
+      },
+      "sellsNothing": false
+    },
+    {
+      "name": "min_millis 1.5",
+      "getInfo": "{\"cash_order\":{\"lightning\":{\"min_millis\":1.5,\"max_millis\":2,\"fee_base\":0,\"fee_ppm\":0,\"window\":1}}}",
+      "error": "nipCO: invalid order terms: lightning: min_millis: not a non-negative integer: 1.5",
+      "sellsNothing": false
+    },
+    {
+      "name": "min_millis \"1000\"",
+      "getInfo": "{\"cash_order\":{\"lightning\":{\"min_millis\":\"1000\",\"max_millis\":2,\"fee_base\":0,\"fee_ppm\":0,\"window\":1}}}",
+      "error": "nipCO: invalid order terms: lightning: min_millis: not a non-negative integer: \"1000\"",
+      "sellsNothing": false
+    },
+    {
+      "name": "min_millis 1e3",
+      "getInfo": "{\"cash_order\":{\"lightning\":{\"min_millis\":1e3,\"max_millis\":2,\"fee_base\":0,\"fee_ppm\":0,\"window\":1}}}",
+      "error": "nipCO: invalid order terms: lightning: min_millis: not a non-negative integer: 1e3",
+      "sellsNothing": false
+    },
+    {
+      "name": "min_millis -1",
+      "getInfo": "{\"cash_order\":{\"lightning\":{\"min_millis\":-1,\"max_millis\":2,\"fee_base\":0,\"fee_ppm\":0,\"window\":1}}}",
+      "error": "nipCO: invalid order terms: lightning: min_millis: not a non-negative integer: -1",
+      "sellsNothing": false
+    },
+    {
+      "name": "above the per-wallet ceiling",
+      "getInfo": "{\"methods\":[\"get_info\"],\"private_methods\":[\"cash_lookup\",\"cash_order\"],\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000001,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600},\"onchain\":{\"min_millis\":10000000,\"max_millis\":1000000000,\"fee_base\":21000,\"fee_ppm\":2000,\"window\":86400,\"confirmations\":[{\"up_to_millis\":100000000,\"n\":1},{\"up_to_millis\":1000000000,\"n\":3},{\"n\":6}]},\"bill\":{\"redeem_fee_base\":0,\"redeem_fee_ppm\":5000,\"min_transfer_millis\":1000}}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 1000,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 5000
+        },
+        "lightning": {
+          "fee_base": 1000,
+          "fee_ppm": 1000,
+          "max_millis": 1000000001,
+          "min_millis": 1000000,
+          "window": 3600
+        },
+        "onchain": {
+          "confirmations": [
+            {
+              "n": 1,
+              "up_to_millis": 100000000
+            },
+            {
+              "n": 3,
+              "up_to_millis": 1000000000
+            },
+            {
+              "n": 6
+            }
+          ],
+          "fee_base": 21000,
+          "fee_ppm": 2000,
+          "max_millis": 1000000000,
+          "min_millis": 10000000,
+          "window": 86400
+        }
+      },
+      "sellsNothing": false,
+      "validate": "nipCO: invalid order terms: lightning: max_millis 1000000001 above the per-wallet funding ceiling 1000000000"
+    },
+    {
+      "name": "tiers descending",
+      "getInfo": "{\"methods\":[\"get_info\"],\"private_methods\":[\"cash_lookup\",\"cash_order\"],\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600},\"onchain\":{\"min_millis\":10000000,\"max_millis\":1000000000,\"fee_base\":21000,\"fee_ppm\":2000,\"window\":86400,\"confirmations\":[{\"up_to_millis\":1000000000,\"n\":1},{\"up_to_millis\":100000000,\"n\":3},{\"n\":6}]},\"bill\":{\"redeem_fee_base\":0,\"redeem_fee_ppm\":5000,\"min_transfer_millis\":1000}}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 1000,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 5000
+        },
+        "lightning": {
+          "fee_base": 1000,
+          "fee_ppm": 1000,
+          "max_millis": 1000000000,
+          "min_millis": 1000000,
+          "window": 3600
+        },
+        "onchain": {
+          "confirmations": [
+            {
+              "n": 1,
+              "up_to_millis": 1000000000
+            },
+            {
+              "n": 3,
+              "up_to_millis": 100000000
+            },
+            {
+              "n": 6
+            }
+          ],
+          "fee_base": 21000,
+          "fee_ppm": 2000,
+          "max_millis": 1000000000,
+          "min_millis": 10000000,
+          "window": 86400
+        }
+      },
+      "sellsNothing": false,
+      "validate": "nipCO: invalid order terms: onchain: tier 1: up_to_millis not ascending"
+    },
+    {
+      "name": "last tier closed",
+      "getInfo": "{\"methods\":[\"get_info\"],\"private_methods\":[\"cash_lookup\",\"cash_order\"],\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600},\"onchain\":{\"min_millis\":10000000,\"max_millis\":1000000000,\"fee_base\":21000,\"fee_ppm\":2000,\"window\":86400,\"confirmations\":[{\"up_to_millis\":100000000,\"n\":1},{\"up_to_millis\":1000000000,\"n\":3},{\"up_to_millis\":5000000000,\"n\":6}]},\"bill\":{\"redeem_fee_base\":0,\"redeem_fee_ppm\":5000,\"min_transfer_millis\":1000}}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 1000,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 5000
+        },
+        "lightning": {
+          "fee_base": 1000,
+          "fee_ppm": 1000,
+          "max_millis": 1000000000,
+          "min_millis": 1000000,
+          "window": 3600
+        },
+        "onchain": {
+          "confirmations": [
+            {
+              "n": 1,
+              "up_to_millis": 100000000
+            },
+            {
+              "n": 3,
+              "up_to_millis": 1000000000
+            },
+            {
+              "n": 6,
+              "up_to_millis": 5000000000
+            }
+          ],
+          "fee_base": 21000,
+          "fee_ppm": 2000,
+          "max_millis": 1000000000,
+          "min_millis": 10000000,
+          "window": 86400
+        }
+      },
+      "sellsNothing": false,
+      "validate": "nipCO: invalid order terms: onchain: the last tier carries no up_to_millis"
+    },
+    {
+      "name": "window 0",
+      "getInfo": "{\"methods\":[\"get_info\"],\"private_methods\":[\"cash_lookup\",\"cash_order\"],\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":0},\"onchain\":{\"min_millis\":10000000,\"max_millis\":1000000000,\"fee_base\":21000,\"fee_ppm\":2000,\"window\":86400,\"confirmations\":[{\"up_to_millis\":100000000,\"n\":1},{\"up_to_millis\":1000000000,\"n\":3},{\"n\":6}]},\"bill\":{\"redeem_fee_base\":0,\"redeem_fee_ppm\":5000,\"min_transfer_millis\":1000}}}",
+      "terms": {
+        "bill": {
+          "min_transfer_millis": 1000,
+          "redeem_fee_base": 0,
+          "redeem_fee_ppm": 5000
+        },
+        "lightning": {
+          "fee_base": 1000,
+          "fee_ppm": 1000,
+          "max_millis": 1000000000,
+          "min_millis": 1000000,
+          "window": 0
+        },
+        "onchain": {
+          "confirmations": [
+            {
+              "n": 1,
+              "up_to_millis": 100000000
+            },
+            {
+              "n": 3,
+              "up_to_millis": 1000000000
+            },
+            {
+              "n": 6
+            }
+          ],
+          "fee_base": 21000,
+          "fee_ppm": 2000,
+          "max_millis": 1000000000,
+          "min_millis": 10000000,
+          "window": 86400
+        }
+      },
+      "sellsNothing": false,
+      "validate": "nipCO: invalid order terms: lightning: window is 0"
+    },
+    {
+      "name": "not an object",
+      "getInfo": "[]",
+      "error": "nipCO: invalid order terms: not a JSON object",
+      "sellsNothing": false
+    }
+  ],
+  "buyerKey": [
+    {
+      "id": "K-BK-1",
+      "cashSecret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "commitment": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
+      "buyerSk": "c853759de7b777f3588569e48461ec8ad52dbea4c8829b759a05e352cf649dea",
+      "buyerPk": "a5a70781e66224a1a4e26614b36328c1a8913f1a2c80bca00fbb2e5af993c8a3"
+    },
+    {
+      "cashSecret": "abababababababababababababababababababababababababababababababab",
+      "commitment": "9a2db2e23f1504cd056606553ac049c5e718e8f9ce9233876df1a7a1821af885",
+      "buyerSk": "4b6677e2ddfd80bb7bd889f149ab48d33c33366859e6c4e762f913678ff572fa",
+      "buyerPk": "b252b7486ef1cd7b412839432c2df624ddcf74ddbd613f1022c36766b5a252dd"
+    },
+    {
+      "cashSecret": "XYZ",
+      "error": "nipCO: a cash secret is 64 lowercase hex characters"
+    }
+  ],
+  "orderFee": [
+    {
+      "id": "K-OFEE-1",
+      "payment": "lightning",
+      "feeBase": 1000,
+      "feePpm": 1000,
+      "amountMillis": 21000000,
+      "feeMillis": 22000,
+      "payMillis": 21022000
+    },
+    {
+      "id": "K-OFEE-2",
+      "payment": "onchain",
+      "feeBase": 21000,
+      "feePpm": 2000,
+      "amountMillis": 21000000,
+      "feeMillis": 63000,
+      "payMillis": 21063000
+    },
+    {
+      "id": "K-OFEE-3",
+      "payment": "onchain",
+      "feeBase": 21000,
+      "feePpm": 2001,
+      "amountMillis": 21000000,
+      "feeMillis": 64000,
+      "payMillis": 21064000
+    },
+    {
+      "payment": "onchain",
+      "feeBase": 0,
+      "feePpm": 0,
+      "amountMillis": 21000500,
+      "feeMillis": 0,
+      "payMillis": 0,
+      "error": "nipCO: invalid cash_order request: an on-chain amount is a multiple of 1000 millis"
+    },
+    {
+      "payment": "lightning",
+      "feeBase": 1,
+      "feePpm": 0,
+      "amountMillis": 18446744073709551615,
+      "feeMillis": 0,
+      "payMillis": 0,
+      "error": "nipCO: order amount out of range"
+    },
+    {
+      "payment": "card",
+      "feeBase": 0,
+      "feePpm": 0,
+      "amountMillis": 1000,
+      "feeMillis": 0,
+      "payMillis": 0,
+      "error": "nipCO: invalid cash_order request: payment \"card\""
+    }
+  ],
+  "confirmations": [
+    {
+      "id": "K-TIER-1",
+      "tiers": [
+        {
+          "up_to_millis": 100000000,
+          "n": 1
+        },
+        {
+          "up_to_millis": 1000000000,
+          "n": 3
+        },
+        {
+          "n": 6
+        }
+      ],
+      "valueMillis": 21063000,
+      "n": 1
+    },
+    {
+      "id": "K-TIER-2",
+      "tiers": [
+        {
+          "up_to_millis": 100000000,
+          "n": 1
+        },
+        {
+          "up_to_millis": 1000000000,
+          "n": 3
+        },
+        {
+          "n": 6
+        }
+      ],
+      "valueMillis": 500000000,
+      "n": 3
+    },
+    {
+      "id": "K-TIER-3",
+      "tiers": [
+        {
+          "up_to_millis": 100000000,
+          "n": 1
+        },
+        {
+          "up_to_millis": 1000000000,
+          "n": 3
+        },
+        {
+          "n": 6
+        }
+      ],
+      "valueMillis": 2000000000,
+      "n": 6
+    },
+    {
+      "tiers": [
+        {
+          "up_to_millis": 100000000,
+          "n": 1
+        },
+        {
+          "up_to_millis": 1000000000,
+          "n": 3
+        },
+        {
+          "n": 6
+        }
+      ],
+      "valueMillis": 100000000,
+      "n": 1
+    },
+    {
+      "tiers": [
+        {
+          "up_to_millis": 100000000,
+          "n": 1
+        },
+        {
+          "up_to_millis": 1000000000,
+          "n": 3
+        },
+        {
+          "n": 6
+        }
+      ],
+      "valueMillis": 100000001,
+      "n": 3
+    },
+    {
+      "tiers": [],
+      "valueMillis": 1,
+      "n": 0,
+      "error": "nipCO: invalid order terms: no confirmation tier covers 1 millis"
+    }
+  ],
+  "mintSplit": [
+    {
+      "id": "K-SPLIT-1",
+      "receivedMillis": 2500063000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": [
+        1000000000,
+        1000000000,
+        500000000
+      ]
+    },
+    {
+      "id": "K-OMINT-1",
+      "receivedMillis": 21063000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": [
+        21000000
+      ]
+    },
+    {
+      "id": "K-OMINT-2",
+      "receivedMillis": 20000000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": [
+        19937000
+      ]
+    },
+    {
+      "id": "K-OMINT-3",
+      "receivedMillis": 25000000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": [
+        24937000
+      ]
+    },
+    {
+      "id": "K-OMINT-4",
+      "receivedMillis": 10000000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": [
+        9937000
+      ]
+    },
+    {
+      "id": "K-OMINT-5",
+      "receivedMillis": 50000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": []
+    },
+    {
+      "receivedMillis": 63000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": []
+    },
+    {
+      "receivedMillis": 63001,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": [
+        1
+      ]
+    },
+    {
+      "receivedMillis": 1000063000,
+      "feeMillis": 63000,
+      "maxMillis": 1000000000,
+      "bills": [
+        1000000000
+      ]
+    }
+  ],
+  "notice": {
+    "id": "K-ON-1",
+    "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "filter": {
+      "kinds": [
+        23189
+      ],
+      "#p": [
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      ]
+    },
+    "noticeTags": [
+      [
+        "p",
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      ]
+    ],
+    "noticeKind": 23189,
+    "noticeContent": "",
+    "isOrderNotice": [
+      {
+        "name": "the notice",
+        "event": {
+          "id": "68fcb222c8668f27c40463c1711f2fa8c9d143c5394439833435a11d1587d0c5",
+          "pubkey": "99c2aa85d2b21a62f396907a802a58e521dafd5bddaccbd72786eea189bc4dc9",
+          "created_at": 1720000000,
+          "kind": 23189,
+          "tags": [
+            [
+              "p",
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ]
+          ],
+          "content": "",
+          "sig": "742d081d3e738554491a536595f9240563d22c9c38aebbd60d3d8e1e2e392512d8f7d6d53b6fbb13fab611303c79753155751de9d8bf3f26639be7c0163cdc41"
+        },
+        "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "notice": true
+      },
+      {
+        "name": "another notify",
+        "event": {
+          "id": "68fcb222c8668f27c40463c1711f2fa8c9d143c5394439833435a11d1587d0c5",
+          "pubkey": "99c2aa85d2b21a62f396907a802a58e521dafd5bddaccbd72786eea189bc4dc9",
+          "created_at": 1720000000,
+          "kind": 23189,
+          "tags": [
+            [
+              "p",
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ]
+          ],
+          "content": "",
+          "sig": "742d081d3e738554491a536595f9240563d22c9c38aebbd60d3d8e1e2e392512d8f7d6d53b6fbb13fab611303c79753155751de9d8bf3f26639be7c0163cdc41"
+        },
+        "notify": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "notice": false
+      },
+      {
+        "name": "content",
+        "event": {
+          "id": "c691b946e282d0ef1a4714abdb670ab6d9e00e3cddd50422377a0efe27d77704",
+          "pubkey": "99c2aa85d2b21a62f396907a802a58e521dafd5bddaccbd72786eea189bc4dc9",
+          "created_at": 1720000000,
+          "kind": 23189,
+          "tags": [
+            [
+              "p",
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ]
+          ],
+          "content": "x",
+          "sig": "14932d365a65ebd11704060260cbd9c0f3794e8561b6a4794b9d4b576a185e4f21b10a43090a30eda74206f4199333cdce2dbb49ff71a75cb367797e99d4639b"
+        },
+        "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "notice": false
+      },
+      {
+        "name": "an extra tag",
+        "event": {
+          "id": "5f91281cc5d525fca664cfd097693f4924a3f6b440189a255dccbc444e19f5e1",
+          "pubkey": "99c2aa85d2b21a62f396907a802a58e521dafd5bddaccbd72786eea189bc4dc9",
+          "created_at": 1720000000,
+          "kind": 23189,
+          "tags": [
+            [
+              "p",
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ],
+            [
+              "e",
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ]
+          ],
+          "content": "",
+          "sig": "b3d54fd4599952239f92fc95576b590b3f4d953d17a17596ec3fd9d7054bf53c9975d28754ecce1dcc31a41097e149da108a195f7ff830541d321a51e605abdd"
+        },
+        "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "notice": false
+      },
+      {
+        "name": "another kind",
+        "event": {
+          "id": "42fb6a65a78c6d5f0039f64dabb0ff21fba33ec8e9589d0fd4f293858729bfc2",
+          "pubkey": "99c2aa85d2b21a62f396907a802a58e521dafd5bddaccbd72786eea189bc4dc9",
+          "created_at": 1720000000,
+          "kind": 1,
+          "tags": [
+            [
+              "p",
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ]
+          ],
+          "content": "",
+          "sig": "202c4ecd0a3200a9d5a4a088715cf95eabb38d97f547e9e73384929f155686c5c8279ee6c86ddbb6ff007099c11ae1f6394f3a609a3d0336b2337a1f4ddf7e08"
+        },
+        "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "notice": false
+      },
+      {
+        "name": "a bad signature",
+        "event": {
+          "id": "68fcb222c8668f27c40463c1711f2fa8c9d143c5394439833435a11d1587d0c5",
+          "pubkey": "99c2aa85d2b21a62f396907a802a58e521dafd5bddaccbd72786eea189bc4dc9",
+          "created_at": 1720000000,
+          "kind": 23189,
+          "tags": [
+            [
+              "p",
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ]
+          ],
+          "content": "",
+          "sig": "742d081d3e738554491a536595f9240563d22c9c38aebbd60d3d8e1e2e392512d8f7d6d53b6fbb13fab611303c79753155751de9d8bf3f26639be7c0163cdc40"
+        },
+        "notify": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "notice": false
+      }
+    ]
+  },
+  "requests": [
+    {
+      "name": "cash recipient, Lightning (the NIP example)",
+      "input": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}"
+    },
+    {
+      "name": "pubkey recipient, on-chain",
+      "input": "{\"recipient\":{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\"},\"amount_millis\":21000000,\"payment\":\"onchain\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}"
+    },
+    {
+      "name": "connection_key recipient",
+      "input": "{\"recipient\":{\"identity_type\":\"connection_key\",\"identity_value\":\"22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d\",\"ia_pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}"
+    },
+    {
+      "name": "amount 0",
+      "input": "",
+      "error": "nipCO: invalid cash_order request: nipcash: an amount must be positive"
+    },
+    {
+      "name": "on-chain 21,000,500",
+      "input": "",
+      "error": "nipCO: invalid cash_order request: an on-chain amount is a multiple of 1000 millis"
+    },
+    {
+      "name": "payment bitcoin",
+      "input": "",
+      "error": "nipCO: invalid cash_order request: payment \"bitcoin\""
+    },
+    {
+      "name": "notify uppercase",
+      "input": "",
+      "error": "nipCO: invalid cash_order request: notify is 64 lowercase hex"
+    },
+    {
+      "name": "no recipient",
+      "input": "",
+      "error": "nipCO: invalid cash_order request: nipcash: mint_cash requires at least one recipient"
+    }
+  ],
+  "requestRefusals": [
+    {
+      "name": "the NIP example",
+      "input": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}"
+    },
+    {
+      "name": "recipients",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"recipients\":[],\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: a cash_order carries no recipients"
+    },
+    {
+      "name": "expiry",
+      "input": "{\"amount_millis\":21000000,\"expiry\":60,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: a cash_order carries no expiry"
+    },
+    {
+      "name": "cash_secret",
+      "input": "{\"amount_millis\":21000000,\"cash_secret\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: a cash_order carries no cash_secret"
+    },
+    {
+      "name": "on-chain 21000500",
+      "input": "{\"amount_millis\":21000500,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"onchain\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: an on-chain amount_millis is a multiple of 1000"
+    },
+    {
+      "name": "notify uppercase",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: notify is 64 lowercase hex"
+    },
+    {
+      "name": "payment card",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"card\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: payment \"card\" is not lightning or onchain"
+    },
+    {
+      "name": "recipient bearer",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"bearer\",\"identity_value\":\"abababababababababababababababababababababababababababababababab\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: recipient identity_type \"bearer\" is not pubkey, connection_key or cash"
+    },
+    {
+      "name": "connection_key without ia",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"connection_key\",\"identity_value\":\"abababababababababababababababababababababababababababababababab\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: a connection_key recipient needs its ia_pubkey"
+    },
+    {
+      "name": "cash with ia",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"abababababababababababababababababababababababababababababababab\",\"ia_pubkey\":\"abababababababababababababababababababababababababababababababab\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: only a connection_key recipient carries ia_pubkey"
+    },
+    {
+      "name": "amount 1.5",
+      "input": "{\"amount_millis\":1.5,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: amount_millis is a positive integer"
+    },
+    {
+      "name": "amount 0",
+      "input": "{\"amount_millis\":0,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: amount_millis is a positive integer"
+    },
+    {
+      "name": "bad request_id",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":\"lightning\",\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"xyz\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: request_id is malformed"
+    },
+    {
+      "name": "not an object",
+      "input": "[1]",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: the request is not a JSON object"
+    },
+    {
+      "name": "payment not a string",
+      "input": "{\"amount_millis\":21000000,\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"payment\":5,\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "code": "BAD_REQUEST",
+      "step": 3,
+      "error": "nipCO: BAD_REQUEST at step 3: payment is not a string"
+    }
+  ],
+  "placement": [
+    {
+      "name": "ok",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      }
+    },
+    {
+      "name": "retired and over max",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":2000000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": true
+      },
+      "code": "RESTRICTED",
+      "step": 2
+    },
+    {
+      "name": "kind not offered",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": false,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "RESTRICTED",
+      "step": 2
+    },
+    {
+      "name": "defect on a retired connection",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": true
+      },
+      "code": "RESTRICTED",
+      "step": 2
+    },
+    {
+      "name": "min - 1",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":999999,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "RESTRICTED",
+      "step": 4
+    },
+    {
+      "name": "max + 1",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":1000000001,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "RESTRICTED",
+      "step": 4
+    },
+    {
+      "name": "defect and untrusted IA",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": false,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "BAD_REQUEST",
+      "step": 3
+    },
+    {
+      "name": "untrusted IA and over max",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":2000000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": false,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "RESTRICTED",
+      "step": 3
+    },
+    {
+      "name": "open = ceiling",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 4979000000,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      }
+    },
+    {
+      "name": "ceiling + 1",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 4979000001,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "QUOTA_EXCEEDED",
+      "step": 5
+    },
+    {
+      "name": "on-chain count = ceiling",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"onchain\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 3,
+        "retired": false
+      },
+      "code": "QUOTA_EXCEEDED",
+      "step": 5
+    },
+    {
+      "name": "on-chain, no count bound",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"onchain\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 0,
+        "openOnchainCount": 99,
+        "retired": false
+      }
+    },
+    {
+      "name": "Lightning ignores the count",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 99,
+        "retired": false
+      }
+    },
+    {
+      "name": "Lightning not receivable",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": false,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "QUOTA_EXCEEDED",
+      "step": 5
+    },
+    {
+      "name": "on-chain ignores receivable",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":21000000,\"payment\":\"onchain\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": false,
+        "openCeiling": 5000000000,
+        "openMillis": 0,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      }
+    },
+    {
+      "name": "out of bounds and over the ceiling",
+      "request": "{\"recipient\":{\"identity_type\":\"cash\",\"identity_value\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"},\"amount_millis\":1000000001,\"payment\":\"lightning\",\"notify\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "facts": {
+        "iaTrusted": true,
+        "lightningOffered": true,
+        "lightningReceivable": true,
+        "openCeiling": 5000000000,
+        "openMillis": 5000000000,
+        "openOnchainCeiling": 3,
+        "openOnchainCount": 0,
+        "retired": false
+      },
+      "code": "RESTRICTED",
+      "step": 4
+    }
+  ],
+  "replies": [
+    {
+      "name": "Lightning, open",
+      "payment": "lightning",
+      "lookup": false,
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210220n1...\",\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "amount_millis": 21000000,
+        "bills": [],
+        "fee_millis": 22000,
+        "invoice": "lnbc210220n1...",
+        "pay_by": 1720003600,
+        "pay_millis": 21022000,
+        "payment": "lightning",
+        "state": "open"
+      }
+    },
+    {
+      "name": "Lightning, open",
+      "payment": "lightning",
+      "lookup": true,
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210220n1...\",\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "amount_millis": 21000000,
+        "bills": [],
+        "fee_millis": 22000,
+        "invoice": "lnbc210220n1...",
+        "pay_by": 1720003600,
+        "pay_millis": 21022000,
+        "payment": "lightning",
+        "state": "open"
+      }
+    },
+    {
+      "name": "on-chain, minted (a lookup's done result)",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: a new order is open, not \"minted\""
+    },
+    {
+      "name": "on-chain, minted (a lookup's done result)",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "bills": [
+          {
+            "amount_millis": 21000000,
+            "cash_token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn",
+            "outpoint": "abababababababababababababababababababababababababababababababab:0",
+            "paid_millis": 21063000,
+            "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          }
+        ],
+        "confirmations": 1,
+        "fee_millis": 63000,
+        "pay_by": 1720003600,
+        "pay_millis": 21063000,
+        "payment": "onchain",
+        "state": "minted"
+      }
+    },
+    {
+      "name": "on-chain, open",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"open\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "bills": [],
+        "confirmations": 1,
+        "fee_millis": 63000,
+        "pay_by": 1720003600,
+        "pay_millis": 21063000,
+        "payment": "onchain",
+        "state": "open"
+      }
+    },
+    {
+      "name": "on-chain, open",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"open\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "bills": [],
+        "confirmations": 1,
+        "fee_millis": 63000,
+        "pay_by": 1720003600,
+        "pay_millis": 21063000,
+        "payment": "onchain",
+        "state": "open"
+      }
+    },
+    {
+      "name": "a minted bill already destroyed",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":{\"status\":\"spent\",\"reason\":\"redeemed\",\"retained_until\":1720000000},\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: a new order is open, not \"minted\""
+    },
+    {
+      "name": "a minted bill already destroyed",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":{\"status\":\"spent\",\"reason\":\"redeemed\",\"retained_until\":1720000000},\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "want": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "bills": [
+          {
+            "amount_millis": 21000000,
+            "cash_token": {
+              "reason": "redeemed",
+              "retained_until": 1720000000,
+              "status": "spent"
+            },
+            "outpoint": "abababababababababababababababababababababababababababababababab:0",
+            "paid_millis": 21063000,
+            "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          }
+        ],
+        "confirmations": 1,
+        "fee_millis": 63000,
+        "pay_by": 1720003600,
+        "pay_millis": 21063000,
+        "payment": "onchain",
+        "state": "minted"
+      }
+    },
+    {
+      "name": "invoice and address",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"invoice\":\"lnbc1\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: both invoice and address"
+    },
+    {
+      "name": "invoice and address",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"invoice\":\"lnbc1\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: both invoice and address"
+    },
+    {
+      "name": "unknown state",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"unknown\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: unknown state \"unknown\""
+    },
+    {
+      "name": "unknown state",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"unknown\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: unknown state \"unknown\""
+    },
+    {
+      "name": "pay_millis mismatch",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063001,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: pay_millis is not amount_millis + fee_millis"
+    },
+    {
+      "name": "pay_millis mismatch",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063001,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: pay_millis is not amount_millis + fee_millis"
+    },
+    {
+      "name": "no confirmations",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: an on-chain order carries an address, its confirmations and whole base units"
+    },
+    {
+      "name": "no confirmations",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: an on-chain order carries an address, its confirmations and whole base units"
+    },
+    {
+      "name": "a cash_secret",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"cash_secret\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: nipcash: the Hub's reply carries a cash secret"
+    },
+    {
+      "name": "a cash_secret",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"cash_secret\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: nipcash: the Hub's reply carries a cash secret"
+    },
+    {
+      "name": "a bad token",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1xyz\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: bill 0: token: nipcash: invalid bech32: invalid separator index 8"
+    },
+    {
+      "name": "a bad token",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1xyz\",\"amount_millis\":21000000,\"paid_millis\":21063000,\"outpoint\":\"abababababababababababababababababababababababababababababababab:0\"}]}",
+      "error": "nipCO: malformed order: bill 0: token: nipcash: invalid bech32: invalid separator index 8"
+    },
+    {
+      "name": "no outpoint",
+      "payment": "onchain",
+      "lookup": false,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000}]}",
+      "error": "nipCO: malformed order: bill 0: an on-chain bill names its outpoint"
+    },
+    {
+      "name": "no outpoint",
+      "payment": "onchain",
+      "lookup": true,
+      "reply": "{\"state\":\"minted\",\"payment\":\"onchain\",\"amount_millis\":21000000,\"fee_millis\":63000,\"pay_millis\":21063000,\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"confirmations\":1,\"pay_by\":1720003600,\"bills\":[{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzyr8vankwem8vankwem8vankwem8vankwem8vankwem8vankwem8vup2pyza9ng85zvapx3999p496987t6zarn62gt3g073f9m7ktrsyfuysgxny6sr78fgrpmxuc9p4yxl0730z374l4svp4a8vt6p3wlu3rwdgqcyqqqqqqqq5qm6qpqqszze2fsn\",\"amount_millis\":21000000,\"paid_millis\":21063000}]}",
+      "error": "nipCO: malformed order: bill 0: an on-chain bill names its outpoint"
+    }
+  ],
+  "states": [
+    {
+      "facts": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Seen": false,
+        "Unminted": 0,
+        "Minted": 0
+      },
+      "now": 1000,
+      "state": "open"
+    },
+    {
+      "facts": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 1,
+        "Minted": 0
+      },
+      "now": 1000,
+      "state": "paid"
+    },
+    {
+      "facts": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 0,
+        "Minted": 1
+      },
+      "now": 1000,
+      "state": "minted"
+    },
+    {
+      "facts": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Seen": false,
+        "Unminted": 0,
+        "Minted": 0
+      },
+      "now": 1000,
+      "state": "open"
+    },
+    {
+      "facts": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 1,
+        "Minted": 0
+      },
+      "now": 1000,
+      "state": "paid"
+    },
+    {
+      "facts": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 0,
+        "Minted": 1
+      },
+      "now": 1000,
+      "state": "minted"
+    },
+    {
+      "facts": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 1,
+        "Minted": 1
+      },
+      "now": 1000,
+      "state": "paid"
+    },
+    {
+      "facts": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Seen": false,
+        "Unminted": 0,
+        "Minted": 0
+      },
+      "now": 1001,
+      "state": "expired"
+    },
+    {
+      "facts": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 1,
+        "Minted": 0
+      },
+      "now": 1001,
+      "state": "paid"
+    },
+    {
+      "facts": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 0,
+        "Minted": 1
+      },
+      "now": 1001,
+      "state": "minted"
+    },
+    {
+      "facts": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Seen": false,
+        "Unminted": 0,
+        "Minted": 0
+      },
+      "now": 1001,
+      "state": "expired"
+    },
+    {
+      "facts": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 1,
+        "Minted": 0
+      },
+      "now": 1001,
+      "state": "closed"
+    },
+    {
+      "facts": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Seen": true,
+        "Unminted": 0,
+        "Minted": 1
+      },
+      "now": 1001,
+      "state": "closed"
+    }
+  ],
+  "retention": [
+    {
+      "name": "Lightning, open",
+      "retention": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": false,
+        "Watched": false,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 0,
+        "LastSeenAt": 0,
+        "MaxWait": 0
+      },
+      "now": 1000,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "name": "Lightning at D+H",
+      "retention": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": false,
+        "Watched": false,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 0,
+        "LastSeenAt": 0,
+        "MaxWait": 0
+      },
+      "now": 1200,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "name": "unpaid Lightning past both",
+      "retention": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": false,
+        "Watched": false,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 0,
+        "LastSeenAt": 0,
+        "MaxWait": 0
+      },
+      "now": 1201,
+      "retained": false,
+      "blocksHubDelete": false
+    },
+    {
+      "name": "Lightning, a bill live",
+      "retention": {
+        "Payment": "lightning",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": false,
+        "Watched": false,
+        "BillLiveOrTombstoned": true
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 0,
+        "LastSeenAt": 0,
+        "MaxWait": 0
+      },
+      "now": 1000000000,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "name": "on-chain seen and watched, late",
+      "retention": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": true,
+        "Watched": true,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 0,
+        "LastSeenAt": 0,
+        "MaxWait": 0
+      },
+      "now": 1201,
+      "retained": true,
+      "blocksHubDelete": false
+    },
+    {
+      "name": "on-chain seen, unwatched",
+      "retention": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": true,
+        "Watched": false,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 0,
+        "LastSeenAt": 0,
+        "MaxWait": 0
+      },
+      "now": 1000000000,
+      "retained": false,
+      "blocksHubDelete": false
+    },
+    {
+      "name": "an unconfirmed payment within the wait",
+      "retention": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": true,
+        "Watched": true,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 1,
+        "LastSeenAt": 5000,
+        "MaxWait": 100
+      },
+      "now": 5100,
+      "retained": true,
+      "blocksHubDelete": true
+    },
+    {
+      "name": "an unconfirmed payment past the wait",
+      "retention": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": true,
+        "Watched": true,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 0,
+        "Unconfirmed": 1,
+        "LastSeenAt": 5000,
+        "MaxWait": 100
+      },
+      "now": 5101,
+      "retained": true,
+      "blocksHubDelete": false
+    },
+    {
+      "name": "a confirmed payment not minted",
+      "retention": {
+        "Payment": "onchain",
+        "PayBy": 1000,
+        "Deadline": 900,
+        "Horizon": 300,
+        "Seen": true,
+        "Watched": true,
+        "BillLiveOrTombstoned": false
+      },
+      "unminted": {
+        "Confirmed": 1,
+        "Unconfirmed": 0,
+        "LastSeenAt": 0,
+        "MaxWait": 0
+      },
+      "now": 1000000000000,
+      "retained": true,
+      "blocksHubDelete": true
+    }
+  ]
+}

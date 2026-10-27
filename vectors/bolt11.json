@@ -1,7 +1,7 @@
 {
   "description": "bolt11 invoice fields nmilat reads: currency and amount from the HRP, payment hash, description and description hash. The signature is not checked.",
   "source": "nip57/bolt11.go DecodeBolt11; real invoices from cashctl and nmilat test fixtures",
-  "nmilat": "v0.5.0-rc.31",
+  "nmilat": "github.com/ohstr/nmilat devel",
   "decode": [
     {
       "name": "real lnbc 10u",

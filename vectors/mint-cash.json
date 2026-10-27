@@ -1,0 +1,333 @@
+{
+  "description": "mint_cash: the cash commitment sha256(32 secret bytes), the request (recipients, expiry, request_id; no pairing_uri) and the result (wallet, cash_token, expires_at, recipients; a lookup may answer a tombstone).",
+  "source": "nipcash/{mint_cash,secret}.go; nipcash/mint_cash_test.go, wire_types_test.go (K-CMT-1..3)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "commitment": [
+    {
+      "id": "K-CMT-1",
+      "secret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "commit": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd"
+    },
+    {
+      "id": "K-CMT-3",
+      "secret": "0000000000000000000000000000000000000000000000000000000000000000",
+      "commit": "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+    },
+    {
+      "secret": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F",
+      "error": "nipcash: a cash secret is 64 lowercase hex characters"
+    },
+    {
+      "secret": "00000000000000000000000000000000000000000000000000000000000000",
+      "error": "nipcash: a cash secret is 64 lowercase hex characters"
+    },
+    {
+      "secret": "zz00000000000000000000000000000000000000000000000000000000000000",
+      "error": "nipcash: a cash secret is 64 lowercase hex characters"
+    },
+    {
+      "id": "K-CMT-2",
+      "secret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "note": "negative: sha256 of the hex text, never produced",
+      "commit": "6c86c6aac5fb24bcf5d9939cb7d7d5645ce39418f449e03b262dd4fa14b4b92b"
+    }
+  ],
+  "requests": [
+    {
+      "name": "one pubkey recipient",
+      "inputs": {
+        "recipients": [
+          {
+            "amount": 21000,
+            "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "requestId": "00112233445566778899aabbccddeeff"
+      },
+      "request": {
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "request_id": "00112233445566778899aabbccddeeff"
+      }
+    },
+    {
+      "name": "pubkey and connection_key, an expiry",
+      "inputs": {
+        "expirySeconds": 2592000,
+        "recipients": [
+          {
+            "amount": 1000,
+            "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          },
+          {
+            "amount": 2000,
+            "discord": "80351110224678912",
+            "ia": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+          }
+        ],
+        "requestId": "00112233445566778899aabbccddeeff"
+      },
+      "request": {
+        "expiry": 2592000,
+        "recipients": [
+          {
+            "amount_millis": 1000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          },
+          {
+            "amount_millis": 2000,
+            "ia_pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "identity_type": "connection_key",
+            "identity_value": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d"
+          }
+        ],
+        "request_id": "00112233445566778899aabbccddeeff"
+      }
+    },
+    {
+      "name": "cash-mode (K-CMT-1 commitment)",
+      "inputs": {
+        "recipients": [
+          {
+            "amount": 21000,
+            "cashSecret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+          }
+        ],
+        "requestId": "00112233445566778899aabbccddeeff"
+      },
+      "request": {
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "cash",
+            "identity_value": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd"
+          }
+        ],
+        "request_id": "00112233445566778899aabbccddeeff"
+      }
+    },
+    {
+      "name": "cash-mode beside another recipient",
+      "inputs": {
+        "recipients": "cash + pubkey",
+        "requestId": "00112233445566778899aabbccddeeff"
+      },
+      "error": "nipcash: a cash-mode allocation must be the only entry in a mint_cash call"
+    },
+    {
+      "name": "no request_id",
+      "inputs": {
+        "recipients": "pubkey"
+      },
+      "error": "nipcash: the call needs a request_id"
+    },
+    {
+      "name": "zero amount",
+      "inputs": {
+        "recipients": "pubkey 0",
+        "requestId": "00112233445566778899aabbccddeeff"
+      },
+      "error": "nipcash: an amount must be positive"
+    },
+    {
+      "name": "no recipient",
+      "inputs": {
+        "requestId": "00112233445566778899aabbccddeeff"
+      },
+      "error": "nipcash: mint_cash requires at least one recipient"
+    }
+  ],
+  "results": [
+    {
+      "name": "minted",
+      "lookup": false,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7\",\"expires_at\":1722592000,\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "want": {
+        "cash_token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7",
+        "expires_at": 1722592000,
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      },
+      "token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7"
+    },
+    {
+      "name": "minted",
+      "lookup": true,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7\",\"expires_at\":1722592000,\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "want": {
+        "cash_token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7",
+        "expires_at": 1722592000,
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      },
+      "token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7"
+    },
+    {
+      "name": "never expires",
+      "lookup": false,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7\",\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "want": {
+        "cash_token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7",
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      },
+      "token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7"
+    },
+    {
+      "name": "never expires",
+      "lookup": true,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7\",\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "want": {
+        "cash_token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7",
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      },
+      "token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7"
+    },
+    {
+      "name": "a lookup's tombstone for the bill",
+      "lookup": false,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":{\"status\":\"spent\",\"reason\":\"redeemed\"},\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "error": "nipcash: a direct reply carries a tombstone where a token belongs",
+      "gone": {
+        "status": "spent",
+        "reason": "redeemed"
+      },
+      "want": {
+        "cash_token": {
+          "reason": "redeemed",
+          "status": "spent"
+        },
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      }
+    },
+    {
+      "name": "a lookup's tombstone for the bill",
+      "lookup": true,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":{\"status\":\"spent\",\"reason\":\"redeemed\"},\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "gone": {
+        "status": "spent",
+        "reason": "redeemed"
+      },
+      "want": {
+        "cash_token": {
+          "reason": "redeemed",
+          "status": "spent"
+        },
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      }
+    },
+    {
+      "name": "pairing_uri is not read",
+      "lookup": false,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7\",\"pairing_uri\":\"nostr+walletconnect://x\",\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "want": {
+        "cash_token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7",
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      },
+      "token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7"
+    },
+    {
+      "name": "pairing_uri is not read",
+      "lookup": true,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"cash_token\":\"satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7\",\"pairing_uri\":\"nostr+walletconnect://x\",\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}",
+      "want": {
+        "cash_token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7",
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      },
+      "token": "satscash1qqsvvprlj3q76ltdxpz5qm54cp7dshrh3e9cemeu5746czdet3cfaegpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgprpmhxue69uhkyctrdd6hqtn90psk6urvv5hxuet5qgsqqqgzqvzq2ps8pqys5zcvp58q7yq3zgf3g9gkzuvpjxsmrsw3u8crqyqs2sfq7gvnhvt0jjxg049a9kg9jnl306hyqexhxn6gw3e0928ftmtxr7n5r2emz4x3r8q6lrx6hgjhzrykwj9wtnchnh78hjcz23pr6n2tf7sxpqqqqqqqqqq9yzq8qnkhn68lpqqszp39gk7"
+    },
+    {
+      "name": "no cash_token",
+      "lookup": false,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"recipients\":[]}",
+      "error": "nipcash: the Hub returned an empty token",
+      "want": {
+        "cash_token": "",
+        "recipients": [],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      }
+    },
+    {
+      "name": "no cash_token",
+      "lookup": true,
+      "result": "{\"wallet_pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"recipients\":[]}",
+      "error": "nipcash: the Hub returned an empty token",
+      "want": {
+        "cash_token": "",
+        "recipients": [],
+        "wallet_pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      }
+    },
+    {
+      "name": "not JSON",
+      "lookup": false,
+      "result": "[",
+      "error": "nipcash: mint_cash result: unexpected end of JSON input"
+    },
+    {
+      "name": "not JSON",
+      "lookup": true,
+      "result": "[",
+      "error": "nipcash: mint_cash result: unexpected end of JSON input"
+    }
+  ]
+}

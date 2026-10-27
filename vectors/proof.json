@@ -1,7 +1,141 @@
 {
-  "description": "Item (kind 23192) and bill (kind 23193) proofs: the six bound tags, and verification order, freshness window and kind separation.",
-  "source": "nipcash/transport/proof.go; proof_test.go, proof_window_test.go, bill_proof_test.go, nipcash/proof_binding_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "description": "Item (kind 23192) and bill (kind 23193) proofs: the six bound tags (K-PROOF-1..2), the params hash ph (K-PH-1..4), and verification order, freshness window and kind separation.",
+  "source": "nipcash/transport/proof.go, envelope.go CanonicalParamsHash; proof_strict_test.go, proof_test.go, proof_window_test.go, bill_proof_test.go, canonical_jcs_test.go, nipcash/proof_binding_test.go",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "kats": [
+    {
+      "id": "K-PROOF-1",
+      "kind": 23192,
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "createdAt": 1720000000,
+      "binding": {
+        "target": "1111111111111111111111111111111111111111111111111111111111111111",
+        "hub": "2222222222222222222222222222222222222222222222222222222222222222",
+        "method": "cash_status",
+        "paramsHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "nonce": "3333333333333333333333333333333333333333333333333333333333333333",
+        "notAfter": 1720000060
+      },
+      "tags": [
+        [
+          "d",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "h",
+          "2222222222222222222222222222222222222222222222222222222222222222"
+        ],
+        [
+          "m",
+          "cash_status"
+        ],
+        [
+          "ph",
+          "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        ],
+        [
+          "en",
+          "3333333333333333333333333333333333333333333333333333333333333333"
+        ],
+        [
+          "expiration",
+          "1720000060"
+        ]
+      ],
+      "eventId": "a121c54b100a68efbda151d0fe01c4290b7a9ea41c22409e916a0e9cb7aabb0b"
+    },
+    {
+      "id": "K-PROOF-2",
+      "kind": 23193,
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "createdAt": 1720000000,
+      "binding": {
+        "target": "1111111111111111111111111111111111111111111111111111111111111111",
+        "hub": "2222222222222222222222222222222222222222222222222222222222222222",
+        "method": "cash_status",
+        "paramsHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "nonce": "3333333333333333333333333333333333333333333333333333333333333333",
+        "notAfter": 1720000060
+      },
+      "tags": [
+        [
+          "d",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "h",
+          "2222222222222222222222222222222222222222222222222222222222222222"
+        ],
+        [
+          "m",
+          "cash_status"
+        ],
+        [
+          "ph",
+          "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        ],
+        [
+          "en",
+          "3333333333333333333333333333333333333333333333333333333333333333"
+        ],
+        [
+          "expiration",
+          "1720000060"
+        ]
+      ],
+      "eventId": "7e4908cda700cd019f244c5c4dafc43c321a23cbc023daec37c6011bfa802c53"
+    }
+  ],
+  "ph": [
+    {
+      "id": "K-PH-1",
+      "params": "{}",
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "K-PH-1",
+      "params": "",
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "K-PH-2",
+      "params": "{\"scope\":\"all\"}",
+      "hash": "ad912f7b3df717e48cbec6d735d0a02bdef1569dd700e374445aea82120592d5"
+    },
+    {
+      "id": "K-PH-3",
+      "params": "{\"amount\":18446744073709551615,\"invoice\":\"a<b\"}",
+      "hash": "88fe51f35b9c0a5ee45347afdaa517b2cb3ebc5916e4e0fe3b2fe42494e616a4"
+    },
+    {
+      "id": "",
+      "params": "{ \"scope\" : \"all\" }",
+      "hash": "ad912f7b3df717e48cbec6d735d0a02bdef1569dd700e374445aea82120592d5"
+    },
+    {
+      "id": "",
+      "params": "{\"b\":1,\"a\":2}",
+      "hash": "d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772"
+    },
+    {
+      "id": "",
+      "params": "[",
+      "hash": "",
+      "error": "transport: params are not valid JSON: unexpected EOF"
+    },
+    {
+      "id": "K-PH-4",
+      "params": "{\"amount\":18446744073709551615,\"invoice\":\"a<b\"}",
+      "note": "< escaped as \\u003c",
+      "hash": "2625065109f911142b060568bcfeda2e1f83514be6607bcc039feedbdb3e7b60"
+    },
+    {
+      "id": "K-PH-4",
+      "params": "{\"amount\":18446744073709551615,\"invoice\":\"a<b\"}",
+      "note": "the number rounded through a float",
+      "hash": "b5900d536afbcdce0fe359557e6b7b5c0258d41ddbad09ca7a2cda99ae5b89c6"
+    }
+  ],
   "build": [
     {
       "name": "item proof",
@@ -296,7 +430,7 @@
         "notAfter": 1
       },
       "now": 1760000000,
-      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+      "error": "transport: item proof is bound to a different envelope: expiration \"1760000060\", envelope not_after 1"
     },
     {
       "name": "freshness: created +60s from now",
@@ -341,7 +475,7 @@
         "notAfter": 1760000060
       },
       "now": 1760000301,
-      "error": "transport: item proof is outside its freshness window: created_at 2025-10-09T08:53:20Z, now 2025-10-09T08:58:21Z"
+      "error": "transport: item proof is outside its freshness window: created_at 1760000000, now 1760000301"
     },
     {
       "name": "freshness: created +61s from now",
@@ -356,7 +490,7 @@
         "notAfter": 1760000060
       },
       "now": 1759999939,
-      "error": "transport: item proof is outside its freshness window: created_at 2025-10-09T08:53:20Z, now 2025-10-09T08:52:19Z"
+      "error": "transport: item proof is outside its freshness window: created_at 1760000000, now 1759999939"
     },
     {
       "name": "duplicate m tag",
@@ -431,7 +565,7 @@
         "notAfter": 1760000060
       },
       "now": 1760000000,
-      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+      "error": "transport: item proof is malformed: missing \"expiration\" tag"
     },
     {
       "name": "extra tags are ignored",
