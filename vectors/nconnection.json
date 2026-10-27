@@ -152,11 +152,7 @@
       "name": "bech32m checksum",
       "kind": "nconnection",
       "input": "nconnection1qqsyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qdqlkf9",
-      "want": {
-        "connectionKey": "4444444444444444444444444444444444444444444444444444444444444444",
-        "relays": [],
-        "platform": ""
-      }
+      "error": "nipIC: nconnection carries a bech32m checksum, not bech32"
     }
   ],
   "encode": [
