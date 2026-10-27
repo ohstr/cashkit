@@ -154,17 +154,24 @@ async function afterCall(ctx: Ctx, callId: string): Promise<void> {
   if (call.withdrawal?.receipt !== undefined && call.state !== 'done') {
     const cur = await ctx.read((t) => t.get('pocket', call.requestId))
     if (cur?.state === 'pending') await writeEntry(ctx, await pendingEntry(ctx, call, 'pending', { receipt: call.withdrawal.receipt }))
+    // The Hub owes the payout from the verified receipt on: the source is spent now, its token and any secret kept for the lookups.
+    await sourcesSpent(ctx, call)
   }
   if (call.state !== 'done') return
   const pending = await ctx.read((t) => t.get('pocket', call.requestId))
   if (pending === undefined || pending.state === 'done') return
   await writeEntry(ctx, await pendingEntry(ctx, call, 'done', { scrub: true }))
-  if (call.outcome === 'applied') {
-    for (const id of call.sources) {
-      if (id === call.created?.movedHoldingId) continue
-      const h = await ctx.read((t) => t.get('holdings', id))
-      if (h !== undefined) await writeEntry(ctx, await heldEntry(ctx, h, 'spent'))
-    }
+  if (call.outcome === 'applied') await sourcesSpent(ctx, call)
+}
+
+/** Writes a call's sources `spent` (not a bill moved in place), once each. */
+async function sourcesSpent(ctx: Ctx, call: PendingCall): Promise<void> {
+  for (const id of call.sources) {
+    if (id === call.created?.movedHoldingId) continue
+    const h = await ctx.read((t) => t.get('holdings', id))
+    if (h === undefined) continue
+    if ((await ctx.read((t) => t.get('pocket', h.walletPubkey)))?.state === 'spent') continue
+    await writeEntry(ctx, await heldEntry(ctx, h, 'spent'))
   }
 }
 

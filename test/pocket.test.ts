@@ -21,6 +21,7 @@ import {
 } from '../src/core/index.js'
 import { syncPocket } from '../src/adapters/sync-pocket.js'
 import { CashkitError } from '../src/wallet/index.js'
+import { FakeWithdraw, PAYTO } from './fakeWithdraw.js'
 import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
 
@@ -193,5 +194,23 @@ describe('the pocket engine: revs across devices', () => {
     await a.wallet.pocket.sync()
     expect((await a.wallet.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
     expect(await a.wallet.holdings()).toEqual([])
+  })
+})
+
+describe('the pocket engine: withdrawals', () => {
+  test('the source is written spent once the receipt checks out, while the withdrawal stays open', async () => {
+    const h = await withPocket()
+    const hub = new FakeWithdraw(h.bank)
+    const r = await h.wallet.receive(h.bank.mintToPubkey(21_000_000n, h.me).token)
+    const id = r.received ? r.holding.id : ''
+    const w = (await h.storage.tx('r', (t) => t.get('holdings', id)))!.walletPubkey
+    await h.wallet.pocket.sync()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: () => Promise.resolve(true) })
+    expect(v.state).toBe('queued')
+    expect(hub.payouts.size).toBe(1)
+    const entries = await h.wallet.pocket.entries()
+    expect(entries.find((e) => e.w === w)?.state).toBe('spent')
+    expect(entries.filter((e) => e.state === 'pending')).toHaveLength(1)
+    expect(await h.wallet.pocket.balance()).toEqual(new Map())
   })
 })
