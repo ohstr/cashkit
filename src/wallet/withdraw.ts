@@ -183,16 +183,27 @@ export async function withdrawTerms(ctx: Ctx, holdingId: string): Promise<Withdr
 }
 
 /**
+ * A bill held under a one-time merge key is not withdrawn: its lookups,
+ * cancel request and re-minted bill would all need that key. The merge it
+ * is part of (or its fallback to a cash note) finishes first.
+ */
+function refuseMidMerge(h: Holding): void {
+  if (h.throwawayKey !== undefined) throw new CashkitError('conflict', 'this bill is part of a merge that has not finished; settle() or the next send finishes it', { reason: 'mid_merge', input: h.id })
+}
+
+/**
  * Quotes a withdrawal of a whole bill to `address`. Refused locally before
  * any Hub contact: a malformed or mixed-case address, one with no witness
  * program, of a network this SDK knows is not the coin's, of a script type
  * the Hub does not pay, one of this wallet's own order addresses, a bill an
- * open call holds, or a cash note still shared with its sender. The answer
+ * open call holds, a bill in an unfinished merge, or a cash note still
+ * shared with its sender. The answer
  * is checked against what was asked (`quote_mismatch`). Nothing is written.
  */
 export async function quoteWithdrawal(ctx: Ctx, holdingId: string, rawAddress: string, o: { sendBefore?: number } = {}): Promise<WithdrawQuoteView> {
   const h = await getHeld(ctx, holdingId)
   if ((await lockedHoldings(ctx)).has(h.id)) throw new CashkitError('conflict', 'this bill is in a call that has not finished; settle() resolves it', { input: h.id })
+  refuseMidMerge(h)
   if (h.mode === 'cash' && h.protection === 'shared') throw new CashkitError('usage', 'protect this cash note first: its sender still holds its secret', { reason: 'protect_first', input: h.id })
   let address: string
   let st
@@ -271,6 +282,7 @@ export async function sendWithdrawal(ctx: Ctx, view: WithdrawQuoteView, o: { con
   const h = await getHeld(ctx, q.holding.id)
   if (h.expiresAt !== undefined && h.expiresAt - ctx.nowSeconds() <= 120) throw new CashkitError('invalid_input', 'this bill expires within two minutes: redeem it over Lightning', { reason: 'expiring' })
   if ((await lockedHoldings(ctx)).has(h.id)) throw new CashkitError('conflict', 'this bill is in a call that has not finished; settle() resolves it', { input: h.id })
+  refuseMidMerge(h)
   const session = await ctx.clientFor(h).session()
   if (!session.usableForBills) throw new CashkitError('internal', "this bill's Hub announces no usable max_request_age; nothing was sent", { reason: 'hub_unusable' })
   const slice = await sliceIdentity(ctx, h)

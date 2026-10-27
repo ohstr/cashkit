@@ -197,3 +197,14 @@ describe('wallet.withdraw', () => {
     expect(row).toMatchObject({ mode: 'cash', origin: 'reminted', amount: 5_000_000n })
   })
 })
+
+describe('wallet.withdraw: checks against what was confirmed', () => {
+  test('a bill held under a merge key is refused before any quote', async () => {
+    const { h, id } = await setup()
+    await h.storage.tx('rw', async (t) => {
+      const row = (await t.get('holdings', id))!
+      await t.put('holdings', { ...row, throwawayKey: { alg: 'none', data: toHex(fill(0x44, 32)) }, version: row.version + 1 }, row.version)
+    })
+    expect(await failure(h.wallet.withdraw.quote(id, PAYTO))).toMatchObject({ code: 'conflict', reason: 'mid_merge' })
+  })
+})
