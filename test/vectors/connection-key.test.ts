@@ -1,7 +1,6 @@
 // vectors/connection-key.json: NIP-IC ConnectionKeys and NIP-CW member
-// connection keys. Canonical user ids (typed input, `canonicalUserId`,
-// `legacy`, `idna_corpus`) need the canonicalization cashkit does not have
-// yet; only the hashing half of those cases runs here.
+// connection keys: the hashing half. Canonical user ids (`canonicalUserId`,
+// typed `kats`, `legacy`, `idna_corpus`) run in connection-key-idna.test.ts.
 import { describe, expect, test } from 'vitest'
 import { connectionKeyFromSecret, newConnectionKey } from '../../src/core/index.js'
 import { load, named, type Json } from './helpers.js'
