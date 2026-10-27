@@ -280,14 +280,14 @@
   `connectionKeyRefFromTyped` (x, discord, email, dns only),
   `connectionKeyFromAttestation`, `connectionKeyFromNConnection` or
   `connectionKeyRef`. `newConnectionKey`, `connectionKeyTarget` and
-  `resolvedConnectionKeyTarget` are removed (breaking).
+  `resolvedConnectionKeyTarget` are removed (breaking). ([#34](https://github.com/ohstr/cashkit/pull/34))
 - `parseTarget` hashes a typed `connection:` target only on x, discord,
   email and dns, in canonical form, and refuses any other platform with a
   hint to paste the recipient's `nconnection1`; an `nconnection1` without a
-  platform is refused for a send.
+  platform is refused for a send. ([#34](https://github.com/ohstr/cashkit/pull/34))
 - Adds NIP-IC connection verification: `resolveConnection` (client) and
   `evaluateConnection`, `parseIdentityConnection` (core), reporting
-  `verified`, `unverified` or `spoofed` per the Verification Model.
+  `verified`, `unverified` or `spoofed` per the Verification Model. ([#34](https://github.com/ohstr/cashkit/pull/34))
 
 ## [0.1.0-rc.2]
 
