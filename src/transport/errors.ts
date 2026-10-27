@@ -28,6 +28,7 @@ export type TransportErrorCode =
   | 'mixed_hubs'
   | 'method_not_servable'
   | 'pow_aborted'
+  | 'bad_cancel'
 
 /** Thrown by `transport`. Messages never carry params or secrets. */
 export class TransportError extends Error {

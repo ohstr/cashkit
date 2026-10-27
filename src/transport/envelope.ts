@@ -1,10 +1,11 @@
 // The private-transport envelope: many bill operations in one NIP-44
 // plaintext. Port of nmilat nipcash/transport/envelope.go. Encoding matches
-// Go's json.Marshal byte for byte; decoding drops a structurally bad item
-// rather than failing its co-items.
+// Go's json.Marshal byte for byte; decoding is structural and drops only an
+// item that is not well formed, never failing its co-items.
+import { isRequestId } from '../core/index.js'
 import { paramsHash } from './canonical.js'
 import { TransportError } from './errors.js'
-import { compactGo, decodeGo, goString, parseGo, unmarshalGo, type GoType } from './gojson.js'
+import { compactGo, decodeGo, goString, parseGo, unmarshalGo, type GoType, type JNode } from './gojson.js'
 import { MAX_ITEM_ID_BYTES, paddedSize, validateLimits, type Limits } from './limits.js'
 
 export const KIND_PRIVATE_REQUEST = 23190
@@ -79,19 +80,66 @@ export function isCancelRequest(i: Pick<Item, 'method' | 'params'>): boolean {
 }
 
 /**
- * Whether an item's authorization has a shape its method allows (NIP-CASH
- * §Bearer Items, §Serving an Envelope I8): never both `proof` and a
- * `cash_secret`; a proofless `cash_status` or `cash_withdraw_quote` carries
- * no secret (a cash-mode one passes on its bill proof alone); a proofless
- * value method carries the secret; a `cash_lookup` or a cancel request may
- * go either way; every other method needs `proof`.
+ * The method a Hub serves an item under (NIP-CASH §Cancelling a Payout): a
+ * `cash_withdraw` whose params carry `cancel` is a cancel request, served as
+ * the `cash_lookup` of that call; anything else is served as its own method.
+ * A malformed cancel (`cancel` not `true`, a field other than `cancel`,
+ * `request_id` and `cash_secret`, or no well-formed `request_id`) throws
+ * `bad_cancel`, which a Hub answers `BAD_REQUEST`.
+ */
+export function servingMethod(method: string, params: string | undefined): string {
+  if (method !== 'cash_withdraw') return method
+  let n: JNode
+  try {
+    n = parseGo(params ?? '')
+  } catch {
+    return method // not JSON: the withdraw's own parser refuses it
+  }
+  if (n.kind !== 'object') return method
+  const cancel = member(n, 'cancel')
+  if (cancel === undefined) return method
+  if (cancel.kind !== 'bool' || !cancel.value) throw new TransportError('bad_cancel', 'malformed cash_withdraw cancel request: cancel must be true')
+  for (const [k] of n.members) {
+    if (k !== 'cancel' && k !== 'request_id' && k !== 'cash_secret') {
+      throw new TransportError('bad_cancel', `malformed cash_withdraw cancel request: ${JSON.stringify(k)} is not allowed`)
+    }
+  }
+  const rid = member(n, 'request_id')
+  if (rid?.kind !== 'string' || !isRequestId(rid.value)) throw new TransportError('bad_cancel', 'malformed cash_withdraw cancel request: request_id')
+  return 'cash_lookup'
+}
+
+/**
+ * Whether an item's authorization has a shape the method it is served under
+ * allows (NIP-CASH §Bearer Items, §Serving an Envelope I8): never both
+ * `proof` and a `cash_secret`; a value method needs one of them; `cash_order`
+ * needs `proof`; a `cash_status` or `cash_withdraw_quote` carries no secret
+ * (a cash-mode one passes on its bill proof alone); any other method,
+ * `cash_lookup` and a cancel request included, may go either way. A
+ * malformed cancel request is never well shaped.
  */
 export function bearerShapeOK(method: string, params: string | undefined, hasProofField: boolean, hasSecret: boolean): boolean {
   if (hasProofField && hasSecret) return false
-  if (method === 'cash_status' || method === 'cash_withdraw_quote') return !hasSecret
-  if (method === 'cash_lookup' || isCancelRequest({ method, ...(params !== undefined && { params }) })) return true
-  if (method === 'cash_redeem' || method === 'cash_withdraw' || method === 'cash_transfer' || method === 'cash_consolidate') return hasProofField || hasSecret
-  return hasProofField
+  let serving: string
+  try {
+    serving = servingMethod(method, params)
+  } catch {
+    return false
+  }
+  switch (serving) {
+    case 'cash_redeem':
+    case 'cash_withdraw':
+    case 'cash_transfer':
+    case 'cash_consolidate':
+      return hasProofField || hasSecret
+    case 'cash_order':
+      return hasProofField
+    case 'cash_status':
+    case 'cash_withdraw_quote':
+      return !hasSecret
+    default:
+      return true
+  }
 }
 
 /** How many consolidate sources the params declare; 0 for other methods. */
@@ -156,8 +204,14 @@ function checkHeader(e: Envelope, limits: Limits): void {
   }
 }
 
-/** Items that pass, and those rejected: every item sharing an id, and repeats of an identical item. */
-function checkItems(e: Envelope, limits: Limits): { kept: Item[]; rejected: ItemRejection[] } {
+/**
+ * The Hub's per-item checks after a structural decode: an item with no id, a
+ * bad target, no method, params that are not JSON, an authorization its
+ * method does not allow or no bill proof is omitted, and so is every repeat
+ * of an identical item (the first is kept); `encodeEnvelope` also refuses
+ * items sharing an id. For a Hub (and the fake Hub).
+ */
+export function servableItems(e: Envelope, limits: Limits): { kept: Item[]; rejected: ItemRejection[] } {
   const idCount = new Map<string, number>()
   for (const it of e.items) idCount.set(it.id, (idCount.get(it.id) ?? 0) + 1)
   const seen = new Map<string, string>()
@@ -224,7 +278,7 @@ const PAD_FIELD_OVERHEAD = ',"pad":""'.length
 export function encodeEnvelope(e: Envelope, limits: Limits): string {
   validateLimits(limits)
   checkHeader(e, limits)
-  const { kept, rejected } = checkItems(e, limits)
+  const { kept, rejected } = servableItems(e, limits)
   if (rejected.length > 0) throw rejected[0]!.error
   checkRequestIds(kept)
   checkBudget(kept, limits)
@@ -239,14 +293,54 @@ export function encodeEnvelope(e: Envelope, limits: Limits): string {
 }
 
 const ITEM_TYPE: GoType = { object: { id: 'string', target: 'string', method: 'string', params: 'raw', proof: 'raw', bill_proof: 'raw' } }
-const ENVELOPE_TYPE: GoType = {
-  object: { not_after: 'int', nonce: 'string', reply_to: 'string', items: { array: ITEM_TYPE }, pad: 'string' },
+const ENVELOPE_TYPE: GoType = { object: { not_after: 'int', nonce: 'string', reply_to: 'string', items: { array: 'raw' } } }
+
+/** An object member by exact name, the last occurrence winning (Go's map decoding). */
+function member(n: JNode & { kind: 'object' }, name: string): JNode | undefined {
+  let found: JNode | undefined
+  for (const [k, v] of n.members) if (k === name) found = v
+  return found
 }
 
 /**
- * Parses and checks an envelope plaintext, as the Hub does. Structurally bad
- * items land in `rejected`; it throws only for an envelope-level fault, or
- * when no item survives (with that item's own error).
+ * An item's I1 shape: a JSON object with string `id`, `target` and `method`,
+ * and `params` absent, null or an object.
+ */
+function itemShapeOK(raw: string): boolean {
+  let n: JNode
+  try {
+    n = parseGo(raw)
+  } catch {
+    return false
+  }
+  if (n.kind !== 'object') return false
+  const field = (name: string) => member(n, name)
+  for (const name of ['id', 'target', 'method']) if (field(name)?.kind !== 'string') return false
+  const params = field('params')
+  return params === undefined || params.kind === 'null' || params.kind === 'object'
+}
+
+/** The string `id` of each raw item that carries one, for the uniqueness rule. */
+function rawItemId(raw: string): string | undefined {
+  try {
+    const n = parseGo(raw)
+    if (n.kind !== 'object') return undefined
+    const id = member(n, 'id')
+    return id?.kind === 'string' ? id.value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Parses an envelope plaintext structurally, as nmilat's `Decode` does: the
+ * size limit, the header, at least one and at most `maxItems` items, unique
+ * item ids (an envelope with two items sharing one is refused whole), and the
+ * verification budget over the items kept. An item that is not well formed,
+ * or that declares more consolidate sources than allowed, lands in
+ * `rejected`; every other item is kept, whatever its target, proofs or
+ * duplicates, for the Hub's per-item serving rules (`servableItems`) to
+ * judge.
  */
 export function decodeEnvelope(plaintext: string, limits: Limits): { envelope: Envelope; rejected: ItemRejection[] } {
   validateLimits(limits)
@@ -261,28 +355,56 @@ export function decodeEnvelope(plaintext: string, limits: Limits): { envelope: E
   }
   if (decoded.typeError) throw new TransportError('envelope_malformed', 'envelope field has the wrong type')
   const o = (decoded.value ?? {}) as Record<string, unknown>
-  const items = ((o['items'] as Record<string, unknown>[] | undefined) ?? []).map(
-    (it): Item => ({
-      id: (it['id'] as string | undefined) ?? '',
-      target: (it['target'] as string | undefined) ?? '',
-      method: (it['method'] as string | undefined) ?? '',
-      ...(it['params'] !== undefined && { params: it['params'] as string }),
-      ...(it['proof'] !== undefined && { proof: it['proof'] as string }),
-      ...(it['bill_proof'] !== undefined && { billProof: it['bill_proof'] as string }),
-    }),
-  )
-  const e: Envelope = {
+  const raws = (o['items'] as string[] | undefined) ?? []
+  const header: Envelope = {
     notAfter: Number((o['not_after'] as bigint | undefined) ?? 0n),
     nonce: (o['nonce'] as string | undefined) ?? '',
     replyTo: (o['reply_to'] as string | undefined) ?? '',
-    items,
+    items: [],
   }
-  checkHeader(e, limits)
-  const { kept, rejected } = checkItems(e, limits)
-  if (kept.length === 0) throw rejected[0]!.error
-  checkBudget(kept, limits)
-  return { envelope: { ...e, items: kept }, rejected }
+  if (!isLowerHex64(header.nonce)) throw new TransportError('envelope_malformed', 'nonce must be 64 lowercase hex characters')
+  if (!isLowerHex64(header.replyTo)) throw new TransportError('envelope_malformed', 'reply_to must be 64 lowercase hex characters')
+  if (raws.length === 0) throw new TransportError('envelope_no_items', 'envelope carries no items')
+  if (raws.length > limits.maxItems) throw new TransportError('too_many_items', `${raws.length} items, limit ${limits.maxItems}`)
+  const ids = new Set<string>()
+  for (const raw of raws) {
+    const id = rawItemId(raw)
+    if (id === undefined) continue
+    if (ids.has(id)) throw new TransportError('duplicate_item_id', 'two items share an id')
+    ids.add(id)
+  }
+  const items: Item[] = []
+  const rejected: ItemRejection[] = []
+  raws.forEach((raw, index) => {
+    if (!itemShapeOK(raw)) {
+      rejected.push({ index, error: new TransportError('envelope_malformed', `item ${index} is not well formed`) })
+      return
+    }
+    const { value, typeError } = unmarshalGo(raw, ITEM_TYPE)
+    if (typeError) {
+      rejected.push({ index, error: new TransportError('envelope_malformed', `item ${index} field has the wrong type`) })
+      return
+    }
+    const it = value as Record<string, string | undefined>
+    const item: Item = {
+      id: it['id'] ?? '',
+      target: it['target'] ?? '',
+      method: it['method'] ?? '',
+      ...(it['params'] !== undefined && { params: it['params'] }),
+      ...(it['proof'] !== undefined && { proof: it['proof'] }),
+      ...(it['bill_proof'] !== undefined && { billProof: it['bill_proof'] }),
+    }
+    const sources = sourceCount(item)
+    if (sources > limits.maxConsolidateSources) {
+      rejected.push({ index, error: new TransportError('too_many_items', `item ${index} declares ${sources} sources, limit ${limits.maxConsolidateSources}`) })
+      return
+    }
+    items.push(item)
+  })
+  checkBudget(items, limits)
+  return { envelope: { ...header, items }, rejected }
 }
+
 
 /**
  * The Hub's freshness rule (NIP-CASH §Envelopes): an envelope past its

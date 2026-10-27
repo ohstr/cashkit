@@ -10,6 +10,7 @@ import {
   buildItemProof,
   conversationKeyFor,
   decodeEnvelope,
+  servableItems,
   decodeResponse,
   DEFAULT_LIMITS,
   deriveReplyKey,
@@ -128,12 +129,20 @@ describe('envelope (envelope_test.go, padding tests)', () => {
     const b = { ...a, id: 'other', params: '{ "scope" : "mine" }' }
     expect(() => encodeEnvelope(envelope([a, b]), DEFAULT_LIMITS)).toThrow(/identical/)
   })
-  test('decode drops a forged item but serves its co-items', async () => {
+  test('decode is structural; the serving check drops a forged item but serves its co-items', async () => {
     const good = await item(0)
-    const text = encodeEnvelope(envelope([good]), DEFAULT_LIMITS).replace('"items":[', `"items":[{"id":"bad","target":"nope","method":"cash_status","bill_proof":{}},`)
+    const text = encodeEnvelope(envelope([good]), DEFAULT_LIMITS).replace('"items":[', `"items":[{"id":"bad","target":"nope","method":"cash_status","bill_proof":{}},{"id":7},`)
     const { envelope: e, rejected } = decodeEnvelope(text, DEFAULT_LIMITS)
-    expect(e.items.map((i) => i.id)).toEqual(['i0'])
-    expect(rejected.map((r) => r.index)).toEqual([0])
+    expect(e.items.map((i) => i.id)).toEqual(['bad', 'i0'])
+    expect(rejected.map((r) => r.index)).toEqual([1])
+    const served = servableItems(e, DEFAULT_LIMITS)
+    expect(served.kept.map((i) => i.id)).toEqual(['i0'])
+    expect(served.rejected.map((r) => r.index)).toEqual([0])
+  })
+  test('decode refuses an envelope whose items share an id', async () => {
+    const good = await item(0)
+    const text = encodeEnvelope(envelope([good]), DEFAULT_LIMITS).replace('"items":[', `"items":[{"id":"i0","target":"nope","method":"x"},`)
+    expect(() => decodeEnvelope(text, DEFAULT_LIMITS)).toThrow(expect.objectContaining({ code: 'duplicate_item_id' }))
   })
   test('newNonce is 64 lowercase hex and fresh', () => {
     expect(newNonce()).toMatch(/^[0-9a-f]{64}$/)

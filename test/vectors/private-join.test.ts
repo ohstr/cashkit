@@ -13,11 +13,6 @@ const v = load('private-join.json')
 // The requester's key: 4d4b6cd1… is the pubkey of 0x02 repeated.
 const requester = () => localSigner(fromHex('02'.repeat(32)))
 const binding = { hub: v.node, nonce: v.nonce, notAfter: v.notAfter }
-const MISMATCH = new Set([
-  'full: a second Item of the same prepared join', // nmilat refuses a prepared join used twice; cashkit builds a second item from it
-  "the Hub's defaults: a second Item of the same prepared join", // same: cashkit does not mark a prepared join as used
-  'lookup without a deadline', // nmilat refuses deadline 0; cashkit's cashLookupParams accepts any deadline >= 0
-])
 
 // An item as the vector writes it: params parsed (identity_event with `valid`), proofs as kind, pubkey and tags with ph elided.
 function shown(it: Item): Json {
@@ -53,7 +48,6 @@ async function build(c: Json): Promise<Item[]> {
 
 describe('private-join.json', () => {
   test.each(named(v.build))('build: %s', async (_: string, c: Json) => {
-    if (MISMATCH.has(c.name)) return
     if (c.error) {
       await expect(build(c)).rejects.toThrow()
       return

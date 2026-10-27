@@ -36,7 +36,10 @@ describe('parseTarget', () => {
     const t = await parseTarget(`connection:discord:80351110224678912:${IA}`)
     expect(t.target).toEqual({ identityType: 'connection_key', identityValue: '22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d', iaPubkey: IA })
     expect(t.display).toBe('discord connection')
-    expect(await code(parseTarget('connection:discord:alice'))).toBe('invalid_input')
+    expect(await code(parseTarget('connection:discord:123456789'))).toBe('invalid_input')
+    // Typed input is hashed only in a canonical platform's canonical form.
+    expect(await code(parseTarget(`connection:discord:alice:${IA}`))).toBe('invalid_input')
+    expect(await code(parseTarget(`connection:github:12345:${IA}`))).toBe('invalid_input')
   })
   test('T-1808 a typed connection is hashed only in its canonical form, on a canonical platform', async () => {
     const dns = await parseTarget(`connection:dns:BüCHER.example:${IA}`)

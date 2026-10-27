@@ -7,9 +7,6 @@ import { load, named, type Json } from './helpers.js'
 
 const file = load('nip44.json')
 const v = file.v2
-// The extended prefix lets cashkit encrypt these lengths, which the file lists
-// as invalid (and records as a divergence of nmilat from cashkit).
-const MISMATCH = new Set([65536, 100000, 10000000])
 
 describe('nip44.json', () => {
   test('records what nmilat checks and where it diverges', () => {
@@ -35,7 +32,7 @@ describe('nip44.json', () => {
     expect(toHex(sha256(new TextEncoder().encode(payload)))).toBe(c.payload_sha256)
     expect(nip44.decrypt(payload, fromHex(c.conversation_key))).toBe(plaintext)
   })
-  test.each((v.invalid.encrypt_msg_lengths as number[]).filter((n) => !MISMATCH.has(n)))('refuses to encrypt %i bytes', (len: number) => {
+  test.each((v.invalid.encrypt_msg_lengths as number[]))('refuses to encrypt %i bytes', (len: number) => {
     expect(() => nip44.encrypt('a'.repeat(len), new Uint8Array(32).fill(1))).toThrow()
   })
   test.each(named(v.invalid.decrypt, (c) => c.note))('refuses to decrypt: %s', (_: string, c: Json) => {

@@ -104,6 +104,18 @@ export interface CashRedeemResult {
   readonly feesPaid: bigint
 }
 
+/** Whether a `cash_secret` or `secret` key appears anywhere in a parsed reply. */
+function carriesSecret(v: unknown): boolean {
+  if (Array.isArray(v)) return v.some(carriesSecret)
+  if (v === null || typeof v !== 'object') return false
+  return Object.entries(v).some(([k, x]) => k === 'cash_secret' || k === 'secret' || carriesSecret(x))
+}
+
+/** A Hub never returns a secret: a reply carrying one anywhere is refused. */
+function refuseSecrets(o: Record<string, unknown>, method: string): void {
+  if (carriesSecret(o)) throw bad(`${method}: the Hub's reply carries a cash secret`)
+}
+
 export function parseCashRedeemResult(result: unknown): CashRedeemResult {
   const o = asObject(result, 'cash_redeem result')
   const preimage = o['preimage']
@@ -132,6 +144,7 @@ export interface CashTransferResult {
 /** Parses a cash_transfer result, decrypting delivered tokens with `credential`. */
 export async function parseCashTransferResult(result: unknown, credential: Credential): Promise<CashTransferResult> {
   const o = asObject(result, 'cash_transfer result')
+  refuseSecrets(o, 'cash_transfer')
   const w = 'cash_transfer'
   const newWalletPubkey = str(o, 'new_wallet_pubkey', w)
   const remainderWalletPubkey = str(o, 'remainder_wallet_pubkey', w)
@@ -180,6 +193,7 @@ export async function parseCashConsolidateResult(
   p: { readonly sources: readonly ConsolidateSource[]; readonly to: Target },
 ): Promise<CashConsolidateResult> {
   const o = asObject(result, 'cash_consolidate result')
+  refuseSecrets(o, 'cash_consolidate')
   const w = 'cash_consolidate'
   const newWalletPubkey = str(o, 'new_wallet_pubkey', w)
   const token = str(o, 'new_wallet_token', w)

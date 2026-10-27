@@ -246,6 +246,35 @@
 - `derivedRequestId` refuses an id that is not a request id; adds
   `requiresRequestId`. ([#31](https://github.com/ohstr/cashkit/pull/31))
 - `connectionKeyFromSecret` refuses uppercase hex. ([#31](https://github.com/ohstr/cashkit/pull/31))
+- Breaking: `decodeEnvelope` is structural, as nmilat's: items sharing an
+  id refuse the envelope and only a malformed item is dropped;
+  `servableItems` applies the per-item serving checks. `decodeResponse` is
+  now the strict single-event reading; the lenient chunk reading the session
+  uses is `decodeResponseChunk`. Responses write `results` last (`[]` for a
+  reply of omissions) and pad under the 65535 ceiling.
+- `servingMethod` classifies a `cash_withdraw` cancel (served as
+  `cash_lookup`) and refuses a malformed one; `bearerShapeOK` judges the
+  served method.
+- A proof verifies only with an `expiration` equal to the envelope's
+  `not_after`, empty content and hex `d`, `h` and `ph`.
+- Breaking: an announced `max_bytes` above 65535 is kept as announced;
+  `effectiveLimits` reads it as 65535, and envelopes are sized against that.
+- Breaking: NIP-44 plaintexts are capped at 65535 bytes; the extended length
+  prefix is gone.
+- `parsePowRejection` reads the difficulty from any `pow:` refusal naming a
+  positive integer (`pow:20`).
+- `cashLookupParams` refuses a deadline of 0.
+- A prepared join builds one item only (`claimPreparedJoin`,
+  `preparedJoinUsed`).
+- `parseAttestation` is strict: repeated tags, non-empty content, non-hex
+  `d` or `p`, an invalid platform name, a malformed `expiration` and evidence
+  that is not version 1 with an `auth_type` (and, for `public_post`, its
+  proof fields) are refused.
+- A `cash_transfer` or `cash_consolidate` reply carrying a secret is
+  refused.
+- Adds `ownRow` (the caller's row, taken from the credential, a widened
+  scope-mine answer refused) and `claimable` (claimed, withdrawn or expired).
+  ([#33](https://github.com/ohstr/cashkit/pull/33))
 - A NIP-IC ConnectionKey now always travels with its IA: targets are built
   with `connectionTarget(ref)` from a `ConnectionKeyRef` made by
   `connectionKeyRefFromTyped` (x, discord, email, dns only),
@@ -256,10 +285,6 @@
   email and dns, in canonical form, and refuses any other platform with a
   hint to paste the recipient's `nconnection1`; an `nconnection1` without a
   platform is refused for a send.
-- `parseAttestation` follows NIP-IC strictly: a repeated tag, a malformed
-  `expiration`, `d`/`p` that are not lowercase hex, a bad platform name, a
-  non-empty `content` and evidence that is not version 1 with an
-  `auth_type` are refused (breaking).
 - Adds NIP-IC connection verification: `resolveConnection` (client) and
   `evaluateConnection`, `parseIdentityConnection` (core), reporting
   `verified`, `unverified` or `spoofed` per the Verification Model.

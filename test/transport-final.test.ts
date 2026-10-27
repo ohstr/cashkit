@@ -15,6 +15,8 @@ import {
   checkFreshness,
   conversationKeyFor,
   decodeResponse,
+  decodeResponseChunk,
+  effectiveLimits,
   DEFAULT_LIMITS,
   encodeEnvelope,
   encodeResponse,
@@ -100,9 +102,11 @@ describe('T-302 the tag-form announcement', () => {
     const tags = [...nipExample().filter((t) => t[1] !== 'max_request_age'), ['limit', 'max_request_age', 'soon']]
     expect(() => parseAnnouncement(announce(tags), NODE)).toThrow()
   })
-  test('max_bytes 70000 reads as 65535, the NIP-44 ceiling', () => {
+  test('max_bytes 70000 is kept as announced and sized as 65535, the NIP-44 ceiling', () => {
     const tags = nipExample().map((t) => (t[1] === 'max_bytes' ? ['limit', 'max_bytes', '70000'] : t))
-    expect(parseAnnouncement(announce(tags), NODE).limits.maxEnvelopeBytes).toBe(65535)
+    const a = parseAnnouncement(announce(tags), NODE)
+    expect(a.limits.maxEnvelopeBytes).toBe(70000)
+    expect(effectiveLimits(a).maxEnvelopeBytes).toBe(65535)
   })
   test('addr forms: IPv4, bracketed IPv6, onion; a port out of range or a hostname is dropped', () => {
     for (const ok of ['192.0.2.1:9735', '[2001:db8::1]:9735', ONION]) expect(validAddr(ok)).toBe(true)
@@ -137,7 +141,8 @@ describe('T-301 / T-314 servable methods and bearer shapes', () => {
     ['quote with proof and secret', 'cash_withdraw_quote', undefined, true, true, false],
     ['bearer withdraw', 'cash_withdraw', '{}', false, true, true],
     ['withdraw with neither', 'cash_withdraw', '{}', false, false, false],
-    ['cancel request, bearer without secret (as a lookup)', 'cash_withdraw', '{"cancel":true}', false, false, true],
+    ['cancel request, bearer without secret (as a lookup)', 'cash_withdraw', '{"cancel":true,"request_id":"00112233445566778899aabbccddeeff"}', false, false, true],
+    ['a malformed cancel request is never well shaped', 'cash_withdraw', '{"cancel":true}', true, false, false],
     ['bearer lookup without secret', 'cash_lookup', undefined, false, false, true],
     ['bearer lookup with secret', 'cash_lookup', undefined, false, true, true],
     ['redeem by secret', 'cash_redeem', undefined, false, true, true],
@@ -235,24 +240,34 @@ describe('T-1805 freshness by max_request_age', () => {
 const plain = (o: object) => JSON.stringify({ req_nonce: NONCE, seq: 1, total: 1, ...o })
 
 describe('T-308 / T-315 response chunks', () => {
+  test('the strict single-event decoder refuses what the chunk decoder reports', () => {
+    const cases = [
+      plain({ results: [{ id: 'x', result: {} }, { id: '1', result: {} }] }),
+      plain({ results: [{ id: '1', result: {} }, { id: '1', result: {} }] }),
+      plain({ results: [{ id: '1', result: {}, error: { code: 'X' } }] }),
+      JSON.stringify({ req_nonce: NONCE, seq: 0, total: 2, results: [] }),
+    ]
+    for (const text of cases) expect(() => decodeResponse(text, NONCE, ['1'], DEFAULT_LIMITS)).toThrow()
+    expect(decodeResponse(plain({ results: [{ id: '1', result: null, error: { code: 'X' } }] }), NONCE, ['1'], DEFAULT_LIMITS).results).toHaveLength(1)
+  })
   test('an unknown id is dropped and reported; the others keep their outcome', () => {
-    const r = decodeResponse(plain({ results: [{ id: 'x', result: {} }, { id: '1', result: {} }] }), NONCE, ['1'], DEFAULT_LIMITS)
+    const r = decodeResponseChunk(plain({ results: [{ id: 'x', result: {} }, { id: '1', result: {} }] }), NONCE, ['1'], DEFAULT_LIMITS)
     expect(r.results.map((x) => x.id)).toEqual(['1'])
     expect(r.unknownIds).toEqual(['x'])
   })
   test('an id answered twice, or with a result and an error, has no outcome', () => {
-    const r = decodeResponse(plain({ results: [{ id: '1', result: {} }, { id: '1', result: {} }, { id: '2', result: {}, error: { code: 'X' } }, { id: '3', result: {} }] }), NONCE, ['1', '2', '3'], DEFAULT_LIMITS)
+    const r = decodeResponseChunk(plain({ results: [{ id: '1', result: {} }, { id: '1', result: {} }, { id: '2', result: {}, error: { code: 'X' } }, { id: '3', result: {} }] }), NONCE, ['1', '2', '3'], DEFAULT_LIMITS)
     expect(r.results.map((x) => x.id)).toEqual(['3'])
     expect(r.conflictedIds).toEqual(['1', '2'])
   })
   test('every result a duplicate, plus an envelope error: nothing decided, the error kept', () => {
-    const r = decodeResponse(plain({ results: [{ id: '1', result: {} }, { id: '1', error: { code: 'X' } }], error: { code: 'QUOTA_EXCEEDED' } }), NONCE, ['1'], DEFAULT_LIMITS)
+    const r = decodeResponseChunk(plain({ results: [{ id: '1', result: {} }, { id: '1', error: { code: 'X' } }], error: { code: 'QUOTA_EXCEEDED' } }), NONCE, ['1'], DEFAULT_LIMITS)
     expect(r.results).toEqual([])
     expect(r.error?.code).toBe('QUOTA_EXCEEDED')
   })
   test('seq 0 or above total is flagged malformed, results kept', () => {
     for (const [seq, total] of [[0, 2], [3, 2]]) {
-      const r = decodeResponse(JSON.stringify({ req_nonce: NONCE, seq, total, results: [{ id: '1', result: {} }] }), NONCE, ['1'], DEFAULT_LIMITS)
+      const r = decodeResponseChunk(JSON.stringify({ req_nonce: NONCE, seq, total, results: [{ id: '1', result: {} }] }), NONCE, ['1'], DEFAULT_LIMITS)
       expect(r.malformedSeq).toBe(true)
       expect(r.results).toHaveLength(1)
     }

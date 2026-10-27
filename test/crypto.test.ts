@@ -49,30 +49,24 @@ describe('nip44', () => {
     const ck = nip44.getConversationKey(a, pub(b))
     expect(() => nip44.encrypt('', ck)).toThrow(CoreError)
   })
-  // Current NIP-44: from 65536 bytes the length goes in an extended prefix
-  // (two zero bytes, then a u32). Pinned against nostr-tools 2.24.1 with a
-  // fixed key and nonce (sha256 of the payload).
-  test.each([
-    [65535, 'a', 87472, '6d8c2810d1e870fbaa1f0a0937126cca837a15f9260e27060c331d70a3c0bc84'],
-    [65536, 'a', 87476, 'b7b4edb36ba92e267d322d56d9aebc22e7fa96ff52e3c12adc07f07a43cbc616'],
-    [100000, 'b', 153012, '4f8c443b8117abbd206f817ee294cd8c4f7af12cf08b4c0067e3b94d11e2e6b9'],
-  ])('%i bytes match nostr-tools byte for byte and round-trip', (len, ch, payloadLen, digest) => {
+  // NIP-44 v2 caps a plaintext at 65535 bytes (a u16 length prefix). Pinned
+  // against nostr-tools 2.24.1 with a fixed key and nonce (sha256 of the payload).
+  test('65535 bytes match nostr-tools byte for byte and round-trip; 65536 is refused', () => {
     const ck = fromHex('c41c775356fd92eadc63ff5a0dc1da211b268cbea22316767095b2871ea1412d')
     const nonce = fromHex('00'.repeat(31) + '01')
-    const pt = ch.repeat(len)
+    const pt = 'a'.repeat(65535)
     const payload = nip44.encrypt(pt, ck, nonce)
-    expect(payload.length).toBe(payloadLen)
-    expect(toHex(sha256(utf8(payload)))).toBe(digest)
+    expect(payload.length).toBe(87472)
+    expect(toHex(sha256(utf8(payload)))).toBe('6d8c2810d1e870fbaa1f0a0937126cca837a15f9260e27060c331d70a3c0bc84')
     expect(nip44.decrypt(payload, ck)).toBe(pt)
+    expect(() => nip44.encrypt('a'.repeat(65536), ck, nonce)).toThrow(CoreError)
   })
-  test('an extended prefix carrying a length below 65536 is refused', () => {
-    // Seal by hand a block whose prefix says "extended, 40 bytes": valid MAC, bad framing.
+  test('a zero length prefix is refused', () => {
+    // Seal by hand a block whose u16 prefix is 0: valid MAC, bad framing.
     const ck = nip44.getConversationKey(a, pub(b))
     const nonce = new Uint8Array(32).fill(3)
     const keys = hkdfExpand(sha256, ck, nonce, 76)
-    const block = new Uint8Array(6 + nip44.calcPaddedLen(40))
-    new DataView(block.buffer).setUint32(2, 40)
-    block.set(utf8('x'.repeat(40)), 6)
+    const block = new Uint8Array(2 + 32)
     const ct = chacha20(keys.subarray(0, 32), keys.subarray(32, 44), block)
     const mac = hmac(sha256, keys.subarray(44, 76), concatBytes(nonce, ct))
     const payload = base64.encode(concatBytes(Uint8Array.of(2), nonce, ct, mac))

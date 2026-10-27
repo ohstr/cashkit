@@ -5,8 +5,6 @@ import { isPowRejection, MAX_POW_AHEAD, mineNonce, parsePowRejection } from '../
 import { load, named, type Json } from './helpers.js'
 
 const v = load('pow.json')
-// "pow:20": nmilat reads 20; cashkit reads a difficulty only from "pow: difficulty <n> required" (then re-reads NIP-11).
-const MISMATCH = new Set(['pow:20'])
 
 describe('pow.json', () => {
   test.each(named(v.difficulty, (c) => c.id ?? c.eventId))('difficulty of %s', (_: string, c: Json) => {
@@ -15,7 +13,7 @@ describe('pow.json', () => {
   })
   test.each(named(v.parseRejection, (c) => JSON.stringify(c.message)))('rejection %s', (_: string, c: Json) => {
     expect(isPowRejection(c.message)).toBe(c.powRefusal)
-    if (!MISMATCH.has(c.message)) expect(parsePowRejection(c.message) ?? 0).toBe(c.difficulty)
+    expect(parsePowRejection(c.message) ?? 0).toBe(c.difficulty)
   })
   test('the nonce and expiration tags: the example is the nonce mined to its target', async () => {
     const ex = v.tags.example

@@ -3,7 +3,8 @@
 // batch_send}.go.
 import { nip44, requiresRequestId } from '../core/index.js'
 import {
-  decodeResponse,
+  decodeResponseChunk,
+  effectiveLimits,
   deriveReplyKey,
   hubUsableForBills,
   isPowRejection,
@@ -142,7 +143,7 @@ export class BatchSession {
   }
 
   get limits(): Limits {
-    return this.announcement!.limits
+    return effectiveLimits(this.announcement!)
   }
 
   /** The key envelopes are encrypted and p-tagged to. Not the Hub identity. */
@@ -434,7 +435,7 @@ export class BatchSession {
       }
       let chunk
       try {
-        chunk = decodeResponse(plaintext, p.envelope.nonce, p.ids, this.limits)
+        chunk = decodeResponseChunk(plaintext, p.envelope.nonce, p.ids, this.limits)
       } catch {
         continue // another request's reply, or unreadable: not a chunk of this one
       }

@@ -247,9 +247,9 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
     dialled.
 - **NIP-47 messages and pairing URI**, and **NIP-CW** `create_circle_wallet`
   request/response, including decrypting `encrypted_details`.
-- **NIP-44 plaintext length.** 1 to 2^32−1 bytes, with the extended length
-  prefix from 65536, as current NIP-44 and nmilat; an empty plaintext is
-  refused (`nip44.json`).
+- **NIP-44 plaintext length.** 1 to 65535 bytes behind the u16 length
+  prefix, the same ceiling as the cash transport's; an empty plaintext and
+  anything longer are refused (`nip44.json`).
 - **Units.** Amounts are `bigint` millis everywhere, never `number`. The
   display unit comes from the token's HRP (`lokicash` → loki, `satscash` →
   sat, with 1 unit = 1000 millis).
@@ -268,13 +268,22 @@ here).
   - 23190 request, 23191 response
   - 23192 item proof, 23193 bill proof
   - 11190 Hub announcement
-- **Bearer shapes** (`bearerShapeOK`): never both `proof` and a
-  `cash_secret`; a proofless `cash_status` or `cash_withdraw_quote` carries
-  no secret (a cash-mode one passes on its bill proof alone, so the client
-  checks a cash secret against the row's commitment instead); a proofless
-  value method carries the secret; a `cash_lookup` or a withdraw cancel
-  request may go either way; every other method needs `proof`. Two items of
-  one envelope never carry the same `request_id`.
+- **Bearer shapes** (`bearerShapeOK`), judged on the method an item is
+  served under (`servingMethod`: a `cash_withdraw` cancel is served as
+  `cash_lookup`, and a malformed cancel is refused `bad_cancel`): never both
+  `proof` and a `cash_secret`; a value method needs one of them;
+  `cash_order` needs `proof`; a `cash_status` or `cash_withdraw_quote`
+  carries no secret (a cash-mode one passes on its bill proof alone, so the
+  client checks a cash secret against the row's commitment instead); any
+  other method may go either way. Two items of one envelope never carry the
+  same `request_id`.
+- **Decoding an envelope** (`decodeEnvelope`, the Hub's side) is structural,
+  as nmilat's: the size limit, the header, 1 to `max_items` items, unique
+  item ids (two items sharing one refuse the envelope), and the budget over
+  the items kept. Only an item that is not well formed, or declares too many
+  consolidate sources, is dropped; `servableItems` then applies the per-item
+  serving checks (target, method, params, bearer shape, bill proof, an
+  identical item repeated).
 - **Verification budget** (`verificationCost`): the bill proof, the item
   proof when present, and every signed event in params (`identity_event`,
   `attestation_event`, `quote`, each source's events); a cash secret costs
@@ -299,7 +308,8 @@ here).
     compare them directly.
 - **Limits.**
   - An announced bucket is at least 2 KiB, and NIP-44 plaintext is at most
-    65535 bytes (an announced `max_bytes` above it reads as 65535).
+    65535 bytes: an announced `max_bytes` above it is kept as announced and
+    read as 65535 for sizing (`effectiveLimits`).
 - **Request wrap.**
   - A fresh ephemeral key signs the event: kind 23190, `["p", inbox]`, and a
     randomized `created_at` up to 2 days in the past.
@@ -315,12 +325,18 @@ here).
     `"nipcash-reply-v1" || reply_to hex`, L = 32.
   - The response (kind 23191, p-tagged `reply_to`) is NIP-44 v2 encrypted
     with that key used directly as the conversation key.
-- **Responses.** `decodeResponse` rejects a chunk only for a `req_nonce`
-  mismatch. An unknown id is dropped (`unknownIds`), an id answered twice or
-  with both a result and an error has no outcome (`conflictedIds`), a `seq`
-  outside 1 to `total` is flagged (`malformedSeq`); errors keep their
-  `detail`.
-- **Proof freshness** is 5 min in the past and 1 min in the future on
+- **Responses.** Written with `results` last (`[]` for a reply of
+  omissions), padded to the Hub's bucket under the 65535 ceiling.
+  `decodeResponseChunk`, which the session uses, rejects a chunk only for
+  bad JSON, a `req_nonce` mismatch or a plaintext over 65535 bytes: an
+  unknown id is dropped (`unknownIds`), an id answered twice or with both a
+  result and an error has no outcome (`conflictedIds`), a `seq` outside 1 to
+  `total` is flagged (`malformedSeq`); errors keep their `detail`.
+  `decodeResponse` is the strict single-event reading, refusing each of
+  those instead.
+- **Proofs** carry `d`, `h`, `m`, `ph`, `en` and an `expiration` equal to
+  the envelope's `not_after`, each once, with empty content; verification
+  checks every one. Freshness is 5 min in the past and 1 min in the future on
   `created_at`. A Hub accepts a `not_after` up to its own `max_request_age`
   ahead (`checkFreshness`, used by the fake Hub).
 - **Announcement** (tags, `content` empty).

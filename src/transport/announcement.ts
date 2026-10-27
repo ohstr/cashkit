@@ -16,6 +16,7 @@ export const MIN_REQUEST_AGE = 60
 export interface Announcement {
   /** x-only pubkey clients encrypt envelopes to and p-tag; may equal the author. */
   readonly inbox: string
+  /** As announced; `effectiveLimits` is what envelopes are sized against. */
   readonly limits: Limits
   /** `max_request_age` (H), in seconds; absent when the Hub announces none. */
   readonly maxRequestAge?: number
@@ -57,14 +58,23 @@ export function validAddr(s: string): boolean {
   return parts.length === 4 && parts.every((p) => /^(?:0|[1-9][0-9]{0,2})$/.test(p) && Number(p) <= 255)
 }
 
+const clampToCeiling = (l: Limits): Limits => ({ ...l, maxEnvelopeBytes: Math.min(l.maxEnvelopeBytes, MAX_NIP44_PLAINTEXT) })
+
+/**
+ * The limits a client sizes envelopes against: the announced ones, with
+ * `max_bytes` read as NIP-44's 65535 when announced larger (never a reason to
+ * reject the announcement).
+ */
+export const effectiveLimits = (a: Pick<Announcement, 'limits'>): Limits => clampToCeiling(a.limits)
+
 const malformed = (msg: string) => new TransportError('announcement_malformed', msg)
 
 /**
  * Verifies an announcement against the node key it must come from and reads
  * its tags. Rejects no or two `inbox`, two `limit` tags of one name, and a
  * malformed `inbox`, `limit` or `r`; ignores unknown tags, unknown limits and
- * a malformed `addr`; never reads `content`. A `max_bytes` above 65535 reads
- * as 65535. Every envelope limit must be present (there are no defaults);
+ * a malformed `addr`; never reads `content`. A `max_bytes` above 65535 is
+ * kept as announced and read as 65535 for sizing (`effectiveLimits`). Every envelope limit must be present (there are no defaults);
  * `max_request_age` may be missing or below 60, which leaves the Hub usable
  * for reads and redeems only (`hubUsableForBills`).
  */
@@ -115,14 +125,14 @@ export function parseAnnouncement(ev: NostrEvent, expectedNode: string): Announc
     return v
   }
   const l: Limits = {
-    maxEnvelopeBytes: Math.min(need('max_bytes'), MAX_NIP44_PLAINTEXT),
+    maxEnvelopeBytes: need('max_bytes'),
     maxItems: need('max_items'),
     maxConsolidateSources: need('max_consolidate_sources'),
     padBucketBytes: need('pad_bucket_bytes'),
     maxVerifyBudget: need('max_verify_budget'),
   }
   try {
-    validateAnnouncedLimits(l)
+    validateAnnouncedLimits(clampToCeiling(l))
   } catch (err) {
     throw malformed(`announced limits are unusable: ${(err as Error).message}`)
   }

@@ -168,6 +168,8 @@ export {
   type JoinTerms,
   type MemberAction,
   type PreparedJoin,
+  claimPreparedJoin,
+  preparedJoinUsed,
   type Renewal,
 } from './nipcw.js'
 export {
@@ -204,6 +206,9 @@ export {
   KIND_CLAIM_PROOF,
   matchClaim,
   matchClaimAuto,
+  claimable,
+  ownRow,
+  type RosterRow,
   NO_LOCAL_IDENTITY,
   type CashConsolidateRequest,
   type CashRedeemRequest,

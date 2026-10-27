@@ -2,7 +2,7 @@
 // Check of the attestations they reference. Port of nmilat nipIC
 // identity_connection.go ParseIdentityConnection and evaluate.go Evaluate.
 // The relay reads are behind `AttestationSource`; nothing here does I/O.
-import { parseAttestation, singleTags, type Attestation } from './attestation.js'
+import { parseAttestation, type Attestation } from './attestation.js'
 import { CoreError } from './errors.js'
 import { decodeGoStruct, parseGoJSON } from './gojson.js'
 import { validPlatformName } from './idna.js'
@@ -31,6 +31,17 @@ export interface IdentityConnection {
 
 const HEX64 = /^[0-9a-f]{64}$/
 const bad = (msg: string) => new CoreError('invalid_payload', msg)
+
+/** The listed tags with a value, each at most once (a repeated one is refused). */
+function singleTags(event: NostrEvent, names: readonly string[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const tag of event.tags) {
+    if (tag.length < 2 || !names.includes(tag[0]!)) continue
+    if (out.has(tag[0]!)) throw bad(`nipIC: invalid tag: ${JSON.stringify(tag[0])} tag repeated`)
+    out.set(tag[0]!, tag[1]!)
+  }
+  return out
+}
 
 /**
  * Parses a Kind 35521: kind, signature, `d` once as a bare ConnectionKey (64
