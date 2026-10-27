@@ -360,6 +360,8 @@ export interface PendingCall {
   readonly order?: OrderRecord
   /** A zap transfer: the signed kind-9522 event, once built and published. */
   readonly zapEvent?: string
+  /** A zap transfer: at least one relay accepted its 9522. Until then settle() publishes it again. */
+  readonly zapPublished?: boolean
   /** A `cash_withdraw` call: the payout as last read; the address, receipt and transaction only until it ends. */
   readonly withdrawal?: WithdrawalRecord
   /** ms epoch. */

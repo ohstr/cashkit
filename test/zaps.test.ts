@@ -134,3 +134,20 @@ describe('wallet.zaps', () => {
     expect(await failure(alice.wallet.zaps.send({ to: bob.me, amountMillis: 1n, relays: [SOCIAL] }))).toMatchObject({ reason: 'no_zap_bill' })
   })
 })
+
+describe('wallet.zaps: the 9522 is published until a relay takes it', () => {
+  test('every relay down at send: settle() publishes it once one is back, then no more', async () => {
+    const { alice, bob } = await pair()
+    await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
+    alice.pool.relay(SOCIAL).down = true
+    const r = await alice.wallet.zaps.send({ to: bob.me, amountMillis: 2_000n, target: { e: 'cd'.repeat(32) }, relays: [SOCIAL] })
+    expect(published(alice)).toHaveLength(0)
+    await alice.wallet.settle()
+    expect(published(alice)).toHaveLength(0)
+    alice.pool.relay(SOCIAL).down = false
+    await alice.wallet.settle()
+    expect(published(alice).map((e) => e.id)).toEqual([r.eventId])
+    await alice.wallet.settle()
+    expect(published(alice)).toHaveLength(1)
+  })
+})

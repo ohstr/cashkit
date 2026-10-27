@@ -119,7 +119,7 @@ export async function sendZap(ctx: Ctx, o: ZapInput): Promise<ZapSent> {
   }
 }
 
-/** Builds, stores and publishes a zap's 9522, once, from its call's bill and context. */
+/** Builds and stores a zap's 9522 once, from its call's bill and context, then publishes it; a relay's acceptance is recorded. */
 async function publishZap(ctx: Ctx, callId: string): Promise<void> {
   const call = await ctx.read((t) => t.get('pendingCalls', callId))
   const raw = call?.params?.['zap']
@@ -154,7 +154,23 @@ async function publishZap(ctx: Ctx, callId: string): Promise<void> {
       if (cur.zapEvent === undefined) await t.put('pendingCalls', { ...cur, zapEvent: JSON.stringify(ev), version: cur.version + 1 }, cur.version)
     })
   }
-  await Promise.all(z.relays.map((r) => ctx.deps.relays.publish(r, ev).catch(() => undefined)))
+  const acks = await Promise.all(z.relays.map((r) => ctx.deps.relays.publish(r, ev).catch(() => undefined)))
+  if (!acks.some((a) => a?.ok === true)) return
+  await ctx.commit(async (t) => {
+    const cur = await t.get('pendingCalls', callId)
+    if (cur !== undefined && cur.zapPublished !== true) await t.put('pendingCalls', { ...cur, zapPublished: true, version: cur.version + 1 }, cur.version)
+  })
+}
+
+/**
+ * Publishes again every applied zap whose 9522 no relay has accepted yet
+ * (signing failed, or every relay refused or was down): the 9522 is the
+ * recipient's only notice of the zap. Returns how many were tried.
+ */
+export async function republishZaps(ctx: Ctx): Promise<number> {
+  const due = (await ctx.read((t) => t.list('pendingCalls'))).filter((c) => c.kind === 'transfer' && c.state === 'done' && c.outcome === 'applied' && c.params?.['zap'] !== undefined && c.zapPublished !== true)
+  for (const c of due) await publishZap(ctx, c.id).catch(() => undefined)
+  return due.length
 }
 
 setZapPublisher(publishZap)

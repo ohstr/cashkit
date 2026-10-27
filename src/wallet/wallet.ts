@@ -5,7 +5,7 @@ import type { CircleWalletClient, HubView } from '../client/index.js'
 import { mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
 import { listDiscover, listedConnection, recommendPreview, refreshDiscover, tapDiscover, type DiscoverOptions, type DiscoverView, type TapView } from './discover.js'
 import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
-import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
+import { approveMinter, claimZap, listZaps, republishZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
 import { type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
@@ -328,13 +328,15 @@ export class Wallet {
   /**
    * Settles every open call by `cash_lookup`: applies a lost reply, places
    * an unknown call again under its derived id, surfaces the rest. Then
-   * re-reads every `redeeming` holding.
+   * re-reads every `redeeming` holding, and publishes again any zap's 9522
+   * that no relay has accepted.
    */
   settle(): Promise<SettleReport> {
     return this.ctx.spend(async () => {
       const calls = await settleCalls(this.ctx)
       const redeems = await settleRedeeming(this.ctx).catch(() => ({ released: [], redeemed: [], spent: [], stillRedeeming: [] }))
       const joins = await settleJoins(this.ctx).catch(() => ({ joined: [], pending: [], needsUser: [] }))
+      await republishZaps(this.ctx).catch(() => 0)
       return { ...calls, redeems, joins }
     })
   }
