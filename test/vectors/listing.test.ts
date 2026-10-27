@@ -22,17 +22,6 @@ import { canon } from './json-big.js'
 
 const v = load('listing.json')
 
-const MISMATCH = new Set([
-  // nmilat's max 0 means no cap and keeps "x"; cashkit's sanitizeText(s, 0) returns "".
-  'case 9 max 0',
-  // "\u2714\ufe0f Alice": cashkit drops the check mark but keeps the U+FE0F variation selector after it; nmilat drops both.
-  'case 2 max 40',
-  // nmilat refuses two "t cash_order" tags at step 1 (a repeated type tag); cashkit counts two types and refuses at step 2.
-  'step 1: two type t of one value',
-  // At exactly expiresAt nmilat still shows the listing (expired only after); cashkit's VersionBook.current hides it (now >= expiresAt).
-  'current at its expiry',
-])
-
 const listings = new Map<string, Listing>()
 for (const c of [...v.events, ...v.parseListing]) {
   try {
@@ -65,8 +54,7 @@ const shape = (l: Listing) => ({
 })
 
 describe('listing.json parse', () => {
-  test.each(named(v.parseListing))('%s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.parseListing))('%s', (_, c: Json) => {
     const run = () => parseListing(c.event, { chains: c.chains, testNetworks: c.testNetworks === true })
     if (c.error !== undefined) {
       let err: unknown
@@ -88,8 +76,7 @@ describe('listing.json expiry and versions', () => {
   test.each(named(v.expiresAt, (c) => `${c.id} ${c.expiration}`))('expires at: %s', (_, c: Json) => {
     expect(listingExpiresAt({ expiration: Number(c.expiration), event: kList1.event })).toBe(c.expiresAt)
   })
-  test.each(named(v.versions))('versions: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.versions))('versions: %s', (_, c: Json) => {
     const book = new VersionBook()
     c.offers.forEach((id: string, i: number) => expect(book.offer(byId(id), c.at[i])).toBe(c.accepted[i]))
     expect(book.current(listingAddress(kList1), c.currentAt)?.event.id ?? '').toBe(c.current)
@@ -116,8 +103,7 @@ describe('listing.json signals', () => {
     const r = checkTap(byId(c.listing), c.getInfo === undefined ? undefined : JSON.parse(c.getInfo), c.infoError)
     expect({ outcome: r.outcome, hintDiffers: r.hintDiffers }).toEqual({ outcome: c.outcome, hintDiffers: c.hintDiffers })
   })
-  test.each(named(v.sanitizeText, (c, i) => `${c.id ?? 'case'} ${i} max ${c.max}`))('sanitize: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.sanitizeText, (c, i) => `${c.id ?? 'case'} ${i} max ${c.max}`))('sanitize: %s', (_, c: Json) => {
     expect(sanitizeText(c.in, c.max)).toBe(c.out)
   })
 })
