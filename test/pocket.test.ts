@@ -7,12 +7,14 @@ import {
   createSeal,
   createWrap,
   derivedRequestId,
+  fromHex,
   getPublicKey,
   localSigner,
   parsePocketEntry,
   pocketBalance,
   pocketEntryTags,
   resolveEntries,
+  toHex,
   unwrap,
   wrapExpiration,
   type PocketEntry,
@@ -127,5 +129,69 @@ describe('the pocket engine', () => {
     expect(rep.imported).toHaveLength(1)
     const [held] = await b2.holdings()
     expect(held).toMatchObject({ amount: 4000n, mode: 'cash' })
+  })
+})
+
+const now = () => Math.floor(Date.now() / 1000)
+async function userSigner(h: Harness) {
+  const row = (await h.storage.tx('r', (t) => t.get('identity', 'self')))!
+  return localSigner(fromHex(new TextDecoder().decode(fromHex(row.priv!.data))))
+}
+/** Another device's write: the entry at `rev`, wrapped and stored on every pocket relay. */
+async function writeElsewhere(h: Harness, e: PocketEntry) {
+  const signer = await userSigner(h)
+  const rumor = createRumor({ kind: 9525, pubkey: signer.pubkey, created_at: now(), tags: pocketEntryTags(e), content: '' })
+  const wrap = createWrap(await createSeal(rumor, signer, { now: now(), random: rnd }), fromHex(e.wrapKey), signer.pubkey, { now: now(), random: rnd })
+  for (const r of R) await h.pool.publish(r, wrap)
+}
+async function heldRow(h: Harness) {
+  const [v] = await h.wallet.holdings()
+  return (await h.storage.tx('r', (t) => t.get('holdings', v!.id)))!
+}
+const liveEntry = async (h: Harness, rev: number, state: PocketEntry['state'] = 'live'): Promise<PocketEntry> => {
+  const b = await heldRow(h)
+  const chain = (await h.wallet.pocket.entries()).find((x) => x.w === b.walletPubkey)!.chain
+  return { w: b.walletPubkey, rev, state, checkedAt: now(), wrapKey: toHex(fill(0x60 + rev, 32)), amountMillis: b.amount!, chain, cash: b.token, identity: { type: 'pubkey', value: h.me } }
+}
+
+describe('the pocket engine: revs across devices', () => {
+  test('a bill imported at a rev another device wrote is spent above it: the spend wins', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    await writeElsewhere(a, await liveEntry(a, 4))
+    const w = (await heldRow(a)).walletPubkey
+    // A second device with the same key and an empty store.
+    const b = await withPocket({ pool: a.pool, bank: a.bank })
+    const identity = await a.storage.tx('r', (t) => t.get('identity', 'self'))
+    await b.storage.tx('rw', async (t) => {
+      const cur = await t.get('identity', 'self')
+      await t.put('identity', { ...identity!, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+    })
+    const b2 = await b.reopen({ pocket: syncPocket({ pool: a.pool, relays: R, readTimeoutMs: 300 }) })
+    expect((await b2.pocket.sync()).imported).toHaveLength(1)
+    await b2.send({ amount: 5000n })
+    expect((await b2.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
+  })
+  test('a held bill the pocket shows spent is re-checked: still unspent, it is written live above that rev', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const w = (await heldRow(a)).walletPubkey
+    await writeElsewhere(a, await liveEntry(a, 3, 'spent'))
+    await a.wallet.pocket.sync()
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === w)?.state).toBe('live')
+    expect(await a.wallet.holdings()).toHaveLength(1)
+  })
+  test('a held bill the pocket shows spent and the Hub too is marked spent here; nothing live is written', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const w = (await heldRow(a)).walletPubkey
+    await writeElsewhere(a, await liveEntry(a, 3, 'spent'))
+    a.bank.wallets.get(w)!.spent = true
+    await a.wallet.pocket.sync()
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
+    expect(await a.wallet.holdings()).toEqual([])
   })
 })

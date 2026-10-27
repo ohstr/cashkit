@@ -27,9 +27,10 @@ import {
 } from '../core/index.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
-import { addHolding } from './ledger.js'
+import { addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { Holding, PendingCall } from './model.js'
 import { pocketHooks } from './runner.js'
+import { statusByNode, type NodeStatus } from './status.js'
 
 const hexBytes = (hex: string) => Uint8Array.from(hex.match(/../g)!.map((b) => parseInt(b, 16)))
 
@@ -39,13 +40,18 @@ function requirePocket(ctx: Ctx) {
   return p
 }
 
-/** Writes an entry at the next `rev`: a fresh wrap key first, sealed and wrapped; stored on enough relays and read back, then the previous wrap deleted. */
-export async function writeEntry(ctx: Ctx, entry: Omit<PocketEntry, 'rev' | 'wrapKey' | 'checkedAt'> & { readonly checkedAt?: number }): Promise<PocketEntry> {
+/**
+ * Writes an entry at the next `rev`, above both this device's and any
+ * `seenRev` read from the pocket (NIP-CP: the highest rev seen for that `w`
+ * plus 1): a fresh wrap key first, sealed and wrapped; stored on enough
+ * relays and read back, then the previous wrap deleted.
+ */
+export async function writeEntry(ctx: Ctx, entry: Omit<PocketEntry, 'rev' | 'wrapKey' | 'checkedAt'> & { readonly checkedAt?: number }, o: { readonly seenRev?: number } = {}): Promise<PocketEntry> {
   const pocket = requirePocket(ctx)
   const signer = await ctx.requireSigner()
   const prev = await ctx.read((t) => t.get('pocket', entry.w))
   const wrapKey = ctx.random(32)
-  const full: PocketEntry = { ...entry, rev: (prev?.rev ?? 0) + 1, wrapKey: toHex(wrapKey), checkedAt: entry.checkedAt ?? ctx.nowSeconds() }
+  const full: PocketEntry = { ...entry, rev: Math.max(prev?.rev ?? 0, o.seenRev ?? 0) + 1, wrapKey: toHex(wrapKey), checkedAt: entry.checkedAt ?? ctx.nowSeconds() }
   const now = ctx.nowSeconds()
   const rumor = createRumor({ kind: KIND_POCKET_ENTRY, pubkey: signer.pubkey, created_at: now, tags: pocketEntryTags(full), content: '' })
   const seal = await createSeal(rumor, signer, { now, random: ctx.random })
@@ -172,44 +178,67 @@ export interface PocketSyncReport {
   readonly pending: readonly string[]
 }
 
-async function readPocket(ctx: Ctx, since?: number): Promise<{ entries: Map<string, PocketEntry>; conflicts: string[]; seen: Set<string> }> {
+/** The wrap that carried an entry, with the key that deletes it. */
+interface EntryWrap {
+  readonly wrapId: string
+  readonly wrapKey: string
+  readonly rev: number
+}
+
+async function readPocket(ctx: Ctx, since?: number): Promise<{ entries: Map<string, PocketEntry>; conflicts: string[]; seen: Set<string>; wrapOf: Map<string, EntryWrap> }> {
   const pocket = requirePocket(ctx)
   const signer = await ctx.requireSigner()
   const wraps = await pocket.fetch(signer.pubkey, since)
   const rumors: { rumor: { id: string; created_at: number }; entry: PocketEntry & { recognised: boolean } }[] = []
   const seen = new Set<string>()
+  const wrapOf = new Map<string, EntryWrap>()
   for (const w of wraps) {
     seen.add(w.id)
     const r = await unwrap(w, signer)
     if (r === undefined || r.kind !== KIND_POCKET_ENTRY) continue
     try {
-      rumors.push({ rumor: r, entry: parsePocketEntry(r) })
+      const entry = parsePocketEntry(r)
+      rumors.push({ rumor: r, entry })
+      const cur = wrapOf.get(entry.w)
+      if (/^[0-9a-f]{64}$/.test(entry.wrapKey) && (cur === undefined || entry.rev > cur.rev)) wrapOf.set(entry.w, { wrapId: w.id, wrapKey: entry.wrapKey, rev: entry.rev })
     } catch {
       // not a readable entry
     }
   }
-  return { ...resolveEntries(rumors), seen }
+  return { ...resolveEntries(rumors), seen, wrapOf }
 }
 
 /**
  * Syncs the pocket: imports live entries for bills this device does not
- * hold (with their secret), writes entries for held bills the pocket lacks
- * or still shows otherwise, and marks bills this device no longer holds
- * `spent`. Pending entries are reported, never re-placed from here.
+ * hold (with their secret, and the entry's rev and wrap, so the next write
+ * for that bill goes above it), writes entries for held bills the pocket
+ * lacks, and marks bills this device no longer holds `spent`, each at the
+ * highest rev seen plus 1. A held bill the pocket shows final is re-checked
+ * with `cash_status` first: still there, its entry is written `live` again;
+ * spent, the bill is marked spent here; no answer, it is reported as a
+ * conflict and nothing is written. Pending entries are reported, never
+ * re-placed from here.
  */
 export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
-  const { entries, conflicts } = await readPocket(ctx)
+  const { entries, conflicts, wrapOf } = await readPocket(ctx)
   const local = await ctx.read((t) => t.list('holdings'))
   const imported: string[] = []
   const published: string[] = []
+  const seenRev = (w: string) => ({ seenRev: entries.get(w)?.rev ?? 0 })
   for (const e of entries.values()) {
     if (e.state !== 'live' || e.cash === undefined) continue
     if (local.some((h) => h.walletPubkey === e.w)) continue
     const f = tokenFacts(e.cash)
     const secret = e.secrets?.find((s) => s.role === '')?.secret
     const sealed = secret !== undefined ? await ctx.seal(secret) : undefined
-    const h = await ctx.commit((t) =>
-      addHolding(
+    const wrap = wrapOf.get(e.w)
+    const sealedWrapKey = wrap !== undefined && wrap.rev === e.rev ? await ctx.seal(wrap.wrapKey) : undefined
+    const h = await ctx.commit(async (t) => {
+      if (wrap !== undefined && sealedWrapKey !== undefined) {
+        const cur = await t.get('pocket', e.w)
+        if (cur === undefined || cur.rev < e.rev) await t.put('pocket', { id: e.w, rev: e.rev, state: e.state, wrapId: wrap.wrapId, wrapKey: sealedWrapKey, at: ctx.now(), version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+      }
+      return addHolding(
         t,
         {
           token: e.cash!,
@@ -224,19 +253,40 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
           origin: 'received',
         },
         { now: ctx.now(), random: ctx.random },
-      ),
-    )
+      )
+    })
     imported.push(h.id)
+  }
+  const finalElsewhere = local.filter((h) => {
+    const e = entries.get(h.walletPubkey)
+    return h.status === 'held' && e !== undefined && e.state !== 'live' && e.state !== 'pending'
+  })
+  const recheck = finalElsewhere.length > 0 ? await statusByNode(ctx, finalElsewhere) : new Map<string, NodeStatus>()
+  const spentHere = finalElsewhere.filter((h) => { const r = recheck.get(h.id); return r !== undefined && 'state' in r && r.state === 'spent' })
+  if (spentHere.length > 0) {
+    await ctx.commit(async (t) => {
+      for (const h of spentHere) {
+        await updateHolding(t, h.id, (x) => ({ ...x, status: 'spent' }))
+        await appendActivity(t, ctx.now(), { action: 'spent', holdingId: h.id })
+      }
+    })
   }
   for (const h of local) {
     const e = entries.get(h.walletPubkey)
     if (h.status === 'held') {
+      if (e !== undefined && finalElsewhere.includes(h)) {
+        const r = recheck.get(h.id)
+        if (r === undefined || !('state' in r) || r.state !== 'available') {
+          if (!spentHere.includes(h)) conflicts.push(h.walletPubkey)
+          continue
+        }
+      }
       if (e === undefined || e.state !== 'live') {
-        await writeEntry(ctx, await heldEntry(ctx, h))
+        await writeEntry(ctx, await heldEntry(ctx, h), seenRev(h.walletPubkey))
         published.push(h.walletPubkey)
       }
     } else if (e !== undefined && e.state === 'live' && h.status !== 'redeeming') {
-      await writeEntry(ctx, await heldEntry(ctx, h, 'spent'))
+      await writeEntry(ctx, await heldEntry(ctx, h, 'spent'), seenRev(h.walletPubkey))
       published.push(h.walletPubkey)
     }
   }
