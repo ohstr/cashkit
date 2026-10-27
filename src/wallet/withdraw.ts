@@ -18,7 +18,7 @@ import {
   cashWithdrawRequest,
   classifyAddressAmong,
   CoreError,
-  decodeLookupDone,
+  decodeToken,
   decryptDelivery,
   eventJSON,
   nearMatch,
@@ -36,6 +36,7 @@ import {
   paysScriptType,
   quoteFeeMillis,
   verifyPayoutTx,
+  verifyProvenance,
   verifyQuoteAnswer,
   verifyWithdrawReceipt,
   withdrawHrps,
@@ -202,16 +203,27 @@ export async function withdrawTerms(ctx: Ctx, holdingId: string): Promise<Withdr
 }
 
 /**
+ * A bill held under a one-time merge key is not withdrawn: its lookups,
+ * cancel request and re-minted bill would all need that key. The merge it
+ * is part of (or its fallback to a cash note) finishes first.
+ */
+function refuseMidMerge(h: Holding): void {
+  if (h.throwawayKey !== undefined) throw new CashkitError('conflict', 'this bill is part of a merge that has not finished; settle() or the next send finishes it', { reason: 'mid_merge', input: h.id })
+}
+
+/**
  * Quotes a withdrawal of a whole bill to `address`. Refused locally before
  * any Hub contact: a malformed or mixed-case address, one with no witness
  * program, of a network this SDK knows is not the coin's, of a script type
  * the Hub does not pay, one of this wallet's own order addresses, a bill an
- * open call holds, or a cash note still shared with its sender. The answer
+ * open call holds, a bill in an unfinished merge, or a cash note still
+ * shared with its sender. The answer
  * is checked against what was asked (`quote_mismatch`). Nothing is written.
  */
 export async function quoteWithdrawal(ctx: Ctx, holdingId: string, rawAddress: string, o: { sendBefore?: number } = {}): Promise<WithdrawQuoteView> {
   const h = await getHeld(ctx, holdingId)
   if ((await lockedHoldings(ctx)).has(h.id)) throw new CashkitError('conflict', 'this bill is in a call that has not finished; settle() resolves it', { input: h.id })
+  refuseMidMerge(h)
   if (h.mode === 'cash' && h.protection === 'shared') throw new CashkitError('usage', 'protect this cash note first: its sender still holds its secret', { reason: 'protect_first', input: h.id })
   let address: string
   let st
@@ -316,6 +328,7 @@ export async function sendWithdrawal(ctx: Ctx, view: WithdrawQuoteView, o: { con
   const h = await getHeld(ctx, q.holding.id)
   if (h.expiresAt !== undefined && h.expiresAt - ctx.nowSeconds() <= 120) throw new CashkitError('invalid_input', 'this bill expires within two minutes: redeem it over Lightning', { reason: 'expiring' })
   if ((await lockedHoldings(ctx)).has(h.id)) throw new CashkitError('conflict', 'this bill is in a call that has not finished; settle() resolves it', { input: h.id })
+  refuseMidMerge(h)
   const session = await ctx.clientFor(h).session()
   if (!session.usableForBills) throw new CashkitError('internal', "this bill's Hub announces no usable max_request_age; nothing was sent", { reason: 'hub_unusable' })
   const slice = await sliceIdentity(ctx, h)
@@ -385,7 +398,9 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
   let txCheck = prev.txCheck
   if (p.tx !== undefined && p.txid !== undefined && p.vout !== undefined) {
     try {
-      verifyPayoutTx(p.tx, p.txid, p.vout, p.address, '', p.payoutMillis)
+      // A recovered call confirmed no quote here: its receipt-checked payout is the reference.
+      const want = call.params?.['recovered'] === '1' ? { address: p.address, payoutMillis: p.payoutMillis } : confirmedOf(call)
+      verifyPayoutTx(p.tx, p.txid, p.vout, want.address, '', want.payoutMillis)
       txCheck = 'ok'
     } catch {
       txCheck = 'mismatch'
@@ -439,11 +454,23 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
     checkedAt: ctx.nowSeconds(),
   }
   await t.put('pendingCalls', { ...cur, withdrawal: record, state: 'open_withdraw', version: cur.version + 1 }, cur.version)
-  if (finishedNow) await finishCall(t, call.id, 'applied')
+  if (finishedNow) {
+    const done = await finishCall(t, call.id, 'applied')
+    // A cancelled payout whose re-minted bill is already a tombstone brought nothing back: the user is told, not left with a silent close.
+    if (p.state === 'cancelled' && typeof p.newWalletToken !== 'string') await t.put('pendingCalls', { ...done, needsUser: 'remint_gone', version: done.version + 1 }, done.version)
+  }
   return remintId !== undefined ? { holdingIds: [remintId] } : {}
 }
 
-/** Checks a payout's receipt against the call as written ahead; opens a re-minted bill's token. */
+/** The address, payout and send-by time the user confirmed, as written ahead. */
+const confirmedOf = (call: PendingCall) => ({ address: call.params?.['address'] ?? '', payoutMillis: BigInt(call.params?.['payout'] ?? '0'), sentBy: Number(call.params?.['sentBy'] ?? '0') })
+
+/**
+ * Checks a payout against the call as written ahead: its receipt, and its
+ * own address, payout, send-by time and amount, which must be the ones the
+ * user confirmed. Opens a re-minted bill's token and checks it names the
+ * wallet the payout names and was minted by this Hub.
+ */
 async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'reply' | 'lookup'): Promise<{ payout: Payout; remint?: { token: string } }> {
   const p = parsePayout(raw)
   if (from === 'reply' && p.state !== 'queued') throw new CoreError('invalid_payload', 'a new payout is queued')
@@ -452,12 +479,25 @@ async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'rep
     verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: '', requestId: call.requestId, address: p.address, payoutMillis: p.payoutMillis, sentBy: p.sentBy })
   } else {
     const q = parseWithdrawQuote(call.params?.['quote'] ?? '')
-    verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: q.id, requestId: call.requestId, address: call.params?.['address'] ?? '', payoutMillis: BigInt(call.params?.['payout'] ?? '0'), sentBy: Number(call.params?.['sentBy'] ?? '0') })
+    const want = confirmedOf(call)
+    verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: q.id, requestId: call.requestId, ...want })
+    if (p.address !== want.address || p.payoutMillis !== want.payoutMillis || p.sentBy !== want.sentBy || p.amountMillis !== call.amount) {
+      throw new CoreError('receipt_invalid', 'the payout does not match the quote the user confirmed')
+    }
   }
   let remint: { token: string } | undefined
   if (p.state === 'cancelled' && typeof p.newWalletToken === 'string' && p.newWalletPubkey !== undefined) {
     const { credential } = await credentialOfCall(ctx, call)
-    remint = { token: await decryptDelivery(credential, p.newWalletPubkey, p.newWalletToken) }
+    const token = await decryptDelivery(credential, p.newWalletPubkey, p.newWalletToken)
+    let tok
+    try {
+      tok = decodeToken(token)
+    } catch {
+      throw new CoreError('invalid_payload', 'the re-minted token does not decode')
+    }
+    if (tok.walletPubkey !== p.newWalletPubkey) throw new CoreError('invalid_payload', 'the re-minted token names another wallet')
+    if (verifyProvenance(tok)?.xonly !== call.node) throw new CoreError('invalid_payload', 'the re-minted bill was not minted by this Hub')
+    remint = { token }
   }
   return { payout: p, ...(remint !== undefined && { remint }) }
 }
@@ -484,8 +524,8 @@ const withdrawKind: CallKind = {
     return { outcome }
   },
   async finish(ctx, call, result, from) {
-    const raw = from === 'reply' ? result : decodeLookupDone(result).result
-    const { payout, remint } = await checkPayout(ctx, call, raw, from)
+    // A lookup's `done` is read as the payout itself: parsePayout takes a tombstone in place of the re-minted token.
+    const { payout, remint } = await checkPayout(ctx, call, result, from)
     return (t) => applyPayout(ctx, t, call, payout, remint)
   },
   async lookupTarget(ctx, call) {
@@ -510,7 +550,7 @@ export async function refreshWithdrawal(ctx: Ctx, id: string): Promise<Withdrawa
   const o = await lookupWithdraw(await ctx.clientFor(holding).session(), ctx.clientDeps, { bill: billOf(holding), requestId: call.requestId, deadline: call.deadline, authorizer: await lookupAuth(ctx, call, holding) }).catch(() => undefined)
   const v = o?.state === 'result' ? o.value : undefined
   if (v?.status === 'done') {
-    const checked = await checkPayout(ctx, call, decodeLookupDone(v.result).result, 'lookup').catch(() => undefined)
+    const checked = await checkPayout(ctx, call, v.result, 'lookup').catch(() => undefined)
     if (checked !== undefined) {
       await ctx.commit((t) => applyPayout(ctx, t, call, checked.payout, checked.remint))
       if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)

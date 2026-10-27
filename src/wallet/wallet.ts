@@ -31,7 +31,7 @@ import {
   type TapView,
 } from './discover.js'
 import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
-import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
+import { approveMinter, claimZap, listZaps, republishZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, recoverWithdrawal, requoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
 import { type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
@@ -369,13 +369,15 @@ export class Wallet {
   /**
    * Settles every open call by `cash_lookup`: applies a lost reply, places
    * an unknown call again under its derived id, surfaces the rest. Then
-   * re-reads every `redeeming` holding.
+   * re-reads every `redeeming` holding, and publishes again any zap's 9522
+   * that no relay has accepted.
    */
   settle(): Promise<SettleReport> {
     return this.ctx.spend(async () => {
       const calls = await settleCalls(this.ctx)
       const redeems = await settleRedeeming(this.ctx).catch(() => ({ released: [], redeemed: [], spent: [], stillRedeeming: [] }))
       const joins = await settleJoins(this.ctx).catch(() => ({ joined: [], pending: [], needsUser: [] }))
+      await republishZaps(this.ctx).catch(() => 0)
       return { ...calls, redeems, joins }
     })
   }
@@ -630,7 +632,7 @@ export class Wallet {
   readonly zaps = {
     send: (o: ZapInput): Promise<ZapSent> => this.ctx.spend(() => sendZap(this.ctx, o)),
     list: (o: { relays: readonly string[]; connectionKeys?: readonly string[] }): Promise<ZapView[]> => listZaps(this.ctx, o),
-    claim: (event: NostrEvent): Promise<HoldingView> => this.ctx.spend(async () => holdingView(await claimZap(this.ctx, event), this.ctx.nowSeconds())),
+    claim: (event: NostrEvent, o: { relays?: readonly string[] } = {}): Promise<HoldingView> => this.ctx.spend(async () => holdingView(await claimZap(this.ctx, event, o), this.ctx.nowSeconds())),
     approveMinter: (minter: string, chain: string): Promise<{ readonly networkUnverifiable: true }> => approveMinter(this.ctx, minter, chain),
   }
 
@@ -871,6 +873,14 @@ export class Wallet {
       await this.ctx.commit(async (t) => {
         const c = await t.get('connections', name)
         if (c === undefined) throw new CashkitError('not_found', `no connection named "${name}"`, { input: name })
+        // An open call that names this connection needs it for its lookup (NIP-CASH §Looking Up a Call).
+        const open = (await t.list('pendingCalls')).filter((x) => x.state !== 'done' && x.params?.connection === name)
+        if (open.length > 0) {
+          throw new CashkitError('conflict', `"${name}" is needed to settle a call that has not finished (${open.map((x) => x.id).join(',')}); settle() resolves it. Nothing was changed`, {
+            input: name,
+            pendingCallId: open[0]!.id,
+          })
+        }
         await t.delete('connections', name)
         if (c.isDefault) {
           const next = (await t.list('connections')).find(isLightning)

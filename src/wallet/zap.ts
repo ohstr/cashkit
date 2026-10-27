@@ -119,7 +119,7 @@ export async function sendZap(ctx: Ctx, o: ZapInput): Promise<ZapSent> {
   }
 }
 
-/** Builds, stores and publishes a zap's 9522, once, from its call's bill and context. */
+/** Builds and stores a zap's 9522 once, from its call's bill and context, then publishes it; a relay's acceptance is recorded. */
 async function publishZap(ctx: Ctx, callId: string): Promise<void> {
   const call = await ctx.read((t) => t.get('pendingCalls', callId))
   const raw = call?.params?.['zap']
@@ -154,7 +154,23 @@ async function publishZap(ctx: Ctx, callId: string): Promise<void> {
       if (cur.zapEvent === undefined) await t.put('pendingCalls', { ...cur, zapEvent: JSON.stringify(ev), version: cur.version + 1 }, cur.version)
     })
   }
-  await Promise.all(z.relays.map((r) => ctx.deps.relays.publish(r, ev).catch(() => undefined)))
+  const acks = await Promise.all(z.relays.map((r) => ctx.deps.relays.publish(r, ev).catch(() => undefined)))
+  if (!acks.some((a) => a?.ok === true)) return
+  await ctx.commit(async (t) => {
+    const cur = await t.get('pendingCalls', callId)
+    if (cur !== undefined && cur.zapPublished !== true) await t.put('pendingCalls', { ...cur, zapPublished: true, version: cur.version + 1 }, cur.version)
+  })
+}
+
+/**
+ * Publishes again every applied zap whose 9522 no relay has accepted yet
+ * (signing failed, or every relay refused or was down): the 9522 is the
+ * recipient's only notice of the zap. Returns how many were tried.
+ */
+export async function republishZaps(ctx: Ctx): Promise<number> {
+  const due = (await ctx.read((t) => t.list('pendingCalls'))).filter((c) => c.kind === 'transfer' && c.state === 'done' && c.outcome === 'applied' && c.params?.['zap'] !== undefined && c.zapPublished !== true)
+  for (const c of due) await publishZap(ctx, c.id).catch(() => undefined)
+  return due.length
 }
 
 setZapPublisher(publishZap)
@@ -179,10 +195,14 @@ export interface ZapView {
   readonly target?: string
 }
 
+/** The user's own 10522 as the last zap list read it, per wallet and identity: claim() trusts its Minters as list() did. */
+const ownInfo = new WeakMap<Ctx, { readonly pubkey: string; readonly info: CashZapInfo | undefined }>()
+
 /** Incoming 9522s for this user, each through rules 1–8. Nothing is claimed. */
 export async function listZaps(ctx: Ctx, o: { relays: readonly string[]; connectionKeys?: readonly string[] }): Promise<ZapView[]> {
   const me = (await ctx.requireSigner()).pubkey
   const mine = await latestInfo(ctx, me, o.relays)
+  ownInfo.set(ctx, { pubkey: me, info: mine })
   const relays = [...new Set([...(mine?.relays ?? []), ...o.relays])]
   const evs = await readEvents(ctx.deps.relays, relays, incomingZapFilter([me, ...(o.connectionKeys ?? [])]), READ_MS).catch(() => [])
   const trusted = (await ctx.settings()).trustedMinters
@@ -230,16 +250,20 @@ export async function approveMinter(ctx: Ctx, minter: string, chain: string): Pr
 }
 
 /**
- * Claims an incoming zap (rule 9): it must pass rules 1–6 and 8 (an
- * unlisted minter only once approved); then the bill's own `cash_status`
+ * Claims an incoming zap (rule 9): it must pass rules 1–6 and 8 (a
+ * minter trusted by this wallet or listed in the user's own 10522, read
+ * from `relays` or else as the last zap list read it; any other only once
+ * approved); then the bill's own `cash_status`
  * must show this wallet's slice unclaimed at exactly the zap's amount. The
  * bill is kept with its zap fields (its provenance needs them) and the
  * expiry its status reports. Nothing is published.
  */
-export async function claimZap(ctx: Ctx, ev: NostrEvent): Promise<Holding> {
+export async function claimZap(ctx: Ctx, ev: NostrEvent, opts: { relays?: readonly string[] } = {}): Promise<Holding> {
   const me = (await ctx.requireSigner()).pubkey
   const trusted = (await ctx.settings()).trustedMinters
-  const v = verifyCashZap(ev, { trusted })
+  const cached = ownInfo.get(ctx)
+  const mine = opts.relays !== undefined ? await latestInfo(ctx, me, opts.relays) : cached?.pubkey === me ? cached.info : undefined
+  const v = verifyCashZap(ev, { ...(mine !== undefined && { zapInfo: mine }), trusted })
   if (!v.valid || v.tags === undefined || v.token === undefined) throw new CashkitError('invalid_input', `this Cash Zap fails rule ${v.failed}`, { reason: 'zap_invalid' })
   if (v.rules[8] !== true) {
     const minter = v.minter

@@ -115,6 +115,13 @@ describe('T-521 a call and its answer', () => {
     expect(rep.closed).toEqual([call.id])
     expect(await row(call.id)).toMatchObject({ state: 'done', outcome: 'not_sent' })
   })
+  test('a call a settle already closed is never sent: marking it sent refuses', async () => {
+    const { ctx, call } = await prepared()
+    expect((await h.wallet.settle()).closed).toEqual([call.id]) // closed not_sent, its source released
+    expect(await failure(executeCall(ctx, call))).toMatchObject({ code: 'internal' })
+    expect(await row(call.id)).toMatchObject({ state: 'done', outcome: 'not_sent' })
+    expect(h.bank.hub.requests.filter((r) => r.item.method === 'cash_transfer')).toHaveLength(0)
+  })
   test('BAD_REQUEST closes it not applied (invalid_input)', async () => {
     const { ctx, call } = await prepared()
     h.bank.override = (m) => (m === 'cash_transfer' ? { error: { code: 'BAD_REQUEST', message: 'x' } } : undefined)
@@ -244,6 +251,20 @@ describe('T-523 / T-526 expired, unanswered, closed by the user', () => {
     await h.wallet.settle()
     expect(seen).toEqual([{ type: 'lookupExpired', call: expect.objectContaining({ id: call.id, outcome: 'lookup_expired', needsUser: 'lookup_expired' }) }])
     expect(toJSON(seen)).not.toMatch(/[0-9a-f]{64}/)
+  })
+  test('expired is final on any device: another device\'s call closes too and frees its bill', async () => {
+    const { ctx, call, holdingId } = await prepared()
+    const { markSent } = await import('../src/wallet/calls.js')
+    await markSent(ctx, call)
+    await ctx.commit(async (t) => {
+      const c = (await t.get('pendingCalls', call.id))!
+      await t.put('pendingCalls', { ...c, device: 'ff'.repeat(16), version: c.version + 1 }, c.version)
+    })
+    skew = (call.deadline + call.hAtSend + 5) * 1000 - Date.now()
+    const rep = await h.wallet.settle()
+    expect(rep.needsUser).toContain(call.id)
+    expect(await row(call.id)).toMatchObject({ state: 'done', outcome: 'lookup_expired', needsUser: 'lookup_expired' })
+    expect((await h.wallet.holdings()).find((x) => x.id === holdingId)?.unsettled).toBe(false)
   })
   test('omissions are never unknown; only past deadline + H they ask the user', async () => {
     const { ctx, call } = await prepared()

@@ -320,6 +320,23 @@ describe('write-ahead ordering (auditD_cli_writeahead)', () => {
     expect(await openCalls(h)).toEqual([])
     expect((await h.wallet.handoffs()).length).toBe(1)
   })
+  test('redeem never picks or spends a bill an open call names (I-4)', async () => {
+    const h = await harness()
+    const nwc = new FakeNwcWallet(h.pool)
+    await h.wallet.connections.add('main', nwc.uri)
+    await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
+    const id = (await h.wallet.holdings())[0]!.id
+    const early = await h.wallet.planRedeem({ holdings: [id] }) // planned before the call opens
+    h.bank.loseReplyFor.add('cash_transfer')
+    h.bank.loseReplyFor.add('cash_lookup') // lookups go unanswered, so the call stays open
+    await failure(h.wallet.send({ amount: 2000n }))
+    expect((await openCalls(h)).map((c) => c.sources)).toEqual([[id]])
+    expect(await failure(h.wallet.planRedeem({ holdings: [id] }))).toMatchObject({ code: 'conflict' })
+    expect(await failure(h.wallet.redeem())).toMatchObject({ code: 'conflict' })
+    expect(await failure(h.wallet.redeem({ amount: 1000n }))).toMatchObject({ code: 'conflict' })
+    expect(await failure(h.wallet.executeRedeem(early))).toMatchObject({ code: 'conflict' })
+    expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_redeem')).toHaveLength(0)
+  })
   test('BAD_REQUEST is final: the call closes not applied and the bill is free at once', async () => {
     const h = await harness()
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
@@ -341,6 +358,22 @@ describe('write-ahead ordering (auditD_cli_writeahead)', () => {
     expect((await failure(h.wallet.send({ amount: 2000n }))).code).toBe('spent')
     expect(await openCalls(h)).toEqual([])
     expect(await h.wallet.holdings()).toEqual([])
+  })
+  test('a tombstone answer to a consolidate marks only its first source spent; the others stay held', async () => {
+    const h = await harness()
+    for (const a of [1000n, 2000n, 3000n]) await h.wallet.receive(h.bank.mintToPubkey(a, h.me).token)
+    h.bank.override = (m) => (m === 'cash_consolidate' ? { result: { status: 'spent', reason: 'transferred' } } : undefined)
+    const r = await h.wallet.consolidate()
+    expect(r.outcomes.map((o) => o.ok)).toEqual([false])
+    expect(await openCalls(h)).toEqual([])
+    const [call] = await h.storage.tx('r', (t) => t.list('pendingCalls'))
+    expect(call!.method).toBe('cash_consolidate')
+    expect(call!.sources).toHaveLength(3)
+    const rows = await h.storage.tx('r', (t) => Promise.all(call!.sources.map((id) => t.get('holdings', id))))
+    expect(rows.map((x) => x?.status)).toEqual(['spent', 'held', 'held'])
+    const held = await h.wallet.holdings()
+    expect(new Set(held.map((x) => x.id))).toEqual(new Set(call!.sources.slice(1)))
+    expect(held.every((x) => !x.unsettled)).toBe(true)
   })
   test('any other code keeps the call open and the bill locked until a lookup', async () => {
     const h = await harness()
@@ -455,6 +488,37 @@ describe('a rekey whose reply was lost', () => {
     // The one status read finds the bill gone (the lost reply had paid it); nothing is resent.
     expect(r.firstError?.code).toBe('spent')
     expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_redeem')).toHaveLength(1)
+  })
+})
+
+describe('a second protect never overwrites an open call\'s secret (pending_secret_batch_test)', () => {
+  test('while the first protect is unresolved, a second one sends nothing and the open secret keeps control', async () => {
+    const h = await harness()
+    const t = newCashTarget()
+    const w = h.bank.mintToCash(5000n, t.secret)
+    const r = await h.wallet.receive(`${w.token}#${t.secret}`, { protect: false })
+    if (!r.received) throw new Error('not received')
+    const id = r.holding.id
+    h.bank.loseReplyFor.add('cash_transfer') // the Hub applies the rekey; the reply is lost
+    h.bank.loseReplyFor.add('cash_lookup') // and lookups go unanswered, so the call stays open
+    expect((await h.wallet.protect({ holdings: [id] })).outcomes[0]).toMatchObject({ ok: false, error: { code: 'indeterminate' } })
+    const [call] = await openCalls(h)
+    const fresh = unseal((call!.outputs[0]!.destination as { secret: Sealed }).secret)!
+    expect(w.identity).toEqual({ type: 'cash', value: commitment(fresh) })
+    const before = h.bank.hub.requests.filter((x) => x.item.method === 'cash_transfer').length
+    const rowBefore = await h.storage.tx('r', (t2) => t2.get('holdings', id))
+    for (const again of [() => h.wallet.protect({ holdings: [id] }), () => h.wallet.protect()]) {
+      const p = await again()
+      expect(p.outcomes.map((o) => o.ok)).toEqual([false])
+    }
+    expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_transfer').length).toBe(before)
+    const calls = await h.storage.tx('r', (t2) => t2.list('pendingCalls'))
+    expect(calls).toHaveLength(1)
+    expect(unseal((calls[0]!.outputs[0]!.destination as { secret: Sealed }).secret)).toBe(fresh)
+    expect((await h.storage.tx('r', (t2) => t2.get('holdings', id)))?.cashSecret).toEqual(rowBefore?.cashSecret)
+    h.bank.loseReplyFor.clear()
+    expect((await h.wallet.settle()).applied).toEqual([call!.id])
+    expect(await h.wallet.exportHolding(id)).toContain(fresh)
   })
 })
 

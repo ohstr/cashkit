@@ -18,6 +18,8 @@ import {
   checkPendingEntry,
   derivedRequestId,
   FINAL_STATES,
+  fromHex,
+  getPublicKey,
   KIND_POCKET_ENTRY,
   connectionKeyFromAttested,
   parsePocketEntry,
@@ -33,10 +35,10 @@ import {
 } from '../core/index.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
-import { addHolding } from './ledger.js'
+import { addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { Holding, PendingCall } from './model.js'
 import { pocketHooks } from './runner.js'
-import { status } from './status.js'
+import { status, statusByNode, type NodeStatus } from './status.js'
 
 /** A wrap the pocket holds for a `w`, with the key that deletes it. */
 interface StoredWrap {
@@ -109,8 +111,10 @@ const chainOf = (token: string) => {
   }
 }
 
+/** Who can claim the bill (NIP-CP `identity`): for a bill held under a one-time merge key, that key's pubkey, not the user's. */
 async function identityOf(ctx: Ctx, h: Holding): Promise<PocketIdentity> {
   if (h.mode === 'cash') return { type: 'cash' }
+  if (h.throwawayKey !== undefined) return { type: 'pubkey', value: getPublicKey(fromHex(await ctx.open(h.throwawayKey), 'throwaway key')) }
   if (h.mode === 'connection_key' && h.connectionKey !== undefined) return { type: 'connection_key', value: h.connectionKey.key ?? connectionKeyFromAttested(h.connectionKey.platform, h.connectionKey.externalId), ia: h.connectionKey.iaPubkey }
   return { type: 'pubkey', value: (await ctx.requireSigner()).pubkey }
 }
@@ -195,17 +199,24 @@ async function afterCall(ctx: Ctx, callId: string): Promise<void> {
   if (call.withdrawal?.receipt !== undefined && call.state !== 'done') {
     const cur = await ctx.read((t) => t.get('pocket', call.requestId))
     if (cur?.state === 'pending') await writeEntry(ctx, await pendingEntry(ctx, call, 'pending', { receipt: call.withdrawal.receipt }))
+    // The Hub owes the payout from the verified receipt on: the source is spent now, its token and any secret kept for the lookups.
+    await sourcesSpent(ctx, call)
   }
   if (call.state !== 'done') return
   const pending = await ctx.read((t) => t.get('pocket', call.requestId))
   if (pending === undefined || pending.state === 'done') return
   await writeEntry(ctx, await pendingEntry(ctx, call, 'done', { scrub: true }))
-  if (call.outcome === 'applied') {
-    for (const id of call.sources) {
-      if (id === call.created?.movedHoldingId) continue
-      const h = await ctx.read((t) => t.get('holdings', id))
-      if (h !== undefined) await writeEntry(ctx, await heldEntry(ctx, h, 'spent'))
-    }
+  if (call.outcome === 'applied') await sourcesSpent(ctx, call)
+}
+
+/** Writes a call's sources `spent` (not a bill moved in place), once each. */
+async function sourcesSpent(ctx: Ctx, call: PendingCall): Promise<void> {
+  for (const id of call.sources) {
+    if (id === call.created?.movedHoldingId) continue
+    const h = await ctx.read((t) => t.get('holdings', id))
+    if (h === undefined) continue
+    if ((await ctx.read((t) => t.get('pocket', h.walletPubkey)))?.state === 'spent') continue
+    await writeEntry(ctx, await heldEntry(ctx, h, 'spent'))
   }
 }
 
@@ -221,6 +232,15 @@ export interface PocketSyncReport {
   readonly pruned: readonly string[]
   /** Entries rewritten with the `expires_at` `cash_status` reported. */
   readonly expiryFilled: readonly string[]
+  /** Live entries not imported: bound to a pubkey this wallet does not sign with. */
+  readonly foreign: readonly string[]
+}
+
+/** The wrap that carried an entry, with the key that deletes it. */
+interface EntryWrap {
+  readonly wrapId: string
+  readonly wrapKey: string
+  readonly rev: number
 }
 
 interface PocketRead {
@@ -231,6 +251,8 @@ interface PocketRead {
   readonly wraps: Map<string, StoredWrap[]>
   /** Every `w` named by an entry of the user's, whatever its state, read or not. */
   readonly ws: Set<string>
+  /** The wrap of each `w`'s newest readable entry, with its rev. */
+  readonly wrapOf: Map<string, EntryWrap>
 }
 
 async function readPocket(ctx: Ctx, since?: number): Promise<PocketRead> {
@@ -241,6 +263,7 @@ async function readPocket(ctx: Ctx, since?: number): Promise<PocketRead> {
   const seen = new Set<string>()
   const wraps = new Map<string, StoredWrap[]>()
   const ws = new Set<string>()
+  const wrapOf = new Map<string, EntryWrap>()
   for (const w of fetched) {
     if (seen.has(w.id)) continue
     seen.add(w.id)
@@ -255,8 +278,10 @@ async function readPocket(ctx: Ctx, since?: number): Promise<PocketRead> {
     }
     rumors.push({ rumor: r, entry })
     if (entry.wrapKey !== '') wraps.set(entry.w, [...(wraps.get(entry.w) ?? []), { wrapId: w.id, wrapKey: entry.wrapKey }])
+    const cur = wrapOf.get(entry.w)
+    if (/^[0-9a-f]{64}$/.test(entry.wrapKey) && (cur === undefined || entry.rev > cur.rev)) wrapOf.set(entry.w, { wrapId: w.id, wrapKey: entry.wrapKey, rev: entry.rev })
   }
-  return { ...resolveEntries(rumors), seen, wraps, ws }
+  return { ...resolveEntries(rumors), seen, wraps, ws, wrapOf }
 }
 
 /**
@@ -306,26 +331,43 @@ function keptPastPrune(e: PocketEntry, calls: readonly PendingCall[], openSource
 
 /**
  * Syncs the pocket: imports live entries for bills this device does not
- * hold (with their secret), writes entries for held bills the pocket lacks
- * or still shows otherwise, marks bills this device no longer holds
- * `spent`, fills a missing `expires_at` from `cash_status`, and deletes the
- * wraps of final entries older than 30 days. Pending entries are reported,
- * never re-placed from here.
+ * hold (with their secret, and the entry's rev and wrap, so the next write
+ * for that bill goes above it), writes entries for held bills the pocket
+ * lacks, marks bills this device no longer holds `spent`, each at the highest
+ * rev seen plus 1, fills a missing `expires_at` from `cash_status`, and
+ * deletes the wraps of final entries older than 30 days. A held bill the pocket shows final is re-checked
+ * with `cash_status` first: still there, its entry is written `live` again;
+ * spent, the bill is marked spent here; no answer, it is reported as a
+ * conflict and nothing is written. Pending entries are reported, never
+ * re-placed from here.
  */
 export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
-  const { entries, conflicts, wraps } = await readPocket(ctx)
+  const { entries, conflicts, wraps, wrapOf } = await readPocket(ctx)
   const local = await ctx.read((t) => t.list('holdings'))
   const imported: string[] = []
   const published: string[] = []
+  const foreign: string[] = []
+  const me = (await ctx.requireSigner()).pubkey
   const at = (w: string) => ({ seenRev: entries.get(w)?.rev ?? 0, replaces: wraps.get(w) ?? [] })
   for (const e of entries.values()) {
     if (e.state !== 'live' || e.cash === undefined) continue
     if (local.some((h) => h.walletPubkey === e.w)) continue
+    // A bill bound to another pubkey (a merge key this device never held) cannot be spent from here.
+    if (e.identity?.type === 'pubkey' && e.identity.value !== me) {
+      foreign.push(e.w)
+      continue
+    }
     const f = tokenFacts(e.cash)
     const secret = e.secrets?.find((s) => s.role === '')?.secret
     const sealed = secret !== undefined ? await ctx.seal(secret) : undefined
-    const h = await ctx.commit((t) =>
-      addHolding(
+    const wrap = wrapOf.get(e.w)
+    const sealedWrapKey = wrap !== undefined && wrap.rev === e.rev ? await ctx.seal(wrap.wrapKey) : undefined
+    const h = await ctx.commit(async (t) => {
+      if (wrap !== undefined && sealedWrapKey !== undefined) {
+        const cur = await t.get('pocket', e.w)
+        if (cur === undefined || cur.rev < e.rev) await t.put('pocket', { id: e.w, rev: e.rev, state: e.state, wrapId: wrap.wrapId, wrapKey: sealedWrapKey, at: ctx.now(), version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+      }
+      return addHolding(
         t,
         {
           token: e.cash!,
@@ -340,13 +382,34 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
           origin: 'received',
         },
         { now: ctx.now(), random: ctx.random },
-      ),
-    )
+      )
+    })
     imported.push(h.id)
+  }
+  const finalElsewhere = local.filter((h) => {
+    const e = entries.get(h.walletPubkey)
+    return h.status === 'held' && e !== undefined && e.state !== 'live' && e.state !== 'pending'
+  })
+  const recheck = finalElsewhere.length > 0 ? await statusByNode(ctx, finalElsewhere) : new Map<string, NodeStatus>()
+  const spentHere = finalElsewhere.filter((h) => { const r = recheck.get(h.id); return r !== undefined && 'state' in r && r.state === 'spent' })
+  if (spentHere.length > 0) {
+    await ctx.commit(async (t) => {
+      for (const h of spentHere) {
+        await updateHolding(t, h.id, (x) => ({ ...x, status: 'spent' }))
+        await appendActivity(t, ctx.now(), { action: 'spent', holdingId: h.id })
+      }
+    })
   }
   for (const h of local) {
     const e = entries.get(h.walletPubkey)
     if (h.status === 'held') {
+      if (e !== undefined && finalElsewhere.includes(h)) {
+        const r = recheck.get(h.id)
+        if (r === undefined || !('state' in r) || r.state !== 'available') {
+          if (!spentHere.includes(h)) conflicts.push(h.walletPubkey)
+          continue
+        }
+      }
       if (e === undefined || e.state !== 'live') {
         await writeEntry(ctx, await heldEntry(ctx, h), at(h.walletPubkey))
         published.push(h.walletPubkey)
@@ -359,7 +422,7 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
   const expiryFilled = await fillExpiry(ctx, entries, wraps, new Set(published))
   const pruned = await prune(ctx, entries, wraps)
   const pending = [...entries.values()].filter((e) => e.state === 'pending').map((e) => e.w)
-  return { imported, published, conflicts, pending, pruned, expiryFilled }
+  return { imported, published, conflicts, pending, pruned, expiryFilled, foreign }
 }
 
 /**

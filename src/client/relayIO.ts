@@ -1,10 +1,13 @@
 // Small async helpers over the RelayPool port.
-import type { NostrEvent } from '../core/index.js'
+import { verifyEvent, type NostrEvent } from '../core/index.js'
 import type { Filter, RelayPool } from './ports.js'
 
 /**
  * Collects stored events from every relay until each has sent EOSE (or
- * closed), or `timeoutMs` passes. Duplicates across relays are dropped.
+ * closed), or `timeoutMs` passes. An event whose id is not the hash of its
+ * content or whose signature does not verify is dropped before anything
+ * else, so a relay cannot forge an author or shadow a real event's id.
+ * Duplicates across relays are then dropped.
  */
 export function readEvents(pool: RelayPool, relays: readonly string[], filter: Filter, timeoutMs: number): Promise<NostrEvent[]> {
   return new Promise((resolve) => {
@@ -26,7 +29,8 @@ export function readEvents(pool: RelayPool, relays: readonly string[], filter: F
     const timer = setTimeout(finish, timeoutMs)
     unsubscribe = pool.subscribe(relays, filter, {
       onEvent: (e) => {
-        if (!seen.has(e.id)) seen.set(e.id, e)
+        if (seen.has(e.id) || !verifyEvent(e, { checkPow: false })) return
+        seen.set(e.id, e)
       },
       onEose: settle,
       onClose: settle,

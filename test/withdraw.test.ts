@@ -10,6 +10,7 @@ import {
   finalizeEvent,
   getPublicKey,
   nearMatch,
+  nip44,
   normalizeAddressText,
   parsePayout,
   parseTx,
@@ -22,6 +23,7 @@ import {
   withdrawFee,
 } from '../src/core/index.js'
 import { CashkitError } from '../src/wallet/index.js'
+import { FakeBank } from './fakeBank.js'
 import { FakeWithdraw, PAYTO, payoutTx } from './fakeWithdraw.js'
 import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
@@ -259,5 +261,72 @@ describe('wallet.withdraw', () => {
     const after = await h.wallet.withdraw.refresh(v.id)
     const row = (await h.storage.tx('r', (x) => x.get('holdings', after.remintHoldingId!)))!
     expect(row).toMatchObject({ mode: 'cash', origin: 'reminted', amount: 5_000_000n })
+  })
+})
+
+describe('wallet.withdraw: checks against what was confirmed', () => {
+  test('a bill held under a merge key is refused before any quote', async () => {
+    const { h, id } = await setup()
+    await h.storage.tx('rw', async (t) => {
+      const row = (await t.get('holdings', id))!
+      await t.put('holdings', { ...row, throwawayKey: { alg: 'none', data: toHex(fill(0x44, 32)) }, version: row.version + 1 }, row.version)
+    })
+    expect(await failure(h.wallet.withdraw.quote(id, PAYTO))).toMatchObject({ code: 'conflict', reason: 'mid_merge' })
+  })
+  test('a payout naming another address or payout than the quote is not applied, even with a tx that pays it', async () => {
+    const { h, hub, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const p = hub.only() as { address: string; payout: bigint } & ReturnType<typeof hub.only>
+    const other = 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3'
+    p.address = other
+    hub.broadcast(p, payoutTx(other, p.payout / 1000n))
+    const after = await h.wallet.withdraw.refresh(v.id)
+    expect(after).toMatchObject({ phase: 'accepted', state: 'queued', address: PAYTO })
+    expect(after.txCheck).toBeUndefined()
+    p.address = PAYTO
+    p.payout -= 1000n
+    hub.broadcast(p, payoutTx(PAYTO, p.payout / 1000n))
+    expect((await h.wallet.withdraw.refresh(v.id)).txCheck).toBeUndefined()
+  })
+  test('a cancelled payout whose re-minted bill names another wallet or another minter is not imported', async () => {
+    const { h, hub, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const p = hub.only()
+    hub.cancel(p)
+    const real = p.newWallet!
+    const me = { type: 'pubkey' as const, value: h.me }
+    const sealedFor = (from: { walletKey: Uint8Array }, token: string) => nip44.encrypt(token, nip44.getConversationKey(from.walletKey, h.me))
+    // Decrypts under the named wallet, but the token inside is another wallet's.
+    const named = h.bank.mint(p.amount, me)
+    p.newWallet = { pubkey: named.walletPubkey, token: sealedFor(named, h.bank.mint(p.amount, me).token) }
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('accepted')
+    // The named wallet's own token, minted by another Hub.
+    const elsewhere = new FakeBank(h.pool, ['wss://elsewhere.test'], { seed: 0x0b })
+    await elsewhere.start()
+    const foreign = elsewhere.mint(p.amount, me)
+    p.newWallet = { pubkey: foreign.walletPubkey, token: sealedFor(foreign, foreign.token) }
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('accepted')
+    expect(await h.wallet.holdings()).toEqual([])
+    p.newWallet = real
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('cancelled')
+    expect(await h.wallet.holdings()).toHaveLength(1)
+  })
+})
+
+describe('wallet.withdraw: a cancelled payout', () => {
+  test('without its re-minted bill is malformed', () => {
+    const base = { state: 'cancelled', address: PAYTO, amount_millis: 1, fee_millis: 0, payout_millis: 1, sent_by: 1, final_depth: 6, signed: false, receipt: '{}' }
+    expect(() => parsePayout(base)).toThrow(expect.objectContaining({ code: 'invalid_payload' }))
+    expect(() => parsePayout({ ...base, new_wallet_pubkey: 'ab'.repeat(32) })).toThrow(expect.objectContaining({ code: 'invalid_payload' }))
+  })
+  test('whose re-minted bill is a tombstone closes with a notice for the user', async () => {
+    const { h, hub, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const p = hub.only()
+    hub.cancel(p)
+    p.newWallet = { pubkey: p.newWallet!.pubkey, token: { status: 'spent' } as unknown as string }
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('cancelled')
+    expect(await h.wallet.holdings()).toEqual([])
+    expect(await h.wallet.pendingCalls.list()).toEqual([expect.objectContaining({ id: v.id, needsUser: 'remint_gone' })])
   })
 })

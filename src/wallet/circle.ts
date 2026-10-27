@@ -255,12 +255,23 @@ export async function joinCircle(ctx: Ctx, hubString: string, t: JoinTermsInput,
       at: ctx.now(),
       version: 1,
     }
-    await ctx.commit((x) => x.put('pendingJoins', pj, 0))
+    try {
+      await ctx.commit((x) => x.put('pendingJoins', pj, 0))
+    } catch (err) {
+      throw new CashkitError('internal', 'could not record the join before sending it, so it was not sent', { cause: err })
+    }
+    const drop = () => ctx.commit((x) => x.delete('pendingJoins', pj.id)).catch(() => undefined)
+    // Read back in a new read and open the sealed secrets before anything is sent (write-ahead).
+    if (!(await joinReadsBack(ctx, pj.id, key.secret, hubString.trim()))) {
+      await drop()
+      throw new CashkitError('internal', 'the join read back from storage did not match what was written, so it was not sent')
+    }
+    // Only the unsent row this join wrote may be marked sent; a missing or already-sent row means nothing goes out.
     const markSent = () => ctx.commit(async (x) => {
       const cur = await x.get('pendingJoins', pj.id)
-      if (cur !== undefined) await x.put('pendingJoins', { ...cur, sent: true, version: cur.version + 1 }, cur.version)
+      if (cur === undefined || cur.sent) throw new CashkitError('internal', 'the pending join is no longer waiting to be sent, so it was not sent')
+      await x.put('pendingJoins', { ...cur, sent: true, version: cur.version + 1 }, cur.version)
     })
-    const drop = () => ctx.commit((x) => x.delete('pendingJoins', pj.id)).catch(() => undefined)
     ctx.emit({ op: 'join', phase: 'sent', id: opId })
     let r
     try {
@@ -298,6 +309,17 @@ export async function joinCircle(ctx: Ctx, hubString: string, t: JoinTermsInput,
     }
     throw pendingJoinError(pj.id)
   })
+}
+
+/** The pending join as read back: present, unsent, and its sealed secrets open to what was written. */
+async function joinReadsBack(ctx: Ctx, id: string, secret: string, hubString: string): Promise<boolean> {
+  const back = await ctx.read((x) => x.get('pendingJoins', id))
+  if (back === undefined || back.sent) return false
+  try {
+    return (await ctx.open(back.connectionSecret)) === secret && (await ctx.open(back.hubConnection)) === hubString
+  } catch {
+    return false
+  }
 }
 
 export interface SettleJoinsReport {
@@ -343,18 +365,20 @@ async function otherHubString(ctx: Ctx, pj: PendingJoin): Promise<Sealed | undef
 }
 
 /**
- * Looks every pending join of this device up, by its connection key and
- * exact deadline, signed by the join's `pubkey`, through the string the join
- * used: `done` adds the wallet; `pending` waits; `unknown` asks the member
- * (they may join again, with a new proof and key); `expired` is shown and
- * never rejoined with that key; an `UNAUTHORIZED` answer is final for that
- * lookup. Omissions are counted. Past the deadline plus 360 s (the join's
- * string may have been revoked), one lookup goes through another held
- * `circlehub1` of the same Hub pubkey, if there is one; a join still
- * unanswered then is shown as unanswered.
+ * Looks every sent pending join up, whichever device wrote it, by its
+ * connection key and exact deadline, signed by the join's `pubkey`, through
+ * the string the join used: `done` adds the wallet; `pending` waits;
+ * `unknown` asks the member (they may join again, with a new proof and key);
+ * `expired` is shown and never rejoined with that key; an `UNAUTHORIZED`
+ * answer is final for that lookup. Omissions are counted; one join's failure
+ * never stops the others. Past the deadline plus 360 s (the join's string may
+ * have been revoked), one lookup goes through another held `circlehub1` of
+ * the same Hub pubkey, if there is one; a join still unanswered then is shown
+ * as unanswered.
  */
 export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
-  const joins = (await ctx.read((t) => t.list('pendingJoins'))).filter((j) => j.needsUser === undefined && j.device === ctx.deviceId)
+  // A lookup moves nothing, so joins written on another device (a restored backup) are looked up too.
+  const joins = (await ctx.read((t) => t.list('pendingJoins'))).filter((j) => j.needsUser === undefined)
   const joined: string[] = []
   const pending: string[] = []
   const needsUser: string[] = []
@@ -363,7 +387,8 @@ export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
   for (const pj of joins) {
     const now = ctx.nowSeconds()
     if (!pj.sent) {
-      await ctx.commit((t) => t.delete('pendingJoins', pj.id)).catch(() => undefined)
+      // Never sent: dropped, but only by the device that wrote it.
+      if (pj.device === ctx.deviceId) await ctx.commit((t) => t.delete('pendingJoins', pj.id)).catch(() => undefined)
       continue
     }
     if (signer === undefined || signer.pubkey !== pj.signerPubkey || (pj.lookup?.retryAfter !== undefined && now < pj.lookup.retryAfter)) {
@@ -394,9 +419,18 @@ export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
     }
     const { o } = r
     const v = o?.state === 'result' ? o.value : undefined
+    let added = false
     if (v?.status === 'done') {
-      const d = await parseCreateCircleWalletResult(decodeLookupDone(v.result).result, { signer, hubPubkey: pj.hubPubkey, connectionPubkey: pj.id })
-      await addCircleWallet(ctx, pj, d, r.hub.connection.hubIdentity, r.via)
+      // One join's malformed or mismatching answer, or a failed save, never stops the others: it counts as an omission.
+      try {
+        const d = await parseCreateCircleWalletResult(decodeLookupDone(v.result).result, { signer, hubPubkey: pj.hubPubkey, connectionPubkey: pj.id })
+        await addCircleWallet(ctx, pj, d, r.hub.connection.hubIdentity, r.via)
+        added = true
+      } catch {
+        added = false
+      }
+    }
+    if (added) {
       joined.push(pj.id)
     } else if (v?.status === 'pending') {
       await set((x) => ({ ...x, lookup: { omissions: x.lookup?.omissions ?? 0, retryAfter: v.retryAfter, ...(viaOther && { viaOther }) } }))

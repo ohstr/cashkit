@@ -7,18 +7,21 @@ import {
   createSeal,
   createWrap,
   derivedRequestId,
+  fromHex,
   getPublicKey,
   localSigner,
   parsePocketEntry,
   pocketBalance,
   pocketEntryTags,
   resolveEntries,
+  toHex,
   unwrap,
   wrapExpiration,
   type PocketEntry,
 } from '../src/core/index.js'
 import { syncPocket } from '../src/adapters/sync-pocket.js'
 import { CashkitError } from '../src/wallet/index.js'
+import { FakeWithdraw, PAYTO } from './fakeWithdraw.js'
 import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
 
@@ -127,5 +130,126 @@ describe('the pocket engine', () => {
     expect(rep.imported).toHaveLength(1)
     const [held] = await b2.holdings()
     expect(held).toMatchObject({ amount: 4000n, mode: 'cash' })
+  })
+})
+
+const now = () => Math.floor(Date.now() / 1000)
+async function userSigner(h: Harness) {
+  const row = (await h.storage.tx('r', (t) => t.get('identity', 'self')))!
+  return localSigner(fromHex(new TextDecoder().decode(fromHex(row.priv!.data))))
+}
+/** Another device's write: the entry at `rev`, wrapped and stored on every pocket relay. */
+async function writeElsewhere(h: Harness, e: PocketEntry) {
+  const signer = await userSigner(h)
+  const rumor = createRumor({ kind: 9525, pubkey: signer.pubkey, created_at: now(), tags: pocketEntryTags(e), content: '' })
+  const wrap = createWrap(await createSeal(rumor, signer, { now: now(), random: rnd }), fromHex(e.wrapKey), signer.pubkey, { now: now(), random: rnd })
+  for (const r of R) await h.pool.publish(r, wrap)
+}
+async function heldRow(h: Harness) {
+  const [v] = await h.wallet.holdings()
+  return (await h.storage.tx('r', (t) => t.get('holdings', v!.id)))!
+}
+const liveEntry = async (h: Harness, rev: number, state: PocketEntry['state'] = 'live'): Promise<PocketEntry> => {
+  const b = await heldRow(h)
+  const chain = (await h.wallet.pocket.entries()).find((x) => x.w === b.walletPubkey)!.chain
+  return { w: b.walletPubkey, rev, state, checkedAt: now(), wrapKey: toHex(fill(0x60 + rev, 32)), amountMillis: b.amount!, chain, cash: b.token, identity: { type: 'pubkey', value: h.me } }
+}
+
+describe('the pocket engine: revs across devices', () => {
+  test('a bill imported at a rev another device wrote is spent above it: the spend wins', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    await writeElsewhere(a, await liveEntry(a, 4))
+    const w = (await heldRow(a)).walletPubkey
+    // A second device with the same key and an empty store.
+    const b = await withPocket({ pool: a.pool, bank: a.bank })
+    const identity = await a.storage.tx('r', (t) => t.get('identity', 'self'))
+    await b.storage.tx('rw', async (t) => {
+      const cur = await t.get('identity', 'self')
+      await t.put('identity', { ...identity!, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+    })
+    const b2 = await b.reopen({ pocket: syncPocket({ pool: a.pool, relays: R, readTimeoutMs: 300 }) })
+    expect((await b2.pocket.sync()).imported).toHaveLength(1)
+    await b2.send({ amount: 5000n })
+    expect((await b2.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
+  })
+  test('a held bill the pocket shows spent is re-checked: still unspent, it is written live above that rev', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const w = (await heldRow(a)).walletPubkey
+    await writeElsewhere(a, await liveEntry(a, 3, 'spent'))
+    await a.wallet.pocket.sync()
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === w)?.state).toBe('live')
+    expect(await a.wallet.holdings()).toHaveLength(1)
+  })
+  test('a held bill the pocket shows spent and the Hub too is marked spent here; nothing live is written', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const w = (await heldRow(a)).walletPubkey
+    await writeElsewhere(a, await liveEntry(a, 3, 'spent'))
+    a.bank.wallets.get(w)!.spent = true
+    await a.wallet.pocket.sync()
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
+    expect(await a.wallet.holdings()).toEqual([])
+  })
+})
+
+describe('the pocket engine: withdrawals', () => {
+  test('the source is written spent once the receipt checks out, while the withdrawal stays open', async () => {
+    const h = await withPocket()
+    const hub = new FakeWithdraw(h.bank)
+    const r = await h.wallet.receive(h.bank.mintToPubkey(21_000_000n, h.me).token)
+    const id = r.received ? r.holding.id : ''
+    const w = (await h.storage.tx('r', (t) => t.get('holdings', id)))!.walletPubkey
+    await h.wallet.pocket.sync()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: () => Promise.resolve(true) })
+    expect(v.state).toBe('queued')
+    expect(hub.payouts.size).toBe(1)
+    const entries = await h.wallet.pocket.entries()
+    expect(entries.find((e) => e.w === w)?.state).toBe('spent')
+    expect(entries.filter((e) => e.state === 'pending')).toHaveLength(1)
+    expect(await h.wallet.pocket.balance()).toEqual(new Map())
+  })
+})
+
+describe('the pocket engine: identities', () => {
+  test('a bill under a merge key is written with that key as its identity', async () => {
+    const h = await withPocket()
+    await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
+    const b = await heldRow(h)
+    const key = fill(0x71, 32)
+    await h.storage.tx('rw', async (t) => {
+      const row = (await t.get('holdings', b.id))!
+      await t.put('holdings', { ...row, throwawayKey: { alg: 'none', data: toHex(new TextEncoder().encode(toHex(key))) }, version: row.version + 1 }, row.version)
+    })
+    await h.wallet.pocket.sync()
+    const signer = await userSigner(h)
+    const ids = []
+    for (const p of wraps(h)) {
+      const r = await unwrap(p.event, signer)
+      if (r !== undefined) ids.push(parsePocketEntry(r).identity)
+    }
+    // One wrap per pocket relay.
+    expect(ids).toEqual(R.map(() => ({ type: 'pubkey', value: getPublicKey(key) })))
+  })
+  test('a live entry bound to another pubkey is not imported, and is reported; a ConnectionKey entry is imported as such', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const base = await liveEntry(a, 1)
+    const other = { ...base, w: 'a1'.repeat(32), identity: { type: 'pubkey' as const, value: getPublicKey(fill(0x72, 32)) } }
+    const bill = a.bank.mintToConnectionKey(4000n, 'b3'.repeat(32), getPublicKey(fill(0x73, 32)))
+    const ck = { ...base, w: bill.walletPubkey, cash: bill.token, amountMillis: 4000n, identity: { type: 'connection_key' as const, value: 'b3'.repeat(32), ia: getPublicKey(fill(0x73, 32)) } }
+    await writeElsewhere(a, other)
+    await writeElsewhere(a, ck)
+    const rep = await a.wallet.pocket.sync()
+    expect(rep.foreign).toEqual([other.w])
+    expect(rep.imported).toHaveLength(1)
+    const held = await a.wallet.holdings()
+    expect(held.map((x) => [x.walletPubkey, x.mode]).filter(([w]) => w === ck.w)).toEqual([[ck.w, 'connection_key']])
+    expect(held.some((x) => x.walletPubkey === other.w)).toBe(false)
   })
 })

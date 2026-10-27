@@ -5,7 +5,7 @@
 import { decodeBolt11, redeemInvoiceMillis, type CashRedeemResult } from '../core/index.js'
 import { NotServedError, NwcClient, WalletError, type BatchRedeem } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
-import { getHeld, getHolding } from './bills.js'
+import { getHeld, getHolding, lockedHoldings, requireUnlocked } from './bills.js'
 import { isLightning, nwcFor } from './circle.js'
 import { billOf, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, classifySpendError, fromWalletError } from './errors.js'
@@ -57,8 +57,23 @@ export interface RedeemOutcome {
 
 const noneHeld = () => new CashkitError('not_found', 'you have no held cash tokens: receive one first')
 
+/**
+ * Held holdings no open call names (I-4): a bill whose call may still have
+ * moved it is never redeemed until the call closes. With none free while
+ * some are locked, it says so rather than "none held".
+ */
+async function freeHeld(ctx: Ctx): Promise<Holding[]> {
+  const held = await ctx.read(heldHoldings)
+  const locked = await lockedHoldings(ctx)
+  const free = held.filter((h) => !locked.has(h.id))
+  if (free.length === 0 && held.length > 0) {
+    throw new CashkitError('conflict', 'every held cash token is in a call that has not finished; settle() resolves it. Nothing was changed')
+  }
+  return free
+}
+
 async function selectByAmount(ctx: Ctx, target: bigint): Promise<Holding[]> {
-  const held = (await ctx.read(heldHoldings)).filter((h) => h.amount !== undefined)
+  const held = (await freeHeld(ctx)).filter((h) => h.amount !== undefined)
   if (held.length === 0) throw noneHeld()
   const quotes = await quoteMany(ctx, held)
   const quoted: { holding: Holding; hubGroup: string; net: bigint }[] = []
@@ -116,10 +131,11 @@ export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> 
   } else if (o.holdings !== undefined) {
     if (o.holdings.length === 0) throw new CashkitError('usage', 'holdings was given no ids')
     if (new Set(o.holdings).size !== o.holdings.length) throw new CashkitError('usage', 'a holding was named more than once')
+    await requireUnlocked(ctx, o.holdings)
     selected = []
     for (const id of o.holdings) selected.push(await getHeld(ctx, id))
   } else {
-    const held = await ctx.read(heldHoldings)
+    const held = await freeHeld(ctx)
     if (held.length === 0) throw noneHeld()
     if (o.all === true || held.length === 1) selected = held
     else throw new CashkitError('usage', `you hold ${held.length} cash tokens: name which with holdings, or pass all to redeem every one`)
@@ -167,6 +183,8 @@ export async function executeRedeem(ctx: Ctx, plan: RedeemPlan): Promise<Report<
     const opId = ctx.newOpId('redeem')
     const outcomes: Outcome<RedeemOutcome>[] = plan.refused.map((r) => ({ ok: false, error: r.error, holdingIds: [r.holdingId] }))
     const live: { item: RedeemPlanItem; holding: Holding }[] = []
+    // Checked again under the spend lock: a call opened since the plan holds its bills (I-4).
+    await requireUnlocked(ctx, plan.items.map((i) => i.holdingId))
     for (const item of plan.items) {
       const h = await getHolding(ctx, item.holdingId)
       if (h.status !== 'held' || h.version !== item.version) {
