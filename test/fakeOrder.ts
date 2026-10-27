@@ -18,7 +18,7 @@ import {
 } from '../src/core/index.js'
 import type { FakeBank, Identity } from './fakeBank.js'
 import type { Answer, RequestInfo } from './fakeHub.js'
-import { invoice } from './helpers.js'
+import { signedInvoice } from './helpers.js'
 
 let seq = 0x3000
 function nextKey(): Uint8Array {
@@ -58,8 +58,8 @@ export class FakeOrder {
   readonly pubkey = getPublicKey(this.connKey)
   readonly client = getPublicKey(this.secret)
   terms: Record<string, unknown> = TERMS
-  /** How `get_info` answers `invoice`: a different amount to test the wallet's check. */
-  invoiceFor: (pay: bigint) => string = (pay) => invoice(pay, 0x77)
+  /** The invoice an order reply carries: by default for `pay`, made now by the Hub's node and expiring at `payBy`. */
+  invoiceFor: (pay: bigint, payBy: number) => string = (pay, payBy) => signedInvoice({ amountMillis: pay, nodeKey: this.bank.hub.nodeKey, timestamp: this.now, expiry: Math.max(1, payBy - this.now), hashByte: 0x77 })
   /** Applies the order but loses its reply. */
   loseReply = false
   readonly orders = new Map<string, FakeOrderRow>()
@@ -140,7 +140,7 @@ export class FakeOrder {
       amount_millis: o.amount,
       fee_millis: o.fee,
       pay_millis: o.pay,
-      ...(o.payment === 'lightning' ? { invoice: this.invoiceFor(o.pay) } : { address: ADDRESS, confirmations: 1 }),
+      ...(o.payment === 'lightning' ? { invoice: this.invoiceFor(o.pay, o.payBy) } : { address: ADDRESS, confirmations: 1 }),
       pay_by: o.payBy,
       bills: o.bills,
     }

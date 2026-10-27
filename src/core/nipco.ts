@@ -5,7 +5,7 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bech32, bech32m } from '@scure/base'
-import { decodeBolt11 } from './bolt11.js'
+import { decodeBolt11, invoiceExpiresAt as invoiceExpiresAtOf } from './bolt11.js'
 import { fromHex, toHex } from './bytes.js'
 import { CoreError } from './errors.js'
 import { newCashTarget, type CashTarget } from './identity.js'
@@ -329,6 +329,8 @@ export interface Order {
   readonly feeMillis: bigint
   readonly payMillis: bigint
   readonly invoice?: string
+  /** When the Lightning invoice expires (its creation time plus expiry). */
+  readonly invoiceExpiresAt?: number
   readonly address?: string
   readonly confirmations?: number
   readonly payBy: number
@@ -383,11 +385,14 @@ export function parseOrder(v: unknown, p: { request?: Pick<CashOrderRequest, 'pa
   if (invoice !== undefined && rawAddress !== undefined) throw badReply('both invoice and address')
   let address: string | undefined
   let confirmations: number | undefined
+  let invoiceExpiresAt: number | undefined
   if (payment === 'lightning') {
     if (invoice === undefined || (o['confirmations'] !== undefined && o['confirmations'] !== 0)) throw badReply('a Lightning order carries an invoice and no confirmations')
     let amt: bigint
     try {
-      amt = decodeBolt11(invoice).amountMillis
+      const inv = decodeBolt11(invoice)
+      amt = inv.amountMillis
+      invoiceExpiresAt = invoiceExpiresAtOf(inv)
     } catch {
       throw badReply('the invoice does not decode')
     }
@@ -435,7 +440,7 @@ export function parseOrder(v: unknown, p: { request?: Pick<CashOrderRequest, 'pa
     }
     return { walletPubkey, token, amountMillis: amt, paidMillis: replyUint(x['paid_millis'] ?? 0, `bill ${i} paid_millis`), ...(outpoint !== undefined && { outpoint }) }
   })
-  return { state: state as OrderState, payment, amountMillis, feeMillis, payMillis, ...(invoice !== undefined && { invoice }), ...(address !== undefined && { address }), ...(confirmations !== undefined && { confirmations }), payBy, bills }
+  return { state: state as OrderState, payment, amountMillis, feeMillis, payMillis, ...(invoice !== undefined && { invoice }), ...(invoiceExpiresAt !== undefined && { invoiceExpiresAt }), ...(address !== undefined && { address }), ...(confirmations !== undefined && { confirmations }), payBy, bills }
 }
 
 /** Finished (§Client Behavior): Lightning at `minted` or `expired`, on-chain at `expired` or `closed` (which may still gain bills). */

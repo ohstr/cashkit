@@ -64,6 +64,8 @@ export interface OrderView {
   readonly address?: string
   readonly confirmations?: number
   readonly payBy: number
+  /** Pay before this: `payBy`, or the invoice's own expiry when that comes first. */
+  readonly payDeadline: number
   readonly bills: OrderRecord['bills']
   readonly finished: boolean
   readonly endedUnpaid: boolean
@@ -266,6 +268,7 @@ function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet:
     feeMillis: order.feeMillis,
     payMillis: order.payMillis,
     ...(order.invoice !== undefined && { invoice: order.invoice }),
+    ...(order.invoiceExpiresAt !== undefined && { invoiceExpiresAt: order.invoiceExpiresAt }),
     ...(order.address !== undefined && { address: order.address }),
     ...(order.confirmations !== undefined && { confirmations: order.confirmations }),
     payBy: order.payBy,
@@ -450,6 +453,7 @@ export function orderView(call: PendingCall): OrderView {
     ...(valid && r.address !== undefined && { address: r.address }),
     ...(r?.confirmations !== undefined && { confirmations: r.confirmations }),
     payBy: r?.payBy ?? 0,
+    payDeadline: Math.min(r?.payBy ?? 0, r?.invoiceExpiresAt ?? Number.MAX_SAFE_INTEGER),
     bills: r?.bills ?? [],
     finished: r?.finished ?? false,
     endedUnpaid: r?.endedUnpaid ?? false,

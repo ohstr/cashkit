@@ -19,7 +19,7 @@ import {
 } from '../src/core/index.js'
 import { CashkitError } from '../src/wallet/index.js'
 import { ADDRESS, FakeOrder, TERMS } from './fakeOrder.js'
-import { invoice } from './helpers.js'
+import { invoice, signedInvoice } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
 
 const failure = (p: Promise<unknown>): Promise<CashkitError> =>
@@ -176,6 +176,17 @@ describe('wallet.orders', () => {
     const v = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' })
     expect(v.invalidReply).toMatch(/invoice/)
     expect(v.invoice).toBeUndefined()
+  })
+  test('the deadline shown is pay_by, or the invoice’s own expiry when that comes first', async () => {
+    const { h, shop } = await setup()
+    const at = (expiry: number) => (pay: bigint) => signedInvoice({ amountMillis: pay, nodeKey: h.bank.hub.nodeKey, timestamp: Math.floor(h.bank.hub.clock() / 1000), expiry })
+    shop.invoiceFor = at(7200)
+    const late = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' })
+    expect(late.payDeadline).toBe(late.payBy)
+    shop.invoiceFor = at(600)
+    const early = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' })
+    expect(early.payDeadline).toBe(early.payBy - 3000)
+    expect(early.invoice).toMatch(/^ln/)
   })
   test('a retired connection sells nothing: not_selling, nothing written; amounts out of range are refused locally', async () => {
     const { h, shop } = await setup()
