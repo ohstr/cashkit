@@ -6,8 +6,16 @@ import { describe, expect, test, vi } from 'vitest'
 import { MemoryStorage } from '../src/adapters/storage-memory.js'
 import { BroadcastSync } from '../src/adapters/sync-broadcast.js'
 import {
+  quoteChanges,
   useActivity,
   useBalance,
+  useConfirmations,
+  usePendingCalls,
+  useTap,
+  useTestNetworkBanner,
+  useUnreconciled,
+  useWithdrawals,
+  useWithdrawQuote,
   useHoldings,
   useOperationEvents,
   useReceive,
@@ -19,6 +27,8 @@ import {
 } from '../src/react/index.js'
 import type { CashkitError, OperationEvent, Wallet } from '../src/wallet/index.js'
 import { harness, type Harness } from './walletHarness.js'
+import { FakeWithdraw, PAYTO } from './fakeWithdraw.js'
+import type { TapView, WithdrawQuoteView } from '../src/wallet/index.js'
 
 const wrap = (wallet: Wallet) =>
   function W({ children }: { children?: ReactNode }) {
@@ -164,5 +174,94 @@ describe('queries', () => {
     await waitFor(() => expect(result.current.data?.total).toBe(0n))
     await act(async () => void (await h.wallet.receive(token)))
     await waitFor(() => expect(result.current.data?.total).toBe(5000n))
+  })
+})
+
+describe('confirmations (T-952, T-953)', () => {
+  test('a question waits in the queue; answering yes lets the withdrawal go out', async () => {
+    const h = await harness()
+    const hub = new FakeWithdraw(h.bank)
+    const r = await h.wallet.receive(h.bank.mintToPubkey(21_000_000n, h.me).token)
+    expect(hub).toBeDefined()
+    const id = r.received ? r.holding.id : ''
+    const { result } = renderHook(() => ({ queue: useConfirmations(), quote: useWithdrawQuote(), list: useWithdrawals() }), { wrapper: wrap(h.wallet) })
+    let q!: WithdrawQuoteView
+    await act(async () => void (q = await result.current.quote.run(id, PAYTO)))
+    let sent!: Promise<unknown>
+    act(() => void (sent = h.wallet.withdraw.send(q)))
+    await waitFor(() => expect(result.current.queue).toHaveLength(1))
+    expect(result.current.queue[0]!.request).toMatchObject({ type: 'confirmWithdraw', quote: { address: PAYTO, deliberate: true, irreversible: true } })
+    await act(async () => {
+      result.current.queue[0]!.answer(true)
+      await sent
+    })
+    expect(result.current.queue).toEqual([])
+    await waitFor(() => expect(result.current.list.data).toHaveLength(1))
+  })
+  test('unmounting answers what is still open with no', async () => {
+    const h = await harness()
+    const ctx = (h.wallet as unknown as { ctx: { confirmations: { ask: (q: unknown) => Promise<boolean> } } }).ctx
+    const r = renderHook(() => useConfirmations(), { wrapper: wrap(h.wallet) })
+    let answer!: Promise<boolean>
+    act(() => void (answer = ctx.confirmations.ask({ type: 'confirmDelete', name: 'c', dust: 3n })))
+    await waitFor(() => expect(r.result.current).toHaveLength(1))
+    r.unmount()
+    expect(await answer).toBe(false)
+    expect(await ctx.confirmations.ask({ type: 'confirmDelete', name: 'c', dust: 3n })).toBe(false)
+  })
+  test('a re-quote names the figures that moved', () => {
+    const a = { holdingId: 'h', address: PAYTO, amountMillis: 10n, feeMillis: 2n, networkFeeMillis: 1n, hubFeeMillis: 1n, payoutMillis: 8n, sentBy: 100 } as WithdrawQuoteView
+    expect(quoteChanges(a, { ...a, feeMillis: 3n, hubFeeMillis: 2n, payoutMillis: 7n })).toEqual([
+      { field: 'feeMillis', before: 2n, after: 3n },
+      { field: 'hubFeeMillis', before: 1n, after: 2n },
+      { field: 'payoutMillis', before: 8n, after: 7n },
+    ])
+    expect(quoteChanges(a, a)).toEqual([])
+  })
+})
+
+describe('hooks render without secrets (T-951)', () => {
+  test('pending calls and unreconciled calls carry no secret unless asked', async () => {
+    const h = await harness()
+    const secret = 'ab'.repeat(32)
+    await h.wallet.receive(`${h.bank.mintToCash(700n, secret).token}#${secret}`, { protect: false })
+    const { result } = renderHook(() => ({ calls: usePendingCalls(), un: useUnreconciled() }), { wrapper: wrap(h.wallet) })
+    await waitFor(() => expect(result.current.un.secrets.loading).toBe(false))
+    expect(result.current.un.count).toBe(0)
+    const text = JSON.stringify({ calls: result.current.calls.calls, un: result.current.un.secrets.data }, (_k, v) => (typeof v === 'bigint' ? String(v) : v))
+    expect(text).not.toContain(secret)
+  })
+})
+
+describe('discover hooks (T-954)', () => {
+  test('a tap goes checking, slow after 5 s, then available', async () => {
+    const h = await harness()
+    let done!: (v: TapView) => void
+    vi.spyOn(h.wallet.discover, 'tap').mockReturnValue(new Promise<TapView>((r) => (done = r)))
+    vi.useFakeTimers()
+    try {
+      const { result } = renderHook(() => useTap('31190:aa:bb'), { wrapper: wrap(h.wallet) })
+      expect(result.current.tapState).toBe('idle')
+      let p!: Promise<TapView>
+      act(() => void (p = result.current.tap()))
+      expect(result.current.tapState).toBe('checking')
+      act(() => void vi.advanceTimersByTime(4999))
+      expect(result.current.tapState).toBe('checking')
+      act(() => void vi.advanceTimersByTime(1))
+      expect(result.current.tapState).toBe('slow')
+      await act(async () => {
+        done({ outcome: 'show', reason: '', banners: { termsDiffer: false, testNetwork: false }, label: 'x', hubFingerprint: 'aaaa', notice: 'tap_visible' })
+        await p
+      })
+      expect(result.current.tapState).toBe('available')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  test('the test-network banner shows off mainnet only', () => {
+    const { result } = renderHook(() => [useTestNetworkBanner({ testNetwork: false, network: 'mainnet' }), useTestNetworkBanner({ testNetwork: true, network: 'regtest' }), useTestNetworkBanner({ testNetwork: true })])
+    expect(result.current[0]).toBeUndefined()
+    expect(result.current[1]).toMatch(/regtest, a test network/)
+    expect(result.current[2]).toMatch(/does not say which network/)
   })
 })
