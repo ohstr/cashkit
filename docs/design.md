@@ -158,8 +158,23 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
   hashes the 64-character hex text, not the 32 raw bytes. This is a porting
   trap, and a vector covers it.
 - **Identities, recipients and credentials.**
-  - Builders: `pubkey`, `connectionKey`, `anyone`, `newCashTarget`, and
+  - Builders: `pubkeyTarget`, `connectionTarget`, `newCashTarget`, and
     credentials `bySecret`, `bySigning`, `bySigningConnectionKey`.
+  - A NIP-IC ConnectionKey never travels without its IA: a connection-key
+    target is built from a `ConnectionKeyRef {key, platform, ia}` only, and
+    a ref comes from `connectionKeyRefFromTyped` (x, discord, email and dns,
+    the canonical form hashed), `connectionKeyFromAttestation` (the
+    attestation's `d` with its author as the IA, taken only when `d` is the
+    hash of its `platform` and `evidence.user_id` byte for byte and that id
+    is canonical on a canonical platform), `connectionKeyFromNConnection`
+    (the key byte for byte, an IA and a platform required) or
+    `connectionKeyRef` (a key already held, never hashed). A Nostr pubkey is
+    never hashed into a key.
+  - `parseAttestation` refuses a repeated `d`, `p`, `platform`, `evidence`
+    or `expiration` tag, a `d` or `p` that is not 64 lowercase hex, an
+    invalid platform name, a non-empty `content`, a malformed `expiration`,
+    and evidence that is not version 1 with an `auth_type` (`public_post`
+    evidence carries `evidence_url`, `challenge` and `pre_auth_code`).
   - On the wire, a cash target is `hex(sha256(secret))`, hashing the 32
     raw secret bytes (not their hex text).
 - **Canonical platform user ids** (`core/idna.ts`, NIP-IC). `canonicalUserId`
@@ -420,6 +435,23 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   `getInfo`, `getBalance`, `getBudget`, `makeInvoice` (amount above zero),
   `payInvoice`, `payKeysend`, `lookupInvoice`, `listTransactions`,
   `deleteWallet`, and the advisory `previewPayment`.
+
+- **NIP-IC verification** (`core/icVerify.ts`, `client/identity.ts`).
+  `evaluateConnection` runs the Verification Model over the 35521s found
+  for a key, with the relay reads behind an `AttestationSource`;
+  `resolveConnection(pool, key, {trustedIas, relays, now})` queries the
+  35521s, fetches each referenced 35522 from its relay hint (the query
+  relays when there is none) and returns `verified`, `unverified` or
+  `spoofed` with one verdict per claim. A reference counts only when it is
+  a valid 35522 from a trusted IA other than the claim's author, its `d`
+  and `platform` equal the claim's and `p` is the claim's author, it is
+  unexpired, dated at most 900 s ahead, not deleted by the IA itself and
+  the IA's current attestation for the key; each failed check is its own
+  reason. A claim whose `content` names another `user_id` or `username`
+  than the evidence is spoofed, and the handle to show is the evidence's.
+  Of the attestations that count the latest `created_at` wins (ties: the
+  lowest id) and claims by every other pubkey are spoofed. It is for
+  display and linking; a claim is checked by the Hub, never by this.
 
 - **`client/lsp.ts`** (NIP-LSP): `newAnnouncement` builds the unsigned
   kind-10735 event from an LSP's fields (tags in the NIP's order; the
@@ -795,6 +827,11 @@ interface SendResult {
 - Targets are sniffed the way cashctl sniffs them: hex, `npub1`, NIP-05,
   `nconnection1` (needs `ia`, or the result is a `usage` error naming it),
   `cash`, `pubkey:` or `connection:`.
+- `connection:<platform>:<id>:<ia>` hashes the canonical id on x, discord,
+  email and dns and refuses any other platform (`invalid_input`, with a
+  hint to paste the account's `nconnection1`); the IA is a hex pubkey, an
+  npub or a NIP-05 name. An `nconnection1` key is taken byte for byte, and
+  one without a platform is refused.
 - Resolved targets always appear in `targetResolved`.
 
 ### 6.3 Redeem

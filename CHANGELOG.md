@@ -246,6 +246,23 @@
 - `derivedRequestId` refuses an id that is not a request id; adds
   `requiresRequestId`. ([#31](https://github.com/ohstr/cashkit/pull/31))
 - `connectionKeyFromSecret` refuses uppercase hex. ([#31](https://github.com/ohstr/cashkit/pull/31))
+- A NIP-IC ConnectionKey now always travels with its IA: targets are built
+  with `connectionTarget(ref)` from a `ConnectionKeyRef` made by
+  `connectionKeyRefFromTyped` (x, discord, email, dns only),
+  `connectionKeyFromAttestation`, `connectionKeyFromNConnection` or
+  `connectionKeyRef`. `newConnectionKey`, `connectionKeyTarget` and
+  `resolvedConnectionKeyTarget` are removed (breaking).
+- `parseTarget` hashes a typed `connection:` target only on x, discord,
+  email and dns, in canonical form, and refuses any other platform with a
+  hint to paste the recipient's `nconnection1`; an `nconnection1` without a
+  platform is refused for a send.
+- `parseAttestation` follows NIP-IC strictly: a repeated tag, a malformed
+  `expiration`, `d`/`p` that are not lowercase hex, a bad platform name, a
+  non-empty `content` and evidence that is not version 1 with an
+  `auth_type` are refused (breaking).
+- Adds NIP-IC connection verification: `resolveConnection` (client) and
+  `evaluateConnection`, `parseIdentityConnection` (core), reporting
+  `verified`, `unverified` or `spoofed` per the Verification Model.
 
 ## [0.1.0-rc.2]
 
