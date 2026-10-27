@@ -195,10 +195,14 @@ export interface ZapView {
   readonly target?: string
 }
 
+/** The user's own 10522 as the last zap list read it, per wallet and identity: claim() trusts its Minters as list() did. */
+const ownInfo = new WeakMap<Ctx, { readonly pubkey: string; readonly info: CashZapInfo | undefined }>()
+
 /** Incoming 9522s for this user, each through rules 1–8. Nothing is claimed. */
 export async function listZaps(ctx: Ctx, o: { relays: readonly string[]; connectionKeys?: readonly string[] }): Promise<ZapView[]> {
   const me = (await ctx.requireSigner()).pubkey
   const mine = await latestInfo(ctx, me, o.relays)
+  ownInfo.set(ctx, { pubkey: me, info: mine })
   const relays = [...new Set([...(mine?.relays ?? []), ...o.relays])]
   const evs = await readEvents(ctx.deps.relays, relays, incomingZapFilter([me, ...(o.connectionKeys ?? [])]), READ_MS).catch(() => [])
   const trusted = (await ctx.settings()).trustedMinters
@@ -246,16 +250,20 @@ export async function approveMinter(ctx: Ctx, minter: string, chain: string): Pr
 }
 
 /**
- * Claims an incoming zap (rule 9): it must pass rules 1–6 and 8 (an
- * unlisted minter only once approved); then the bill's own `cash_status`
+ * Claims an incoming zap (rule 9): it must pass rules 1–6 and 8 (a
+ * minter trusted by this wallet or listed in the user's own 10522, read
+ * from `relays` or else as the last zap list read it; any other only once
+ * approved); then the bill's own `cash_status`
  * must show this wallet's slice unclaimed at exactly the zap's amount. The
  * bill is kept with its zap fields (its provenance needs them) and the
  * expiry its status reports. Nothing is published.
  */
-export async function claimZap(ctx: Ctx, ev: NostrEvent): Promise<Holding> {
+export async function claimZap(ctx: Ctx, ev: NostrEvent, opts: { relays?: readonly string[] } = {}): Promise<Holding> {
   const me = (await ctx.requireSigner()).pubkey
   const trusted = (await ctx.settings()).trustedMinters
-  const v = verifyCashZap(ev, { trusted })
+  const cached = ownInfo.get(ctx)
+  const mine = opts.relays !== undefined ? await latestInfo(ctx, me, opts.relays) : cached?.pubkey === me ? cached.info : undefined
+  const v = verifyCashZap(ev, { ...(mine !== undefined && { zapInfo: mine }), trusted })
   if (!v.valid || v.tags === undefined || v.token === undefined) throw new CashkitError('invalid_input', `this Cash Zap fails rule ${v.failed}`, { reason: 'zap_invalid' })
   if (v.rules[8] !== true) throw new CashkitError('auth', 'this zap’s minter is not trusted: approve it first', { reason: 'minter_untrusted' })
   if (v.tags.p.kind !== 'pubkey' || v.tags.p.value !== me) throw new CashkitError('usage', 'only a zap to this wallet’s pubkey is claimed here', { reason: 'not_for_this_wallet' })

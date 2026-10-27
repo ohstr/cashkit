@@ -5,12 +5,16 @@ import { describe, expect, test } from 'vitest'
 import {
   checkCashZapTags,
   countCashZaps,
+  finalizeEvent,
+  getPublicKey,
   isTrustedMinter,
+  localSigner,
   parseCashZapInfo,
   parseIdentityTag,
   verifyCashZap,
 } from '../src/core/index.js'
 import { CashkitError } from '../src/wallet/index.js'
+import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
 
 const failure = (p: Promise<unknown>): Promise<CashkitError> =>
@@ -149,5 +153,36 @@ describe('wallet.zaps: the 9522 is published until a relay takes it', () => {
     expect(published(alice).map((e) => e.id)).toEqual([r.eventId])
     await alice.wallet.settle()
     expect(published(alice)).toHaveLength(1)
+  })
+})
+
+describe('wallet.zaps.claim: rule 8 from the user’s own 10522', () => {
+  test('a minter listed in the user’s 10522 is trusted for the claim, as the list shows it', async () => {
+    const alice = await harness()
+    const key = fill(0x5b, 32)
+    const bob = await harness({ pool: alice.pool, bank: alice.bank, identity: false })
+    await bob.wallet.identity.useSigner(localSigner(key))
+    const me = getPublicKey(key)
+    await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
+    await alice.wallet.zaps.send({ to: me, amountMillis: 21_000n, target: { e: 'cd'.repeat(32) }, relays: [SOCIAL] })
+    const [ev] = published(alice)
+    const [z0] = await bob.wallet.zaps.list({ relays: [SOCIAL] })
+    await alice.pool.publish(SOCIAL, finalizeEvent({ kind: 10522, created_at: Math.floor(Date.now() / 1000), tags: [['chain', z0!.chain!], ['mint', z0!.minter!, z0!.chain!], ['relay', SOCIAL]], content: '' }, key))
+    expect(await failure(bob.wallet.zaps.claim(ev!))).toMatchObject({ reason: 'minter_untrusted' })
+    const [z] = await bob.wallet.zaps.list({ relays: [SOCIAL] })
+    expect(z).toMatchObject({ trusted: true })
+    expect(await bob.wallet.zaps.claim(ev!)).toMatchObject({ amount: 21_000n })
+  })
+  test('relays given to claim are read for the 10522', async () => {
+    const alice = await harness()
+    const key = fill(0x5c, 32)
+    const bob = await harness({ pool: alice.pool, bank: alice.bank, identity: false })
+    await bob.wallet.identity.useSigner(localSigner(key))
+    await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
+    await alice.wallet.zaps.send({ to: getPublicKey(key), amountMillis: 21_000n, target: { e: 'cd'.repeat(32) }, relays: [SOCIAL] })
+    const [ev] = published(alice)
+    const v = verifyCashZap(ev!, {})
+    await alice.pool.publish(SOCIAL, finalizeEvent({ kind: 10522, created_at: Math.floor(Date.now() / 1000), tags: [['chain', v.tags!.chain], ['mint', v.minter!, v.tags!.chain]], content: '' }, key))
+    expect(await bob.wallet.zaps.claim(ev!, { relays: [SOCIAL] })).toMatchObject({ amount: 21_000n })
   })
 })

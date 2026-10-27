@@ -550,7 +550,7 @@ export class Wallet {
   readonly zaps = {
     send: (o: ZapInput): Promise<ZapSent> => this.ctx.spend(() => sendZap(this.ctx, o)),
     list: (o: { relays: readonly string[]; connectionKeys?: readonly string[] }): Promise<ZapView[]> => listZaps(this.ctx, o),
-    claim: (event: NostrEvent): Promise<HoldingView> => this.ctx.spend(async () => holdingView(await claimZap(this.ctx, event), this.ctx.nowSeconds())),
+    claim: (event: NostrEvent, o: { relays?: readonly string[] } = {}): Promise<HoldingView> => this.ctx.spend(async () => holdingView(await claimZap(this.ctx, event, o), this.ctx.nowSeconds())),
     approveMinter: (minter: string, chain: string): Promise<{ readonly networkUnverifiable: true }> => approveMinter(this.ctx, minter, chain),
   }
 
