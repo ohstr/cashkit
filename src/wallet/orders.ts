@@ -127,16 +127,21 @@ function quoteOf(terms: OrderTerms, payment: Payment, amountMillis: bigint) {
 }
 
 /** The terms, the order fee, what to pay, the confirmations and the bill's redeem fee. Nothing is written. */
-export async function quoteOrder(ctx: Ctx, connection: string, o: { amountMillis: bigint; payment: Payment; confirmUnverified?: (v: HubView) => Promise<boolean> }): Promise<OrderQuote> {
-  const c = await connect(ctx, connection, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }) })
-  const terms = await c.terms().catch((err: unknown) => {
-    throw connectError(err)
-  })
+/** The terms as NIP-CO §Terms requires them, else `terms_invalid`. */
+function checkTerms(terms: Parameters<typeof validateTerms>[0]): void {
   try {
     validateTerms(terms)
   } catch (err) {
     throw new CashkitError('invalid_input', (err as Error).message, { reason: 'terms_invalid', cause: err })
   }
+}
+
+export async function quoteOrder(ctx: Ctx, connection: string, o: { amountMillis: bigint; payment: Payment; confirmUnverified?: (v: HubView) => Promise<boolean> }): Promise<OrderQuote> {
+  const c = await connect(ctx, connection, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }) })
+  const terms = await c.terms().catch((err: unknown) => {
+    throw connectError(err)
+  })
+  checkTerms(terms)
   return { terms, payment: o.payment, amountMillis: o.amountMillis, ...quoteOf(terms, o.payment, o.amountMillis), hub: c.view() }
 }
 
@@ -153,7 +158,7 @@ export interface PlaceOrderInput {
 
 /**
  * Places an order as one `cash_order` pending call: the terms are read
- * again and the amount checked locally; the request id, `notify` and the
+ * again and checked (`terms_invalid`), and the amount checked locally; the request id, `notify` and the
  * recipient's secret (whose buyer key it derives) or a fresh buyer key are
  * written ahead with the call before anything is sent. The reply opens the
  * order (`open_order`); a lost reply is settled by lookup, and an `unknown`
@@ -164,6 +169,7 @@ export async function placeOrder(ctx: Ctx, o: PlaceOrderInput): Promise<OrderVie
   const terms = await c.terms().catch((err: unknown) => {
     throw connectError(err)
   })
+  checkTerms(terms)
   const q = quoteOf(terms, o.payment, o.amountMillis)
   const to = (o.to ?? 'cash').trim()
   let recipient: MintRecipient

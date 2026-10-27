@@ -209,3 +209,13 @@ describe('wallet.orders', () => {
     expect(updates.at(-1)).toBe('minted')
   }, 20_000)
 })
+
+describe('wallet.orders.place: terms', () => {
+  test('terms read again at placement are checked: tiers that do not ascend are terms_invalid, nothing is sent', async () => {
+    const h = await harness()
+    const shop = new FakeOrder(h.bank)
+    shop.terms = { ...TERMS, onchain: { ...TERMS.onchain, confirmations: [{ up_to_millis: 1_000_000_000, n: 3 }, { up_to_millis: 100_000_000, n: 1 }, { n: 6 }] } }
+    expect(await failure(h.wallet.orders.place({ connection: shop.string, amountMillis: 21_000_000n, payment: 'onchain' }))).toMatchObject({ code: 'invalid_input', reason: 'terms_invalid' })
+    expect(await h.storage.tx('r', (t) => t.list('pendingCalls'))).toEqual([])
+  })
+})
