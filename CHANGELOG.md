@@ -92,8 +92,10 @@
   (start a new store), and pending calls, a device id and local derived-id
   and Hub records are added. Backups are version 2 and carry pending calls
   sealed; a version-1 backup is refused.
+  ([#16](https://github.com/ohstr/cashkit/pull/16))
 - Removes the unused `fallbackRelays` option and the `timeouts` and
   `displayUnit` settings.
+  ([#16](https://github.com/ohstr/cashkit/pull/16))
 
 ## [0.1.0-rc.2]
 
