@@ -23,6 +23,7 @@ import {
   type MintRecipient,
   type Payment,
 } from '../../src/core/index.js'
+import { parseJSONStrictIntegers } from '../../src/core/gojson.js'
 import { named, type Json } from './helpers.js'
 import { canon, loadExact } from './json-big.js'
 
@@ -30,20 +31,11 @@ const v = loadExact('order.json')
 const title = (c: Json, i: number) => c.name ?? c.id ?? `case ${i}`
 
 const MISMATCH = new Set([
-  // JSON.parse reads 1e3 as 1000: cashkit cannot tell the exponent form apart and accepts it; nmilat refuses it.
-  'min_millis 1e3',
-  // cashkit's validateTerms does not check window > 0.
-  'window 0',
-  // cashkit's orderFee works in bigint: an amount of 2^64-1 plus a fee does not overflow, so it is not refused.
-  'fee lightning 18446744073709551615',
-  // cashkit's orderFee takes any payment string as Lightning; nmilat refuses "card".
-  'fee card 1000',
-  // The vector's invoice "lnbc210220n1..." is a placeholder: cashkit's parseOrder decodes the invoice and requires it to be for exactly pay_millis.
+  // Disputed: the vector's invoice "lnbc210220n1..." is the NIP's placeholder and does not decode. nmilat does not
+  // read the invoice; cashkit refuses a reply whose invoice is not for exactly pay_millis (NIP-CO §Response:
+  // "`invoice`: a fresh invoice for exactly `pay_millis`"; §Lightning: "The invoice is for exactly `pay_millis`").
   'Lightning, open (reply)',
   'Lightning, open (lookup)',
-  // cashkit's parseOrder reads replies and lookups alike: it does not refuse a direct reply whose order is not open.
-  'on-chain, minted (a lookup\'s done result) (reply)',
-  'a minted bill already destroyed (reply)',
 ])
 
 const kindTerms = (k: Json): KindTerms => ({ minMillis: 0n, maxMillis: 0n, feeBase: BigInt(k.feeBase), feePpm: BigInt(k.feePpm), window: 0 })
@@ -56,7 +48,8 @@ describe('order.json terms', () => {
     if (MISMATCH.has(name)) return
     let info: unknown
     try {
-      info = JSON.parse(c.getInfo)
+      // As a NIP-47 reply is read.
+      info = parseJSONStrictIntegers(c.getInfo)
     } catch {
       expect(c.error).toBeDefined()
       return
@@ -149,7 +142,7 @@ describe('order.json replies', () => {
     } catch {
       // a bad token: the reply is refused anyway
     }
-    const run = () => parseOrder(raw, { request: { payment: c.payment, amount_millis: BigInt(raw.amount_millis ?? 0) }, hubIdentity, chain: 'bitcoin', network: 'mainnet' })
+    const run = () => parseOrder(raw, { request: { payment: c.payment, amount_millis: BigInt(raw.amount_millis ?? 0) }, hubIdentity, chain: 'bitcoin', network: 'mainnet', lookup: c.lookup === true })
     if (c.error !== undefined) {
       expect(run).toThrow()
       return

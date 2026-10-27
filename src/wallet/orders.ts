@@ -357,9 +357,9 @@ function invalidRecord(call: PendingCall, raw: unknown, reason: string, now: num
   }
 }
 
-function parseFor(call: PendingCall, raw: unknown): Order {
+function parseFor(call: PendingCall, raw: unknown, lookup: boolean): Order {
   const p = call.params ?? {}
-  return parseOrder(raw, { request: { payment: p['payment'] as Payment, amount_millis: call.amount }, hubIdentity: call.node, ...(p['chain'] !== undefined && { chain: p['chain'] }), ...(p['network'] !== undefined && { network: p['network'] }) })
+  return parseOrder(raw, { request: { payment: p['payment'] as Payment, amount_millis: call.amount }, hubIdentity: call.node, lookup, ...(p['chain'] !== undefined && { chain: p['chain'] }), ...(p['network'] !== undefined && { network: p['network'] }) })
 }
 
 const orderKind: CallKind = {
@@ -373,7 +373,7 @@ const orderKind: CallKind = {
     const raw = from === 'reply' ? result : decodeLookupDone(result).result
     let order: Order
     try {
-      order = parseFor(call, raw)
+      order = parseFor(call, raw, from !== 'reply')
     } catch (err) {
       const reason = (err as Error).message
       return async (t) => {
@@ -409,7 +409,7 @@ export async function refreshOrder(ctx: Ctx, id: string): Promise<OrderView> {
   if (v?.status === 'done') {
     let order: Order | undefined
     try {
-      order = parseFor(call, decodeLookupDone(v.result).result)
+      order = parseFor(call, decodeLookupDone(v.result).result, true)
     } catch (err) {
       await ctx.commit(async (t) => {
         const cur = (await t.get('pendingCalls', id))!
