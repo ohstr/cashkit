@@ -111,8 +111,9 @@
   secret they create; a lost reply is settled by lookup instead of a probe.
   ([#18](https://github.com/ohstr/cashkit/pull/18))
 - A bill in an open call is locked: plans skip it, naming it is a
-  `conflict`, and `holdings()` shows it `unsettled`. A coded refusal keeps
-  the call open until a lookup confirms nothing was applied.
+  `conflict`, and `holdings()` shows it `unsettled`. `BAD_REQUEST` closes
+  the call at once and frees the bill, and a tombstone closes it with the
+  bill spent; any other code keeps it open until a lookup settles it.
   ([#18](https://github.com/ohstr/cashkit/pull/18))
 - Removes the per-holding write-ahead fields (`pendingCashSecret`,
   `pendingDestinationCashSecret`, `pendingRemainderCashSecret`,
