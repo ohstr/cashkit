@@ -235,19 +235,23 @@
   overflows a uint64; `parseOrder` takes `lookup` and refuses a direct reply
   whose order is not `open`. A NIP-47 reply's integer written as `1e3` or
   `1.0` is no longer read as an integer.
+  ([#32](https://github.com/ohstr/cashkit/pull/32))
 - Withdrawals: `withdrawFee` refuses a fee that overflows a uint64;
   `parsePayout` checks every field the state requires or forbids (txid,
   vout and depth from `broadcast` on, `tx` only once signed, the re-minted
   bill always under `cancelled`, fee plus payout equal to the amount); a
   version-0 script type is 20 or 32 bytes; `classifyAddress` with an empty
   HRP accepts any network.
+  ([#32](https://github.com/ohstr/cashkit/pull/32))
 - Cash Zaps: a 9522 with a NIP-40 `expiration` tag is valid but never
   counted (`CashZapTags.hasExpiration`), where it was refused; rule 7 fails
   when an `e`-only zap does not name the given target's `id`.
+  ([#32](https://github.com/ohstr/cashkit/pull/32))
 - Listings: a repeated type `t` is refused at step 1; a listing is current
   through its expiry second; `sanitizeText` also drops a U+FE0F right after
   a check mark, treats line breaks next to stripped characters as the input
   has them, and caps nothing when `maxClusters` is 0 or less.
+  ([#32](https://github.com/ohstr/cashkit/pull/32))
 - Cash Pocket: `validatePocketEntry` checks an entry before it is written
   and `checkPendingEntry` a call's first pending entry (an order keeps its
   notify and its secret or key; a withdrawal its notify, address, quote and
@@ -255,7 +259,9 @@
   hex, a state without its check time, a 64-hex `mint` and `expires_at` 0;
   `resolveEntries` reports a conflict only when the winning `rev` holds two
   rumors.
+  ([#32](https://github.com/ohstr/cashkit/pull/32))
 - `budgetPeriodStart` returns undefined for a negative period index.
+  ([#32](https://github.com/ohstr/cashkit/pull/32))
 
 ## [0.1.0-rc.2]
 
