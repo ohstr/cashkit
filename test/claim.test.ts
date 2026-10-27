@@ -64,7 +64,7 @@ function attestation(over: { tags?: readonly (readonly string[])[]; kind?: numbe
     ['d', newConnectionKey('github', '12345')],
     ['p', signer.pubkey],
     ['platform', 'github'],
-    ['evidence', '{"version":1,"platform":"github","auth_type":"public_post","user_id":"12345","username":"alice","verified_at":1759999000}'],
+    ['evidence', '{"version":1,"platform":"github","auth_type":"oauth","user_id":"12345","username":"alice","verified_at":1759999000}'],
     ['expiration', String(NOW + 86400)],
   ]
   return finalizeEvent({ kind: over.kind ?? 35522, created_at: NOW, tags, content: '' }, iaKey)
@@ -149,13 +149,25 @@ describe('attestation (nipIC attestation_test.go)', () => {
   ])('refuses %s', (_, make) => {
     expect(() => parseAttestation(make())).toThrow(CoreError)
   })
-  test('evidence keys match case-insensitively; null evidence and unknown keys are fine', () => {
-    const a = parseAttestation(attestation({ tags: [['d', 'x'], ['p', 'x'], ['platform', 'g'], ['evidence', '{"USER_ID":"u","extra":[1.5]}']] }))
-    expect(a.evidence.userId).toBe('u')
-    expect(parseAttestation(attestation({ tags: [['d', 'x'], ['p', 'x'], ['platform', 'g'], ['evidence', 'null']] })).evidence.userId).toBe('')
+  test('evidence keys match case-insensitively and unknown keys are fine; null evidence is refused (no version 1)', () => {
+    const ck = newConnectionKey('g', 'u')
+    const base = (ev: string, extra: string[][] = []) => attestation({ tags: [['d', ck], ['p', signer.pubkey], ['platform', 'g'], ['evidence', ev], ...extra] })
+    expect(parseAttestation(base('{"VERSION":1,"Auth_Type":"oauth","USER_ID":"u","extra":[1.5]}')).evidence.userId).toBe('u')
+    expect(() => parseAttestation(base('null'))).toThrow(/version must be 1/)
+    expect(() => parseAttestation(base('{"version":1,"auth_type":""}'))).toThrow(/auth_type/)
+    expect(() => parseAttestation(base('{"version":1,"auth_type":"public_post","user_id":"u"}'))).toThrow(/public_post/)
   })
-  test('an unparseable expiration means no expiry', () => {
-    expect(parseAttestation(attestation({ tags: [['d', 'x'], ['p', 'x'], ['platform', 'g'], ['evidence', '{}'], ['expiration', 'soon']] })).expiresAt).toBeUndefined()
+  test('a malformed expiration, a repeated tag, non-hex d or p, a bad platform or content are refused', () => {
+    const ck = newConnectionKey('g', 'u')
+    const ev = ['evidence', '{"version":1,"auth_type":"oauth","user_id":"u"}']
+    const tags = (over: string[][]) => attestation({ tags: [['d', ck], ['p', signer.pubkey], ['platform', 'g'], ev, ...over] })
+    expect(() => parseAttestation(tags([['expiration', 'soon']]))).toThrow(/expiration "soon"/)
+    expect(() => parseAttestation(tags([['platform', 'g']]))).toThrow(/repeated/)
+    expect(() => parseAttestation(attestation({ tags: [['d', 'x'], ['p', signer.pubkey], ['platform', 'g'], ev] }))).toThrow(/not a ConnectionKey/)
+    expect(() => parseAttestation(attestation({ tags: [['d', ck], ['p', signer.pubkey.toUpperCase()], ['platform', 'g'], ev] }))).toThrow(/not a pubkey/)
+    expect(() => parseAttestation(attestation({ tags: [['d', ck], ['p', signer.pubkey], ['platform', 'Git'], ev] }))).toThrow(/platform name/)
+    const withContent = finalizeEvent({ kind: 35522, created_at: NOW, tags: [['d', ck], ['p', signer.pubkey], ['platform', 'g'], ev], content: 'hi' }, iaKey)
+    expect(() => parseAttestation(withContent)).toThrow(/content is empty/)
   })
 })
 

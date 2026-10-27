@@ -134,7 +134,7 @@ describe('T-103 claim-proof tags (K-CLAIM-1..3)', () => {
       {
         kind: 35522,
         created_at: NOW,
-        tags: [['d', newConnectionKey('github', '1')], ['p', signer.pubkey], ['platform', 'github'], ['evidence', '{}'], ['expiration', String(NOW + 100)]],
+        tags: [['d', newConnectionKey('github', '1')], ['p', signer.pubkey], ['platform', 'github'], ['evidence', '{"version":1,"auth_type":"oauth","user_id":"1"}'], ['expiration', String(NOW + 100)]],
         content: '',
       },
       iaKey,
@@ -158,7 +158,7 @@ describe('T-105 checkAttestationForClaim', () => {
   const ia = getPublicKey(iaKey)
   const ck = newConnectionKey('github', '1')
   const att = (tags: string[][], key = iaKey, kind = 35522) => finalizeEvent({ kind, created_at: NOW, tags, content: '' }, key)
-  const good = [['d', ck], ['p', signer.pubkey], ['platform', 'github'], ['evidence', '{}'], ['expiration', String(NOW + 10)]]
+  const good = [['d', ck], ['p', signer.pubkey], ['platform', 'github'], ['evidence', '{"version":1,"auth_type":"oauth","user_id":"1"}'], ['expiration', String(NOW + 10)]]
   const ctx = { identityValue: ck, iaPubkey: ia, signer: signer.pubkey, now: NOW }
   test('a valid attestation passes', () => {
     expect(checkAttestationForClaim(att(good), ctx).connectionKey).toBe(ck)
