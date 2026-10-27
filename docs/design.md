@@ -779,6 +779,18 @@ redeem(...same): Promise<Report<RedeemOutcome>>
   **net** amount. Every holding on the same node goes in one `redeemMany`,
   which is one relay event.
 - A holding with no recoverable minter cannot be spent, and is refused.
+- Invoices made through the app's NWC wallet ask for `expiry` 3600.
+  `PAYMENT_FAILED` is retried once with a fresh invoice and proof;
+  `RATE_LIMITED` is a retryable `conflict` and the bill stays live.
+- An unclear outcome (`INTERNAL`, an omission, a timeout) is never resent.
+  One `cash_status` read of the holding's own row decides it: unclaimed ⇒
+  the bill is live and nothing was paid; a tombstone ⇒ `spent`; claimed (or
+  no answer) ⇒ status `redeeming` and `indeterminate` with reason
+  `redeem_in_flight`. A `redeeming` holding is in no balance and no plan.
+  Every `settle()` re-reads it (`report.redeems`): unclaimed ⇒ `held` again;
+  a tombstone ⇒ `spent`; the NWC wallet reporting the invoice settled
+  (`lookup_invoice`), or the row still claimed a day past the invoice's
+  expiry ⇒ `redeemed`.
 
 ### 6.4 Consolidate, protect, status
 

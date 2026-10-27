@@ -19,6 +19,8 @@ export interface BankWallet {
   /** Recipients this wallet has ever had (NIP-CASH's "lifetime-solo" rule). */
   history: number
   spent: boolean
+  /** Claimed by a redeem whose payment has not finished. */
+  claimed?: boolean
   expiresAt?: number
 }
 
@@ -187,7 +189,7 @@ export class FakeBank {
       identity_type: w.identity.type,
       identity_value: w.identity.value,
       amount_millis: w.amount,
-      claimed: false,
+      claimed: w.claimed === true,
       redeem_fee_millis: fee,
       net_redeemable_millis: w.amount - fee,
       min_transfer_millis: 0,

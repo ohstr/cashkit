@@ -8,7 +8,8 @@ export interface Sealed {
   readonly data: string
 }
 
-export type HoldingStatus = 'held' | 'redeemed' | 'transferred' | 'consolidated' | 'spent'
+/** `redeeming`: a redeem whose outcome is unclear left the row claimed; it is in no balance and no plan until a re-read settles it. */
+export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 'consolidated' | 'spent'
 export type HoldingMode = 'pubkey' | 'cash' | 'connection_key'
 export type Protection = 'none' | 'shared' | 'protected'
 
@@ -50,6 +51,8 @@ export interface Holding {
   readonly origin?: HoldingOrigin
   /** Minted for this wallet's orders, or made only from such bills (local; never from the wire). */
   readonly ordered?: boolean
+  /** While `redeeming`: the invoice the Hub was asked to pay, where it was made, and when it expires. */
+  readonly redeem?: { readonly invoice: string; readonly into: string; readonly invoiceExpiresAt?: number; readonly since: number }
   /** ms epoch. */
   readonly addedAt: number
   readonly version: number

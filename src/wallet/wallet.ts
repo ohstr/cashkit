@@ -13,7 +13,7 @@ import { activity, balance, listHandoffs, type ActivityItem, type Balance, type 
 import { newId } from './ledger.js'
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Connection, type ConnectionKind, type HandoffStatus, type Meta, type Settings } from './model.js'
 import type { WalletDeps } from './ports.js'
-import { executeRedeem, planRedeem, type RedeemInput, type RedeemOutcome, type RedeemPlan } from './redeem.js'
+import { executeRedeem, planRedeem, settleRedeeming, type RedeemingReport, type RedeemInput, type RedeemOutcome, type RedeemPlan } from './redeem.js'
 import { protectMany, receive, type ReceiveResult, type Secured } from './receive.js'
 import { report, type Report } from './report.js'
 import { executeSend, planSend, type SendInput, type SendPlan, type SendResult } from './send.js'
@@ -21,6 +21,9 @@ import { lockedHoldings } from './bills.js'
 import { closeByUser, confirmReplace, settleCalls, type SettleCallsReport } from './runner.js'
 import { status, type StatusOutcome } from './status.js'
 import { holdingView, pendingCallView, type HoldingView, type PendingCallView } from './views.js'
+
+/** What `settle()` did: the pending calls, then the `redeeming` holdings. */
+export type SettleReport = SettleCallsReport & { readonly redeems: RedeemingReport }
 
 export interface ConnectionView {
   readonly name: string
@@ -279,10 +282,15 @@ export class Wallet {
 
   /**
    * Settles every open call by `cash_lookup`: applies a lost reply, places
-   * an unknown call again under its derived id, surfaces the rest.
+   * an unknown call again under its derived id, surfaces the rest. Then
+   * re-reads every `redeeming` holding.
    */
-  settle(): Promise<SettleCallsReport> {
-    return this.ctx.spend(() => settleCalls(this.ctx))
+  settle(): Promise<SettleReport> {
+    return this.ctx.spend(async () => {
+      const calls = await settleCalls(this.ctx)
+      const redeems = await settleRedeeming(this.ctx).catch(() => ({ released: [], redeemed: [], spent: [], stillRedeeming: [] }))
+      return { ...calls, redeems }
+    })
   }
 
   /** Pending calls: list them, close one, or confirm placing one again. */

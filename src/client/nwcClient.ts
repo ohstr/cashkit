@@ -231,6 +231,10 @@ export class NwcClient {
   payInvoice(invoice: string, amount?: bigint): Promise<{ preimage: string; fees_paid?: number }> {
     return this.request('pay_invoice', { invoice, ...(amount !== undefined && { amount }) })
   }
+  /** NIP-47 `lookup_invoice` by invoice: `settled_at` set once it was paid. */
+  lookupInvoice(invoice: string): Promise<{ settled_at?: number; state?: string; expires_at?: number }> {
+    return this.request('lookup_invoice', { invoice })
+  }
   listTransactions(p: { from?: number; until?: number; limit?: number; offset?: number; unpaid?: boolean; type?: string } = {}): Promise<{ transactions: unknown[] }> {
     return this.request('list_transactions', p)
   }

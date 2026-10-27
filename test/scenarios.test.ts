@@ -445,14 +445,15 @@ describe('a rekey whose reply was lost', () => {
     expect(rep.applied).toEqual([call!.id])
     expect(await h.wallet.exportHolding(id)).toContain(fresh)
   })
-  test('an omission is never retried (TestRetryWithPendingSecrets_NeverRetriesAnOmission)', async () => {
+  test('an omission is never resent: one status read decides it (TestRetryWithPendingSecrets_NeverRetriesAnOmission)', async () => {
     const h = await harness()
     const nwc = new FakeNwcWallet(h.pool)
     await h.wallet.connections.add('main', nwc.uri)
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
     h.bank.loseReplyFor.add('cash_redeem')
     const r = await h.wallet.redeem()
-    expect(r.firstError?.code).toBe('indeterminate')
+    // The one status read finds the bill gone (the lost reply had paid it); nothing is resent.
+    expect(r.firstError?.code).toBe('spent')
     expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_redeem')).toHaveLength(1)
   })
 })

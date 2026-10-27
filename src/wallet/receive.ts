@@ -83,7 +83,7 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
     return { received: false, reason: 'no_embedded_secret', report: { ...reportOf(tok), ...(facts.minterPubkey !== undefined && { minterPubkey: facts.minterPubkey }) } }
   }
   const existing = await ctx.read((t) => findByToken(t, input))
-  if (existing?.status === 'held') throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
+  if (existing?.status === 'held' || existing?.status === 'redeeming') throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
 
   let cred: Credential
   if (embedded !== '') cred = bySecret(embedded)

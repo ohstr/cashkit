@@ -135,6 +135,12 @@
   ([#19](https://github.com/ohstr/cashkit/pull/19))
 - Errors carry an optional machine-readable `reason` (also in `toJSON`).
   ([#19](https://github.com/ohstr/cashkit/pull/19))
+- A redeem whose outcome is unclear is never resent: one status read
+  decides it, and a bill the Hub has claimed waits as `redeeming` (in no
+  balance or plan) until `settle()` sees it released, gone, or paid.
+  `settle()` reports these under `redeems`.
+- Redeem invoices ask for a one-hour expiry, and `PAYMENT_FAILED` is retried
+  once with a fresh invoice.
 
 ## [0.1.0-rc.2]
 
