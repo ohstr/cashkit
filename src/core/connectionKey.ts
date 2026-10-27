@@ -22,12 +22,13 @@ export interface ConnectionKeyPair {
 }
 
 /**
- * Derives the connection key pair for a 32-byte hex secret.
+ * Derives the connection key pair for a 32-byte lowercase hex secret.
  *
  * Stricter than nmilat on purpose: a zero secret or one at or above the
  * curve order is refused, where nmilat silently reduces it mod n.
  */
 export function connectionKeyFromSecret(secretHex: string): ConnectionKeyPair {
+  if (!/^[0-9a-f]*$/.test(secretHex)) throw new CoreError('invalid_hex', 'connection secret: not lowercase hex')
   const secret = fromHex(secretHex, 'connection secret')
   if (secret.length !== 32) throw new CoreError('invalid_key', 'connection secret: invalid private key length')
   if (!secp256k1.utils.isValidSecretKey(secret)) {

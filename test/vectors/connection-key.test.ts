@@ -8,7 +8,7 @@ import { load, named, type Json } from './helpers.js'
 const v = load('connection-key.json')
 
 // Genuine mismatch: nmilat refuses a secret that is not 64 lowercase hex; cashkit's fromHex reads uppercase.
-const MISMATCH = new Set(['ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB'])
+const MISMATCH = new Set<string>()
 
 describe('connection-key.json', () => {
   // An attested id is hashed as given; a typed one is hashed in its canonical form.
