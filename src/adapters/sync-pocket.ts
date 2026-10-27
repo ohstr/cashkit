@@ -9,7 +9,7 @@
 // and those found in the user's lists) are answered: a Hub inbox, listing,
 // order or zap relay on the same pool is never signed in to as the user.
 import { readEvents, type AuthSigner, type RelayPool } from '../client/index.js'
-import type { EventTemplate, NostrEvent } from '../core/index.js'
+import { verifyEvent, type EventTemplate, type NostrEvent } from '../core/index.js'
 import type { Pocket } from '../wallet/ports.js'
 
 export interface SyncPocketOptions {
@@ -37,17 +37,18 @@ const relayOf = (t: EventTemplate) => t.tags.find((x) => x[0] === 'relay')?.[1]
 const recipientOf = (e: NostrEvent) => e.tags.find((t) => t[0] === 'p')?.[1] ?? ''
 const isRelayUrl = (u: unknown): u is string => typeof u === 'string' && /^wss?:\/\/\S+$/.test(u)
 
-/** The newest event of `kind` by `pubkey` among `events`. */
+/** The newest event of `kind` by `pubkey` among `events`; one whose id or signature does not check is ignored. */
 function newest(events: readonly NostrEvent[], kind: number, pubkey: string): NostrEvent | undefined {
   let best: NostrEvent | undefined
-  for (const e of events) if (e.kind === kind && e.pubkey === pubkey && (best === undefined || e.created_at > best.created_at || (e.created_at === best.created_at && e.id < best.id))) best = e
+  for (const e of events) if (e.kind === kind && e.pubkey === pubkey && verifyEvent(e, { checkPow: false }) && (best === undefined || e.created_at > best.created_at || (e.created_at === best.created_at && e.id < best.id))) best = e
   return best
 }
 
 /**
  * The user's pocket relays from their lists: the `relay` tags of the newest
  * kind 10050, else the write relays (`r` with no marker or `write`) of the
- * newest kind 10002; empty when neither names one.
+ * newest kind 10002; empty when neither names one. Only events signed by
+ * `pubkey` count: a relay cannot redirect the pocket with a forged list.
  */
 export function pocketRelaysFrom(events: readonly NostrEvent[], pubkey: string): string[] {
   const inbox = newest(events, 10050, pubkey)

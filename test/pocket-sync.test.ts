@@ -115,6 +115,8 @@ async function rawEntry(ctx: Ctx, tags: string[][]): Promise<void> {
 const LIST_SK = fill(0x41, 32)
 const AUTH_SK = fill(0x43, 32)
 const list = (k: number, tags: string[][], at = 1): NostrEvent => finalizeEvent({ kind: k, created_at: at, tags, content: '' }, LIST_SK)
+/** A list signed by someone else, to forge as the user's. */
+const signedByOther = (k: number, tags: string[][], at: number) => finalizeEvent({ kind: k, created_at: at, tags, content: '' }, fill(0x44, 32))
 const signAuth = async (t: EventTemplate) => finalizeEvent(t, AUTH_SK)
 /** A check time over 30 days ago, on the wallet's clock. */
 const oldCheck = () => Math.floor(clock() / 1000) - POCKET_FINAL_KEEP_SECONDS - 1
@@ -235,6 +237,20 @@ describe('the sync-pocket adapter: relays and AUTH', () => {
     expect(pocketRelaysFrom([list(10050, [['relay', 'wss://old.test']], 1), list(10050, [['relay', 'wss://dm.test']], 2), list(10002, [['r', 'wss://w.test']])], pk)).toEqual(['wss://dm.test'])
     expect(pocketRelaysFrom([list(10002, [['r', 'wss://both.test'], ['r', 'wss://read.test', 'read'], ['r', 'wss://write.test', 'write']])], pk)).toEqual(['wss://both.test', 'wss://write.test'])
     expect(pocketRelaysFrom([list(10002, [['r', 'wss://x.test']])], user)).toEqual([])
+  })
+  test('a forged or tampered list is ignored: a relay cannot redirect the pocket', async () => {
+    const real = list(10050, [['relay', 'wss://dm.test']], 1)
+    const pk = real.pubkey
+    const forged: NostrEvent = { ...signedByOther(10050, [['relay', 'wss://evil.test']], 9), pubkey: pk }
+    const tampered: NostrEvent = { ...real, created_at: 10, tags: [['relay', 'wss://evil.test']] }
+    expect(pocketRelaysFrom([real, forged, tampered], pk)).toEqual(['wss://dm.test'])
+    const outbox: NostrEvent = { ...signedByOther(10002, [['r', 'wss://evil.test']], 5), pubkey: pk }
+    expect(pocketRelaysFrom([outbox], pk)).toEqual([])
+    const pool = new MemoryRelayPool()
+    await pool.publish('wss://index.test', { ...list(10050, [['relay', 'wss://evil.test']], 9), pubkey: user })
+    const pocket = syncPocket({ pool, relays: ['wss://fallback.test'], discovery: ['wss://index.test'], readTimeoutMs: 200 })
+    const wrap = finalizeEvent({ kind: 1059, created_at: 1, tags: [['p', user]], content: 'x' }, fill(0x42, 32))
+    expect(await pocket.publish(wrap)).toEqual(['wss://fallback.test'])
   })
   test('wraps go to the discovered relays plus the user’s own; configured relays only when nothing is listed', async () => {
     const pool = new MemoryRelayPool()

@@ -1235,8 +1235,10 @@ gift-wrapped to the user, each with a fresh wrap key it records.
 - **Relays** (`adapters/sync-pocket`). With `discovery`, the user's newest
   kind 10050 `relay` tags, else the write relays of their newest NIP-65
   kind 10002 (`r` with no marker or `write`), else the configured `relays`;
-  `ownRelays` are always added. With `auth`, the pool's `setAuth` answers
-  NIP-42 challenges, for relays that serve a 1059 only to its `p`.
+  `ownRelays` are always added. A list whose id or signature does not check
+  is ignored. With `auth`, the pool's `setAuth` answers a NIP-42 challenge
+  from a pocket relay that refuses `auth-required:` (one that serves a 1059
+  only to its `p`), and from no other relay.
 
 ### 6.7e Discover
 
