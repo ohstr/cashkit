@@ -17,6 +17,7 @@ export type PlainOutput =
 export type PlainAuthorizer = Exclude<CallAuthorizer, { kind: 'throwaway' } | { kind: 'buyer' }> | { readonly kind: 'throwaway'; readonly key: string } | { readonly kind: 'buyer'; readonly key: string }
 
 export interface CallSpec {
+  readonly kind: string
   readonly requestId: string
   readonly method: PendingCall['method']
   readonly target: string
@@ -32,6 +33,7 @@ export interface CallSpec {
   readonly derivedFrom?: string
   readonly attempts?: number
   readonly context?: Readonly<Record<string, string>>
+  readonly params?: Readonly<Record<string, string>>
 }
 
 const dec = new TextDecoder()
@@ -73,6 +75,7 @@ export async function prepareCall(ctx: Ctx, spec: CallSpec): Promise<PendingCall
   }
   const row: PendingCall = {
     id: `pc-${toHex(ctx.random(8))}`,
+    kind: spec.kind,
     requestId: spec.requestId,
     method: spec.method,
     target: spec.target,
@@ -89,6 +92,7 @@ export async function prepareCall(ctx: Ctx, spec: CallSpec): Promise<PendingCall
     authorizer,
     outputs,
     ...(spec.context !== undefined && { context: spec.context }),
+    ...(spec.params !== undefined && { params: spec.params }),
     state: 'prepared',
     createdAt: ctx.now(),
     version: 1,

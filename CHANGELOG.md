@@ -96,6 +96,14 @@
 - Removes the unused `fallbackRelays` option and the `timeouts` and
   `displayUnit` settings.
   ([#16](https://github.com/ohstr/cashkit/pull/16))
+- Settles pending calls by `cash_lookup`: a lost reply is applied, an
+  unknown call is placed again under its derived id by the device that
+  placed it (or waits for the user), and an expired one keeps its secrets
+  in `unreconciledSecrets`.
+- Adds `state.pendingCalls`, `state.nextSettleAt`, `state.unreconciled`,
+  `pendingCalls.list`/`close`/`confirmReplace`, `autoSettle` and the
+  `pending`, `recovered` and `needs_user` operation events; an error that
+  leaves a call open carries its `pendingCallId`.
 
 ## [0.1.0-rc.2]
 

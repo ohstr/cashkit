@@ -32,7 +32,7 @@ import {
 import { checkBill, type Bill } from './bill.js'
 import { ClientError } from './errors.js'
 import { succeeded, type ItemOutcome } from './outcome.js'
-import type { BatchSession, ItemBinding, ItemBuilder } from './session.js'
+import type { BatchSession, ItemBinding, ItemBuilder, SendOptions } from './session.js'
 
 /**
  * One transport item: params as JSON text, the bill proof signed with the
@@ -95,8 +95,8 @@ export interface BatchResult<R> {
 }
 
 /** Sends the builders and decodes each answered item with `parse`. */
-export async function run<R>(session: BatchSession, builders: ItemBuilder[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R, o: { tombstones?: boolean } = {}): Promise<BatchResult<R>> {
-  const r = await session.send(builders)
+export async function run<R>(session: BatchSession, builders: ItemBuilder[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R, o: { tombstones?: boolean; send?: SendOptions } = {}): Promise<BatchResult<R>> {
+  const r = await session.send(builders, o.send)
   if (r.error && r.outcomes.length === 0) throw r.error
   const outcomes = await decodeOutcomes(r.outcomes, parse, o.tombstones ?? true)
   const accepted = r.acceptedRelays !== undefined ? { acceptedRelays: r.acceptedRelays } : {}
@@ -169,7 +169,8 @@ export interface BatchTransfer {
   readonly requestId: string
 }
 
-export function transferMany(session: BatchSession, items: readonly BatchTransfer[], now: () => number): Promise<BatchResult<CashTransferResult>> {
+/** `send` carries the caller's deadline and write-ahead hook (`BatchSession.send`). */
+export function transferMany(session: BatchSession, items: readonly BatchTransfer[], now: () => number, send?: SendOptions): Promise<BatchResult<CashTransferResult>> {
   const byId = new Map<string, BatchTransfer>()
   const builders = items.map((it, i): ItemBuilder => {
     const id = itemId(it.id, i)
@@ -194,7 +195,7 @@ export function transferMany(session: BatchSession, items: readonly BatchTransfe
       },
     }
   })
-  return run(session, builders, (o, v) => parseCashTransferResult(v, byId.get(o.id)!.credential))
+  return run(session, builders, (o, v) => parseCashTransferResult(v, byId.get(o.id)!.credential), send !== undefined ? { send } : {})
 }
 
 export interface BatchConsolidate {
@@ -209,7 +210,7 @@ export interface BatchConsolidate {
   readonly requestId: string
 }
 
-export function consolidateMany(session: BatchSession, items: readonly BatchConsolidate[], now: () => number): Promise<BatchResult<CashConsolidateResult>> {
+export function consolidateMany(session: BatchSession, items: readonly BatchConsolidate[], now: () => number, send?: SendOptions): Promise<BatchResult<CashConsolidateResult>> {
   const byId = new Map<string, BatchConsolidate>()
   const builders = items.map((it, i): ItemBuilder => {
     const id = itemId(it.id, i)
@@ -227,5 +228,5 @@ export function consolidateMany(session: BatchSession, items: readonly BatchCons
   return run(session, builders, (o, v) => {
     const it = byId.get(o.id)!
     return parseCashConsolidateResult(v, { sources: it.sources, to: it.to })
-  })
+  }, send !== undefined ? { send } : {})
 }

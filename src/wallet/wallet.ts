@@ -16,8 +16,9 @@ import { protectMany, receive, type ReceiveResult, type Secured } from './receiv
 import { report, type Report } from './report.js'
 import { executeSend, planSend, type SendInput, type SendPlan, type SendResult } from './send.js'
 import { settle, type SettleReport } from './settle.js'
+import { closeByUser, confirmReplace, settleCalls, type SettleCallsReport } from './runner.js'
 import { status, type StatusOutcome } from './status.js'
-import { holdingView, type HoldingView } from './views.js'
+import { holdingView, pendingCallView, type HoldingView, type PendingCallView } from './views.js'
 
 export interface ConnectionView {
   readonly name: string
@@ -57,6 +58,12 @@ export interface WalletState {
   readonly backupStale: boolean
   readonly lastBackupAt?: number
   readonly locked: boolean
+  /** Open calls, and closed ones that wait for the user. */
+  readonly pendingCalls: readonly PendingCallView[]
+  /** Unix seconds: the earliest time a pending lookup asked to be retried. */
+  readonly nextSettleAt?: number
+  /** Calls whose outcome can no longer be learned; their written-ahead secrets are in `unreconciledSecrets`. */
+  readonly unreconciled: number
 }
 
 export interface ProtectOutcome {
@@ -74,7 +81,7 @@ export interface Lightning {
   signMessage(message: string): Promise<{ message: string; signature: string }>
 }
 
-const EMPTY_STATE: WalletState = { holdings: [], balance: { held: 0n, count: 0, expired: 0n }, pendingJoins: [], unfinishedCashSends: [], pendingMerge: 0, backupStale: false, locked: false }
+const EMPTY_STATE: WalletState = { holdings: [], balance: { held: 0n, count: 0, expired: 0n }, pendingJoins: [], unfinishedCashSends: [], pendingMerge: 0, backupStale: false, locked: false, pendingCalls: [], unreconciled: 0 }
 
 /**
  * This store's device id, created on first open. A store whose meta names
@@ -201,7 +208,9 @@ export class Wallet {
 
   private async readState(): Promise<void> {
     const now = this.ctx.nowSeconds()
-    const [rows, joins, meta] = await this.ctx.read(async (t) => [await t.list('holdings'), await t.list('pendingJoins'), await t.get('meta', 'meta')] as const)
+    const [rows, joins, meta, calls] = await this.ctx.read(async (t) => [await t.list('holdings'), await t.list('pendingJoins'), await t.get('meta', 'meta'), await t.list('pendingCalls')] as const)
+    const shown = calls.filter((c) => c.state !== 'done' || c.needsUser !== undefined)
+    const retries = calls.flatMap((c) => (c.state !== 'done' && c.lookup?.retryAfter !== undefined ? [c.lookup.retryAfter] : []))
     const fp = await valueFingerprint(this.ctx)
     const held = rows.filter((h) => h.status === 'held')
     let sum = 0n
@@ -223,6 +232,9 @@ export class Wallet {
       backupStale: fp !== '' && fp !== meta?.backupFingerprint,
       ...(meta?.lastBackupAt !== undefined && { lastBackupAt: meta.lastBackupAt }),
       locked: this.ctx.deps.vault.locked(),
+      pendingCalls: shown.map((c) => pendingCallView(c, this.ctx.deviceId)),
+      ...(retries.length > 0 && { nextSettleAt: Math.min(...retries) }),
+      unreconciled: calls.filter((c) => c.outcome === 'lookup_expired').length,
     }
     for (const s of this.subscribers) {
       try {
@@ -265,8 +277,80 @@ export class Wallet {
 
   // ---- money (§6.1–§6.4)
 
-  settle(): Promise<SettleReport> {
-    return this.ctx.spend(() => settle(this.ctx))
+  /**
+   * Settles every open call by `cash_lookup` (applies a lost reply, places
+   * an unknown call again under its derived id, surfaces the rest), then the
+   * remaining write-ahead slots.
+   */
+  settle(): Promise<SettleReport & { readonly calls: SettleCallsReport }> {
+    return this.ctx.spend(async () => {
+      const calls = await settleCalls(this.ctx)
+      return { ...(await settle(this.ctx)), calls }
+    })
+  }
+
+  /** Pending calls: list them, close one, or confirm placing one again. */
+  get pendingCalls(): {
+    list(): Promise<PendingCallView[]>
+    close(id: string): Promise<void>
+    confirmReplace(id: string): Promise<void>
+  } {
+    const ctx = this.ctx
+    return {
+      list: async () => (await ctx.read((t) => t.list('pendingCalls'))).filter((c) => c.state !== 'done' || c.needsUser !== undefined).map((c) => pendingCallView(c, ctx.deviceId)),
+      close: (id) => ctx.spend(() => closeByUser(ctx, id)),
+      confirmReplace: (id) => ctx.spend(() => confirmReplace(ctx, id)),
+    }
+  }
+
+  /**
+   * The written-ahead secrets of calls whose outcome can no longer be
+   * learned (`lookup_expired`): a bill one of them created may exist. Never
+   * described as recoverable: there is no request id left to ask with.
+   */
+  async unreconciledSecrets(o: { includeSecrets?: boolean } = {}): Promise<{ pendingCallId: string; role: string; cashSecret?: string }[]> {
+    const calls = (await this.ctx.read((t) => t.list('pendingCalls'))).filter((c) => c.outcome === 'lookup_expired')
+    const out: { pendingCallId: string; role: string; cashSecret?: string }[] = []
+    for (const c of calls) {
+      for (const x of c.outputs) {
+        if (x.destination.kind !== 'cash') continue
+        out.push({ pendingCallId: c.id, role: x.role, ...(o.includeSecrets === true && { cashSecret: await this.ctx.open(x.destination.secret) }) })
+      }
+    }
+    return out
+  }
+
+  /**
+   * Runs `settle()` when a pending lookup asks to be retried
+   * (`state.nextSettleAt`), and again while calls stay open. Returns the stop.
+   */
+  autoSettle(o: { setTimeout?: (fn: () => void, ms: number) => unknown; clearTimeout?: (h: unknown) => void; idleMs?: number } = {}): () => void {
+    const set = o.setTimeout ?? ((fn: () => void, ms: number) => setTimeout(fn, ms))
+    const clear = o.clearTimeout ?? ((h: unknown) => clearTimeout(h as ReturnType<typeof setTimeout>))
+    let handle: unknown
+    let stopped = false
+    const schedule = () => {
+      if (stopped) return
+      const open = this.snapshot.pendingCalls.some((c) => c.state === 'sent' || c.state === 'prepared')
+      if (!open) return
+      const at = this.snapshot.nextSettleAt
+      const delay = at !== undefined ? Math.max(at * 1000 - this.ctx.now(), 0) : (o.idleMs ?? 30_000)
+      handle = set(() => {
+        void this.settle()
+          .catch(() => undefined)
+          .then(() => this.refreshState())
+          .then(schedule)
+      }, delay)
+    }
+    const unsub = this.subscribe(() => {
+      if (handle === undefined) schedule()
+    })
+    schedule()
+    return () => {
+      stopped = true
+      unsub()
+      if (handle !== undefined) clear(handle)
+    }
   }
 
   receive(input: string, o: { protect?: boolean } = {}): Promise<ReceiveResult> {

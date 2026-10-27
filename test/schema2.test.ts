@@ -14,6 +14,7 @@ import { MemoryRelayPool } from './fakeHub.js'
 const deps = (o: Partial<WalletDeps> = {}): WalletDeps => ({ storage: new MemoryStorage(), vault: new NoneVault(), relays: new MemoryRelayPool(), ...o })
 const ctxOf = (w: Wallet) => (w as unknown as { ctx: Ctx }).ctx
 const spec = (o: Partial<CallSpec> = {}): CallSpec => ({
+  kind: 'transfer',
   requestId: '00112233445566778899aabbccddeeff',
   method: 'cash_transfer',
   target: 'aa'.repeat(32),

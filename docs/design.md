@@ -639,6 +639,34 @@ How Hub answers are classified (cashctl `classifyCashSpendErr`):
 
 ### 5.3 Settling
 
+**Pending calls** (`wallet/runner.ts`). A call is run by `executeCall`:
+an applied answer is applied and the call closed in one transaction;
+`BAD_REQUEST` closes it not applied (`invalid_input`); a tombstone marks
+its source spent; a call nothing was sent for closes `not_sent`; any other
+answer leaves it open (`sent`, sources locked) and throws with its
+`pendingCallId`. `settle()` then looks every open call up by its exact
+deadline, signed by its authorizer (a cash one without its secret first):
+
+| lookup | what happens |
+|---|---|
+| never marked sent | closed `not_sent` |
+| `done` | the original result applied, closed `applied` (`recovered` event) |
+| `pending` | `retryAfter` kept; `state.nextSettleAt` is the earliest |
+| `unknown`, another device's call | `needsUser: 'foreign_device'`, never placed again from here |
+| `unknown` after a coded refusal | closed `not_applied`, `needsUser: 'refused'` with the code |
+| `unknown`, a kind that asks first (mint, order) | `needsUser: 'confirm_replace'`; `pendingCalls.confirmReplace(id)` |
+| `unknown`, otherwise | placed again under the derived id (recorded first), at most 3 attempts (`replace_cap`) |
+| `expired` | closed `lookup_expired`; its written-ahead secrets in `unreconciledSecrets` |
+| omitted, refused, or `REQUEST_REUSED` | `omissions + 1`, never `unknown`; past deadline + H, `lookup_unanswered` |
+
+`state.pendingCalls` and `pendingCalls.list()` show open calls and closed
+ones waiting for the user, without request ids or secrets;
+`pendingCalls.close(id)` closes one; `autoSettle()` runs `settle()` at
+`nextSettleAt`. Each operation kind registers how it places, finishes and
+looks up its calls (`registerCallKind`).
+
+**Write-ahead slots.**
+
 `wallet.settle()` reconciles leftover slots. The engine MUST run it on
 `open`, before every spend, and on demand:
 

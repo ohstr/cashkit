@@ -27,6 +27,17 @@ export type {
   IdentityRow,
   Meta,
   NewRow,
+  CallAuthorizer,
+  CallMethod,
+  CallNeedsUser,
+  CallOutcome,
+  CallOutput,
+  CallState,
+  DerivedIdRow,
+  DeviceRow,
+  HoldingOrigin,
+  HubRow,
+  PendingCall,
   PendingJoin,
   Protection,
   Row,
@@ -36,8 +47,9 @@ export type {
   SettingsRow,
   TargetDisplay,
 } from './model.js'
-export { COLLECTIONS, DEFAULT_SETTINGS, SCHEMA_VERSION } from './model.js'
-export { holdingView, toJSON, type HoldingView } from './views.js'
+export { COLLECTIONS, DEFAULT_SETTINGS, LOCAL_ONLY, SCHEMA_VERSION } from './model.js'
+export { holdingView, pendingCallView, toJSON, type HoldingView, type PendingCallView } from './views.js'
+export { MAX_ATTEMPTS, type SettleCallsReport } from './runner.js'
 export type { Outcome, Report } from './report.js'
 export type { ReceiveResult, Secured, TokenReport } from './receive.js'
 export type { PlannedSource, SendInput, SendPlan, SendResult } from './send.js'

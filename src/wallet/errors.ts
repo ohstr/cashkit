@@ -46,6 +46,8 @@ export interface CashkitErrorOptions {
   readonly recoveryHandoffs?: readonly string[]
   /** Why a failed circle join went over the standard transport, not the private one. */
   readonly fallbackReason?: string
+  /** The pending call this failure left open (looked up by `settle`). */
+  readonly pendingCallId?: string
   readonly cause?: unknown
 }
 
@@ -64,6 +66,8 @@ export class CashkitError extends Error {
    * transport: the member's pubkey was on the shared Hub connection.
    */
   readonly fallbackReason?: string
+  /** The pending call this failure left open: `settle()` looks it up; `pendingCalls.list()` shows it. */
+  readonly pendingCallId?: string
 
   constructor(code: ErrorCode, message: string, o: CashkitErrorOptions = {}) {
     super(message, o.cause !== undefined ? { cause: o.cause } : undefined)
@@ -75,6 +79,7 @@ export class CashkitError extends Error {
     if (o.recovery !== undefined) this.recovery = o.recovery
     if (o.recoveryHandoffs !== undefined) this.recoveryHandoffs = [...o.recoveryHandoffs]
     if (o.fallbackReason !== undefined) this.fallbackReason = sanitize(o.fallbackReason)
+    if (o.pendingCallId !== undefined) this.pendingCallId = o.pendingCallId
   }
 
   /** Only a conflict or a network failure is worth retrying as is. */
@@ -96,6 +101,7 @@ export class CashkitError extends Error {
       ...(this.hint !== undefined && { hint: this.hint }),
       ...(this.recovery !== undefined && { recovery: this.recovery }),
       ...(this.fallbackReason !== undefined && { fallback_reason: this.fallbackReason }),
+      ...(this.pendingCallId !== undefined && { pending_call: this.pendingCallId }),
     }
   }
 }

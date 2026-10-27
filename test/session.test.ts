@@ -70,8 +70,9 @@ describe('T-405 deadlines', () => {
   test('a given deadline is used as is', async () => {
     const s = await new CashClient(deps(), bill(1)).session()
     const seen: number[] = []
-    await s.send(statusBuilders(s, 1), { notAfter: now() + 45, beforePublish: async (p) => void seen.push(p.notAfter) })
-    expect(seen[0]).toBe(now() + 45)
+    const at = now() + 45
+    await s.send(statusBuilders(s, 1), { notAfter: at, beforePublish: async (p) => void seen.push(p.notAfter) })
+    expect(seen[0]).toBe(at)
   })
   test('less than 20 s left after the write-ahead: nothing is sent', async () => {
     const s = await new CashClient(deps(), bill(1)).session()

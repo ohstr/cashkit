@@ -8,11 +8,18 @@ import type { Holding, Sealed, Settings } from './model.js'
 import { DEFAULT_SETTINGS } from './model.js'
 import { ConcurrentUpdateError, type Lock, type Logger, type StorageTx, type WalletDeps } from './ports.js'
 
-export type OperationPhase = 'planned' | 'sent' | 'committed' | 'failed'
+/**
+ * `pending`: the call got no decided answer and stays open (looked up by
+ * `settle`); `recovered`: a lookup found it applied; `needs_user`: it waits
+ * for the user (a confirmation, or an answer that never came).
+ */
+export type OperationPhase = 'planned' | 'sent' | 'committed' | 'failed' | 'pending' | 'recovered' | 'needs_user'
 export interface OperationEvent {
   readonly op: string
   readonly phase: OperationPhase
   readonly id: string
+  /** The pending call the event is about, when there is one. */
+  readonly pendingCallId?: string
 }
 
 /** A per-process lock, used when the app passes none. */

@@ -67,3 +67,42 @@ function snakeKeys(v: unknown): unknown {
 export function toJSON(value: unknown): string {
   return toJSONText(snakeKeys(value))
 }
+
+/** A pending call as an app shows it: never its request id, a secret or a key. */
+export interface PendingCallView {
+  readonly id: string
+  /** The operation that placed it (`send`, `protect`, `consolidate`, …). */
+  readonly op: string
+  readonly method: string
+  readonly amount: bigint
+  readonly chain?: string
+  readonly state: 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
+  readonly outcome?: string
+  readonly lookupStatus?: string
+  readonly retryAfter?: number
+  /** Placed by this device: only it may place the call again. */
+  readonly ownedHere: boolean
+  readonly needsUser?: string
+  readonly lastCode?: string
+  readonly lastDetail?: string
+  readonly createdAt: number
+}
+
+export function pendingCallView(c: import('./model.js').PendingCall, deviceId: string): PendingCallView {
+  return {
+    id: c.id,
+    op: c.kind,
+    method: c.method,
+    amount: c.amount,
+    ...(c.chain !== undefined && { chain: c.chain }),
+    state: c.state,
+    ...(c.outcome !== undefined && { outcome: c.outcome }),
+    ...(c.lookup?.status !== undefined && { lookupStatus: c.lookup.status }),
+    ...(c.lookup?.retryAfter !== undefined && { retryAfter: c.lookup.retryAfter }),
+    ownedHere: c.device === deviceId,
+    ...(c.needsUser !== undefined && { needsUser: c.needsUser }),
+    ...(c.lastCode !== undefined && { lastCode: c.lastCode }),
+    ...(c.lastDetail !== undefined && { lastDetail: c.lastDetail }),
+    createdAt: c.createdAt,
+  }
+}

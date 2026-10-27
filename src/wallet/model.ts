@@ -196,6 +196,8 @@ export type CallNeedsUser = 'confirm_replace' | 'replace_cap' | 'lookup_expired'
 export interface PendingCall {
   /** `pc-<16 hex>`. */
   readonly id: string
+  /** The operation kind that places, finishes and looks it up (a registered `CallKind`). */
+  readonly kind: string
   readonly requestId: string
   readonly method: CallMethod
   /** The call's target: the bill, `sources[0]`, or the Hub connection. */
@@ -219,6 +221,8 @@ export interface PendingCall {
   readonly outputs: readonly CallOutput[]
   /** Display context only (op, target display); never a secret. */
   readonly context?: Readonly<Record<string, string>>
+  /** The non-secret facts the kind needs to place the call again (amounts, the target identity). */
+  readonly params?: Readonly<Record<string, string>>
   readonly state: CallState
   readonly outcome?: CallOutcome
   readonly lastCode?: string
