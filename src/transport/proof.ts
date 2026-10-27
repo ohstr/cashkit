@@ -24,11 +24,12 @@ export interface ProofBinding {
   readonly paramsHash: string
   /** `en`: the envelope nonce. */
   readonly nonce: string
-  /** `expiration`, unix seconds; not checked on verify. */
+  /** `expiration`: the envelope's not_after, unix seconds. */
   readonly notAfter: number
 }
 
-const REQUIRED = ['d', 'h', 'm', 'ph', 'en'] as const
+const REQUIRED = ['d', 'h', 'm', 'ph', 'en', 'expiration'] as const
+const HEX_TAGS = new Set(['d', 'h', 'ph'])
 
 function proofTags(b: ProofBinding): string[][] {
   if (!b.target || !b.hub || !b.method || !b.paramsHash || !b.nonce) {
@@ -60,11 +61,13 @@ function verify(wantKind: number, proof: string, want: ProofBinding, now: number
   const ev = parseGoEvent(proof, 'proof_malformed', 'proof')
   if (ev.kind !== wantKind) throw new TransportError('proof_malformed', `kind ${ev.kind}, want ${wantKind}`)
   if (!/^[0-9a-f]{64}$/.test(ev.pubkey)) throw new TransportError('proof_malformed', 'signer pubkey must be 64 lowercase hex characters')
+  if (ev.content !== '') throw new TransportError('proof_malformed', 'content must be empty')
 
   const got = new Map<string, string>()
   for (const tag of ev.tags) {
     if (tag.length < 2 || !(REQUIRED as readonly string[]).includes(tag[0]!)) continue
     if (got.has(tag[0]!)) throw new TransportError('proof_malformed', `duplicate ${tag[0]} tag`)
+    if (HEX_TAGS.has(tag[0]!) && !/^[0-9a-f]{64}$/.test(tag[1]!)) throw new TransportError('proof_malformed', `${tag[0]} must be 64 lowercase hex characters`)
     got.set(tag[0]!, tag[1]!)
   }
   for (const name of REQUIRED) {
@@ -75,6 +78,7 @@ function verify(wantKind: number, proof: string, want: ProofBinding, now: number
   if (got.get('m') !== want.method) throw new TransportError('proof_wrong_method', 'proof is bound to a different method')
   if (got.get('ph') !== want.paramsHash) throw new TransportError('proof_wrong_params', 'proof is bound to different params')
   if (got.get('en') !== want.nonce) throw new TransportError('proof_wrong_envelope', 'proof is bound to a different envelope')
+  if (got.get('expiration') !== String(want.notAfter)) throw new TransportError('proof_wrong_envelope', "proof's expiration is not the envelope's not_after")
   if (ev.created_at < now - PROOF_FRESHNESS_PAST || ev.created_at > now + PROOF_FRESHNESS_FUTURE) {
     throw new TransportError('proof_stale', 'proof is outside its freshness window')
   }

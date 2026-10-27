@@ -6,11 +6,6 @@ import { buildBillProof, buildItemProof, paramsHash, verifyBillProof, verifyItem
 import { load, named, type Json } from './helpers.js'
 
 const v = load('proof.json')
-// nmilat requires the expiration tag and binds it to not_after; cashkit checks neither (the case names predate the rule).
-const MISMATCH = new Set([
-  'different not_after is not checked', // nmilat refuses expiration 1760000060 vs not_after 1; cashkit accepts
-  'no expiration tag is fine', // nmilat refuses a missing expiration tag; cashkit accepts
-])
 const KEY1 = Uint8Array.from({ length: 32 }, (_, i) => (i === 31 ? 1 : 0))
 const toBinding = (b: Json) => ({ target: b.target, hub: b.hub, method: b.method, paramsHash: b.paramsHash, nonce: b.nonce, notAfter: b.notAfter })
 
@@ -43,7 +38,6 @@ describe('proof.json', () => {
     expect([ev.kind, ev.tags]).toEqual([c.eventKind, c.tags])
   })
   test.each(named(v.verify))('verify: %s', (_: string, c: Json) => {
-    if (MISMATCH.has(c.name)) return
     const go = () => (c.kind === 'item' ? verifyItemProof : verifyBillProof)(c.proof, toBinding(c.binding), c.now)
     if (c.error) expect(go).toThrow()
     else expect(go()).toBe(c.signer)
