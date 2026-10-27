@@ -2,14 +2,14 @@
 // cmd/cash_receive.go runCashReceive and cmd/receive_secure.go
 // protectRekeyOnly.
 import { bySecret, bySigning, decodeToken, newCashTarget, sniff, splitCashString, type Credential, type NostrEvent, type Token } from '../core/index.js'
-import { ClientError } from '../client/index.js'
+import { ClientError, type CheckClaimResult } from '../client/index.js'
 import { validateClaimedAmount } from './amounts.js'
 import { getHeld, lockedHoldings } from './bills.js'
 import { runTransfer } from './kinds.js'
 import { connectionKeyCredential, tokenFacts, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
 import { addHolding, appendActivity, findByToken } from './ledger.js'
-import type { Holding } from './model.js'
+import type { ConnectionKeyBinding, Holding } from './model.js'
 import { holdingView, type HoldingView } from './views.js'
 
 /** What a token says about itself, read offline. Carries no secret. */
@@ -30,7 +30,19 @@ export interface Secured {
 }
 
 export type ReceiveResult =
-  | { readonly received: true; readonly holding: HoldingView; readonly secured: Secured }
+  | {
+      readonly received: true
+      readonly holding: HoldingView
+      readonly secured: Secured
+      /**
+       * A connection-key bill whose Hub does not show its holder the status
+       * (NIP-CASH §Scoping the Roster answers `NOT_FOUND`): it is held
+       * unverified, at the amount its verified mint signature attests, and
+       * the Hub has not confirmed a slice for this account. Sending it works;
+       * a quote, redeem or withdrawal needs it moved to your own pubkey first.
+       */
+      readonly statusUnreadable?: true
+    }
   | { readonly received: false; readonly reason: 'no_embedded_secret'; readonly report: TokenReport }
 
 function refuseKind(input: string): void {
@@ -111,10 +123,11 @@ export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}
   if (ck !== undefined) cred = ck.credential
   else if (embedded !== '') cred = bySecret(embedded)
   else cred = bySigning(await ctx.requireSigner())
-  let r
+  let r: CheckClaimResult | undefined
   try {
     r = await ctx.client(tok).checkClaim(cred)
   } catch (err) {
+    if (ck !== undefined && err instanceof ClientError && err.code === 'status_unreadable') return receiveUnreadable(ctx, input, tok, facts, ck.binding)
     if (err instanceof ClientError && err.code === 'spent') throw new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone', { input })
     if (err instanceof ClientError && err.code === 'claim_not_found') {
       throw new CashkitError(
@@ -163,6 +176,43 @@ export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}
     else ({ secured, holding: final } = await protectOne(ctx, holding))
   }
   return { received: true, holding: holdingView(final, ctx.nowSeconds()), secured }
+}
+
+/**
+ * Holds a connection-key bill a spec Hub will not show its holder the status
+ * of (NIP-CASH §Scoping the Roster). Nothing about it was confirmed, so it is
+ * kept `verified: false` at its attested amount: the mint signature verified
+ * (the client reached the Hub through it), so that figure is the minter's.
+ * Nothing moves, and a claim later made with the wrong account is refused by
+ * the Hub, never lost.
+ */
+async function receiveUnreadable(ctx: Ctx, input: string, tok: Token, facts: ReturnType<typeof tokenFacts>, binding: ConnectionKeyBinding): Promise<ReceiveResult> {
+  const amount = tok.attestedAmountMillis
+  if (facts.minterPubkey === undefined || amount === undefined) {
+    throw new CashkitError('invalid_input', "this token's mint signature does not verify, and its Hub does not show a connection-key holder the status, so nothing about it can be checked — refusing to receive it", { input })
+  }
+  validateClaimedAmount(tok, facts.minterPubkey, amount)
+  const holding = await ctx.commit(async (t) => {
+    const h = await addHolding(
+      t,
+      {
+        token: input,
+        walletPubkey: tok.walletPubkey,
+        hubGroup: facts.hubGroup,
+        relayUrls: tok.relays,
+        amount,
+        verified: false,
+        minterPubkey: facts.minterPubkey!,
+        mode: 'connection_key',
+        protection: 'none',
+        connectionKey: binding,
+      },
+      { now: ctx.now(), random: ctx.random },
+    )
+    await appendActivity(t, ctx.now(), { action: 'receive', amount, holdingId: h.id, mode: h.mode })
+    return h
+  })
+  return { received: true, holding: holdingView(holding, ctx.nowSeconds()), secured: { status: 'not_applicable' }, statusUnreadable: true }
 }
 
 /**

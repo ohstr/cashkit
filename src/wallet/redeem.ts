@@ -354,7 +354,8 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
     else if (s !== undefined && 'state' in s && s.state === 'available' && !s.result.recipients.some((x) => x.claimed)) next = 'held'
     else if (info !== undefined) {
       if (info.into !== 'invoice' && (await invoiceSettled(ctx, info.into, info.invoice))) next = 'redeemed'
-      else if (s !== undefined && 'state' in s && now > (info.invoiceExpiresAt ?? info.since + INVOICE_EXPIRY) + CLAIMED_GRACE) next = 'redeemed'
+      // Only a row the Hub showed still claimed counts; an unreadable status (a connection-key bill) says nothing.
+      else if (s !== undefined && 'state' in s && s.state === 'available' && now > (info.invoiceExpiresAt ?? info.since + INVOICE_EXPIRY) + CLAIMED_GRACE) next = 'redeemed'
     }
     if (next === undefined) {
       rep.stillRedeeming.push(h.id)

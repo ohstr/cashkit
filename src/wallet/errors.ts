@@ -247,6 +247,21 @@ function messageOf(err: unknown): string {
  * claim on it is in flight or done) and `withdrawn` (a cash_withdraw ended
  * it) are `spent`; `expired` is `invalid_input`. `reason` carries which.
  */
+/**
+ * A connection-key bill whose status this Hub will not show (NIP-CASH
+ * §Scoping the Roster answers a connection-key holder `NOT_FOUND`), asked
+ * for something that needs it: a quote, a redeem, a withdrawal. Nothing was
+ * spent and the holding is unchanged; moving the whole bill to the wallet's
+ * own pubkey gives a slice whose status can be read.
+ */
+export function statusUnreadableError(input: string): CashkitError {
+  return new CashkitError('usage', "this Hub does not show a connection-key holder its bill's status, so this bill cannot be quoted, redeemed or withdrawn as it is; nothing was spent", {
+    input,
+    reason: 'status_unreadable',
+    hint: `send the whole bill to your own pubkey first: wallet.send({ to: <your pubkey>, holdings: [${JSON.stringify(input)}] })`,
+  })
+}
+
 export function notClaimableError(reason: NotClaimableReason, input?: string): CashkitError {
   const o = { reason, ...(input !== undefined && { input }) }
   switch (reason) {
