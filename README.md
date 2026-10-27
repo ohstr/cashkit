@@ -15,8 +15,11 @@ Use it to:
 
 - **Build a cash wallet** in a browser, a PWA, Node ≥ 22 or Bun: receive,
   send, consolidate and redeem bills, with cashctl's behaviour and error codes
-- **Join a Circle**, privately when the Hub offers it, and use its wallet
+- **Join a Circle** over the Hub's private transport, and use its wallet
   over Nostr Wallet Connect
+- **Mint, order, zap and withdraw on-chain**: mint on a Cash Hub, order
+  cash from a seller, send Cash Zaps, pay a bill out to an address, and keep
+  everything in flight in a Cash Pocket
 - **Talk to a Hub directly**, one bill or one batch at a time
 
 A library only: no UI code, apart from the optional React bindings.
@@ -227,6 +230,148 @@ console.log('joined', joined.name, 'wallet', joined.walletPubkey)
 
 const ln = await wallet.lightning(joined.name)
 console.log(await ln.getBalance())
+```
+
+### Mint from a Cash Hub
+
+With a Cash Hub that lets you mint, add its `cashhub1` string, then mint
+a cash note to hand over or a bill to keep:
+
+<!-- example: examples/mint.ts -->
+```ts
+// A Cash Hub connection is its signed cashhub1 string, never a URI. It is
+// checked online (get_info must name the same node and chain) before it is stored.
+await wallet.connections.add('hub', cashhub, {
+  confirmUnverified: async (view) => window.confirm(`Not confirmed: ${view.hubFingerprint}. Use it anyway?`),
+})
+
+const note = await wallet.mint({ hub: 'hub', amount: 50_000n }) // to: 'cash' by default
+console.log('hand this over:', note.cashNote)
+
+const kept = await wallet.mint({ hub: 'hub', amount: 20_000n, to: 'self' })
+console.log('kept as holding', kept.holdingId)
+```
+
+### Settle what a crash left open
+
+Opening a wallet settles first; `settle()` can be called any time:
+
+<!-- example: examples/settle.ts -->
+```ts
+// Every bill-creating call is written ahead with its request id; a lost
+// reply is looked up, never resent. settle() runs on open and on demand.
+const report = await wallet.settle()
+console.log('applied', report.applied.length, 'still open', report.open.length)
+
+for (const call of await wallet.pendingCalls.list()) {
+  // The Hub never saw it: placing it again is a new call the user decides on.
+  if (call.needsUser === 'confirm_replace' && (await askTheUser(`Place the ${call.op} of ${call.amount} again?`))) {
+    await wallet.pendingCalls.confirmReplace(call.id)
+  }
+}
+
+const stop = wallet.autoSettle() // settles again when the app is idle; call stop() on exit
+```
+
+### Order cash
+
+A Hub that sells cash publishes a `cashorder1` string. Quote, place, show
+the invoice (or address) with its pay-by time, and watch the order:
+
+<!-- example: examples/order.ts -->
+```ts
+// Quote: nothing is written or sent.
+const q = await wallet.orders.quote(cashorder, { amountMillis: 21_000_000n, payment: 'lightning' })
+console.log(`pay ${q.payMillis} (fee ${q.feeMillis}); the bill will carry a redeem fee of ${q.billRedeemFeeMillis}`)
+
+// Place: written ahead, then sent. The reply opens the order.
+const order = await wallet.orders.place({ connection: cashorder, amountMillis: 21_000_000n, payment: 'lightning' })
+if (order.invoice !== undefined) show(`Pay before ${new Date(order.payBy * 1000).toLocaleString()}: ${order.invoice}`)
+
+// Watch until it is finished: each new bill becomes a holding.
+const ac = new AbortController()
+await wallet.orders.watch(order.id, {
+  signal: ac.signal,
+  onUpdate: (v) => {
+    if (v.finished) ac.abort()
+    console.log(v.state, v.bills.length, 'bills')
+  },
+})
+
+// A closed order can be read again at any time.
+console.log(await wallet.orders.refresh(order.id))
+```
+
+### Withdraw on-chain
+
+A Hub that offers on-chain withdrawals pays a bill out to an address.
+The confirmation is the caller's: nothing is sent until it resolves true:
+
+<!-- example: examples/withdraw.ts -->
+```ts
+const terms = await wallet.withdraw.terms(holdingId)
+if (!terms.offered || terms.inRange !== 'ok') throw new Error('this bill cannot be withdrawn on-chain')
+
+// The quote is checked against what was asked and held in memory only.
+const quote = await wallet.withdraw.quote(holdingId, address)
+const view = await wallet.withdraw.send(quote, {
+  // Irreversible: show the exact payout, the fees and the privacy warnings.
+  confirm: async (v) => askTheUser(`Send ${v.payoutMillis} to ${v.addressGroups.join(' ')} (fee ${v.feeMillis})?`),
+})
+
+const stop = await wallet.withdraw.watch(view.id, {
+  onUpdate: (v) => {
+    if (v.phase === 'final') console.log('paid in', v.txid)
+    if (v.phase === 'cancelled') console.log('returned as holding', v.remintHoldingId)
+    if (v.phase === 'final' || v.phase === 'cancelled') stop()
+  },
+})
+
+// Still broadcast 7 days after sent_by: it may be cancelled, and the
+// amount comes back as a new bill.
+const late = await wallet.withdraw.get(view.id)
+if (late?.cancelAvailableAt !== undefined && late.cancelAvailableAt <= Date.now() / 1000) await wallet.withdraw.cancel(view.id)
+```
+
+### Zap
+
+Cash Zaps (kind 9522) carry a bill to a pubkey, for an event or a profile:
+
+<!-- example: examples/zap.ts -->
+```ts
+// A zap on a note: a bill signed over the note, published as a 9522 to the
+// recipient's 10522 relays and yours.
+const sent = await wallet.zaps.send({ to: note.pubkey, amountMillis: 21_000n, target: { e: note.id, k: '1' }, relays })
+if (!sent.countable) console.log('valid, but never counted:', sent.reason)
+
+// Incoming zaps are shown as issued until claimed; a claim checks the
+// bill with its Hub first.
+for (const z of await wallet.zaps.list({ relays })) console.log(z.status, z.amountMillis, z.trusted)
+const holding = await wallet.zaps.claim(incoming)
+console.log('claimed', holding.amount)
+```
+
+### Keep a Cash Pocket
+
+Give the wallet a Cash Pocket and it keeps every bill and call in flight
+on the user's own relays, so another device can pick them up:
+
+<!-- example: examples/pocket.ts -->
+```ts
+const relays = new RelayWs()
+const wallet = await Wallet.open({
+  storage,
+  vault,
+  relays,
+  // The user's inbox relays: each call's entry is stored and read back
+  // before the call goes out.
+  pocket: syncPocket({ pool: relays, relays: ['wss://inbox.example', 'wss://inbox2.example'] }),
+})
+
+// On another device with the same identity: bring in what it holds.
+const r = await wallet.pocket.sync()
+console.log('imported', r.imported.length, 'conflicts', r.conflicts.length)
+console.log(await wallet.pocket.balance()) // per chain
 ```
 
 ### Handle errors

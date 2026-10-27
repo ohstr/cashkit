@@ -1447,6 +1447,8 @@ class CashkitError extends Error {
 - The codes are exactly cashctl's table, so an app and an agent driving
   cashctl branch the same way.
 - `exitCode(code)` is exported for CLI-shaped consumers.
+- cashkit acts on `code`, `reason` and a Hub's `detail` only; no message
+  text is ever compared (§2.3, "Codes, never messages").
 - The NWC mapping follows `internal/output/nwc_errors.go`:
 
   | NWC code | cashkit code |
@@ -1494,7 +1496,8 @@ This lets cashkit and cashctl share fixtures.
   - pending and destination secrets
   - throwaway keys
   - the local identity key
-  - NWC and circle connection URIs
+  - NWC connection URIs and Cash Hub connection strings
+  - circle wallet connection secrets
   - pending-join secrets
   - unclaimed cash-note handoffs
   - `recovery` text
@@ -1565,6 +1568,64 @@ This lets cashkit and cashctl share fixtures.
   final URL.
 - **Randomness.** All keys, secrets, nonces and padding decisions come from
   the `Random` port, which defaults to `crypto.getRandomValues`.
+
+### 10.1 Connection strings
+
+- **No URI form.** A Cash Hub, an order seller and a Circle Wallet Hub are
+  reached only through their signed `cashhub1`, `cashorder1` and
+  `circlehub1` strings; a URI in their place is `connection_invalid` and
+  nothing is dialled. A joined circle wallet is stored as its fields, never
+  as a URI. The only URI cashkit accepts is a third-party Lightning
+  wallet's NIP-47 pairing URI.
+- **What the signature proves.** The node identity in TLV 4 signed this
+  label, chain, connection key and relay set. It does not prove who runs the
+  node, that the label is true, or that the node is reachable: the label is
+  shown sanitized and only as the issuer's own claim, with the identity's
+  fingerprint for reading aloud.
+- **What the online check adds.** Before any use, `get_info` read over the
+  string's own connection must name the same identity and chain
+  (`connection_mismatch` otherwise). A string whose signature does not
+  verify is "not confirmed": it is used only after that check passed and
+  the user confirmed the view (`confirmUnverified`), asked once per client.
+- **Networks.** A view whose network is not `mainnet` (missing and unknown
+  included) is flagged `testNetwork`; an app shows that warning wherever
+  the string or its bills appear.
+- **QR codes.** `qr` is the string in uppercase (the QR alphanumeric mode);
+  decoders take an all-uppercase string and refuse a mixed-case one.
+- **Private-only joins.** A circle join and its lookups go over the Hub's
+  private transport only, with no fallback. When no announcement of the
+  Hub's identity verifies, the join is refused before anything is signed
+  (`join_unavailable`); tell the member the Hub cannot take joins right now
+  and to try again later, not to use another route.
+
+### 10.2 Privacy
+
+What the protocols disclose, and what cashkit does not hide:
+
+- **The client's network address.** cashkit does not hide it from relays,
+  Hubs' relays or HTTP endpoints (NIP-05, NIP-11). An app that needs it
+  hidden routes its relay adapter, and its `fetch`, over an address-hiding
+  layer.
+- **A Hub's single inbox.** Every request to a Hub goes to the one inbox its
+  announcement names, so the Hub's relays see that a client talks to that
+  Hub, and when.
+- **Consolidation.** Merging bills tells their Hub they have one owner; a
+  plan that merges says so (`disclosesCommonOwnership`) and
+  `allowAutoConsolidate` turns automatic merges off.
+- **Tokens.** Anyone holding a token can read its minter node and amount;
+  there is no opt-out. A zap bill also reveals that it came from a zap, and
+  for which event.
+- **Recipient linkage.** A `new_identity` or a token sent beside a zap or
+  a chat message links the two. When recipients must stay unlinkable, use
+  one channel per recipient and never reuse a bill across them.
+- **On-chain withdrawals.** A bill whose amount others know (a received
+  amount, an order) is linkable to the payout unless it is split first
+  (`known_amount`, `splitFirst`); a reused or near-matching address links
+  payouts. The address, quote, receipt and transaction are dropped once the
+  withdrawal is final.
+- **Discover.** Browsing reads public events from the relays asked, which
+  learn what is fetched; a tap reads the seller's `get_info` over its
+  listed public connection, so that Hub learns of the tap.
 
 ## 11. Conformance
 
@@ -1645,6 +1706,9 @@ GitHub CI.
   IndexedDB, Web Locks and WebSocket adapters.
 - oxlint plus dependency-cruiser for the layer rules (§2).
 - `just`: `check`, `test`, `vectors`, `e2e`, `build`.
+- The README's longer examples are copies of `examples/*.ts`, which the
+  typecheck compiles; `test/readme-examples.test.ts` fails when a README
+  block and its file's `#region readme` differ.
 - Runtime dependencies: `@noble/curves`, `@noble/hashes`, `@noble/ciphers`,
   `@scure/base`. NIP-44 is implemented on noble and checked against the
   vectors, so there is no nostr-tools runtime dependency.
