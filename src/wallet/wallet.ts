@@ -635,6 +635,14 @@ export class Wallet {
       await this.ctx.commit(async (t) => {
         const c = await t.get('connections', name)
         if (c === undefined) throw new CashkitError('not_found', `no connection named "${name}"`, { input: name })
+        // An open call that names this connection needs it for its lookup (NIP-CASH §Looking Up a Call).
+        const open = (await t.list('pendingCalls')).filter((x) => x.state !== 'done' && x.params?.connection === name)
+        if (open.length > 0) {
+          throw new CashkitError('conflict', `"${name}" is needed to settle a call that has not finished (${open.map((x) => x.id).join(',')}); settle() resolves it. Nothing was changed`, {
+            input: name,
+            pendingCallId: open[0]!.id,
+          })
+        }
         await t.delete('connections', name)
         if (c.isDefault) {
           const next = (await t.list('connections')).find(isLightning)

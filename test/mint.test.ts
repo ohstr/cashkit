@@ -78,6 +78,17 @@ describe('wallet.mint', () => {
     expect((await h.wallet.holdings()).map((x) => x.amount)).toEqual([3000n])
     expect(await openCalls(h)).toEqual([])
   }, 20_000)
+  test('the Cash Hub connection an open mint needs for its lookup cannot be removed until it settles', async () => {
+    const { h } = await withHub({ nwcTimeoutMs: 300 })
+    h.bank.loseMintReply = true
+    const e = await failure(h.wallet.mint({ hub: 'hub', amount: 3000n, to: 'self' }))
+    expect(await failure(h.wallet.connections.remove('hub'))).toMatchObject({ code: 'conflict', pendingCallId: e.pendingCallId })
+    expect((await h.wallet.connections.list()).map((c) => c.name)).toEqual(['hub'])
+    h.bank.loseMintReply = false
+    expect((await h.wallet.settle()).applied).toEqual([e.pendingCallId])
+    await h.wallet.connections.remove('hub')
+    expect(await h.wallet.connections.list()).toEqual([])
+  }, 20_000)
   test('a malformed request is refused before anything is written', async () => {
     const { h } = await withHub()
     expect((await failure(h.wallet.mint({ hub: 'hub', amount: 0n }))).code).toBe('invalid_input')
