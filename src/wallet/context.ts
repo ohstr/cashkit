@@ -2,6 +2,7 @@
 // and events. Internal to the wallet layer.
 import { bySecret, bySigning, decodeToken, fromUtf8, localSigner, fromHex, utf8, verifyProvenance, toHex, type Credential, type Signer, type Token } from '../core/index.js'
 import { billFor, CashClient, type Bill, type ClientDeps } from '../client/index.js'
+import { Confirmations } from './confirm.js'
 import { CashkitError } from './errors.js'
 import { conflict } from './ledger.js'
 import type { Holding, Sealed, Settings } from './model.js'
@@ -50,6 +51,8 @@ export class Ctx {
   private readonly opListeners = new Set<(e: OperationEvent) => void>()
   private readonly changeListeners = new Set<() => Promise<void> | void>()
   private opSeq = 0
+  /** The app's answers to confirmation requests; none means no. */
+  readonly confirmations = new Confirmations()
 
   constructor(readonly deps: WalletDeps) {
     this.lock = deps.lock ?? new ProcessLock()

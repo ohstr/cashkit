@@ -31,6 +31,7 @@ import {
 } from './circle.js'
 import { consolidate, type ConsolidateReport } from './consolidate.js'
 import { Ctx, type OperationEvent } from './context.js'
+import { unverifiedAnswer, type ConfirmHandler } from './confirm.js'
 import { CashkitError } from './errors.js'
 import { activity, balance, listHandoffs, type ActivityItem, type Balance, type HandoffView } from './feed.js'
 import { newId, updateHolding } from './ledger.js'
@@ -219,9 +220,17 @@ export class Wallet {
     return () => this.subscribers.delete(fn)
   }
 
-  on(event: 'operation', fn: (e: OperationEvent) => void): () => void {
-    if (event !== 'operation') throw new CashkitError('usage', `unknown event ${String(event)}`)
-    return this.ctx.onOperation(fn)
+  /**
+   * `operation`: every operation event. `confirm`: the wallet's confirmation
+   * requests (`ConfirmRequest`); resolve `true` to go ahead. The handler added
+   * last answers; with none, every question is answered no.
+   */
+  on(event: 'operation', fn: (e: OperationEvent) => void): () => void
+  on(event: 'confirm', fn: ConfirmHandler): () => void
+  on(event: 'operation' | 'confirm', fn: ((e: OperationEvent) => void) | ConfirmHandler): () => void {
+    if (event === 'operation') return this.ctx.onOperation(fn as (e: OperationEvent) => void)
+    if (event === 'confirm') return this.ctx.confirmations.add(fn as ConfirmHandler)
+    throw new CashkitError('usage', `unknown event ${String(event)}`)
   }
 
   /**
@@ -615,8 +624,8 @@ export class Wallet {
     memberRequest: (name: string, action: MemberAction): Promise<NostrEvent> => memberRequest(this.ctx, name, action),
     /** Applies a NIP-47 notification the wallet's key received; returns what it means for the member. */
     notify: (name: string, n: CircleNotification): Promise<CircleAlert> => applyCircleNotification(this.ctx, name, n),
-    /** Deletes a wallet holding at most dust, after `confirmDelete({dust})`; the dust goes to the host. */
-    delete: (name: string, confirmDelete: (x: { dust: bigint }) => Promise<boolean>): Promise<void> => this.ctx.spend(() => deleteCircleWallet(this.ctx, name, confirmDelete)),
+    /** Deletes a wallet holding at most dust, after `confirmDelete({dust})` (else the `confirmDelete` request); the dust goes to the host. */
+    delete: (name: string, confirmDelete?: (x: { dust: bigint }) => Promise<boolean>): Promise<void> => this.ctx.spend(() => deleteCircleWallet(this.ctx, name, confirmDelete)),
     /** The member's connection secret (of a stored wallet by name, or a pending join by its connection key), for a backup. */
     exportConnectionSecret: async (nameOrPendingJoin: string): Promise<string> => {
       this.ctx.requireUnlocked()
@@ -671,7 +680,7 @@ export class Wallet {
     add: async (name: string, uri: string, o: { kind?: ConnectionKind; makeDefault?: boolean; confirmUnverified?: (view: HubView) => Promise<boolean> } = {}): Promise<ConnectionView> => {
       if (name.trim() === '') throw new CashkitError('usage', 'a connection needs a name')
       if (o.kind === 'cashhub' || sniff(uri.trim()) === 'cashhub') {
-        const v = await verifyCashHubString(this.ctx, uri, o.confirmUnverified)
+        const v = await verifyCashHubString(this.ctx, uri, unverifiedAnswer(this.ctx.confirmations, o.confirmUnverified))
         const sealedConn = await this.ctx.seal(uri.trim())
         const now = this.ctx.nowSeconds()
         const row = await this.ctx.commit(async (t) => {
