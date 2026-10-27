@@ -1,7 +1,7 @@
 // External signers: NIP-07 (browser extension) and NIP-46 (bunker), against
 // fakes, plus a wallet spending through a bunker.
 import { describe, expect, test } from 'vitest'
-import { finalizeEvent, getPublicKey, localSigner, nip44, toHex, type EventTemplate, type NostrEvent } from '../src/core/index.js'
+import { finalizeEvent, getPublicKey, localSigner, nip44, signerErrorFrom, toHex, type EventTemplate, type NostrEvent } from '../src/core/index.js'
 import { nip07Signer, type Nip07 } from '../src/adapters/signer-nip07.js'
 import { KIND_NIP46, nip46Signer, parseBunkerUri } from '../src/adapters/signer-nip46.js'
 import { MemoryRelayPool } from './fakeHub.js'
@@ -176,4 +176,12 @@ test('a wallet whose identity lives in a bunker receives and spends', async () =
   expect(r.received).toBe(true)
   expect((await h.wallet.send({ amount: 2000n })).sent).toBe(2000n)
   signer.close()
+})
+
+describe('a signer error reason is untrusted text', () => {
+  test('terminal escapes, controls and bidi marks are removed, breaks become spaces, and it is capped; the code still classifies', () => {
+    const e = signerErrorFrom('signer-nip46', 'denied: \u001b[31mred\u001b[0m\u0007 line\nnext ‮evil‎\u009b')
+    expect(e).toMatchObject({ code: 'denied', message: 'signer-nip46: denied: [31mred[0m line next evil' })
+    expect(signerErrorFrom('x', 'a'.repeat(5000)).message.length).toBe('x: '.length + 300)
+  })
 })

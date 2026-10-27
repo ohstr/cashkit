@@ -1,3 +1,5 @@
+import { sanitizeText } from './text.js'
+
 /** Why a `core` function refused its input. */
 export type CoreErrorCode =
   | 'invalid_hex'
@@ -62,8 +64,17 @@ export class SignerError extends Error {
   }
 }
 
-/** A signer's error string as a `SignerError`, prefixed with `who` (e.g. `signer-nip46`). */
+/** The longest signer reason kept in a message, in user-perceived characters. */
+const MAX_SIGNER_REASON = 300
+
+/**
+ * A signer's error string as a `SignerError`, prefixed with `who` (e.g.
+ * `signer-nip46`). The reason is untrusted (a remote bunker wrote it): line
+ * breaks become spaces, control characters (terminal escapes included),
+ * bidirectional and zero-width marks are removed, and it is capped.
+ */
 export function signerErrorFrom(who: string, text: string): SignerError {
   const code: SignerErrorCode = text.startsWith('denied: ') ? 'denied' : text.startsWith('invalid: ') ? 'invalid' : 'failed'
-  return new SignerError(code, `${who}: ${text}`)
+  const reason = sanitizeText(text, MAX_SIGNER_REASON).replace(/[\p{Cc}\u200E\u200F\u061C]/gu, '')
+  return new SignerError(code, `${who}: ${reason}`)
 }
