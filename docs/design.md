@@ -53,7 +53,7 @@ Non-goals:
 - Hub, mint or relay server code.
 - UI components, or React in the core.
 - Key management beyond what a wallet needs. Identity signing MAY be
-  delegated (NIP-07 or NIP-46, see §3).
+  delegated (NIP-07, NIP-46 or NIP-LS, see §3).
 
 ## 2. Layers and module layout
 
@@ -90,7 +90,7 @@ src/
                errors, events, migrations
   adapters/    storage-memory, storage-indexeddb, storage-sqlite,
                relay-ws, relay-nostr-tools, relay-ndk,
-               signer-local, signer-nip07, signer-nip46,
+               signer-local, signer-nip07, signer-nip46, signer-unix,
                vault-none, vault-passphrase, vault-device,
                lock-weblocks, lock-memory
 vectors/       JSON conformance vectors exported from nmilat (§11)
@@ -552,12 +552,31 @@ interface Signer {
   readonly pubkey: string       // resolved once; a NIP-07/46 adapter's factory awaits it
   signEvent(e: EventTemplate): Promise<NostrEvent>
   nip44Decrypt(peer: string, ciphertext: string): Promise<string>
+  nip44Encrypt(peer: string, plaintext: string): Promise<string>
 }
 ```
 
-The identity is only needed for claim proofs, item proofs and decrypting
-delivered tokens, all of which this interface covers. That makes NIP-07
-(`window.nostr`) and NIP-46 (bunker) signers workable. Every other key is
+The identity is only needed for claim proofs, item proofs, decrypting
+delivered tokens and sealing Cash Pocket entries, all of which this
+interface covers. That makes NIP-07 (`window.nostr`), NIP-46 (bunker) and
+NIP-LS (a local signer on a unix socket) signers workable.
+
+- Every adapter checks each event it gets back: the signature verifies, and
+  `kind`, `content`, `created_at` and `tags` are what was sent, under the
+  signer's pubkey.
+- A NIP-46 or NIP-LS error is a `SignerError`: `denied` (the error starts
+  `denied: `; the signer's policy refused, so the same request is not
+  retried), `invalid` (`invalid: `, a malformed request) or `failed`.
+- `adapters/signer-unix` (Node only, the one module with socket code):
+  addresses `bunker+unix:///abs`, `unix:///abs` or a bare absolute path
+  (relative paths, queries and fragments refused); one JSON object per line;
+  no message over 1 MiB sent or read; pipelined requests matched by `id`; a
+  request that times out closes the connection and the next call
+  reconnects. `signEventWithAttestations` passes attestation events as
+  `params[1]`, and `approvedEventId` computes the id they approve.
+  `signerFromUri` takes every address a user may paste, `bunker://` too;
+  the browser-safe `signer-nip46` refuses the unix forms and names this
+  module. Every other key is
 local to the engine and never goes through `Signer`:
 
 - request ephemeral keys

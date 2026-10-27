@@ -296,6 +296,13 @@
 - `connectionKeyFromAttested` refuses a user id that is not in canonical
   form on a platform that has one (x, discord, email, dns).
   ([#35](https://github.com/ohstr/cashkit/pull/35))
+- Signers: `Signer.nip44Encrypt` is required (breaking), and NIP-07 and
+  NIP-46 adapters implement it. NIP-46 errors are `SignerError`s classified
+  by prefix (`denied`, `invalid`, `failed`). New `adapters/signer-unix`
+  (Node only): a local signer over a unix socket (NIP-LS), with
+  `signerFromUri` for both `bunker://` and `bunker+unix://` addresses,
+  attestations and `approvedEventId`; `parseBunkerUri` refuses a unix
+  address and points there.
 
 ## [0.1.0-rc.2]
 
