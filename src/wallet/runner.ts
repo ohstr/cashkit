@@ -21,6 +21,7 @@ import { CashkitError, codeForNwc } from './errors.js'
 import { appendActivity, updateHolding } from './ledger.js'
 import type { CallCreated, CallNeedsUser, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
+import { pendingCallView } from './views.js'
 
 /** An item outcome with its decoded value or tombstone, as the client returns it. */
 export type PlacedOutcome = ItemOutcome & { readonly value?: unknown; readonly tombstone?: Tombstone }
@@ -55,6 +56,8 @@ export interface CallKind {
   afterApply?(ctx: Ctx, callId: string): Promise<void>
   /** Whether `unknown` re-places it automatically (`cash_transfer`, `cash_consolidate`) or asks the user first. */
   readonly autoReplace: boolean
+  /** The confirmation request that asks the user to place it again (kinds that are not `autoReplace`). */
+  readonly replaceRequest?: 'confirmMintReplace' | 'confirmOrderReplace' | 'confirmWithdrawReplace'
 }
 
 const KINDS = new Map<string, CallKind>()
@@ -287,6 +290,8 @@ export async function settleCalls(ctx: Ctx): Promise<SettleCallsReport> {
           await close(ctx, call.id, 'lookup_expired', { needsUser: 'lookup_expired' })
           needsUser.push(call.id)
           ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
+          const row = await ctx.read((t) => t.get('pendingCalls', call.id))
+          if (row !== undefined) ctx.confirmations.notify({ type: 'lookupExpired', call: pendingCallView(row, ctx.deviceId) })
         } else open.push(call.id)
         break
       }
@@ -316,6 +321,7 @@ async function onUnknown(ctx: Ctx, call: PendingCall): Promise<'closed' | 'repla
   if (!kindOf(call).autoReplace) {
     await update(ctx, call.id, (x) => ({ ...x, needsUser: 'confirm_replace', lookup: { ...(x.lookup ?? { omissions: 0 }), status: 'unknown' } }))
     ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
+    askReplace(ctx, call.id)
     return 'needsUser'
   }
   await replace(ctx, call).catch(() => undefined)
@@ -373,6 +379,22 @@ function stripOpen(c: PendingCall): PendingCall {
 /** The user closes an open call (`user_closed`); its sources are released. */
 export async function closeByUser(ctx: Ctx, id: string): Promise<void> {
   await close(ctx, id, 'user_closed')
+}
+
+/**
+ * Raises the kind's replace request for a call now waiting on
+ * `confirm_replace`; a yes places it again (under the spend lock, once the
+ * current operation is done). No handler: the call keeps waiting for
+ * `pendingCalls.confirmReplace`.
+ */
+function askReplace(ctx: Ctx, id: string): void {
+  if (!ctx.confirmations.handled) return
+  void (async () => {
+    const call = await ctx.read((t) => t.get('pendingCalls', id))
+    const type = call === undefined ? undefined : KINDS.get(call.kind)?.replaceRequest
+    if (call === undefined || type === undefined) return
+    if (await ctx.confirmations.ask({ type, call: pendingCallView(call, ctx.deviceId) })) await ctx.spend(() => confirmReplace(ctx, id))
+  })().catch(() => undefined)
 }
 
 /** The user confirms re-placing a call that waits for it (`confirm_replace`). */

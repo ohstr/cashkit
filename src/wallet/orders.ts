@@ -31,6 +31,7 @@ import { addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { CallCreated, OrderRecord, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
 import { executeCall, pocketHooks, registerCallKind, type CallKind } from './runner.js'
+import { unverifiedAnswer } from './confirm.js'
 import { parseTarget } from './target.js'
 
 export type OrderTo = 'cash' | 'self' | string
@@ -128,7 +129,7 @@ function quoteOf(terms: OrderTerms, payment: Payment, amountMillis: bigint) {
 
 /** The terms, the order fee, what to pay, the confirmations and the bill's redeem fee. Nothing is written. */
 export async function quoteOrder(ctx: Ctx, connection: string, o: { amountMillis: bigint; payment: Payment; confirmUnverified?: (v: HubView) => Promise<boolean> }): Promise<OrderQuote> {
-  const c = await connect(ctx, connection, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }) })
+  const c = await connect(ctx, connection, { confirmUnverified: unverifiedAnswer(ctx.confirmations, o.confirmUnverified) })
   const terms = await c.terms().catch((err: unknown) => {
     throw connectError(err)
   })
@@ -160,7 +161,7 @@ export interface PlaceOrderInput {
  * one waits for the user (a new order asks for a new payment).
  */
 export async function placeOrder(ctx: Ctx, o: PlaceOrderInput): Promise<OrderView> {
-  const c = await connect(ctx, o.connection, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }) })
+  const c = await connect(ctx, o.connection, { confirmUnverified: unverifiedAnswer(ctx.confirmations, o.confirmUnverified) })
   const terms = await c.terms().catch((err: unknown) => {
     throw connectError(err)
   })
@@ -364,6 +365,7 @@ function parseFor(call: PendingCall, raw: unknown, lookup: boolean): Order {
 
 const orderKind: CallKind = {
   autoReplace: false,
+  replaceRequest: 'confirmOrderReplace',
   async place(ctx, call, beforePublish) {
     const c = await connect(ctx, call.params?.['connection'] ?? '', { confirmUnverified: () => Promise.resolve(true) })
     const outcome = await c.place(requestOf(call), { buyerKey: await buyerKeyOf(ctx, call), send: { notAfter: call.deadline, beforePublish } })

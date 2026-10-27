@@ -23,6 +23,7 @@ let finished: { id: string; from: string }[] = []
 function testKind(autoReplace: boolean): CallKind {
   return {
     autoReplace,
+    ...(!autoReplace && { replaceRequest: 'confirmMintReplace' as const }),
     async place(ctx, call, beforePublish) {
       const h = (await ctx.read((t) => t.get('holdings', call.sources[0]!)))!
       const c = new CashClient(ctx.clientDeps, h.token)
@@ -189,6 +190,15 @@ describe('T-522 unknown and re-placement', () => {
     expect(await row(call.id)).toMatchObject({ outcome: 'replaced' })
     expect((await calls()).find((c) => c.derivedFrom === call.id)?.outcome).toBe('applied')
   })
+  test('with a handler, the kind asks its replace request; yes places it again', async () => {
+    const seen: string[] = []
+    h.wallet.on('confirm', (r) => (seen.push(r.type), r.type === 'confirmMintReplace'))
+    const { call } = await lostThenUnknown('test-mint')
+    await h.wallet.settle()
+    for (let i = 0; i < 50 && (await row(call.id))?.outcome !== 'replaced'; i++) await new Promise((r) => setTimeout(r, 20))
+    expect(seen).toContain('confirmMintReplace')
+    expect(await row(call.id)).toMatchObject({ outcome: 'replaced' })
+  })
   test('the third attempt is the last: replace_cap', async () => {
     const { call } = await lostThenUnknown()
     await ctxOf(h.wallet).commit(async (t) => {
@@ -223,6 +233,17 @@ describe('T-523 / T-526 expired, unanswered, closed by the user', () => {
     const s = await h.wallet.unreconciledSecrets({ includeSecrets: true })
     expect(s).toEqual([{ pendingCallId: call.id, role: 'new', cashSecret: expect.stringMatching(/^[0-9a-f]{64}$/) }])
     expect(await h.wallet.unreconciledSecrets()).toEqual([{ pendingCallId: call.id, role: 'new' }])
+  })
+  test('expired: the lookupExpired notice carries the closed call, never a secret', async () => {
+    const seen: unknown[] = []
+    h.wallet.on('confirm', (r) => (seen.push(r), false))
+    const { ctx, call } = await prepared()
+    const { markSent } = await import('../src/wallet/calls.js')
+    await markSent(ctx, call)
+    skew = (call.deadline + call.hAtSend + 5) * 1000 - Date.now()
+    await h.wallet.settle()
+    expect(seen).toEqual([{ type: 'lookupExpired', call: expect.objectContaining({ id: call.id, outcome: 'lookup_expired', needsUser: 'lookup_expired' }) }])
+    expect(toJSON(seen)).not.toMatch(/[0-9a-f]{64}/)
   })
   test('omissions are never unknown; only past deadline + H they ask the user', async () => {
     const { ctx, call } = await prepared()

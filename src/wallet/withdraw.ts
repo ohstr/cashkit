@@ -267,19 +267,22 @@ export async function quoteWithdrawal(ctx: Ctx, holdingId: string, rawAddress: s
     irreversible: true,
   }
   quotes.set(handle, { view, quote: r.quote, holding: h, terms, used: false })
+  if (view.expiringSoon && view.expiresAt !== undefined) ctx.confirmations.notify({ type: 'expiringSoon', holdingId: view.holdingId, expiresAt: view.expiresAt })
   return view
 }
 
 /**
- * Sends a quote the user confirmed: `confirm(view)` must resolve true (no
- * confirmation, no withdrawal). The bill must not expire within 120 s.
+ * Sends a quote the user confirmed: `confirm(view)` (else the wallet's
+ * `confirmWithdraw` request) must resolve true (no confirmation, no
+ * withdrawal). The bill must not expire within 120 s.
  * Written ahead with the quote, request id, `notify` and, for a cash-mode
  * bill, a fresh remint secret; then placed. The quote handle is consumed.
  */
 export async function sendWithdrawal(ctx: Ctx, view: WithdrawQuoteView, o: { confirm?: (v: WithdrawQuoteView) => Promise<boolean> } = {}): Promise<WithdrawalView> {
   const q = quotes.get(view.handle)
   if (q === undefined || q.used) throw new CashkitError('usage', 'this quote was already sent or is unknown: get a new quote', { reason: 'quote_used' })
-  if (o.confirm === undefined || !(await o.confirm(q.view))) throw new CashkitError('usage', 'the withdrawal was not confirmed; nothing was sent', { reason: 'not_confirmed' })
+  const ok = o.confirm !== undefined ? await o.confirm(q.view) : await ctx.confirmations.ask({ type: 'confirmWithdraw', quote: { ...q.view, deliberate: true } })
+  if (!ok) throw new CashkitError('usage', 'the withdrawal was not confirmed; nothing was sent', { reason: 'not_confirmed' })
   q.used = true
   const h = await getHeld(ctx, q.holding.id)
   if (h.expiresAt !== undefined && h.expiresAt - ctx.nowSeconds() <= 120) throw new CashkitError('invalid_input', 'this bill expires within two minutes: redeem it over Lightning', { reason: 'expiring' })
@@ -426,6 +429,7 @@ async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'rep
 
 const withdrawKind: CallKind = {
   autoReplace: false,
+  replaceRequest: 'confirmWithdrawReplace',
   async place(ctx, call, beforePublish) {
     const { credential, holding } = await credentialOfCall(ctx, call)
     const q = parseWithdrawQuote(call.params?.['quote'] ?? '')
@@ -465,7 +469,7 @@ async function withdrawalCall(ctx: Ctx, id: string): Promise<PendingCall> {
 /** One lookup: the payout as the Hub reports it, its receipt re-checked on every `done`. */
 export async function refreshWithdrawal(ctx: Ctx, id: string): Promise<WithdrawalView> {
   const call = await withdrawalCall(ctx, id)
-  if (call.state !== 'open_withdraw') return withdrawalView(call)
+  if (call.state !== 'open_withdraw') return noticeWithdrawal(ctx, withdrawalView(call))
   const { holding } = await credentialOfCall(ctx, call)
   const o = await lookupWithdraw(await ctx.clientFor(holding).session(), ctx.clientDeps, { bill: billOf(holding), requestId: call.requestId, deadline: call.deadline, authorizer: await lookupAuth(ctx, call, holding) }).catch(() => undefined)
   const v = o?.state === 'result' ? o.value : undefined
@@ -476,7 +480,7 @@ export async function refreshWithdrawal(ctx: Ctx, id: string): Promise<Withdrawa
       if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)
     }
   }
-  return withdrawalView(await withdrawalCall(ctx, id))
+  return noticeWithdrawal(ctx, withdrawalView(await withdrawalCall(ctx, id)))
 }
 
 /**
@@ -502,7 +506,7 @@ export async function cancelWithdrawal(ctx: Ctx, id: string): Promise<Withdrawal
   if (out?.state !== 'result') throw new CashkitError('network', 'the cancel request got no answer; asking again is harmless')
   const checked = await checkPayout(ctx, call, out.value, 'lookup')
   await ctx.commit((t) => applyPayout(ctx, t, call, checked.payout, checked.remint))
-  return withdrawalView(await withdrawalCall(ctx, id))
+  return noticeWithdrawal(ctx, withdrawalView(await withdrawalCall(ctx, id)))
 }
 
 /** The signed payout transaction, offered only when it is late and checked: the app may broadcast it with its own node. */
@@ -512,6 +516,22 @@ export async function signedTx(ctx: Ctx, id: string): Promise<{ tx: string; txid
     throw new CashkitError('usage', 'the payout transaction is offered only once it is late, signed and checked', { reason: 'tx_not_offered' })
   }
   return { tx: r.tx, txid: r.txid, vout: r.vout }
+}
+
+const noticed = new WeakMap<Ctx, Set<string>>()
+
+/** Raises `withdrawLate` or `withdrawCancelled` once per withdrawal and phase. */
+function noticeWithdrawal(ctx: Ctx, v: WithdrawalView): WithdrawalView {
+  if (v.phase !== 'late_unsigned' && v.phase !== 'late_signed' && v.phase !== 'cancelled') return v
+  const seen = noticed.get(ctx) ?? new Set<string>()
+  noticed.set(ctx, seen)
+  const key = `${v.id}:${v.phase}`
+  if (seen.has(key)) return v
+  seen.add(key)
+  if (v.phase === 'cancelled') ctx.confirmations.notify({ type: 'withdrawCancelled', id: v.id, amountMillis: v.amountMillis, ...(v.remintHoldingId !== undefined && { remintHoldingId: v.remintHoldingId }) })
+  else if (v.phase === 'late_unsigned') ctx.confirmations.notify({ type: 'withdrawLate', id: v.id, signed: false, returnsBy: v.sentBy + CANCEL_GRACE })
+  else ctx.confirmations.notify({ type: 'withdrawLate', id: v.id, signed: true, owed: true, cancelAvailableAt: v.sentBy + CANCEL_REQUEST_AFTER, canSendItMyself: true })
+  return v
 }
 
 export function withdrawalView(call: PendingCall): WithdrawalView {

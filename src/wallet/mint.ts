@@ -223,6 +223,7 @@ async function sealedValue(ctx: Ctx, token: string, d: CallOutput['destination']
 
 const mintKind: CallKind = {
   autoReplace: false,
+  replaceRequest: 'confirmMintReplace',
   async place(ctx, call, beforePublish) {
     const row = await cashHubRow(ctx, call.params?.['connection'] ?? '')
     const client = await cashHubClient(ctx, row)

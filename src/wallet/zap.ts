@@ -241,7 +241,12 @@ export async function claimZap(ctx: Ctx, ev: NostrEvent): Promise<Holding> {
   const trusted = (await ctx.settings()).trustedMinters
   const v = verifyCashZap(ev, { trusted })
   if (!v.valid || v.tags === undefined || v.token === undefined) throw new CashkitError('invalid_input', `this Cash Zap fails rule ${v.failed}`, { reason: 'zap_invalid' })
-  if (v.rules[8] !== true) throw new CashkitError('auth', 'this zap’s minter is not trusted: approve it first', { reason: 'minter_untrusted' })
+  if (v.rules[8] !== true) {
+    const minter = v.minter
+    const approved = minter !== undefined && (await ctx.confirmations.ask({ type: 'approveMinter', minter, chain: v.tags.chain, networkUnverifiable: true }))
+    if (!approved) throw new CashkitError('auth', 'this zap’s minter is not trusted: approve it first', { reason: 'minter_untrusted' })
+    await approveMinter(ctx, minter, v.tags.chain)
+  }
   if (v.tags.p.kind !== 'pubkey' || v.tags.p.value !== me) throw new CashkitError('usage', 'only a zap to this wallet’s pubkey is claimed here', { reason: 'not_for_this_wallet' })
   const zap = zapFieldsFromEvent(ev, v.tags)
   const client = new CashClient(ctx.clientDeps, v.token, zap)

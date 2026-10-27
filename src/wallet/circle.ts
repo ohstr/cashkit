@@ -22,6 +22,7 @@ import {
 import { CircleWalletClient, ClientError, connectCircle, inspectConnection, NwcClient, WalletError, type CircleHub, type ConnectCircleOptions, type HubView, type TypedOutcome } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import type { Ctx } from './context.js'
+import { unverifiedAnswer } from './confirm.js'
 import { CashkitError, fromWalletError } from './errors.js'
 import { appendActivity } from './ledger.js'
 import type { CircleDetailsRow, Connection, PendingJoin, Sealed } from './model.js'
@@ -220,10 +221,11 @@ export async function joinCircle(ctx: Ctx, hubString: string, t: JoinTermsInput,
   if (kind !== 'circlehub') throw new CashkitError('invalid_input', 'not a circlehub1 connection string', { reason: 'connection_invalid' })
   const terms = termsOf(t)
   const signer = await ctx.requireSigner()
-  const hub = await connect(ctx, hubString, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }), purpose: 'join' })
+  const hub = await connect(ctx, hubString, { confirmUnverified: unverifiedAnswer(ctx.confirmations, o.confirmUnverified), purpose: 'join' })
   const over = validateJoinTerms(hub.circle, terms)
   if (over !== undefined) throw new CashkitError('invalid_input', `${over} is over this circle's limits`, { reason: 'limit_exceeded', input: over })
-  if (hub.circle.rotation_delay_secs === undefined && (o.confirmNoRecovery === undefined || !(await o.confirmNoRecovery()))) {
+  const noRecovery = o.confirmNoRecovery ?? (() => ctx.confirmations.ask({ type: 'confirmNoRecovery', view: hub.view() }))
+  if (hub.circle.rotation_delay_secs === undefined && !(await noRecovery())) {
     throw new CashkitError('usage', 'this circle cannot move a wallet to a new key: losing its connection secret would make the balance unreachable, and that was not confirmed', { reason: 'no_recovery_unconfirmed' })
   }
   const hubPubkey = hub.connection.walletPubkey
@@ -619,6 +621,7 @@ export async function applyCircleNotification(ctx: Ctx, name: string, n: CircleN
       const mine = c.rotation?.newConnectionPubkey === n.notification.connection_pubkey
       await put((x) => ({ ...x, ...(mine && x.rotation !== undefined ? { rotation: { ...x.rotation, completesAt: n.notification.completes_at } } : {}) }))
       ctx.emit({ op: 'circle', phase: 'rotation_alert', id: name })
+      if (!mine) ctx.confirmations.notify({ type: 'rotationAlert', name })
       return 'rotation_alert'
     }
     case 'rotation_cancelled':
@@ -639,6 +642,7 @@ export async function applyCircleNotification(ctx: Ctx, name: string, n: CircleN
     case 'wallet_frozen':
       await put((x) => ({ ...x, frozen: true }))
       ctx.emit({ op: 'circle', phase: 'frozen_alert', id: name })
+      ctx.confirmations.notify({ type: 'walletFrozen', name })
       return 'frozen_alert'
     default:
       return 'ignored'
@@ -666,12 +670,13 @@ export async function markMovedIfDue(ctx: Ctx, name: string, completesAt: number
  * than its dust threshold; `confirmDelete({dust})` must resolve true (the
  * dust goes to the host). The connection is removed once the Hub agrees.
  */
-export async function deleteCircleWallet(ctx: Ctx, name: string, confirmDelete: (x: { dust: bigint }) => Promise<boolean>): Promise<void> {
+export async function deleteCircleWallet(ctx: Ctx, name: string, confirmDelete?: (x: { dust: bigint }) => Promise<boolean>): Promise<void> {
   const c = await circleRow(ctx, name)
   const client = await circleWalletClient(ctx, name)
   const balance = await client.getBalance()
   if (balance > c.circle.dustThresholdMillis) throw new CashkitError('usage', `this wallet still holds ${balance} millis, more than its dust threshold of ${c.circle.dustThresholdMillis}: pay it out first`, { reason: 'not_dust' })
-  if (!(await confirmDelete({ dust: balance }))) throw new CashkitError('usage', 'deleting was not confirmed', { reason: 'not_confirmed' })
+  const ok = confirmDelete !== undefined ? await confirmDelete({ dust: balance }) : await ctx.confirmations.ask({ type: 'confirmDelete', name, dust: balance })
+  if (!ok) throw new CashkitError('usage', 'deleting was not confirmed', { reason: 'not_confirmed' })
   try {
     await client.deleteWallet()
   } catch (err) {
