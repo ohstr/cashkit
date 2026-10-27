@@ -30,13 +30,7 @@ import { canon, loadExact } from './json-big.js'
 const v = loadExact('order.json')
 const title = (c: Json, i: number) => c.name ?? c.id ?? `case ${i}`
 
-const MISMATCH = new Set([
-  // Disputed: the vector's invoice "lnbc210220n1..." is the NIP's placeholder and does not decode. nmilat does not
-  // read the invoice; cashkit refuses a reply whose invoice is not for exactly pay_millis (NIP-CO §Response:
-  // "`invoice`: a fresh invoice for exactly `pay_millis`"; §Lightning: "The invoice is for exactly `pay_millis`").
-  'Lightning, open (reply)',
-  'Lightning, open (lookup)',
-])
+const MISMATCH = new Set<string>()
 
 const kindTerms = (k: Json): KindTerms => ({ minMillis: 0n, maxMillis: 0n, feeBase: BigInt(k.feeBase), feePpm: BigInt(k.feePpm), window: 0 })
 
@@ -145,6 +139,11 @@ describe('order.json replies', () => {
     const run = () => parseOrder(raw, { request: { payment: c.payment, amount_millis: BigInt(raw.amount_millis ?? 0) }, hubIdentity, chain: 'bitcoin', network: 'mainnet', lookup: c.lookup === true })
     if (c.error !== undefined) {
       expect(run).toThrow()
+      return
+    }
+    // The reply parses but its invoice is not for exactly pay_millis: cashkit's parseOrder refuses it outright.
+    if (c.invoiceCheck !== undefined) {
+      expect(run).toThrow(/invoice/)
       return
     }
     const o = run()
