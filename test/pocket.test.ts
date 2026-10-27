@@ -214,3 +214,39 @@ describe('the pocket engine: withdrawals', () => {
     expect(await h.wallet.pocket.balance()).toEqual(new Map())
   })
 })
+
+describe('the pocket engine: identities', () => {
+  test('a bill under a merge key is written with that key as its identity', async () => {
+    const h = await withPocket()
+    await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
+    const b = await heldRow(h)
+    const key = fill(0x71, 32)
+    await h.storage.tx('rw', async (t) => {
+      const row = (await t.get('holdings', b.id))!
+      await t.put('holdings', { ...row, throwawayKey: { alg: 'none', data: toHex(new TextEncoder().encode(toHex(key))) }, version: row.version + 1 }, row.version)
+    })
+    await h.wallet.pocket.sync()
+    const signer = await userSigner(h)
+    const ids = []
+    for (const p of wraps(h)) {
+      const r = await unwrap(p.event, signer)
+      if (r !== undefined) ids.push(parsePocketEntry(r).identity)
+    }
+    // One wrap per pocket relay.
+    expect(ids).toEqual(R.map(() => ({ type: 'pubkey', value: getPublicKey(key) })))
+  })
+  test('a live entry bound to another pubkey or to a ConnectionKey is not imported, and is reported', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const base = await liveEntry(a, 1)
+    const other = { ...base, w: 'a1'.repeat(32), identity: { type: 'pubkey' as const, value: getPublicKey(fill(0x72, 32)) } }
+    const ck = { ...base, w: 'a2'.repeat(32), identity: { type: 'connection_key' as const, value: 'b3'.repeat(32), ia: getPublicKey(fill(0x73, 32)) } }
+    await writeElsewhere(a, other)
+    await writeElsewhere(a, ck)
+    const rep = await a.wallet.pocket.sync()
+    expect(rep.imported).toEqual([])
+    expect(new Set(rep.foreign)).toEqual(new Set([other.w, ck.w]))
+    expect(await a.wallet.holdings()).toHaveLength(1)
+  })
+})

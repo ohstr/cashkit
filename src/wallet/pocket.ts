@@ -13,6 +13,8 @@ import {
   createWrap,
   decodeToken,
   checkPendingEntry,
+  fromHex,
+  getPublicKey,
   KIND_POCKET_ENTRY,
   connectionKeyFromAttested,
   parsePocketEntry,
@@ -79,8 +81,10 @@ const chainOf = (token: string) => {
   }
 }
 
+/** Who can claim the bill (NIP-CP `identity`): for a bill held under a one-time merge key, that key's pubkey, not the user's. */
 async function identityOf(ctx: Ctx, h: Holding): Promise<PocketIdentity> {
   if (h.mode === 'cash') return { type: 'cash' }
+  if (h.throwawayKey !== undefined) return { type: 'pubkey', value: getPublicKey(fromHex(await ctx.open(h.throwawayKey), 'throwaway key')) }
   if (h.mode === 'connection_key' && h.connectionKey !== undefined) return { type: 'connection_key', value: connectionKeyFromAttested(h.connectionKey.platform, h.connectionKey.externalId), ia: h.connectionKey.iaPubkey }
   return { type: 'pubkey', value: (await ctx.requireSigner()).pubkey }
 }
@@ -183,6 +187,8 @@ export interface PocketSyncReport {
   readonly published: readonly string[]
   readonly conflicts: readonly string[]
   readonly pending: readonly string[]
+  /** Live entries not imported: bound to a key this wallet does not sign with (another pubkey, or a ConnectionKey). */
+  readonly foreign: readonly string[]
 }
 
 /** The wrap that carried an entry, with the key that deletes it. */
@@ -231,10 +237,17 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
   const local = await ctx.read((t) => t.list('holdings'))
   const imported: string[] = []
   const published: string[] = []
+  const foreign: string[] = []
+  const me = (await ctx.requireSigner()).pubkey
   const seenRev = (w: string) => ({ seenRev: entries.get(w)?.rev ?? 0 })
   for (const e of entries.values()) {
     if (e.state !== 'live' || e.cash === undefined) continue
     if (local.some((h) => h.walletPubkey === e.w)) continue
+    // Only a cash note or a bill bound to the user's own pubkey can be spent from here.
+    if (e.identity !== undefined && e.identity.type !== 'cash' && !(e.identity.type === 'pubkey' && e.identity.value === me)) {
+      foreign.push(e.w)
+      continue
+    }
     const f = tokenFacts(e.cash)
     const secret = e.secrets?.find((s) => s.role === '')?.secret
     const sealed = secret !== undefined ? await ctx.seal(secret) : undefined
@@ -298,7 +311,7 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
     }
   }
   const pending = [...entries.values()].filter((e) => e.state === 'pending').map((e) => e.w)
-  return { imported, published, conflicts, pending }
+  return { imported, published, conflicts, pending, foreign }
 }
 
 /** The pocket's balance per chain: the sum over live entries. */
