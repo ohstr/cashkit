@@ -229,7 +229,7 @@
   `canonicalDomain` (UTS #46 ToASCII with the spec's refusals, tables from
   Unicode 15.0.0), `connectionKeyFromTyped` (x, discord, email, dns only)
   and `connectionKeyFromAttested`. They agree with nmilat on its 5000-domain
-  corpus.
+  corpus. ([#30](https://github.com/ohstr/cashkit/pull/30))
 
 ## [0.1.0-rc.2]
 
