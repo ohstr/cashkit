@@ -248,3 +248,21 @@ describe('wallet.withdraw: checks against what was confirmed', () => {
     expect(await h.wallet.holdings()).toHaveLength(1)
   })
 })
+
+describe('wallet.withdraw: a cancelled payout', () => {
+  test('without its re-minted bill is malformed', () => {
+    const base = { state: 'cancelled', address: PAYTO, amount_millis: 1, fee_millis: 0, payout_millis: 1, sent_by: 1, final_depth: 6, signed: false, receipt: '{}' }
+    expect(() => parsePayout(base)).toThrow(expect.objectContaining({ code: 'invalid_payload' }))
+    expect(() => parsePayout({ ...base, new_wallet_pubkey: 'ab'.repeat(32) })).toThrow(expect.objectContaining({ code: 'invalid_payload' }))
+  })
+  test('whose re-minted bill is a tombstone closes with a notice for the user', async () => {
+    const { h, hub, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const p = hub.only()
+    hub.cancel(p)
+    p.newWallet = { pubkey: p.newWallet!.pubkey, token: { status: 'spent' } as unknown as string }
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('cancelled')
+    expect(await h.wallet.holdings()).toEqual([])
+    expect(await h.wallet.pendingCalls.list()).toEqual([expect.objectContaining({ id: v.id, needsUser: 'remint_gone' })])
+  })
+})

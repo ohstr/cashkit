@@ -117,7 +117,8 @@ async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: '
       const made = (await writes(t)) ?? {}
       // A kind may keep its call open past the reply (an order until it is finished): its writes set that state.
       const after = await t.get('pendingCalls', call.id)
-      if (after?.state === 'open_order' || after?.state === 'open_withdraw') {
+      // A kind may also close its call itself (a payout that ended): its outcome and any notice for the user are kept.
+      if (after?.state === 'open_order' || after?.state === 'open_withdraw' || after?.state === 'done') {
         await t.put('pendingCalls', { ...after, created: made, version: after.version + 1 }, after.version)
         return made
       }

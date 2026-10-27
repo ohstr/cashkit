@@ -18,7 +18,6 @@ import {
   cashWithdrawRequest,
   classifyAddressAmong,
   CoreError,
-  decodeLookupDone,
   decodeToken,
   decryptDelivery,
   nearMatch,
@@ -399,7 +398,11 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
     checkedAt: ctx.nowSeconds(),
   }
   await t.put('pendingCalls', { ...cur, withdrawal: record, state: 'open_withdraw', version: cur.version + 1 }, cur.version)
-  if (finishedNow) await finishCall(t, call.id, 'applied')
+  if (finishedNow) {
+    const done = await finishCall(t, call.id, 'applied')
+    // A cancelled payout whose re-minted bill is already a tombstone brought nothing back: the user is told, not left with a silent close.
+    if (p.state === 'cancelled' && typeof p.newWalletToken !== 'string') await t.put('pendingCalls', { ...done, needsUser: 'remint_gone', version: done.version + 1 }, done.version)
+  }
   return remintId !== undefined ? { holdingIds: [remintId] } : {}
 }
 
@@ -458,8 +461,8 @@ const withdrawKind: CallKind = {
     return { outcome }
   },
   async finish(ctx, call, result, from) {
-    const raw = from === 'reply' ? result : decodeLookupDone(result).result
-    const { payout, remint } = await checkPayout(ctx, call, raw, from)
+    // A lookup's `done` is read as the payout itself: parsePayout takes a tombstone in place of the re-minted token.
+    const { payout, remint } = await checkPayout(ctx, call, result, from)
     return (t) => applyPayout(ctx, t, call, payout, remint)
   },
   async lookupTarget(ctx, call) {
@@ -484,7 +487,7 @@ export async function refreshWithdrawal(ctx: Ctx, id: string): Promise<Withdrawa
   const o = await lookupWithdraw(await ctx.clientFor(holding).session(), ctx.clientDeps, { bill: billOf(holding), requestId: call.requestId, deadline: call.deadline, authorizer: await lookupAuth(ctx, call, holding) }).catch(() => undefined)
   const v = o?.state === 'result' ? o.value : undefined
   if (v?.status === 'done') {
-    const checked = await checkPayout(ctx, call, decodeLookupDone(v.result).result, 'lookup').catch(() => undefined)
+    const checked = await checkPayout(ctx, call, v.result, 'lookup').catch(() => undefined)
     if (checked !== undefined) {
       await ctx.commit((t) => applyPayout(ctx, t, call, checked.payout, checked.remint))
       if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)

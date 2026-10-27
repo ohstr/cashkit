@@ -310,7 +310,8 @@ export interface WithdrawalRecord {
 
 export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
 export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced'
-export type CallNeedsUser = 'confirm_replace' | 'replace_cap' | 'lookup_expired' | 'lookup_unanswered' | 'foreign_device' | 'refused' | 'receipt_invalid'
+/** `remint_gone`: a cancelled payout's re-minted bill was already destroyed when the wallet learned of it; nothing came back. */
+export type CallNeedsUser = 'confirm_replace' | 'replace_cap' | 'lookup_expired' | 'lookup_unanswered' | 'foreign_device' | 'refused' | 'receipt_invalid' | 'remint_gone'
 
 /**
  * A call written ahead before its first byte is sent (NIP-CASH §Lost
