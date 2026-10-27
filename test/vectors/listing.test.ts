@@ -5,7 +5,6 @@ import { describe, expect, test } from 'vitest'
 import {
   checkTap,
   creditedOffers,
-  decodeCircleHubConnection,
   listingAddress,
   listingExpiresAt,
   ListingError,
@@ -16,7 +15,6 @@ import {
   parseReport,
   sanitizeText,
   VersionBook,
-  verifyCircleHubConnection,
   type Listing,
 } from '../../src/core/index.js'
 import { load, named, type Json } from './helpers.js'
@@ -44,20 +42,7 @@ for (const c of [...v.events, ...v.parseListing]) {
   }
 }
 const kList1 = listings.get(v.events[0].event.id)!
-// Three listings the cases name by id are not in the vectors; each stand-in changes K-LIST-1 only where its name says.
-const STANDIN: Record<string, Listing> = {
-  // "equal created_at: the lower id kept": a second version of K-LIST-1 at the same created_at.
-  '5b2a606a86e2a71368d77056fc863f6f62726cb373d803380322729500c3fa99': { ...kList1, event: { ...kList1.event, id: '5b2a606a86e2a71368d77056fc863f6f62726cb373d803380322729500c3fa99' } },
-  // "K-LIST-1's p naming another key".
-  '9bf4f90db9614086bb251d1eebc8539e3e065630227975069475fc57cf556837': { ...kList1, operator: { pubkey: kList1.nodeIdentity, relay: 'wss://relay.example.com' } },
-}
-{
-  // The circle listing of the tap cases: the circlehub1 string the vectors carry, under circle_wallet.
-  const conn = v.parseListing.find((c: Json) => c.name === 'step 2: circlehub1 under cash_order').event.tags.find((t: string[]) => t[0] === 'connection')[1]
-  const hub = decodeCircleHubConnection(conn)
-  STANDIN['3f97463627ed4490df70e874d25ae2449e1c2c91b79019a7b98745c281466b64'] = { ...kList1, type: 'circle_wallet', connection: conn, hub, verdict: verifyCircleHubConnection(hub), hints: [], summary: ['allowlist'] }
-}
-const byId = (id: string): Listing => listings.get(id) ?? STANDIN[id]!
+const byId = (id: string): Listing => listings.get(id)!
 
 const shape = (l: Listing) => ({
   address: listingAddress(l),
