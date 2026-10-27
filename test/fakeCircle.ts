@@ -5,8 +5,10 @@
 // over NIP-47. Test support only.
 import {
   decideLookup,
+  decodeCircleHubConnection,
   encodeCircleHubConnection,
   finalizeEvent,
+  fromHex,
   getPublicKey,
   nip44,
   signCircleHubConnection,
@@ -63,6 +65,14 @@ export class FakeCircle {
   readonly joins: RequestInfo[] = []
   readonly usedProofs = new Set<string>()
   readonly records = new Map<string, { member: string; result: unknown }>()
+  /** Pending rotations by `member:new connection pubkey`: a lookup naming the new key answers pending until `completesAt`. */
+  readonly rotations = new Map<string, number>()
+  /** Omits every join lookup (as a Hub that never answers). */
+  omitLookups = false
+  /** The connection pubkeys of the live `circlehub1` strings. */
+  readonly live = new Set<string>()
+  /** Lookups served, with the connection pubkey whose bill proof carried each. */
+  readonly lookups: { billSigner: string; connectionPubkey: string }[] = []
   readonly string: string
 
   constructor(
@@ -70,13 +80,48 @@ export class FakeCircle {
     readonly o: CircleOptions = {},
   ) {
     const hub = bank.hub
-    hub.bills.set(this.hubPubkey, this.client)
+    this.live.add(this.client)
+    hub.billKeys.set(this.hubPubkey, this.live)
     const prev = bank.override
     bank.override = (m, info) => (info.item.target === this.hubPubkey ? this.handle(m, info) : prev?.(m, info))
-    this.serve(this.hubKey, (e) => (e.pubkey === this.client ? this.hubAnswer : undefined))
-    this.string = encodeCircleHubConnection(
-      signCircleHubConnection({ walletPubkey: this.hubPubkey, secret: toHex(this.hubSecret), relays: hub.relayUrls, label: o.label ?? 'Ada’s Circle', hubIdentity: hub.node, chain: 'bitcoin' }, hub.nodeKey),
+    this.serve(this.hubKey, (e) => (this.live.has(e.pubkey) ? this.hubAnswer : undefined))
+    this.string = this.encode(this.hubSecret)
+  }
+
+  private encode(secret: Uint8Array): string {
+    const hub = this.bank.hub
+    return encodeCircleHubConnection(
+      signCircleHubConnection({ walletPubkey: this.hubPubkey, secret: toHex(secret), relays: hub.relayUrls, label: this.o.label ?? 'Ada’s Circle', hubIdentity: hub.node, chain: 'bitcoin' }, hub.nodeKey),
     )
+  }
+
+  /** Issues another `circlehub1` for this circle: the same Hub pubkey, its own secret. */
+  addConnection(): string {
+    const secret = nextKey()
+    this.live.add(getPublicKey(secret))
+    return this.encode(secret)
+  }
+
+  /** Revokes a string: its `get_info` goes unanswered and its bill proofs verify for nothing. */
+  revoke(s: string): void {
+    this.live.delete(getPublicKey(fromHex(decodeCircleHubConnection(s).secret)))
+  }
+
+  /**
+   * Moves `w` to `newConnectionPubkey` (NIP-CW §Recovering a Lost
+   * Connection): pending until `completesAt`, or completed now; a completed
+   * rotation answers the join lookup naming the new key with the details
+   * re-encrypted for it.
+   */
+  rotate(w: IssuedWallet, newConnectionPubkey: string, o: { completesAt?: number } = {}): void {
+    if (o.completesAt !== undefined) {
+      this.rotations.set(`${w.member}:${newConnectionPubkey}`, o.completesAt)
+      return
+    }
+    w.connectionPubkey = newConnectionPubkey
+    const details = { ...w.details, connection_pubkey: newConnectionPubkey }
+    const result = { encrypted_details: nip44.encrypt(JSON.stringify(details), nip44.getConversationKey(this.hubKey, w.member)) }
+    this.records.set(`${w.member}:${newConnectionPubkey}`, { member: w.member, result })
   }
 
   private get now(): number {
@@ -182,6 +227,10 @@ export class FakeCircle {
     const deadline = p['deadline']
     if (typeof conn !== 'string' || typeof deadline !== 'number') return { error: { code: 'BAD_REQUEST', message: 'lookup needs connection_pubkey and deadline' } }
     if (info.signer === undefined) return { error: { code: 'UNAUTHORIZED', message: 'no item proof' } }
+    this.lookups.push({ billSigner: info.billSigner, connectionPubkey: conn })
+    if (this.omitLookups) return 'omit'
+    const rotation = this.rotations.get(`${info.signer}:${conn}`)
+    if (rotation !== undefined) return { result: { status: 'pending', retry_after: rotation } }
     const rec = this.records.get(`${info.signer}:${conn}`)
     if (rec !== undefined) return { result: { status: 'done', result: rec.result } }
     const d = decideLookup({ now: this.now, deadline: Math.min(deadline, this.now + 360), horizon: 360, hasRecord: false })
