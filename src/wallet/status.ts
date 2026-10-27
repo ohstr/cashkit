@@ -2,12 +2,12 @@
 // Port of cashctl cmd/redeem_private.go groupEntriesByHub/quoteHubGroup and
 // recordQuote. Bills batch by `nodeKey` (the verified minter, whose
 // announcement names the inbox), never by hubGroup (design §6.3).
-import { cashCommitment, decodeToken, isCashSecret, matchClaimAuto, isSpent, type CashStatusResult } from '../core/index.js'
+import { cashCommitment, decodeToken, isCashSecret, isSpent, ownClaim, type CashStatusResult, type NotClaimableReason, type OwnClaim, type RecipientStatus } from '../core/index.js'
 import { NotServedError, WalletError, type BatchStatus } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import { getHeld } from './bills.js'
 import { billOf, type Ctx } from './context.js'
-import { CashkitError, classifyReadError } from './errors.js'
+import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
 import { appendActivity, heldHoldings, updateHolding } from './ledger.js'
 import type { Holding } from './model.js'
 import { report, type Outcome, type Report } from './report.js'
@@ -74,6 +74,18 @@ export async function statusByNode(ctx: Ctx, hs: readonly Holding[]): Promise<Ma
   return out
 }
 
+/**
+ * The holder's own row of a scope-mine answer (`ownClaim`), found from the
+ * holding's credential; undefined when the answer is not exactly that row.
+ */
+async function ownClaimOf(ctx: Ctx, h: Holding, r: CashStatusResult): Promise<OwnClaim<RecipientStatus> | undefined> {
+  try {
+    return ownClaim(r.recipients, await ctx.credentialFor(h), ctx.nowSeconds())
+  } catch {
+    return undefined
+  }
+}
+
 export interface QuotedHolding {
   readonly holding: Holding
   readonly quote: Quote
@@ -99,12 +111,16 @@ export async function quoteMany(ctx: Ctx, hs: readonly Holding[]): Promise<Map<s
       out.set(h.id, { error: new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone', { input: h.id }) })
       continue
     }
-    const row = matchClaimAuto(s.result.recipients, await ctx.claimPubkeyFor(h))
-    if (row === undefined) {
+    const own = await ownClaimOf(ctx, h, s.result)
+    if (own === undefined) {
       out.set(h.id, { error: new CashkitError('not_found', "couldn't determine this token's amount: check that it is still valid", { input: h.id }) })
       continue
     }
-    const full = s.result.recipients.find((x) => x === row)!
+    if (!own.claimable) {
+      out.set(h.id, { error: notClaimableError(own.reason, h.id) })
+      continue
+    }
+    const full = own.row
     const quote: Quote = { amount: full.amount_millis, fee: full.redeem_fee_millis, net: full.net_redeemable_millis, ...(full.expires_at !== undefined && { expiresAt: full.expires_at }) }
     try {
       validateQuote(decodeToken(h.token), h.minterPubkey, quote)
@@ -144,6 +160,8 @@ export interface StatusOutcome {
   readonly expiresAt?: number
   /** Unclaimed recipients on the bill's wallet, as the Hub lists them. */
   readonly recipients: number
+  /** Set when this holder's row is shown but cannot be spent: claimed, withdrawn or expired. */
+  readonly notClaimable?: NotClaimableReason
 }
 
 /** `status`: asks the Hub about each holding; a spent one is tombstoned. */
@@ -164,8 +182,8 @@ export async function status(ctx: Ctx, o: { holdings?: readonly string[] } = {})
       outcomes.push({ ok: true, holdingId: h.id, state: 'spent', recipients: 0 })
       continue
     }
-    const row = matchClaimAuto(s.result.recipients, await ctx.claimPubkeyFor(h))
-    const full = row === undefined ? undefined : s.result.recipients.find((x) => x === row)
+    const own = await ownClaimOf(ctx, h, s.result)
+    const full = own?.row
     if (full !== undefined && h.status === 'held') amounts.push({ id: h.id, amount: full.amount_millis, ...(full.expires_at !== undefined && { expiresAt: full.expires_at }) })
     outcomes.push({
       ok: true,
@@ -174,6 +192,7 @@ export async function status(ctx: Ctx, o: { holdings?: readonly string[] } = {})
       recipients: s.result.recipients.filter((x) => !x.claimed).length,
       ...(full !== undefined && { amount: full.amount_millis, fee: full.redeem_fee_millis, net: full.net_redeemable_millis }),
       ...(full?.expires_at !== undefined && { expiresAt: full.expires_at }),
+      ...(own !== undefined && !own.claimable && { notClaimable: own.reason }),
     })
   }
   if (spent.length > 0 || amounts.length > 0) {

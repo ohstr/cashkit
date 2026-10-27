@@ -9,7 +9,7 @@ import { decodeToken, localSigner, newCashTarget, pubkeyTarget, toHex } from '..
 import { ClientError } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import type { Ctx } from './context.js'
-import { CashkitError, classifyReadError } from './errors.js'
+import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
 import { appendActivity, notHeldError, updateHolding } from './ledger.js'
 import { runTransfer } from './kinds.js'
 import type { Holding } from './model.js'
@@ -45,10 +45,9 @@ const spentError = (id: string) => new CashkitError('spent', 'the Hub says this 
  */
 export async function quoteHolding(ctx: Ctx, h: Holding): Promise<{ holding: Holding; quote: Quote }> {
   const cred = await ctx.credentialFor(h)
-  const asPubkey = await ctx.claimPubkeyFor(h)
   let r
   try {
-    r = await ctx.clientFor(h).checkClaim(cred, asPubkey)
+    r = await ctx.clientFor(h).checkClaim(cred)
   } catch (err) {
     if (err instanceof ClientError && err.code === 'spent') {
       await markSpent(ctx, h.id)
@@ -59,6 +58,7 @@ export async function quoteHolding(ctx: Ctx, h: Holding): Promise<{ holding: Hol
     }
     throw classifyReadError(err, h.id)
   }
+  if (!r.claimable) throw notClaimableError(r.reason, h.id)
   const quote: Quote = { amount: r.amountMillis, fee: r.redeemFeeMillis, net: r.netRedeemableMillis, ...(r.expiresAt !== undefined && { expiresAt: r.expiresAt }) }
   validateQuote(decodeToken(h.token), r.minterPubkey, quote)
   const holding = await ctx.commit((t) =>

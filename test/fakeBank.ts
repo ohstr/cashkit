@@ -22,6 +22,8 @@ export interface BankWallet {
   /** Claimed by a redeem whose payment has not finished. */
   claimed?: boolean
   expiresAt?: number
+  /** Set once a cash_withdraw has ended the slice. */
+  withdrawRequestId?: string
 }
 
 /** The cash commitment for a hex secret: hex(sha256(secret bytes)). */
@@ -196,6 +198,7 @@ export class FakeBank {
       net_redeemable_millis: w.amount - fee,
       min_transfer_millis: 0,
       ...(w.expiresAt !== undefined && { expires_at: w.expiresAt }),
+      ...(w.withdrawRequestId !== undefined && { withdraw_request_id: w.withdrawRequestId }),
     }
   }
 

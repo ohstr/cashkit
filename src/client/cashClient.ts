@@ -6,11 +6,10 @@
 // the bill's own mint signature. The client is stateless about the wallet:
 // it persists nothing, and returns what the engine needs to journal.
 import {
-  cashCommitment,
   decodeToken,
-  isCashSecret,
   isSpent,
-  matchClaimAuto,
+  ownClaim,
+  type NotClaimableReason,
   type CashConsolidateResult,
   type CashRedeemResult,
   type CashStatusResult,
@@ -48,6 +47,12 @@ export interface CheckClaimResult {
   readonly redeemFeeMillis: bigint
   readonly netRedeemableMillis: bigint
   readonly expiresAt?: number
+  /**
+   * Whether the caller's row can still be spent. A claimed, withdrawn or
+   * expired row is reported here (with `reason`), never as not found.
+   */
+  readonly claimable: boolean
+  readonly reason: NotClaimableReason
 }
 
 export class CashClient {
@@ -144,8 +149,15 @@ export class CashClient {
     }
   }
 
-  /** Whether this holder can claim the bill, and for how much. */
-  async checkClaim(credential: Credential, asPubkey: string): Promise<CheckClaimResult> {
+  /**
+   * The caller's own row and whether it can be spent (port of nmilat
+   * CheckClaim). The row is found from the credential, never from the
+   * caller's word: a pubkey, a connection_key with its IA, or the cash row
+   * the secret commits to. NOT_FOUND, or an answer that is not exactly that
+   * row, is `claim_not_found`; a destroyed bill is `spent`; a claimed,
+   * withdrawn or expired row comes back with `claimable` false.
+   */
+  async checkClaim(credential: Credential): Promise<CheckClaimResult> {
     let result: CashStatusResult
     try {
       result = await this.cashStatus(credential, 'mine')
@@ -154,21 +166,24 @@ export class CashClient {
       throw err
     }
     if (isSpent(result)) throw new ClientError('spent', 'this bill has been spent')
-    const row = matchClaimAuto(result.recipients, asPubkey)
-    if (row === undefined) throw new ClientError('claim_not_found', 'no matching, unclaimed recipient on this hub')
-    // A cash-mode status carries no secret, so the secret is checked against the row's commitment when the Hub shows it.
-    if (credential.kind === 'secret' && row.identity_type === 'cash' && row.identity_value !== undefined && (!isCashSecret(credential.secret) || row.identity_value !== cashCommitment(credential.secret))) {
-      throw new ClientError('claim_not_found', 'the cash secret does not match this bill')
+    let own
+    try {
+      own = ownClaim(result.recipients, credential, this.now())
+    } catch (err) {
+      const message = credential.kind === 'secret' ? 'the cash secret does not match this bill' : "the Hub's answer is not this holder's row"
+      throw new ClientError('claim_not_found', message, { cause: err })
     }
-    const full = result.recipients.find((r) => r === row)!
+    const { row } = own
     const minter = minterOf(this.token, this.zap)?.minter
     return {
       isCash: row.identity_type === 'cash',
       amountMillis: row.amount_millis,
       ...(minter !== undefined && { minterPubkey: minter }),
-      redeemFeeMillis: full.redeem_fee_millis,
-      netRedeemableMillis: full.net_redeemable_millis,
-      ...(full.expires_at !== undefined && { expiresAt: full.expires_at }),
+      redeemFeeMillis: row.redeem_fee_millis,
+      netRedeemableMillis: row.net_redeemable_millis,
+      ...(row.expires_at !== undefined && { expiresAt: row.expires_at }),
+      claimable: own.claimable,
+      reason: own.reason,
     }
   }
 }

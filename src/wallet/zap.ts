@@ -12,7 +12,7 @@ import {
   incomingZapFilter,
   KIND_CASH_ZAP,
   KIND_CASH_ZAP_INFO,
-  matchClaimAuto,
+  ownClaim,
   parseCashZapInfo,
   verifyCashZap,
   zapFieldsFromEvent,
@@ -248,9 +248,15 @@ export async function claimZap(ctx: Ctx, ev: NostrEvent): Promise<Holding> {
   const st = await client.statusMany([{ id: '1', bill: client.bill, credential: bySigning(await ctx.requireSigner()), scope: 'mine' }])
   const o = st.outcomes[0]
   if (o?.state !== 'result' || o.value === undefined || o.value.tombstone !== undefined) throw new CashkitError('spent', 'this zap’s bill is gone or did not answer', { reason: 'zap_unclaimable' })
-  const row = matchClaimAuto(o.value.recipients, me)
-  if (row === undefined || row.claimed || row.amount_millis !== v.tags.amountMillis) throw new CashkitError('invalid_input', 'this zap’s bill is not this wallet’s alone at its amount', { reason: 'rule_9' })
-  const full = o.value.recipients.find((x) => x === row)!
+  let own
+  try {
+    own = ownClaim(o.value.recipients, bySigning(await ctx.requireSigner()), ctx.nowSeconds())
+  } catch {
+    throw new CashkitError('invalid_input', 'this zap’s bill is not this wallet’s alone at its amount', { reason: 'rule_9' })
+  }
+  if (!own.claimable) throw new CashkitError('invalid_input', `this zap’s slice is ${own.reason}, so it cannot be claimed`, { reason: 'rule_9' })
+  const full = own.row
+  if (full.amount_millis !== v.tags.amountMillis) throw new CashkitError('invalid_input', 'this zap’s bill is not this wallet’s alone at its amount', { reason: 'rule_9' })
   const f = tokenFacts(v.tags.cash)
   return ctx.commit(async (t) => {
     const h = await addHolding(

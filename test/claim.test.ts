@@ -8,6 +8,7 @@ import {
   bySecret,
   bySigning,
   bySigningConnectionKey,
+  cashCommitment,
   cashConsolidateRequest,
   cashRedeemRequest,
   cashTargetFromSecret,
@@ -23,8 +24,8 @@ import {
   isSpent,
   KIND_CLAIM_PROOF,
   localSigner,
-  matchClaim,
-  matchClaimAuto,
+  ownClaim,
+  type RosterRow,
   newCashTarget,
   connectionKeyFromAttested,
   newIdentityHash,
@@ -40,6 +41,7 @@ import {
   toHex,
   verifyEvent,
   type Attestation,
+  type Credential,
   type NostrEvent,
 } from '../src/core/index.js'
 import { bech32Encode, toWords } from '../src/core/bech32.js'
@@ -76,11 +78,12 @@ const proofOf = (json: string | undefined): NostrEvent => JSON.parse(json!)
 const tag = (e: NostrEvent, name: string) => e.tags.find((t) => t[0] === name)?.[1]
 
 const src = (w: string, amount: bigint, cred = bySigning(signer)) => ({ walletPubkey: w, amount, credential: cred })
-const row = (identity_type: string, identity_value: string, amount: bigint, claimed = false): Parameters<typeof matchClaim>[0][number] => ({
+const row = (identity_type: string, identity_value: string, amount: bigint, extra: Partial<RosterRow> = {}): RosterRow => ({
   identity_type,
   identity_value,
   amount_millis: amount,
-  claimed,
+  claimed: false,
+  ...extra,
 })
 
 describe('targets (identity_test.go)', () => {
@@ -320,27 +323,30 @@ describe('results', () => {
   })
 })
 
-describe('matchClaim (claim_test.go)', () => {
-  test.each<[string, Parameters<typeof matchClaim>[0][number][], boolean, string, bigint | undefined]>([
-    ['cash, unclaimed', [row('cash', '', 1000n)], true, '', 1000n],
-    ['cash, already claimed', [row('cash', '', 1000n, true)], true, '', undefined],
-    ['pubkey, exact match', [row('pubkey', WALLET, 2000n)], false, WALLET, 2000n],
-    ['pubkey, already claimed', [row('pubkey', WALLET, 2000n, true)], false, WALLET, undefined],
-    ['no local identity never matches a pubkey row', [row('pubkey', '', 2000n)], false, '', undefined],
-    ['wrong pubkey', [row('pubkey', WALLET, 2000n)], false, WALLET2, undefined],
-    ['no recipients', [], true, '', undefined],
-    ['bearer is not cash (TestMatchClaimAuto_BearerIsNotCash)', [row('bearer', '', 1n)], true, '', undefined],
-  ])('%s', (_, rows, isCash, as, want) => {
-    expect(matchClaim(rows, isCash, as)).toBe(want)
+describe('ownClaim: the caller row, then whether it can be spent', () => {
+  const SECRET = 'ef'.repeat(32)
+  const commit = cashCommitment(SECRET)
+  const AT = 1_700_000_000
+  test.each<[string, RosterRow[], Credential, boolean, string]>([
+    ['a pubkey row, unclaimed', [row('pubkey', signer.pubkey, 2000n)], bySigning(signer), true, ''],
+    ['a cash row committing to the secret', [row('cash', commit, 1000n)], bySecret(SECRET), true, ''],
+    ['claimed', [row('pubkey', signer.pubkey, 2000n, { claimed: true })], bySigning(signer), false, 'claimed'],
+    ['ended by a cash_withdraw', [row('pubkey', signer.pubkey, 2000n, { withdraw_request_id: 'aa'.repeat(32) })], bySigning(signer), false, 'withdrawn'],
+    ['expired one second ago', [row('cash', commit, 1000n, { expires_at: AT - 1 })], bySecret(SECRET), false, 'expired'],
+    ['live through its expiry second', [row('cash', commit, 1000n, { expires_at: AT })], bySecret(SECRET), true, ''],
+  ])('%s', (_, rows, cred, ok, reason) => {
+    const c = ownClaim(rows, cred, AT)
+    expect(c.row).toBe(rows[0])
+    expect(c).toMatchObject({ claimable: ok, reason })
   })
-  test('auto: a cash row matches whatever pubkey is supplied, and the full row comes back', () => {
-    const rows = [row('pubkey', WALLET2, 1n), row('cash', '', 5n)]
-    expect(matchClaimAuto(rows, WALLET)).toBe(rows[1])
-  })
-  test('auto: a pubkey row matches without a cash hint; no local identity still finds cash', () => {
-    expect(matchClaimAuto([row('pubkey', WALLET, 3n)], WALLET)?.amount_millis).toBe(3n)
-    expect(matchClaimAuto([row('pubkey', '', 3n), row('cash', '', 4n)], '')?.amount_millis).toBe(4n)
-    expect(matchClaimAuto([row('pubkey', WALLET2, 3n)], WALLET)).toBeUndefined()
-    expect(matchClaimAuto([row('cash', '', 3n, true)], WALLET)).toBeUndefined()
+  test.each<[string, RosterRow[], Credential]>([
+    ['another pubkey', [row('pubkey', WALLET2, 2000n)], bySigning(signer)],
+    ['a cash row for another secret', [row('cash', cashCommitment('ab'.repeat(32)), 1000n)], bySecret(SECRET)],
+    ['a cash row without its commitment', [row('cash', '', 1000n)], bySecret(SECRET)],
+    ['a bearer row is not cash', [row('bearer', '', 1n)], bySecret(SECRET)],
+    ['a widened answer', [row('pubkey', signer.pubkey, 1n), row('pubkey', WALLET, 1n)], bySigning(signer)],
+    ['no rows', [], bySigning(signer)],
+  ])('refused: %s', (_, rows, cred) => {
+    expect(() => ownClaim(rows, cred, AT)).toThrow(CoreError)
   })
 })

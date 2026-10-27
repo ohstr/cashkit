@@ -7,7 +7,7 @@ import { validateClaimedAmount } from './amounts.js'
 import { getHeld, lockedHoldings } from './bills.js'
 import { runTransfer } from './kinds.js'
 import { tokenFacts, type Ctx } from './context.js'
-import { CashkitError, classifyReadError } from './errors.js'
+import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
 import { addHolding, appendActivity, findByToken } from './ledger.js'
 import type { Holding } from './model.js'
 import { holdingView, type HoldingView } from './views.js'
@@ -73,7 +73,7 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
   if (isCash && embedded === '' && signer !== undefined) {
     // Metadata says cash, but a transfer may have bound it to us since.
     try {
-      const live = await ctx.client(tok).checkClaim(bySigning(signer), signer.pubkey)
+      const live = await ctx.client(tok).checkClaim(bySigning(signer))
       if (!live.isCash) isCash = false
     } catch {
       // stays a cash bill without its secret
@@ -90,7 +90,7 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
   else cred = bySigning(await ctx.requireSigner())
   let r
   try {
-    r = await ctx.client(tok).checkClaim(cred, signer?.pubkey ?? '')
+    r = await ctx.client(tok).checkClaim(cred)
   } catch (err) {
     if (err instanceof ClientError && err.code === 'spent') throw new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone', { input })
     if (err instanceof ClientError && err.code === 'claim_not_found') {
@@ -104,6 +104,7 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
     }
     throw classifyReadError(err)
   }
+  if (!r.claimable) throw notClaimableError(r.reason, input)
   validateClaimedAmount(tok, r.minterPubkey, r.amountMillis)
   const sealedSecret = embedded !== '' ? await ctx.seal(embedded) : undefined
   const holding = await ctx.commit(async (t) => {

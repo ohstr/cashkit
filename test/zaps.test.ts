@@ -79,6 +79,16 @@ describe('wallet.zaps', () => {
     expect(countCashZaps([{ event: ev!, verdict: trusted }, { event: ev!, verdict: trusted }], { minLife: 0 }).totalMillis).toBe(21_000n)
     expect(countCashZaps([{ event: ev!, verdict: trusted }], { minLife: 0, deletions: new Set([ev!.id]) }).totalMillis).toBe(0n)
   })
+  test('rule 9: a slice the Hub shows withdrawn is not claimed', async () => {
+    const { alice, bob } = await pair()
+    await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
+    await alice.wallet.zaps.send({ to: bob.me, amountMillis: 21_000n, target: { e: 'cd'.repeat(32) }, relays: [SOCIAL] })
+    const [z] = await bob.wallet.zaps.list({ relays: [SOCIAL] })
+    await bob.wallet.zaps.approveMinter(z!.minter!, z!.chain!)
+    const [ev] = published(alice)
+    alice.bank.wallet(ev!.tags.find((t) => t[0] === 'cash')![1]!)!.withdrawRequestId = 'ab'.repeat(32)
+    expect(await failure(bob.wallet.zaps.claim(ev!))).toMatchObject({ code: 'invalid_input', reason: 'rule_9', message: expect.stringMatching(/withdrawn/) })
+  })
   test('the recipient sees it issued; claims it only once the minter is approved, after rule 9; then spends it', async () => {
     const { alice, bob } = await pair()
     await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)

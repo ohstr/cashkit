@@ -2,7 +2,7 @@
 // NWC mapping are cashctl's table (internal/output/errors.go, nwc_errors.go),
 // so an app and an agent driving cashctl branch the same way. Classification
 // of Hub answers ports cmd/nwc_errors.go.
-import { CoreError, redact, sanitize } from '../core/index.js'
+import { CoreError, redact, sanitize, type NotClaimableReason } from '../core/index.js'
 import { ClientError, NotServedError, WalletError } from '../client/index.js'
 
 export type ErrorCode =
@@ -240,4 +240,21 @@ const statusHint = (ids: readonly string[]) =>
 
 function messageOf(err: unknown): string {
   return redact(err instanceof Error ? err.message : String(err))
+}
+
+/**
+ * The error for a row the Hub shows but that cannot be spent: `claimed` (a
+ * claim on it is in flight or done) and `withdrawn` (a cash_withdraw ended
+ * it) are `spent`; `expired` is `invalid_input`. `reason` carries which.
+ */
+export function notClaimableError(reason: NotClaimableReason, input?: string): CashkitError {
+  const o = { reason, ...(input !== undefined && { input }) }
+  switch (reason) {
+    case 'claimed':
+      return new CashkitError('spent', "this bill's slice has already been claimed", o)
+    case 'withdrawn':
+      return new CashkitError('spent', "this bill's slice was ended by an on-chain withdrawal", o)
+    default:
+      return new CashkitError('invalid_input', 'this bill has expired and can no longer be spent', o)
+  }
 }

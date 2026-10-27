@@ -401,35 +401,30 @@ function rowMatcher(c: Credential): (r: RosterRow) => boolean {
  * `withdrawn` (a cash_withdraw ended it) or `expired` (past a non-zero
  * `expires_at`; the second it names is still live).
  */
-export function claimable(row: Pick<RosterRow, 'claimed' | 'withdraw_request_id' | 'expires_at'>, now: number): { readonly ok: boolean; readonly reason: '' | 'claimed' | 'withdrawn' | 'expired' } {
+export function claimable(row: Pick<RosterRow, 'claimed' | 'withdraw_request_id' | 'expires_at'>, now: number): { readonly ok: boolean; readonly reason: NotClaimableReason } {
   if (row.claimed) return { ok: false, reason: 'claimed' }
   if (row.withdraw_request_id !== undefined && row.withdraw_request_id !== '') return { ok: false, reason: 'withdrawn' }
   if (row.expires_at !== undefined && row.expires_at !== 0 && now > row.expires_at) return { ok: false, reason: 'expired' }
   return { ok: true, reason: '' }
 }
 
-/** The roster row fields a claim match reads. */
-export type RecipientStatus = Pick<import('./results.js').RecipientStatus, 'identity_type' | 'identity_value' | 'amount_millis' | 'claimed'>
+/** Why a row cannot be spent (`claimable`); empty when it can. */
+export type NotClaimableReason = '' | 'claimed' | 'withdrawn' | 'expired'
 
-/** No local identity: pubkey rows never match. */
-export const NO_LOCAL_IDENTITY = ''
-
-function matches(r: RecipientStatus, isCash: boolean, asPubkey: string): boolean {
-  if (r.claimed) return false
-  if (isCash) return r.identity_type === 'cash'
-  return r.identity_type === 'pubkey' && asPubkey !== NO_LOCAL_IDENTITY && r.identity_value === asPubkey
+/** The caller's own row of a scope-mine answer and whether it can still be spent. */
+export interface OwnClaim<R extends RosterRow> {
+  readonly row: R
+  readonly claimable: boolean
+  readonly reason: NotClaimableReason
 }
 
 /**
- * The amount of the first unclaimed row this holder may claim: a cash row
- * for a cash claim, else a pubkey row naming `asPubkey`. Any other identity
- * type (including `bearer`) never matches.
+ * `ownRow` (scope `mine`) then `claimable`: the row is found from the
+ * credential, and a claimed, withdrawn or expired row is returned as not
+ * claimable, never as missing.
  */
-export function matchClaim(rows: readonly RecipientStatus[], isCash: boolean, asPubkey: string): bigint | undefined {
-  return rows.find((r) => matches(r, isCash, asPubkey))?.amount_millis
-}
-
-/** The first unclaimed row that is cash, or a pubkey row naming `asPubkey`. */
-export function matchClaimAuto(rows: readonly RecipientStatus[], asPubkey: string): RecipientStatus | undefined {
-  return rows.find((r) => matches(r, true, asPubkey) || matches(r, false, asPubkey))
+export function ownClaim<R extends RosterRow>(rows: readonly R[], credential: Credential, now: number): OwnClaim<R> {
+  const row = ownRow(rows, credential, 'mine')
+  const c = claimable(row, now)
+  return { row, claimable: c.ok, reason: c.reason }
 }

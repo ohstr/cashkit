@@ -30,16 +30,16 @@ test('invoice helper decodes to the asked amount', () => {
 describe('FakeBank', () => {
   test('status: the holder sees its row; a stranger is NOT_FOUND', async () => {
     const w = bank.mintToPubkey(5000n, alice.pubkey)
-    const r = await client(w.token).checkClaim(bySigning(alice), alice.pubkey)
+    const r = await client(w.token).checkClaim(bySigning(alice))
     expect(r).toMatchObject({ isCash: false, amountMillis: 5000n, netRedeemableMillis: 5000n })
-    await expect(client(w.token).checkClaim(bySigning(bob), bob.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
+    await expect(client(w.token).checkClaim(bySigning(bob))).rejects.toMatchObject({ code: 'claim_not_found' })
   })
   test("cash: the right secret matches; a wrong one is lokihub's NOT_FOUND", async () => {
     const t = newCashTarget()
     const w = bank.mintToCash(700n, t.secret)
-    expect((await client(w.token).checkClaim(bySecret(t.secret), '')).isCash).toBe(true)
+    expect((await client(w.token).checkClaim(bySecret(t.secret))).isCash).toBe(true)
     // A cash-mode status carries no secret; the secret is checked against the row's commitment.
-    const err = await client(w.token).checkClaim(bySecret('ab'.repeat(32)), '').catch((e: unknown) => e)
+    const err = await client(w.token).checkClaim(bySecret('ab'.repeat(32))).catch((e: unknown) => e)
     expect((err as { code?: string }).code).toBe('claim_not_found')
     const spend = await client(w.token).cashTransfer({ requestId: newRequestId(), credential: bySecret('ab'.repeat(32)), to: pubkeyTarget(bob.pubkey), currentAmount: 700n }).catch((e: unknown) => e)
     expect(spend).toBeInstanceOf(WalletError)

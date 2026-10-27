@@ -7,6 +7,7 @@ import {
   newRequestId,
   bySecret,
   bySigning,
+  cashCommitment,
   decodeToken,
   getPublicKey,
   localSigner,
@@ -279,19 +280,33 @@ describe('bill state and claims (bill_state.go, check_claim.go)', () => {
     expect(st.error).toBeDefined()
   }, 10_000)
   test('checkClaim reports the matching row and the minter', async () => {
-    hub.handler = () => ({ result: { recipients: [{ identity_type: 'cash', amount_millis: 5000, claimed: false, redeem_fee_millis: 10, net_redeemable_millis: 4990 }] } })
-    const r = await new CashClient(deps(), bill(1)).checkClaim(bySecret('ab'), '')
-    expect(r).toMatchObject({ isCash: true, amountMillis: 5000n, redeemFeeMillis: 10n, netRedeemableMillis: 4990n })
+    const secret = 'ab'.repeat(32)
+    hub.handler = () => ({ result: { recipients: [{ identity_type: 'cash', identity_value: cashCommitment(secret), amount_millis: 5000, claimed: false, redeem_fee_millis: 10, net_redeemable_millis: 4990 }] } })
+    const r = await new CashClient(deps(), bill(1)).checkClaim(bySecret(secret))
+    expect(r).toMatchObject({ isCash: true, amountMillis: 5000n, redeemFeeMillis: 10n, netRedeemableMillis: 4990n, claimable: true, reason: '' })
     expect(r.minterPubkey!.slice(2)).toBe(hub.node)
+  })
+  test.each([
+    ['claimed', { claimed: true }],
+    ['withdrawn', { withdraw_request_id: 'cd'.repeat(32) }],
+    ['expired', { expires_at: 1 }],
+  ])('checkClaim: a %s row is shown, not claimable, never not found', async (reason, extra) => {
+    hub.handler = () => ({ result: { recipients: [{ identity_type: 'pubkey', identity_value: holder.pubkey, amount_millis: 7000, claimed: false, ...extra }] } })
+    const r = await new CashClient(deps(), bill(1)).checkClaim(bySigning(holder))
+    expect(r).toMatchObject({ amountMillis: 7000n, claimable: false, reason })
+  })
+  test('checkClaim: a widened answer is claim_not_found', async () => {
+    hub.handler = () => ({ result: { recipients: [{ identity_type: 'pubkey', identity_value: holder.pubkey, amount_millis: 1, claimed: false }, { identity_type: 'pubkey', identity_value: 'ab'.repeat(32), amount_millis: 1, claimed: false }] } })
+    await expect(new CashClient(deps(), bill(1)).checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'claim_not_found' })
   })
   test('checkClaim: NOT_FOUND and no matching row are claim_not_found; spent is spent', async () => {
     const c = new CashClient(deps(), bill(1))
     hub.handler = () => ({ error: { code: 'NOT_FOUND' } })
-    await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
+    await expect(c.checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'claim_not_found' })
     hub.handler = () => ({ result: { recipients: [{ identity_type: 'pubkey', identity_value: 'ab'.repeat(32), amount_millis: 1, claimed: false }] } })
-    await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
+    await expect(c.checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'claim_not_found' })
     hub.handler = () => ({ result: { status: 'spent' } })
-    await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'spent' })
+    await expect(c.checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'spent' })
   })
 })
 

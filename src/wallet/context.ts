@@ -159,12 +159,6 @@ export class Ctx {
     return bySigning(await this.requireSigner())
   }
 
-  /** The pubkey a claim check should match: the throwaway key's, or the identity's. */
-  async claimPubkeyFor(h: Holding): Promise<string> {
-    if (h.throwawayKey !== undefined) return localSigner(fromHex(await this.open(h.throwawayKey), 'throwaway key')).pubkey
-    return this.myPubkey()
-  }
-
   // ---- clients
 
   client(token: string | Token): CashClient {

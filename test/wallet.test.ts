@@ -365,6 +365,32 @@ test("status explains a cash secret the Hub no longer recognises (lokihub's NOT_
   expect(r.firstError?.message).toMatch(/does not match this bill/)
 })
 
+describe('a row the Hub shows but that cannot be spent', () => {
+  test.each([
+    ['claimed', 'spent', (w: { claimed?: boolean }) => (w.claimed = true)],
+    ['withdrawn', 'spent', (w: { withdrawRequestId?: string }) => (w.withdrawRequestId = 'ab'.repeat(32))],
+  ] as const)('receive refuses a %s slice', async (reason, code, mark) => {
+    const w = h.bank.mintToPubkey(5000n, h.me)
+    mark(w)
+    expect(await err(h.wallet.receive(w.token))).toMatchObject({ code, reason })
+  })
+  test('status shows the holding with why it cannot be spent', async () => {
+    const a = await receivePubkey(1000n)
+    a.w.withdrawRequestId = 'ab'.repeat(32)
+    const r = await h.wallet.status({ holdings: [a.holding.id] })
+    expect(r.outcomes[0]).toMatchObject({ ok: true, state: 'available', amount: 1000n, notClaimable: 'withdrawn' })
+  })
+  test('a redeem quote of a withdrawn slice fails with its reason; the other bill still redeems', async () => {
+    await h.wallet.connections.add('main', new FakeNwcWallet(h.pool).uri)
+    const a = await receivePubkey(1000n)
+    await receivePubkey(2000n)
+    a.w.withdrawRequestId = 'ab'.repeat(32)
+    const r = await h.wallet.redeem({ all: true })
+    expect(r.outcomes.filter((o) => o.ok)).toHaveLength(1)
+    expect(r.outcomes.find((o) => !o.ok)).toMatchObject({ error: { code: 'spent', reason: 'withdrawn' } })
+  })
+})
+
 describe('balance (cmd/wallet_balance_test.go)', () => {
   test('wallets plus unexpired held cash; expired held excluded; notes outstanding shown apart', async () => {
     const nwc = new FakeNwcWallet(h.pool)
