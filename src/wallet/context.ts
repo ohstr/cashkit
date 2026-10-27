@@ -43,8 +43,8 @@ export class Ctx {
   walletId = ''
   /** This store's device id: the owner of the calls it places. */
   deviceId = ''
-  /** When this wallet object was opened (ms): a session's start. */
-  readonly openedAt: number = Date.now()
+  /** When this wallet object was opened (ms, on the wallet's clock): a session's start. */
+  readonly openedAt: number
   /** Set by identity.useSigner or a stored local key. */
   signerOverride: Signer | undefined
   private readonly opListeners = new Set<(e: OperationEvent) => void>()
@@ -52,6 +52,7 @@ export class Ctx {
   private opSeq = 0
 
   constructor(readonly deps: WalletDeps) {
+    this.openedAt = (deps.clock ?? Date.now)()
     this.lock = deps.lock ?? new ProcessLock()
     this.random = deps.random ?? ((n: number) => globalThis.crypto.getRandomValues(new Uint8Array(n)))
     this.clientDeps = {
