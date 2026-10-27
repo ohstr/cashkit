@@ -370,3 +370,4 @@ export {
   type TapResult,
   type Trust,
 } from './listing.js'
+export { canonicalDomain, canonicalUserId, connectionKeyFromAttested, connectionKeyFromTyped, hasCanonicalForm, NO_CANONICAL_FORM, NOT_CANONICAL, punycodeDecode, punycodeEncode, validPlatformName } from './idna.js'
