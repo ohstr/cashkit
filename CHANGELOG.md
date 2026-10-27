@@ -214,6 +214,7 @@
   and the listing core (`parseListing` steps 1–4, `VersionBook`, operators,
   recommendations, reports, curator sets, signals, `checkTap`, fetch
   filters).
+  ([#27](https://github.com/ohstr/cashkit/pull/27))
 
 ## [0.1.0-rc.2]
 
