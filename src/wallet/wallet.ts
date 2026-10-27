@@ -15,7 +15,7 @@ import { executeRedeem, planRedeem, type RedeemInput, type RedeemOutcome, type R
 import { protectMany, receive, type ReceiveResult, type Secured } from './receive.js'
 import { report, type Report } from './report.js'
 import { executeSend, planSend, type SendInput, type SendPlan, type SendResult } from './send.js'
-import { settle, type SettleReport } from './settle.js'
+import { lockedHoldings } from './bills.js'
 import { closeByUser, confirmReplace, settleCalls, type SettleCallsReport } from './runner.js'
 import { status, type StatusOutcome } from './status.js'
 import { holdingView, pendingCallView, type HoldingView, type PendingCallView } from './views.js'
@@ -48,8 +48,6 @@ export interface WalletState {
   readonly holdings: readonly HoldingView[]
   readonly balance: { readonly held: bigint; readonly count: number; readonly expired: bigint }
   readonly pendingJoins: readonly PendingJoinView[]
-  /** Interrupted sends that may have created a cash note; its secret is in `unfinishedCashSends({ includeSecrets })`. */
-  readonly unfinishedCashSends: readonly { readonly holdingId: string }[]
   /** Holdings moved for a merge that has not finished. */
   readonly pendingMerge: number
   /** Known only where the platform reports it (browsers). */
@@ -81,7 +79,7 @@ export interface Lightning {
   signMessage(message: string): Promise<{ message: string; signature: string }>
 }
 
-const EMPTY_STATE: WalletState = { holdings: [], balance: { held: 0n, count: 0, expired: 0n }, pendingJoins: [], unfinishedCashSends: [], pendingMerge: 0, backupStale: false, locked: false, pendingCalls: [], unreconciled: 0 }
+const EMPTY_STATE: WalletState = { holdings: [], balance: { held: 0n, count: 0, expired: 0n }, pendingJoins: [], pendingMerge: 0, backupStale: false, locked: false, pendingCalls: [], unreconciled: 0 }
 
 /**
  * This store's device id, created on first open. A store whose meta names
@@ -118,8 +116,8 @@ export class Wallet {
 
   /**
    * Opens (and on first use, initialises) a wallet over `deps.storage`, then
-   * runs `settle()` so no write-ahead slot is left open. A settle that cannot
-   * reach a Hub leaves its slots for the next call; open still succeeds.
+   * runs `settle()` so no pending call is left unexamined. A settle that cannot
+   * reach a Hub leaves its calls open for the next one; open still succeeds.
    */
   static async open(deps: WalletDeps, o: { settle?: boolean } = {}): Promise<Wallet> {
     if (deps.storage === undefined || deps.vault === undefined) throw new CashkitError('usage', 'Wallet.open needs storage and a vault (vault-none must be chosen explicitly)')
@@ -210,6 +208,7 @@ export class Wallet {
     const now = this.ctx.nowSeconds()
     const [rows, joins, meta, calls] = await this.ctx.read(async (t) => [await t.list('holdings'), await t.list('pendingJoins'), await t.get('meta', 'meta'), await t.list('pendingCalls')] as const)
     const shown = calls.filter((c) => c.state !== 'done' || c.needsUser !== undefined)
+    const lockedIds = new Set(calls.flatMap((c) => (c.state === 'done' ? [] : [...c.sources, ...(c.authorizer.kind === 'cash' ? [c.authorizer.holdingId] : [])])))
     const retries = calls.flatMap((c) => (c.state !== 'done' && c.lookup?.retryAfter !== undefined ? [c.lookup.retryAfter] : []))
     const fp = await valueFingerprint(this.ctx)
     const held = rows.filter((h) => h.status === 'held')
@@ -223,11 +222,10 @@ export class Wallet {
       else sum += h.amount
     }
     this.snapshot = {
-      holdings: held.map((h) => holdingView(h, now)),
+      holdings: held.map((h) => holdingView(h, now, lockedIds.has(h.id))),
       balance: { held: sum, count, expired },
       pendingJoins: joins.map((j) => ({ connectionPubkey: j.id, hubPubkey: j.hubPubkey, hubLabel: j.hubLabel, name: j.name, at: j.at })),
-      unfinishedCashSends: rows.filter((h) => h.pendingDestinationCashSecret !== undefined).map((h) => ({ holdingId: h.id })),
-      pendingMerge: held.filter((h) => h.throwawayKey !== undefined || h.pendingThrowawayKey !== undefined).length,
+      pendingMerge: held.filter((h) => h.throwawayKey !== undefined).length,
       ...(this.storagePersisted !== undefined && { storagePersisted: this.storagePersisted }),
       backupStale: fp !== '' && fp !== meta?.backupFingerprint,
       ...(meta?.lastBackupAt !== undefined && { lastBackupAt: meta.lastBackupAt }),
@@ -255,7 +253,8 @@ export class Wallet {
   async holdings(o: { includeSpent?: boolean } = {}): Promise<HoldingView[]> {
     const now = this.ctx.nowSeconds()
     const rows = await this.ctx.read((t) => t.list('holdings'))
-    return rows.filter((h) => o.includeSpent === true || h.status === 'held').map((h) => holdingView(h, now))
+    const locked = await lockedHoldings(this.ctx)
+    return rows.filter((h) => o.includeSpent === true || h.status === 'held').map((h) => holdingView(h, now, locked.has(h.id)))
   }
 
   /**
@@ -269,24 +268,14 @@ export class Wallet {
     return secret !== undefined ? `${h.token}#${secret}` : h.token
   }
 
-  /** Interrupted cash sends; with includeSecrets, the destination secret, the only copy. */
-  async unfinishedCashSends(o: { includeSecrets?: boolean } = {}): Promise<{ holdingId: string; cashSecret?: string }[]> {
-    const rows = (await this.ctx.read((t) => t.list('holdings'))).filter((h) => h.pendingDestinationCashSecret !== undefined)
-    return Promise.all(rows.map(async (h) => ({ holdingId: h.id, ...(o.includeSecrets === true && { cashSecret: await this.ctx.open(h.pendingDestinationCashSecret!) }) })))
-  }
-
   // ---- money (§6.1–§6.4)
 
   /**
-   * Settles every open call by `cash_lookup` (applies a lost reply, places
-   * an unknown call again under its derived id, surfaces the rest), then the
-   * remaining write-ahead slots.
+   * Settles every open call by `cash_lookup`: applies a lost reply, places
+   * an unknown call again under its derived id, surfaces the rest.
    */
-  settle(): Promise<SettleReport & { readonly calls: SettleCallsReport }> {
-    return this.ctx.spend(async () => {
-      const calls = await settleCalls(this.ctx)
-      return { ...(await settle(this.ctx)), calls }
-    })
+  settle(): Promise<SettleCallsReport> {
+    return this.ctx.spend(() => settleCalls(this.ctx))
   }
 
   /** Pending calls: list them, close one, or confirm placing one again. */
@@ -359,6 +348,8 @@ export class Wallet {
 
   async protect(o: { holdings?: readonly string[] } = {}): Promise<Report<ProtectOutcome>> {
     return this.ctx.spend(async () => {
+      // Resolve any earlier rekey first, inside this lock (it is not re-entrant).
+      await settleCalls(this.ctx).catch(() => undefined)
       const now = this.ctx.nowSeconds()
       const rs = await protectMany(this.ctx, o.holdings)
       return report<ProtectOutcome>(

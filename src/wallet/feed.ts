@@ -62,7 +62,7 @@ export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<
   let count = 0
   let pendingMerge = 0
   for (const h of await ctx.read(heldHoldings)) {
-    if (h.throwawayKey !== undefined || h.pendingThrowawayKey !== undefined) pendingMerge++
+    if (h.throwawayKey !== undefined) pendingMerge++
     if (h.amount === undefined) continue
     count++
     if (h.expiresAt !== undefined && h.expiresAt <= now) expired += h.amount

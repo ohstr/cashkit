@@ -1,12 +1,12 @@
 // Consolidate (design §6.4). Port of cashctl cmd/cash_consolidate.go
 // runCashConsolidate, consolidateItems, mergeableHubGroups and
 // aloneOnTheirHub.
-import { decodeToken, newCashTarget, pubkeyTarget, type Target } from '../core/index.js'
-import { getHeld, liveAmount, moveCashNotesToKey, newThrowawayKey, toCashNotes } from './bills.js'
+import { newCashTarget, pubkeyTarget, type Target } from '../core/index.js'
+import { getHeld, liveAmount, lockedHoldings, moveCashNotesToKey, newThrowawayKey, requireUnlocked, toCashNotes } from './bills.js'
 import type { Ctx } from './context.js'
 import { CashkitError } from './errors.js'
-import { addHandoff, heldHoldings } from './ledger.js'
-import { consolidateCap, consolidateInRounds, type MergeSource } from './merge.js'
+import { heldHoldings } from './ledger.js'
+import { consolidateCap, consolidateInRounds } from './merge.js'
 import type { Holding } from './model.js'
 import type { Report } from './report.js'
 import { groupableForConsolidation, groupByHub } from './select.js'
@@ -38,6 +38,7 @@ const crossHub = (ids: readonly string[]) =>
 
 /** One merge of named holdings (`consolidateItems`). */
 async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | undefined, ia: string | undefined): Promise<ConsolidateOutcome> {
+  await requireUnlocked(ctx, ids)
   const group: Holding[] = []
   for (const id of ids) group.push((await liveAmount(ctx, await getHeld(ctx, id))).holding)
   if (group.length < 2) throw new CashkitError('usage', `consolidate needs at least 2 sources, got ${group.length}`)
@@ -70,33 +71,21 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
   let moved: string[] = []
   try {
     if (throwaway !== undefined) moved = await moveCashNotesToKey(ctx, ids, throwaway.priv, throwaway.pub)
-    const items: MergeSource[] = []
-    for (const id of ids) {
-      const h = await getHeld(ctx, id)
-      items.push({ holdingId: h.id, token: h.token, source: { walletPubkey: h.walletPubkey, amount: h.amount!, credential: await ctx.credentialFor(h) }, ...(h.minterPubkey !== undefined && { minterPubkey: h.minterPubkey }) })
-    }
-    const r = await consolidateInRounds(ctx, items, target, { isSelf, maxSources: await consolidateCap(ctx, items[0]!.token), ...(throwaway !== undefined && { interimKey: throwaway.priv }) })
-    if (!isSelf && target.identityType !== 'cash') {
-      // Consolidate to someone else leaves a gift and no holding (design §6.4).
-      const sealed = await ctx.seal(r.result.newWalletToken)
-      let wallet = ''
-      try {
-        wallet = decodeToken(r.result.newWalletToken).walletPubkey
-      } catch {
-        // kept verbatim
-      }
-      await ctx.commit((t) => addHandoff(t, { kind: 'gift', handoff: sealed, amount: r.result.amountMillis, target: display, walletPubkey: wallet }, { now: ctx.now(), random: ctx.random }))
-    }
+    const live: Holding[] = []
+    for (const id of ids) live.push(await getHeld(ctx, id))
+    // To self the merged bill stays a holding; to a cash target too (its secret is ours); to anyone else it is a gift.
+    const keep = isSelf || target.identityType === 'cash' ? 'holding' : 'handoff'
+    const r = await consolidateInRounds(ctx, live, target, { keep, maxSources: await consolidateCap(ctx, live[0]!.token), ...(throwaway !== undefined && { interimKey: throwaway.priv }), ...(display !== '' && { display }) })
     return {
       hubGroup: group[0]!.hubGroup,
       from: [...ids],
-      amount: r.result.amountMillis,
+      amount: r.amount,
       ...(r.holding !== undefined && { holding: holdingView(r.holding, ctx.nowSeconds()) }),
-      ...(r.result.expiresAt !== undefined && { expiresAt: r.result.expiresAt }),
+      ...(r.expiresAt !== undefined && { expiresAt: r.expiresAt }),
       targetResolved,
     }
   } catch (err) {
-    if (moved.length > 0 && !(err instanceof CashkitError && err.code === 'indeterminate')) await toCashNotes(ctx, moved)
+    if (moved.length > 0 && !(err instanceof CashkitError && err.pendingCallId !== undefined)) await toCashNotes(ctx, moved)
     throw err
   }
 }
@@ -107,7 +96,8 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
  */
 export async function consolidate(ctx: Ctx, o: { holdings?: readonly string[]; to?: string; ia?: string } = {}): Promise<ConsolidateReport> {
   return ctx.spend(async () => {
-    const held = await ctx.read(heldHoldings)
+    const locked = await lockedHoldings(ctx)
+    const held = (await ctx.read(heldHoldings)).filter((h) => !locked.has(h.id))
     const groups = groupByHub(groupableForConsolidation(held.map(selectable)))
     // oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy
     const alone = [...groups.values()].filter((g) => g.length === 1).map((g) => g[0]!.id).sort()

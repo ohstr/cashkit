@@ -10,10 +10,10 @@
 // recipient's identity. Losing time is allowed; losing a secret is not.
 import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, test } from 'vitest'
-import { fromHex, getPublicKey, newCashTarget, redact, splitCashString, toHex, utf8 } from '../src/core/index.js'
+import { fromHex, getPublicKey, newCashTarget, redact, splitCashString, toHex } from '../src/core/index.js'
 import { MemoryStorage } from '../src/adapters/storage-memory.js'
 import { CashkitError, toJSON, type Sealed, type Storage, type StorageTx, type Wallet } from '../src/wallet/index.js'
-import { releasePark } from '../src/wallet/bills.js'
+import type { PendingCall } from '../src/wallet/model.js'
 import { commitment, FakeBank, type BankWallet } from './fakeBank.js'
 import { FakeNwcWallet, harness, type Harness } from './walletHarness.js'
 import { MemoryRelayPool } from './fakeHub.js'
@@ -57,8 +57,15 @@ async function controls(storage: Storage): Promise<{ pubkeys: Set<string>; commi
     const id = await t.get('identity', 'self')
     if (id !== undefined) pubkeys.add(id.pubkey)
     for (const h of await t.list('holdings')) {
-      for (const s of [h.cashSecret, h.pendingCashSecret, h.pendingDestinationCashSecret, h.pendingRemainderCashSecret]) addSecret(unseal(s))
-      for (const k of [h.throwawayKey, h.pendingThrowawayKey]) addKey(unseal(k))
+      addSecret(unseal(h.cashSecret))
+      addKey(unseal(h.throwawayKey))
+    }
+    for (const c of await t.list('pendingCalls')) {
+      if (c.authorizer.kind === 'throwaway') addKey(unseal(c.authorizer.authorizerKey))
+      for (const o of c.outputs) {
+        if (o.destination.kind === 'cash') addSecret(unseal(o.destination.secret))
+        if (o.destination.kind === 'throwaway') addKey(unseal(o.destination.key))
+      }
     }
     for (const ho of await t.list('handoffs')) addSecret(splitCashString(unseal(ho.handoff) ?? '').cashSecret || undefined)
   })
@@ -200,29 +207,38 @@ describe('lost replies: indeterminate, then settle() (auditD_cli_killwindow)', (
   }
 })
 
-/** What storage held at the instant the Hub saw a method's call. */
+/** The open calls storage held at the instant the Hub saw a method's call. */
 function watch(h: Harness, method: string) {
-  const seen: { params: Record<string, unknown>; holdings: Promise<unknown[]> }[] = []
+  const seen: { params: Record<string, unknown>; calls: Promise<PendingCall[]> }[] = []
   h.bank.override = (m, info) => {
-    if (m === method) seen.push({ params: info.params, holdings: h.storage.tx('r', (t) => t.list('holdings')) })
+    if (m === method) seen.push({ params: info.params, calls: h.storage.tx('r', async (t) => (await t.list('pendingCalls')).filter((c) => c.state !== 'done')) })
     return undefined
   }
   return seen
 }
 const newIdentityValue = (p: Record<string, unknown>) => (p['new_identity'] as { identity_value: string }).identity_value
+/** The written-ahead output of one role, as the identity value the Hub sees. */
+const outputIdentity = (c: PendingCall, role: string): string | undefined => {
+  const d = c.outputs.find((o) => o.role === role)?.destination
+  if (d?.kind === 'cash') return commitment(unseal(d.secret)!)
+  if (d?.kind === 'throwaway') return getPublicKey(fromHex(unseal(d.key)!))
+  return d?.kind === 'pubkey' ? d.pubkey : undefined
+}
+const openCalls = (h: Harness) => h.storage.tx('r', async (t) => (await t.list('pendingCalls')).filter((c) => c.state !== 'done'))
 
 describe('write-ahead ordering (auditD_cli_writeahead)', () => {
-  test('a send to cash parks the destination secret before its wire call (TestAuditD_CLI_TransferSitesParkBeforeTheirWireCall)', async () => {
+  test('a send to cash writes the destination secret ahead of its wire call, and the call is marked sent', async () => {
     const h = await harness()
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
     const seen = watch(h, 'cash_transfer')
     await h.wallet.send({ amount: 2000n })
-    const rows = (await seen[0]!.holdings) as { pendingDestinationCashSecret?: Sealed }[]
-    const parked = rows.map((r) => unseal(r.pendingDestinationCashSecret)).filter((x) => x !== undefined)
-    expect(parked.map((x) => commitment(x!))).toEqual([newIdentityValue(seen[0]!.params)])
-    expect(await h.wallet.unfinishedCashSends()).toEqual([])
+    const [call] = await seen[0]!.calls
+    expect(call!.state).toBe('sent')
+    expect(call!.requestId).toBe(seen[0]!.params['request_id'])
+    expect(outputIdentity(call!, 'new')).toBe(newIdentityValue(seen[0]!.params))
+    expect(await openCalls(h)).toEqual([])
   })
-  test('a consolidate to cash parks before its wire call (TestAuditD_CLI_ConsolidateToCash_SecretIsWrittenAheadOfWireCall)', async () => {
+  test('a consolidate to cash writes its secret ahead of its wire call', async () => {
     const h = await harness()
     for (const a of [1000n, 2000n]) {
       const t = newCashTarget()
@@ -230,29 +246,28 @@ describe('write-ahead ordering (auditD_cli_writeahead)', () => {
     }
     const seen = watch(h, 'cash_consolidate')
     await h.wallet.consolidate()
-    const rows = (await seen[0]!.holdings) as { pendingDestinationCashSecret?: Sealed }[]
-    const parked = rows.flatMap((r) => (r.pendingDestinationCashSecret !== undefined ? [commitment(unseal(r.pendingDestinationCashSecret)!)] : []))
-    expect(parked).toEqual([newIdentityValue(seen[0]!.params)])
+    const calls = await seen[0]!.calls
+    expect(calls.map((c) => outputIdentity(c, 'new'))).toEqual([newIdentityValue(seen[0]!.params)])
   })
-  test('protect persists the new secret before its wire call (TestReKeySites_PersistTheNewSecretBeforeTheirWireCall)', async () => {
+  test('protect writes the new secret ahead of its wire call', async () => {
     const h = await harness()
     const t = newCashTarget()
     const tok = h.bank.mintToCash(700n, t.secret).token
     const seen = watch(h, 'cash_transfer')
     await h.wallet.receive(`${tok}#${t.secret}`)
-    const rows = (await seen[0]!.holdings) as { pendingCashSecret?: Sealed }[]
-    expect(rows.map((r) => commitment(unseal(r.pendingCashSecret)!))).toEqual([newIdentityValue(seen[0]!.params)])
+    const calls = await seen[0]!.calls
+    expect(calls.map((c) => outputIdentity(c, 'new'))).toEqual([newIdentityValue(seen[0]!.params)])
   })
-  test('a cash-note move persists the merge key before its wire call (cash_merge.go moveCashNotesToKey)', async () => {
+  test('a cash-note move writes the merge key ahead of its wire call', async () => {
     const h = await harness()
     const t = newCashTarget()
     await h.wallet.receive(`${h.bank.mintToCash(1000n, t.secret).token}#${t.secret}`)
     await h.wallet.receive(h.bank.mintToPubkey(2000n, h.me).token)
     const seen = watch(h, 'cash_transfer')
     await h.wallet.consolidate()
-    const rows = (await seen[0]!.holdings) as { pendingThrowawayKey?: Sealed }[]
-    const keys = rows.flatMap((r) => (r.pendingThrowawayKey !== undefined ? [getPublicKey(fromHex(unseal(r.pendingThrowawayKey)!))] : []))
-    expect(keys).toEqual([newIdentityValue(seen[0]!.params)])
+    const calls = await seen[0]!.calls
+    expect(calls.map((c) => c.outputs[0]!.destination.kind)).toEqual(['throwaway'])
+    expect(calls.map((c) => outputIdentity(c, 'new'))).toEqual([newIdentityValue(seen[0]!.params)])
   })
   test('a split of a cash note writes its remainder secret ahead and sends its commitment', async () => {
     const h = await harness()
@@ -260,23 +275,22 @@ describe('write-ahead ordering (auditD_cli_writeahead)', () => {
     await h.wallet.receive(`${h.bank.mintToCash(5000n, t.secret).token}#${t.secret}`, { protect: false })
     const seen = watch(h, 'cash_transfer')
     const r = await h.wallet.send({ amount: 1000n, to: getPublicKey(BOB_KEY) })
-    const rows = (await seen[0]!.holdings) as { pendingRemainderCashSecret?: Sealed }[]
-    const parked = rows.flatMap((x) => (x.pendingRemainderCashSecret !== undefined ? [commitment(unseal(x.pendingRemainderCashSecret)!)] : []))
-    expect(parked).toEqual([seen[0]!.params['remainder_commitment']])
-    expect(parked[0]).not.toBe(commitment(t.secret))
+    const [call] = await seen[0]!.calls
+    const rc = outputIdentity(call!, 'remainder')
+    expect(rc).toBe(seen[0]!.params['remainder_commitment'])
+    expect(rc).not.toBe(commitment(t.secret))
     const rem = (await h.storage.tx('r', (x) => x.get('holdings', r.remainder!.id)))!
-    expect(commitment(unseal(rem.cashSecret)!)).toBe(parked[0])
-    expect((await h.storage.tx('r', (x) => x.list('holdings'))).every((x) => x.pendingRemainderCashSecret === undefined)).toBe(true)
+    expect(commitment(unseal(rem.cashSecret)!)).toBe(rc)
   })
-  test('a non-cash target parks nothing (TestAuditD_CLI_ParkIsANoOpForANonCashTarget)', async () => {
+  test('a non-cash target writes no secret ahead', async () => {
     const h = await harness()
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
     const seen = watch(h, 'cash_transfer')
     await h.wallet.send({ amount: 1000n, to: getPublicKey(BOB_KEY) })
-    const rows = (await seen[0]!.holdings) as { pendingDestinationCashSecret?: Sealed }[]
-    expect(rows.every((r) => r.pendingDestinationCashSecret === undefined)).toBe(true)
+    const [call] = await seen[0]!.calls
+    expect(call!.outputs.map((o) => o.destination.kind)).toEqual(['pubkey', 'pubkey'])
   })
-  test('a park that cannot be recorded refuses the call (TestAuditD_CLI_ParkRefusesWhenItCannotRecord)', async () => {
+  test('a call that cannot be written ahead is not placed', async () => {
     const storage = new CrashableStorage(new MemoryStorage())
     const h = await harness({ storage })
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
@@ -284,47 +298,42 @@ describe('write-ahead ordering (auditD_cli_writeahead)', () => {
     const before = h.bank.hub.requests.filter((r) => r.item.method === 'cash_transfer').length
     storage.writes = 0
     storage.crashAfter = 0
-    const e = await failure(h.wallet.executeSend(plan))
-    expect(e).toBeInstanceOf(CashkitError)
-    expect(e.message).toMatch(/call was not placed/)
+    await failure(h.wallet.executeSend(plan))
     expect(h.bank.hub.requests.filter((r) => r.item.method === 'cash_transfer').length).toBe(before)
   })
-  test('a definite refusal forgets the park; silence keeps it (TestForgetIfNothingCreated)', async () => {
+  test('a lost reply leaves the call open with its secret, and its source locked; settle() applies it', async () => {
     const h = await harness()
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
-    h.bank.override = (m) => (m === 'cash_transfer' ? { error: { code: 'RATE_LIMITED', message: 'slow down' } } : undefined)
-    expect((await failure(h.wallet.send({ amount: 2000n }))).code).toBe('conflict')
-    expect(await h.wallet.unfinishedCashSends()).toEqual([])
-    h.bank.override = undefined
     h.bank.loseReplyFor.add('cash_transfer')
-    expect((await failure(h.wallet.send({ amount: 2000n }))).code).toBe('indeterminate')
-    const open = await h.wallet.unfinishedCashSends({ includeSecrets: true })
-    expect(open).toHaveLength(1)
-    expect(open[0]!.cashSecret).toMatch(/^[0-9a-f]{64}$/)
-    expect(h.wallet.state.unfinishedCashSends).toEqual([{ holdingId: open[0]!.holdingId }])
+    const e = await failure(h.wallet.send({ amount: 2000n }))
+    expect(e.code).toBe('indeterminate')
+    expect(e.pendingCallId).toBeDefined()
+    const [call] = await openCalls(h)
+    expect(call!.id).toBe(e.pendingCallId)
+    expect(outputIdentity(call!, 'new')).toMatch(/^[0-9a-f]{64}$/)
+    expect((await h.wallet.holdings()).map((x) => x.unsettled)).toEqual([true])
+    const stale = await h.storage.tx('r', (t) => t.get('holdings', call!.sources[0]!))
+    expect(stale?.status).toBe('held')
+    h.bank.loseReplyFor.clear()
+    const rep = await h.wallet.settle()
+    expect(rep.applied).toEqual([call!.id])
+    expect(await openCalls(h)).toEqual([])
+    expect((await h.wallet.handoffs()).length).toBe(1)
   })
-  test('release clears only the park it wrote (TestAuditD_CLI_ReleaseLeavesAConcurrentParkAlone)', () => {
-    const mine: Sealed = { alg: 'none', data: '01' }
-    const theirs: Sealed = { alg: 'none', data: '02' }
-    const row = { id: 'h-1', pendingDestinationCashSecret: theirs } as never
-    expect(releasePark(row, { holdingId: 'h-1', sealed: mine })).toBe(row)
-    const ours = { id: 'h-1', pendingDestinationCashSecret: mine } as never
-    expect((releasePark(ours, { holdingId: 'h-1', sealed: mine }) as { pendingDestinationCashSecret?: Sealed }).pendingDestinationCashSecret).toBeUndefined()
-  })
-  test('the park survives a failed final commit and a reopen (TestAuditD_CLI_ParkIsNotSavedByReleaseAlone, …SurvivesALedgerReloadRoundTrip)', async () => {
+  test('the call survives a failed final commit and a reopen; settle() applies it', async () => {
     const storage = new CrashableStorage(new MemoryStorage())
     const h = await harness({ storage })
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
     const plan = await h.wallet.planSend({ amount: 2000n })
     storage.writes = 0
-    storage.crashAfter = 1 // the park commits; the result commit does not
+    storage.crashAfter = 2 // the call is written ahead and marked sent; the result commit does not land
     const e = await failure(h.wallet.executeSend(plan))
     expect(e.recovery).toBeDefined()
     storage.crashAfter = undefined
-    const again = await h.reopen({})
-    const open = await again.unfinishedCashSends({ includeSecrets: true })
-    expect(open).toHaveLength(1)
-    expect(e.recovery).toContain(open[0]!.cashSecret)
+    const again = await h.reopen({}) // opening settles: the lookup finds the call done
+    expect(await openCalls(h)).toEqual([])
+    const notes = await again.handoffs()
+    expect(notes).toHaveLength(1)
   })
 })
 
@@ -336,7 +345,7 @@ describe('recovery text (auditD_cli_recovery_handoff)', () => {
     await h.wallet.receive(`${h.bank.mintToCash(5000n, t.secret).token}#${t.secret}`)
     const plan = await h.wallet.planSend({ amount: 2000n })
     storage.writes = 0
-    storage.crashAfter = 1
+    storage.crashAfter = 2 // written ahead and marked sent; the result commit fails
     const e = await failure(h.wallet.executeSend(plan))
     expect(e.recoveryHandoffs).toHaveLength(2)
     for (const ho of e.recoveryHandoffs!) {
@@ -391,47 +400,19 @@ describe('no secrets in activity (auditD_cli_history_secrets)', () => {
   })
 })
 
-/** A cash holding whose rekey landed unseen: the Hub knows the pending secret, the row still the old one. */
-async function landedUnseen(h: Harness, amount = 5000n) {
-  const t = newCashTarget()
-  const w = h.bank.mintToCash(amount, t.secret)
-  const r = await h.wallet.receive(`${w.token}#${t.secret}`, { protect: false })
-  const id = r.received ? r.holding.id : ''
-  const fresh = newCashTarget()
-  await h.storage.tx('rw', async (tx) => {
-    const row = (await tx.get('holdings', id))!
-    await tx.put('holdings', { ...row, pendingCashSecret: { alg: 'none', data: toHex(utf8(fresh.secret)) }, version: row.version + 1 }, row.version)
-  })
-  w.identity = { type: 'cash', value: commitment(fresh.secret) }
-  return { id, w, fresh }
-}
-describe('pending secrets (pending_secret_batch_test.go)', () => {
-  test('a wrong-secret decline retries with the pending secret and promotes it (TestRetryWithPendingSecrets_RecoversAndPromotes)', async () => {
+describe('a rekey whose reply was lost', () => {
+  test('settle() applies the new secret from the lookup', async () => {
     const h = await harness()
-    const nwc = new FakeNwcWallet(h.pool)
-    await h.wallet.connections.add('main', nwc.uri)
-    const { id, fresh } = await landedUnseen(h)
-    // Quoting with the old secret fails (BAD_REQUEST on status), so execute a hand-built plan.
-    const r = await h.wallet.executeRedeem({
-      op: 'redeem',
-      items: [{ holdingId: id, version: (await h.storage.tx('r', (t) => t.get('holdings', id)))!.version, amount: 5000n, fee: 0n, net: 5000n }],
-      refused: [],
-      destination: { kind: 'connection', name: 'main' },
-      total: 5000n,
-      totalFee: 0n,
-      totalNet: 5000n,
-    })
-    expect(r.outcomes[0]).toMatchObject({ ok: true, holdingId: id })
-    const row = (await h.storage.tx('r', (t) => t.get('holdings', id)))!
-    expect(unseal(row.cashSecret)).toBe(fresh.secret)
-    expect(row.pendingCashSecret).toBeUndefined()
-  })
-  test('settle() promotes a landed pending secret without waiting for a spend', async () => {
-    const h = await harness()
-    const { id, fresh } = await landedUnseen(h)
+    const t = newCashTarget()
+    h.bank.loseReplyFor.add('cash_transfer')
+    const r = await h.wallet.receive(`${h.bank.mintToCash(5000n, t.secret).token}#${t.secret}`)
+    const id = r.received ? r.holding.id : ''
+    const [call] = await openCalls(h)
+    const fresh = unseal((call!.outputs[0]!.destination as { secret: Sealed }).secret)!
+    h.bank.loseReplyFor.clear()
     const rep = await h.wallet.settle()
-    expect(rep.cashSecretsPromoted).toEqual([id])
-    expect(await h.wallet.exportHolding(id)).toContain(fresh.secret)
+    expect(rep.applied).toEqual([call!.id])
+    expect(await h.wallet.exportHolding(id)).toContain(fresh)
   })
   test('an omission is never retried (TestRetryWithPendingSecrets_NeverRetriesAnOmission)', async () => {
     const h = await harness()

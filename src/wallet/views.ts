@@ -21,11 +21,12 @@ export interface HoldingView {
   readonly addedAt: number
   /** Mid-merge: moved onto a throwaway key for a merge that has not finished. */
   readonly midMerge: boolean
-  /** A write-ahead slot is still open (§5.1); `settle()` resolves it. */
+  /** An open pending call holds this bill (§5.1); `settle()` resolves it. */
   readonly unsettled: boolean
 }
 
-export function holdingView(h: Holding, nowSeconds: number): HoldingView {
+/** `locked`: an open call holds this bill (it is excluded from every plan until the call closes). */
+export function holdingView(h: Holding, nowSeconds: number, locked = false): HoldingView {
   return {
     id: h.id,
     status: h.status,
@@ -40,8 +41,8 @@ export function holdingView(h: Holding, nowSeconds: number): HoldingView {
     hubGroup: h.hubGroup,
     relayUrls: [...h.relayUrls],
     addedAt: h.addedAt,
-    midMerge: h.throwawayKey !== undefined || h.pendingThrowawayKey !== undefined,
-    unsettled: h.pendingCashSecret !== undefined || h.pendingDestinationCashSecret !== undefined || h.pendingRemainderCashSecret !== undefined || h.pendingThrowawayKey !== undefined,
+    midMerge: h.throwawayKey !== undefined,
+    unsettled: locked,
   }
 }
 

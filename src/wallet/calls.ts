@@ -10,9 +10,15 @@ import type { CallAuthorizer, CallOutcome, CallOutput, DerivedIdRow, PendingCall
 import type { StorageTx } from './ports.js'
 
 /** A call's output with its secret still in the clear, as the caller generated it. */
-export type PlainOutput =
-  | { readonly role: CallOutput['role']; readonly destination: Exclude<CallOutput['destination'], { kind: 'cash' }> }
-  | { readonly role: CallOutput['role']; readonly destination: { readonly kind: 'cash'; readonly secret: string } }
+export type PlainDestination =
+  | Exclude<CallOutput['destination'], { kind: 'cash' } | { kind: 'throwaway' }>
+  | { readonly kind: 'cash'; readonly secret: string }
+  | { readonly kind: 'throwaway'; readonly pubkey: string; readonly key: string }
+
+export interface PlainOutput {
+  readonly role: CallOutput['role']
+  readonly destination: PlainDestination
+}
 
 export type PlainAuthorizer = Exclude<CallAuthorizer, { kind: 'throwaway' } | { kind: 'buyer' }> | { readonly kind: 'throwaway'; readonly key: string } | { readonly kind: 'buyer'; readonly key: string }
 
@@ -43,14 +49,20 @@ function sealedFields(c: Pick<PendingCall, 'authorizer' | 'outputs'>): Sealed[] 
   const out: Sealed[] = []
   if (c.authorizer.kind === 'throwaway') out.push(c.authorizer.authorizerKey)
   if (c.authorizer.kind === 'buyer') out.push(c.authorizer.buyerKey)
-  for (const o of c.outputs) if (o.destination.kind === 'cash') out.push(o.destination.secret)
+  for (const o of c.outputs) {
+    if (o.destination.kind === 'cash') out.push(o.destination.secret)
+    if (o.destination.kind === 'throwaway') out.push(o.destination.key)
+  }
   return out
 }
 
 function plainFields(s: CallSpec): string[] {
   const out: string[] = []
   if (s.authorizer.kind === 'throwaway' || s.authorizer.kind === 'buyer') out.push(s.authorizer.key)
-  for (const o of s.outputs) if (o.destination.kind === 'cash') out.push(o.destination.secret)
+  for (const o of s.outputs) {
+    if (o.destination.kind === 'cash') out.push(o.destination.secret)
+    if (o.destination.kind === 'throwaway') out.push(o.destination.key)
+  }
   return out
 }
 
@@ -71,7 +83,10 @@ export async function prepareCall(ctx: Ctx, spec: CallSpec): Promise<PendingCall
         : spec.authorizer
   const outputs: CallOutput[] = []
   for (const o of spec.outputs) {
-    outputs.push(o.destination.kind === 'cash' ? { role: o.role, destination: { kind: 'cash', secret: await seal(o.destination.secret) } } : (o as CallOutput))
+    const d = o.destination
+    if (d.kind === 'cash') outputs.push({ role: o.role, destination: { kind: 'cash', secret: await seal(d.secret) } })
+    else if (d.kind === 'throwaway') outputs.push({ role: o.role, destination: { kind: 'throwaway', pubkey: d.pubkey, key: await seal(d.key) } })
+    else outputs.push({ role: o.role, destination: d })
   }
   const row: PendingCall = {
     id: `pc-${toHex(ctx.random(8))}`,

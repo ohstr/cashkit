@@ -19,7 +19,7 @@ import { finishCall, isOwnCall, markSent, recordDerivedId } from './calls.js'
 import type { Ctx } from './context.js'
 import { CashkitError, codeForNwc } from './errors.js'
 import { appendActivity, updateHolding } from './ledger.js'
-import type { CallNeedsUser, PendingCall } from './model.js'
+import type { CallCreated, CallNeedsUser, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
 
 /** An item outcome with its decoded value or tombstone, as the client returns it. */
@@ -43,9 +43,14 @@ export interface CallKind {
    * lookup's `done` result. Runs outside any transaction (it may decrypt);
    * the returned function runs inside the transaction that closes the call.
    */
-  finish(ctx: Ctx, call: PendingCall, result: unknown, from: 'reply' | 'lookup'): Promise<(t: StorageTx) => Promise<void>>
+  finish(ctx: Ctx, call: PendingCall, result: unknown, from: 'reply' | 'lookup'): Promise<(t: StorageTx) => Promise<CallCreated | void>>
   /** The bill a lookup targets and who signs it, as the call was authorized. */
   lookupTarget(ctx: Ctx, call: PendingCall): Promise<{ readonly bill: Bill; readonly authorizer: LookupAuthorizer }>
+  /**
+   * The cash notes `<token>#<secret>` a reply created, for the error text
+   * when the transaction applying it fails (the call stays written ahead).
+   */
+  recovery?(ctx: Ctx, call: PendingCall, result: unknown): Promise<readonly string[]>
   /** Whether `unknown` re-places it automatically (`cash_transfer`, `cash_consolidate`) or asks the user first. */
   readonly autoReplace: boolean
 }
@@ -87,14 +92,27 @@ async function close(ctx: Ctx, id: string, outcome: Parameters<typeof finishCall
 }
 
 /** Applies a result and closes the call `applied` in one transaction; nothing when it is already closed. */
-async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: 'reply' | 'lookup'): Promise<void> {
-  const writes = await kindOf(call).finish(ctx, call, result, from)
-  await ctx.commit(async (t) => {
-    const cur = await t.get('pendingCalls', call.id)
-    if (cur === undefined || cur.state === 'done') return
-    await writes(t)
-    await finishCall(t, call.id, 'applied')
-  })
+async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: 'reply' | 'lookup'): Promise<CallCreated> {
+  const kind = kindOf(call)
+  const writes = await kind.finish(ctx, call, result, from)
+  try {
+    return await ctx.commit(async (t) => {
+      const cur = await t.get('pendingCalls', call.id)
+      if (cur === undefined || cur.state === 'done') return cur?.created ?? {}
+      const created = (await writes(t)) ?? {}
+      const done = await finishCall(t, call.id, 'applied')
+      await t.put('pendingCalls', { ...done, created, version: done.version + 1 }, done.version)
+      return created
+    })
+  } catch (err) {
+    if (from !== 'reply' || err instanceof CashkitError) throw err
+    const notes = (await kind.recovery?.(ctx, call, result).catch(() => [])) ?? []
+    throw new CashkitError('internal', `the Hub applied this ${call.method}, but saving its result failed; the call stays written ahead and settle() applies it`, {
+      pendingCallId: call.id,
+      cause: err,
+      ...(notes.length > 0 && { recovery: `Save these cash notes until settle() has run:\n${notes.join('\n')}`, recoveryHandoffs: notes }),
+    })
+  }
 }
 
 /** A tombstone for the call's source: the bill is gone, so the call never ran. */
@@ -118,7 +136,7 @@ async function applyTombstone(ctx: Ctx, call: PendingCall): Promise<void> {
  * closed `not_sent`; anything else ⇒ left open (sources stay locked) and
  * thrown with its `pendingCallId`, for `settle()` to look up.
  */
-export async function executeCall(ctx: Ctx, call: PendingCall): Promise<void> {
+export async function executeCall(ctx: Ctx, call: PendingCall): Promise<CallCreated> {
   const kind = kindOf(call)
   let placed: PlaceResult
   try {
@@ -131,8 +149,7 @@ export async function executeCall(ctx: Ctx, call: PendingCall): Promise<void> {
   const c = o === undefined ? ({ kind: 'open', reason: 'not_served' } as const) : classifyCall(o)
   switch (c.kind) {
     case 'applied':
-      await applyResult(ctx, call, o!.value, 'reply')
-      return
+      return applyResult(ctx, call, o!.value, 'reply')
     case 'final_not_applied':
       await close(ctx, call.id, 'not_applied', { code: c.code, ...(c.detail !== undefined && { detail: c.detail }) })
       throw new CashkitError('invalid_input', `the Hub refused this ${call.method} as malformed, so it was not applied`, { nwcCode: c.code, ...(o?.error?.message !== undefined && { rawMessage: o.error.message }) })
@@ -284,6 +301,7 @@ async function onUnknown(ctx: Ctx, call: PendingCall): Promise<'closed' | 'repla
  * old call. The derived id is recorded before anything is sent.
  */
 export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall | undefined> {
+  const { created: _c, ...base } = call
   const derived = derivedRequestId(call.requestId)
   const seen = await ctx.read(async (t) => (await t.get('derivedIds', derived)) !== undefined || (await t.list('pendingCalls')).some((c) => c.requestId === derived))
   if (seen) {
@@ -295,7 +313,7 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
   const deadline = deadlineFor(h, ctx.nowSeconds())
   const hub = await ctx.read((t) => t.get('hubs', call.node))
   const next: PendingCall = {
-    ...stripOpen(call),
+    ...stripOpen(base as PendingCall),
     id: `pc-${newRequestId(ctx.random).slice(0, 16)}`,
     requestId: derived,
     deadline,

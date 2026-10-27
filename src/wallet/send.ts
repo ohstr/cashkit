@@ -8,14 +8,16 @@
 // first (consolidateInRounds), then splits from it: the same wire calls and
 // the same result for the recipient, with no window where the only copy of
 // a landed bill is unsaved.
-import { decodeToken, MAX_AMOUNT_MILLIS, newCashTarget, newRequestId, pubkeyTarget, type CashTarget, type CashTransferResult, type Target } from '../core/index.js'
+import { newCashTarget, pubkeyTarget, type CashTarget, type Target } from '../core/index.js'
 import { validateRequestedAmount } from './amounts.js'
-import { followMove, forgetPark, forgetRemainder, getHeld, newRemainder, releaseRemainder, liveAmount, moveCashNotesToKey, newThrowawayKey, parkDestination, promotePending, releasePark, toCashNotes, withPendingSecret } from './bills.js'
-import { tokenFacts, type Ctx } from './context.js'
+import { getHeld, liveAmount, lockedHoldings, moveCashNotesToKey, newThrowawayKey, requireUnlocked, toCashNotes } from './bills.js'
+import type { PlainDestination } from './calls.js'
+import { runTransfer } from './kinds.js'
+import type { Ctx } from './context.js'
 import { CashkitError, classifySpendError } from './errors.js'
-import { addHandoff, addHolding, appendActivity, heldHoldings, updateHolding } from './ledger.js'
-import { consolidateCap, consolidateInRounds, type MergeSource } from './merge.js'
-import type { Holding, TargetDisplay } from './model.js'
+import { heldHoldings } from './ledger.js'
+import { consolidateCap, consolidateInRounds } from './merge.js'
+import type { CallCreated, Holding, TargetDisplay } from './model.js'
 import { FundsFragmentedError, InsufficientFundsError, selectForAmount, sumAmounts, type Selectable } from './select.js'
 import { parseTarget, type TargetKind } from './target.js'
 import { holdingView, type HoldingView } from './views.js'
@@ -80,10 +82,12 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
   if (o.holdings !== undefined) {
     if (new Set(o.holdings).size !== o.holdings.length) throw new CashkitError('usage', 'a holding was named more than once')
     if (o.holdings.length === 0) throw new CashkitError('usage', 'holdings was given no ids')
+    await requireUnlocked(ctx, o.holdings)
     group = []
     for (const id of o.holdings) group.push((await liveAmount(ctx, await getHeld(ctx, id))).holding)
   } else {
-    const held = await ctx.read(heldHoldings)
+    const locked = await lockedHoldings(ctx)
+    const held = (await ctx.read(heldHoldings)).filter((h) => !locked.has(h.id))
     if (o.amount === undefined) {
       if (held.length === 0) throw new CashkitError('not_found', 'you have no held cash tokens: receive one first')
       if (held.length > 1) throw new CashkitError('usage', `you hold ${held.length} cash tokens: name which with holdings, or give an amount`)
@@ -137,8 +141,9 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
   }
 }
 
-/** Re-reads the plan's holdings; any that moved since is a `conflict`. */
+/** Re-reads the plan's holdings; any that moved since, or that an open call now holds, is a `conflict`. */
 async function livePlanSources(ctx: Ctx, sources: readonly PlannedSource[]): Promise<Holding[]> {
+  await requireUnlocked(ctx, sources.map((x) => x.holdingId))
   const out: Holding[] = []
   for (const s of sources) {
     const h = await ctx.read((t) => t.get('holdings', s.holdingId))
@@ -167,155 +172,62 @@ export async function executeSend(ctx: Ctx, plan: SendPlan): Promise<SendResult>
   })
 }
 
-/** One bill: a full or split transfer (`runCashTransfer`'s tail). */
-async function sendSingle(ctx: Ctx, plan: SendPlan, h: Holding, target: Target, consolidatedFirst: boolean): Promise<SendResult> {
-  const cred = await ctx.credentialFor(h)
-  const split = plan.amount < h.amount!
-  // A split of a cash note gives its remainder a fresh secret, written ahead with the destination's.
-  const remainder = split && h.mode === 'cash' && cred.kind === 'secret' ? await newRemainder(ctx) : undefined
-  const park = await parkDestination(ctx, h.id, target, remainder?.sealed)
-  let out: { result: CashTransferResult; promoted?: import('./model.js').Sealed }
-  try {
-    out = await withPendingSecret(ctx, h, cred, (c) =>
-      ctx.client(h.token).cashTransfer({ credential: c, to: target, currentAmount: h.amount!, requestId: newRequestId(ctx.random), ...(split && { splitAmount: plan.amount }), ...(remainder !== undefined && { remainderCommitment: remainder.commitment }) }),
-    )
-  } catch (err) {
-    const c = classifySpendError(err, 'transfer', [h.id])
-    await forgetPark(ctx, park, c)
-    if (remainder !== undefined) await forgetRemainder(ctx, h.id, remainder.sealed, c)
-    throw c
+/** The wallet-side destination of a send target: a cash target's secret is written ahead with the call. */
+export function destinationOf(target: Target): PlainDestination {
+  if (target.identityType === 'cash') {
+    const secret = (target as CashTarget).secret
+    if (secret === undefined || secret === '') throw new CashkitError('internal', 'a cash-mode target carries no secret, so its destination bill would be unspendable')
+    return { kind: 'cash', secret }
   }
-  const cashSecret = remainder?.sealed ?? out.promoted ?? h.cashSecret
-  return finishSend(ctx, {
-    plan,
-    target,
-    result: out.result,
-    originalToken: h.token,
-    sourceIds: [h.id],
-    updateSource: (x) => promotePending({ ...releaseRemainder(releasePark(x, park), remainder?.sealed), status: 'transferred' }, out.promoted),
-    remainderMode: {
-      mode: h.mode,
-      protection: h.protection,
-      ...(cashSecret !== undefined && h.mode === 'cash' && { cashSecret }),
-      ...(h.connectionKey !== undefined && { connectionKey: h.connectionKey }),
-      ...(h.throwawayKey !== undefined && { throwawayKey: h.throwawayKey }),
-      ...(h.minterPubkey !== undefined && { minterPubkey: h.minterPubkey }),
-    },
-    consolidatedFirst,
-  })
+  if (target.identityType === 'connection_key') return { kind: 'connection_key', key: target.identityValue, platform: '', ia: target.iaPubkey }
+  return { kind: 'pubkey', pubkey: target.identityValue }
 }
 
-type RemainderMode = Pick<Holding, 'mode' | 'protection' | 'cashSecret' | 'connectionKey' | 'throwawayKey' | 'minterPubkey'>
-
-/**
- * `printAndSaveTransferResult`: in one commit, the sources' new status, the
- * remainder holding, the handoff and the activity. A failed commit is a
- * recovery error carrying every handoff verbatim.
- */
-async function finishSend(
-  ctx: Ctx,
-  p: {
-    plan: SendPlan
-    target: Target
-    result: Pick<CashTransferResult, 'newWalletToken' | 'remainderWalletToken' | 'remainderWalletPubkey' | 'remainingAmountMillis'>
-    originalToken: string
-    sourceIds: readonly string[]
-    updateSource: (h: Holding) => Holding
-    remainderMode?: RemainderMode
-    consolidatedFirst: boolean
-  },
-): Promise<SendResult> {
-  const isCash = p.target.identityType === 'cash'
-  const recipientToken = p.result.newWalletToken !== '' ? p.result.newWalletToken : p.originalToken
-  const cashNote = isCash ? `${recipientToken}#${(p.target as CashTarget).secret}` : undefined
-  const handoffValue = cashNote ?? recipientToken
-  const sealedHandoff = await ctx.seal(handoffValue)
-  const remainderToken = p.result.remainderWalletToken
-  const remainderAmount = p.result.remainingAmountMillis !== undefined && p.result.remainingAmountMillis <= MAX_AMOUNT_MILLIS ? p.result.remainingAmountMillis : undefined
-  const remainderSecret = p.remainderMode?.mode === 'cash' && p.remainderMode.cashSecret !== undefined ? await ctx.open(p.remainderMode.cashSecret) : undefined
-  let recipientWallet = ''
-  try {
-    recipientWallet = decodeToken(recipientToken).walletPubkey
-  } catch {
-    // an undecodable token still goes in the handoff verbatim
-  }
-  let remainder: Holding | undefined
-  let handoffId: string
-  try {
-    ;({ remainder, handoffId } = await ctx.commit(async (t) => {
-      for (const id of p.sourceIds) await updateHolding(t, id, p.updateSource)
-      let rem: Holding | undefined
-      if (remainderToken !== '' && p.remainderMode !== undefined) {
-        const f = tokenFacts(remainderToken)
-        rem = await addHolding(
-          t,
-          {
-            ...p.remainderMode,
-            token: remainderToken,
-            walletPubkey: p.result.remainderWalletPubkey,
-            hubGroup: f.hubGroup,
-            relayUrls: f.tok.relays,
-            verified: false,
-            ...(remainderAmount !== undefined && { amount: remainderAmount }),
-          },
-          { now: ctx.now(), random: ctx.random },
-        )
-      }
-      const ho = await addHandoff(
-        t,
-        { kind: isCash ? 'cash_note' : 'gift', handoff: sealedHandoff, amount: p.plan.amount, target: p.plan.to, walletPubkey: recipientWallet },
-        { now: ctx.now(), random: ctx.random },
-      )
-      await appendActivity(t, ctx.now(), {
-        action: 'send',
-        amount: p.plan.amount,
-        to: p.plan.to,
-        handoffId: ho.id,
-        holdingIds: [...p.sourceIds],
-        ...(rem !== undefined && { remainderId: rem.id }),
-      })
-      return { remainder: rem, handoffId: ho.id }
-    }))
-  } catch (err) {
-    const parts = [`the recipient's own — save this now, it will not be shown again: ${handoffValue}`]
-    const handoffs = [handoffValue]
-    if (remainderToken !== '') {
-      const own = remainderSecret !== undefined ? `${remainderToken}#${remainderSecret}` : remainderToken
-      parts.push(`your own remainder: ${own}`)
-      handoffs.push(own)
-    }
-    throw new CashkitError('internal', "Transfer succeeded on the Hub, but saving that locally failed — your wallet's local record does not match reality.", {
-      cause: err,
-      recovery: `Save these: ${parts.join('; ')}`,
-      recoveryHandoffs: handoffs,
-    })
-  }
-  if (remainder?.throwawayKey !== undefined) {
-    await toCashNotes(ctx, [remainder.id])
-    remainder = (await ctx.read((t) => t.get('holdings', remainder!.id))) ?? remainder
-  }
+/** The send's result, read back from what its call created. */
+async function sendResult(ctx: Ctx, plan: SendPlan, created: CallCreated, consolidatedFirst: boolean): Promise<SendResult> {
+  const isCash = plan.targetKind === 'cash'
+  const ho = created.handoffId !== undefined ? await ctx.read((t) => t.get('handoffs', created.handoffId!)) : undefined
+  const value = ho !== undefined ? await ctx.open(ho.handoff) : ''
+  const remId = created.holdingIds?.[0]
+  // Change left on a merge key goes back to a cash note (best effort: a failure leaves it on the key).
+  if (remId !== undefined && (await ctx.read((t) => t.get('holdings', remId)))?.throwawayKey !== undefined) await toCashNotes(ctx, [remId])
+  const remainder = remId !== undefined ? await ctx.read((t) => t.get('holdings', remId)) : undefined
   return {
-    sent: p.plan.amount,
-    to: p.plan.to,
-    targetResolved: isCash ? '' : p.plan.targetResolved,
-    ...(cashNote !== undefined && { cashNote }),
-    ...(!isCash && { recipientToken }),
-    handoffId,
+    sent: plan.amount,
+    to: plan.to,
+    targetResolved: isCash ? '' : plan.targetResolved,
+    ...(isCash && value !== '' && { cashNote: value }),
+    ...(!isCash && value !== '' && { recipientToken: value }),
+    ...(created.handoffId !== undefined && { handoffId: created.handoffId }),
     ...(remainder !== undefined && { remainder: holdingView(remainder, ctx.nowSeconds()) }),
-    consolidatedFirst: p.consolidatedFirst,
+    consolidatedFirst,
   }
+}
+
+/** One bill: a full or split transfer (`runCashTransfer`'s tail), one call. */
+async function sendSingle(ctx: Ctx, plan: SendPlan, h: Holding, target: Target, consolidatedFirst: boolean): Promise<SendResult> {
+  const split = plan.amount < h.amount!
+  const created = await runTransfer(ctx, {
+    op: 'send',
+    source: h,
+    to: target,
+    destination: destinationOf(target),
+    keep: 'handoff',
+    amount: plan.amount,
+    ...(split && { split: plan.amount }),
+    display: plan.to,
+  })
+  return sendResult(ctx, plan, created, consolidatedFirst)
 }
 
 /**
  * Several bills (`transferWithAutoConsolidate` / `mergeThenSend`): cash
- * notes move onto a throwaway key; everything merges (into the target when
- * the sum is exact, else into the interim identity, committed); then the
- * merged bill is split-sent.
+ * notes move onto a merge key; everything merges (into the target when the
+ * sum is exact, else into the interim identity, kept); then the merged bill
+ * is sent. Every step is its own call.
  */
 async function sendMerged(ctx: Ctx, plan: SendPlan, group: Holding[], target: Target): Promise<SendResult> {
   const hasCashNote = group.some((h) => h.mode === 'cash')
-  // A merge key is used only when cash notes move onto it first, which
-  // persists it (pendingThrowawayKey) before any merge can depend on it.
   const throwaway = hasCashNote ? newThrowawayKey(ctx.random) : undefined
   const interimPub = throwaway?.pub ?? (await ctx.requireSigner()).pubkey
   let moved: string[] = []
@@ -323,38 +235,24 @@ async function sendMerged(ctx: Ctx, plan: SendPlan, group: Holding[], target: Ta
     if (hasCashNote) moved = await moveCashNotesToKey(ctx, group.map((h) => h.id), throwaway!.priv, throwaway!.pub)
     const live: Holding[] = []
     for (const h of group) live.push(await getHeld(ctx, h.id))
-    const items: MergeSource[] = []
-    for (const h of live) {
-      items.push({ holdingId: h.id, token: h.token, source: { walletPubkey: h.walletPubkey, amount: h.amount!, credential: await ctx.credentialFor(h) }, ...(h.minterPubkey !== undefined && { minterPubkey: h.minterPubkey }) })
-    }
     const maxSources = await consolidateCap(ctx, live[0]!.token)
     const sum = sumAmounts(live)
     const interim = throwaway !== undefined ? { interimKey: throwaway.priv } : {}
     if (sum === plan.amount) {
-      const r = await consolidateInRounds(ctx, items, target, { isSelf: false, maxSources, ...interim })
-      return finishSend(ctx, {
-        plan,
-        target,
-        result: { newWalletToken: r.result.newWalletToken, remainderWalletToken: '', remainderWalletPubkey: '' },
-        originalToken: r.result.newWalletToken,
-        sourceIds: r.holding !== undefined ? [r.holding.id] : [],
-        updateSource: (x) => ({ ...x, status: 'transferred' }),
-        consolidatedFirst: true,
-      })
+      const r = await consolidateInRounds(ctx, live, { ...target, ...(target.identityType === 'cash' && { secret: (target as CashTarget).secret }) }, { keep: 'handoff', maxSources, display: plan.to, ...interim })
+      return sendResult(ctx, plan, { ...(r.handoffId !== undefined && { handoffId: r.handoffId }) }, true)
     }
-    const r = await consolidateInRounds(ctx, items, pubkeyTarget(interimPub), { isSelf: true, maxSources, ...interim })
+    const r = await consolidateInRounds(ctx, live, pubkeyTarget(interimPub), { keep: 'holding', maxSources, ...interim })
     const merged = r.holding!
     try {
       return await sendSingle(ctx, plan, merged, target, true)
     } catch (err) {
-      if (err instanceof CashkitError && err.code !== 'indeterminate' && merged.throwawayKey !== undefined) await toCashNotes(ctx, [merged.id])
+      if (err instanceof CashkitError && err.pendingCallId === undefined && merged.throwawayKey !== undefined) await toCashNotes(ctx, [merged.id])
       throw err
     }
   } catch (err) {
     const c = err instanceof CashkitError ? err : classifySpendError(err, 'transfer', group.map((h) => h.id))
-    if (moved.length > 0 && c.code !== 'indeterminate') await toCashNotes(ctx, moved)
+    if (moved.length > 0 && c.pendingCallId === undefined) await toCashNotes(ctx, moved)
     throw c
   }
 }
-
-export { followMove }

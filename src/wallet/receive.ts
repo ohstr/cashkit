@@ -1,13 +1,14 @@
 // Receive and protect (design §6.1, §6.4). Port of cashctl
 // cmd/cash_receive.go runCashReceive and cmd/receive_secure.go
 // protectRekeyOnly.
-import { bySecret, bySigning, decodeToken, newCashTarget, newRequestId, sniff, splitCashString, type Credential, type Token } from '../core/index.js'
-import { ClientError, WalletError } from '../client/index.js'
+import { bySecret, bySigning, decodeToken, newCashTarget, sniff, splitCashString, type Credential, type Token } from '../core/index.js'
+import { ClientError } from '../client/index.js'
 import { validateClaimedAmount } from './amounts.js'
-import { followMove, getHeld } from './bills.js'
+import { getHeld, lockedHoldings } from './bills.js'
+import { runTransfer } from './kinds.js'
 import { tokenFacts, type Ctx } from './context.js'
-import { CashkitError, classifyReadError, isNotSent } from './errors.js'
-import { addHolding, appendActivity, findByToken, updateHolding } from './ledger.js'
+import { CashkitError, classifyReadError } from './errors.js'
+import { addHolding, appendActivity, findByToken } from './ledger.js'
 import type { Holding } from './model.js'
 import { holdingView, type HoldingView } from './views.js'
 
@@ -136,43 +137,23 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
 
 /**
  * `protectRekeyOnly`: moves a shared cash note to a fresh secret only this
- * wallet knows. The secret is parked first; a definite refusal clears it,
- * silence keeps it for `settle()`.
+ * wallet knows, as one transfer call whose new secret is written ahead. An
+ * answer that leaves the call open keeps the holding locked until
+ * `settle()` resolves it, so its secret is never overwritten.
  */
 export async function protectOne(ctx: Ctx, h: Holding): Promise<{ secured: Secured; holding: Holding }> {
+  if (h.amount === undefined || h.cashSecret === undefined) return { secured: { status: 'failed' }, holding: h }
+  if ((await lockedHoldings(ctx)).has(h.id)) return { secured: { status: 'failed', unresolved: true }, holding: h }
   const target = newCashTarget(ctx.random)
-  const sealed = await ctx.seal(target.secret)
-  let parked: Holding
   try {
-    parked = await ctx.commit((t) => updateHolding(t, h.id, (x) => ({ ...x, pendingCashSecret: sealed }), h.version))
-  } catch {
-    return { secured: { status: 'failed' }, holding: h }
-  }
-  let res
-  try {
-    if (parked.amount === undefined || parked.cashSecret === undefined) throw new CashkitError('invalid_input', 'this holding has no amount or cash secret to protect')
-    res = await ctx.client(parked.token).cashTransfer({ credential: bySecret(await ctx.open(parked.cashSecret)), to: target, currentAmount: parked.amount, requestId: newRequestId(ctx.random) })
+    await runTransfer(ctx, { op: 'protect', source: h, to: target, destination: { kind: 'cash', secret: target.secret }, keep: 'holding', amount: h.amount })
   } catch (err) {
-    if (err instanceof WalletError || isNotSent(err) || err instanceof CashkitError) {
-      const cleared = await ctx.commit((t) => updateHolding(t, h.id, ({ pendingCashSecret: _p, ...x }) => x)).catch(() => parked)
-      return { secured: { status: 'failed', likelyWrongSecret: err instanceof WalletError && err.walletCode === 'NOT_FOUND' }, holding: cleared }
-    }
-    return { secured: { status: 'failed', unresolved: true }, holding: parked }
+    const open = err instanceof CashkitError && err.pendingCallId !== undefined
+    const now = (await ctx.read((t) => t.get('holdings', h.id))) ?? h
+    return { secured: { status: 'failed', ...(open && { unresolved: true }), ...(err instanceof CashkitError && err.nwcCode === 'NOT_FOUND' && { likelyWrongSecret: true }) }, holding: now }
   }
-  try {
-    const done = await ctx.commit(async (t) => {
-      const x = await updateHolding(t, h.id, (cur) => {
-        const { pendingCashSecret: _p, ...rest } = followMove(cur, res)
-        return { ...rest, cashSecret: sealed, protection: 'protected' }
-      })
-      await appendActivity(t, ctx.now(), { action: 'protect', holdingId: h.id })
-      return x
-    })
-    return { secured: { status: 'rekeyed' }, holding: done }
-  } catch {
-    // The new secret is parked and committed; settle() promotes it.
-    return { secured: { status: 'failed', unresolved: true }, holding: parked }
-  }
+  const done = (await ctx.read((t) => t.get('holdings', h.id))) ?? h
+  return { secured: { status: 'rekeyed' }, holding: done }
 }
 
 /** Protects the named holdings, or every shared cash note. */

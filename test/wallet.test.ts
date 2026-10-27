@@ -8,7 +8,7 @@ import { commitment, FakeBank } from './fakeBank.js'
 import { FakeNwcWallet, harness, NWC_RELAY, type Harness } from './walletHarness.js'
 import { FakeHub } from './fakeHub.js'
 import { invoice } from './helpers.js'
-import { CashClient, ClientError } from '../src/client/index.js'
+import { BatchSession, ClientError } from '../src/client/index.js'
 
 let h: Harness
 beforeEach(async () => {
@@ -226,13 +226,18 @@ describe('consolidate (cmd/cash_consolidate_test.go)', () => {
   })
   test('a round that fits no envelope is halved until it does, keeping what merged (§7.3)', async () => {
     for (const a of [1000n, 2000n, 3000n, 4000n, 5000n]) await receivePubkey(a)
-    const real = CashClient.prototype.cashConsolidate
+    const real = BatchSession.prototype.send
     const sizes: number[] = []
-    const spy = vi.spyOn(CashClient.prototype, 'cashConsolidate').mockImplementation(function (this: CashClient, cred, p) {
-      sizes.push(p.sources.length)
-      // As the session refuses an item that fits no envelope: locally, before sending.
-      if (p.sources.length > 3) return Promise.reject(new ClientError('item_too_large', 'item does not fit any envelope the hub accepts'))
-      return real.call(this, cred, p)
+    const spy = vi.spyOn(BatchSession.prototype, 'send').mockImplementation(async function (this: BatchSession, builders, o) {
+      for (const b of builders) {
+        if (b.method !== 'cash_consolidate') continue
+        const item = await b.build(b.id, { hub: this.hub, nonce: '00'.repeat(16), notAfter: o?.notAfter ?? 0 })
+        const n = (JSON.parse(item.params ?? '{}') as { sources: unknown[] }).sources.length
+        sizes.push(n)
+        // As the session refuses an item that fits no envelope: locally, before sending.
+        if (n > 3) throw new ClientError('item_too_large', 'item does not fit any envelope the hub accepts')
+      }
+      return real.call(this, builders, o)
     })
     try {
       const r = await h.wallet.consolidate()

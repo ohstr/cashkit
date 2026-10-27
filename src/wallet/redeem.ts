@@ -2,10 +2,10 @@
 // runCashRedeem, resolveHeldTokensForRedeem, selectHeldTokensForRedeemAmount,
 // invoiceAmountOverride and makeRedeemInvoices, and cmd/redeem_private.go
 // redeemHubGroup, retryWithPendingSecrets and applyRedeemResults.
-import { bySecret, decodeBolt11, decodeToken, type CashRedeemResult } from '../core/index.js'
+import { decodeBolt11, decodeToken, type CashRedeemResult } from '../core/index.js'
 import { billFor, NotServedError, NwcClient, WalletError, type BatchRedeem } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
-import { getHeld, getHolding, sameSealed } from './bills.js'
+import { getHeld, getHolding } from './bills.js'
 import type { Ctx } from './context.js'
 import { CashkitError, classifyReadError, classifySpendError, fromWalletError } from './errors.js'
 import { appendActivity, heldHoldings, updateHolding } from './ledger.js'
@@ -214,26 +214,6 @@ async function redeemGroup(ctx: Ctx, group: readonly Ready[], into: string, invo
     return ids.map((id) => ({ ok: false as const, error: classifySpendError(err, 'redeem', [id]), holdingIds: [id] }))
   }
   const results = new Map(res.outcomes.map((o) => [o.id, o]))
-  // retryWithPendingSecrets: an explicit NOT_FOUND on a bill with a pending
-  // cash secret is retried once with it; silence never is.
-  const promoted = new Map<string, NonNullable<Holding['pendingCashSecret']>>()
-  const retries: BatchRedeem[] = []
-  for (const r of group) {
-    const o = results.get(r.holding.id)
-    const h = r.holding
-    if (o?.state !== 'error' || o.error?.code !== 'NOT_FOUND' || h.pendingCashSecret === undefined || sameSealed(h.pendingCashSecret, h.cashSecret)) continue
-    const it = items.find((i) => i.id === h.id)!
-    retries.push({ ...it, credential: bySecret(await ctx.open(h.pendingCashSecret)) })
-    promoted.set(h.id, h.pendingCashSecret)
-  }
-  if (retries.length > 0) {
-    try {
-      const again = await ctx.client(group[0]!.holding.token).redeemMany(retries)
-      for (const o of again.outcomes) if (o.state === 'result') results.set(o.id, o)
-    } catch {
-      // the first answers stand
-    }
-  }
   const out: Outcome<RedeemOutcome>[] = []
   const done: { id: string; amount: bigint; value: CashRedeemResult; invoice: string }[] = []
   for (const r of group) {
@@ -253,12 +233,7 @@ async function redeemGroup(ctx: Ctx, group: readonly Ready[], into: string, invo
   try {
     await ctx.commit(async (t) => {
       for (const d of done) {
-        await updateHolding(t, d.id, (x) => {
-          const p = promoted.get(d.id)
-          if (p === undefined || !sameSealed(x.pendingCashSecret, p)) return { ...x, status: 'redeemed' }
-          const { pendingCashSecret: _p, ...rest } = x
-          return { ...rest, cashSecret: p, status: 'redeemed' }
-        })
+        await updateHolding(t, d.id, (x) => ({ ...x, status: 'redeemed' }))
         await appendActivity(t, ctx.now(), { action: 'redeem', amount: d.amount, feesPaid: d.value.feesPaid, into, holdingIds: [d.id] })
       }
     })

@@ -39,12 +39,7 @@ export interface Holding {
   readonly protection: Protection
   readonly cashSecret?: Sealed
   readonly connectionKey?: ConnectionKeyBinding
-  // Write-ahead slots (§5.1).
-  readonly pendingCashSecret?: Sealed
-  readonly pendingDestinationCashSecret?: Sealed
-  /** The fresh secret a split of this cash note gives its remainder (`remainder_commitment`). */
-  readonly pendingRemainderCashSecret?: Sealed
-  readonly pendingThrowawayKey?: Sealed
+  /** A merge key this wallet generated (not its identity): the bill is spent with it. */
   readonly throwawayKey?: Sealed
   /** The minter's x-only key, for comparing with Nostr keys. */
   readonly minterXonly?: string
@@ -182,6 +177,15 @@ export interface CallOutput {
     | { readonly kind: 'pubkey'; readonly pubkey: string }
     | { readonly kind: 'connection_key'; readonly key: string; readonly platform: string; readonly ia: string }
     | { readonly kind: 'cash'; readonly secret: Sealed }
+    | { readonly kind: 'throwaway'; readonly pubkey: string; readonly key: Sealed }
+}
+
+/** What a finished call created, for the operation that ran it. */
+export interface CallCreated {
+  readonly holdingIds?: readonly string[]
+  readonly handoffId?: string
+  /** The holding a call moved in place (protect, a move onto a merge key). */
+  readonly movedHoldingId?: string
 }
 
 export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
@@ -229,6 +233,8 @@ export interface PendingCall {
   readonly lastDetail?: string
   readonly lookup?: { readonly status?: string; readonly retryAfter?: number; readonly checkedAt?: number; readonly omissions: number; readonly bearerStage?: 'without' | 'with' }
   readonly needsUser?: CallNeedsUser
+  /** What the call created once applied. */
+  readonly created?: CallCreated
   /** ms epoch. */
   readonly createdAt: number
   readonly version: number

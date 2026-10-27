@@ -103,7 +103,7 @@ describe('T-521 a call and its answer', () => {
     const events: string[] = []
     h.wallet.on('operation', (ev) => events.push(ev.phase))
     const rep = await h.wallet.settle()
-    expect(rep.calls.applied).toEqual([call.id])
+    expect(rep.applied).toEqual([call.id])
     expect(finished).toEqual([{ id: call.id, from: 'lookup' }])
     expect(events).toContain('recovered')
     expect(h.bank.hub.requests.filter((r) => r.item.method === 'cash_transfer')).toHaveLength(1)
@@ -111,7 +111,7 @@ describe('T-521 a call and its answer', () => {
   test('a call never marked sent is closed not_sent', async () => {
     const { call } = await prepared()
     const rep = await h.wallet.settle()
-    expect(rep.calls.closed).toEqual([call.id])
+    expect(rep.closed).toEqual([call.id])
     expect(await row(call.id)).toMatchObject({ state: 'done', outcome: 'not_sent' })
   })
   test('BAD_REQUEST closes it not applied (invalid_input)', async () => {
@@ -154,7 +154,7 @@ describe('T-522 unknown and re-placement', () => {
   test('the owning device places it again under the derived id; the old call closes replaced', async () => {
     const { call } = await lostThenUnknown()
     const rep = await h.wallet.settle()
-    expect(rep.calls.replaced).toEqual([call.id])
+    expect(rep.replaced).toEqual([call.id])
     const all = await calls()
     const next = all.find((c) => c.derivedFrom === call.id)!
     expect(next).toMatchObject({ requestId: derivedRequestId(call.requestId), attempts: 2, state: 'done', outcome: 'applied' })

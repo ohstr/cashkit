@@ -23,12 +23,12 @@ const CHECK = 'cashkit backup key check'
  * applies to every element of an array.
  */
 export const SEALED_FIELDS: Readonly<Partial<Record<Collection, readonly string[]>>> = {
-  holdings: ['cashSecret', 'pendingCashSecret', 'pendingDestinationCashSecret', 'pendingRemainderCashSecret', 'pendingThrowawayKey', 'throwawayKey'],
+  holdings: ['cashSecret', 'throwawayKey'],
   handoffs: ['handoff'],
   connections: ['uri'],
   identity: ['priv'],
   pendingJoins: ['connectionSecret'],
-  pendingCalls: ['authorizer.authorizerKey', 'authorizer.buyerKey', 'outputs[].destination.secret'],
+  pendingCalls: ['authorizer.authorizerKey', 'authorizer.buyerKey', 'outputs[].destination.secret', 'outputs[].destination.key'],
 }
 
 /** Collections that carry value or a way to reach it: what makes a backup stale. */
