@@ -259,8 +259,6 @@
   `not_after`, empty content and hex `d`, `h` and `ph`.
 - Breaking: an announced `max_bytes` above 65535 is kept as announced;
   `effectiveLimits` reads it as 65535, and envelopes are sized against that.
-- Breaking: NIP-44 plaintexts are capped at 65535 bytes; the extended length
-  prefix is gone.
 - `parsePowRejection` reads the difficulty from any `pow:` refusal naming a
   positive integer (`pow:20`).
 - `cashLookupParams` refuses a deadline of 0.
@@ -295,6 +293,8 @@
   such instead of as missing. New `ownClaim`; `matchClaim`,
   `matchClaimAuto` and `NO_LOCAL_IDENTITY` are removed.
   ([#35](https://github.com/ohstr/cashkit/pull/35))
+- `connectionKeyFromAttested` refuses a user id that is not in canonical
+  form on a platform that has one (x, discord, email, dns).
 
 ## [0.1.0-rc.2]
 
