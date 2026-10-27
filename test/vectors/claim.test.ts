@@ -54,7 +54,6 @@ const MISMATCH = new Set([
   'redeem with an amount', // nmilat sends amount with an invoice that has one (10u); cashkit refuses amount unless the invoice is amountless
   'transfer to pubkey uppercase', // nmilat sends the uppercase pubkey as given; cashkit refuses a pubkey identity that is not lowercase hex
   // results
-  'a Hub returned a secret', // nmilat refuses a reply with a `secret` field; cashkit ignores the field
   // ownRow (cashkit: matchClaim)
   "connection_key, the credential's IA", // nmilat finds the connection_key row of the credential's IA; matchClaim matches only pubkey and cash rows
   'cash, uppercase commitment', // nmilat refuses a scope-mine row that is not the caller's commitment; matchClaim takes any unclaimed cash row
