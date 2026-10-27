@@ -69,6 +69,14 @@ describe('merge grouping', () => {
     expect(await failure(h.wallet.consolidate({ holdings: [a!, b!] }))).toMatchObject({ code: 'invalid_input', reason: 'mixed_ordered' })
     expect(await calls(h)).toEqual([])
   })
+  test('a send naming ordered and other bills together is mixed_ordered, before anything is written', async () => {
+    const h = await harness()
+    const [a, b] = await bills(h, [1000n, 2000n])
+    await patch(h, a!, (x) => ({ ...x, ordered: true }))
+    expect(await failure(h.wallet.planSend({ holdings: [a!, b!] }))).toMatchObject({ code: 'invalid_input', reason: 'mixed_ordered' })
+    expect(await failure(h.wallet.send({ holdings: [a!, b!], amount: 2500n }))).toMatchObject({ code: 'invalid_input', reason: 'mixed_ordered' })
+    expect(await calls(h)).toEqual([])
+  })
   test('an expired bill is never auto-merged', async () => {
     const h = await harness()
     const [a, b, c] = await bills(h, [1000n, 2000n, 3000n])
