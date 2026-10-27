@@ -185,15 +185,17 @@ describe('wallet.withdraw', () => {
     const { h, hub, id } = await setup()
     const q = await h.wallet.withdraw.quote(id, PAYTO)
     const same = await h.wallet.withdraw.requote(q)
-    expect(same.quoteChanged).toEqual([])
+    // sent_by follows the clock, so a second may pass between the two quotes.
+    const noClock = (f: readonly string[] | undefined) => (f ?? []).filter((x) => x !== 'sentBy')
+    expect(noClock(same.quoteChanged)).toEqual([])
     expect(same.handle).not.toBe(q.handle)
     expect(await failure(h.wallet.withdraw.send(q, { confirm: yes }))).toMatchObject({ reason: 'quote_used' })
     hub.networkFee = 1_500_000n
     const moved = await h.wallet.withdraw.requote(same)
-    expect(moved.quoteChanged).toEqual(['networkFeeMillis', 'feeMillis', 'payoutMillis'])
+    expect(noClock(moved.quoteChanged)).toEqual(['networkFeeMillis', 'feeMillis', 'payoutMillis'])
     let shown: readonly string[] | undefined
     const v = await h.wallet.withdraw.send(moved, { confirm: (x) => ((shown = x.quoteChanged), Promise.resolve(true)) })
-    expect(shown).toEqual(['networkFeeMillis', 'feeMillis', 'payoutMillis'])
+    expect(noClock(shown)).toEqual(['networkFeeMillis', 'feeMillis', 'payoutMillis'])
     expect(v.payoutMillis).toBe(moved.payoutMillis)
   })
   test('recover: a withdrawal whose record was lost is found from the bill’s tombstone and followed, never placed again', async () => {
