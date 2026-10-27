@@ -4,11 +4,19 @@
 // order or a join then runs over the listed string as any other.
 import {
   checkTap,
+  CURATOR_SET_D,
+  CURATOR_SET_KIND,
   globalFilter,
+  KIND_RECOMMENDATION,
   KIND_LISTING,
   KIND_OPERATOR_OFFERS,
   listingAddress,
   ListingError,
+  newCuratorSet,
+  newRecommendation,
+  newReport,
+  parseCuratorSet,
+  parseOperatorOffers,
   MAX_CONTENT,
   MAX_TITLE,
   newestOperatorOffers,
@@ -26,14 +34,18 @@ import {
   type Listing,
   type ListingReport,
   type NostrEvent,
+  type EventTemplate,
   type OperatorOffers,
   type Recommendation,
+  type ReportReason,
   type TapResult,
   type Trust,
 } from '../core/index.js'
 import { NwcClient, readEvents } from '../client/index.js'
 import type { Ctx } from './context.js'
 import { CashkitError } from './errors.js'
+import { newId } from './ledger.js'
+import { DEFAULT_SETTINGS, type DiscoverOutboxRow, type DiscoverSettings } from './model.js'
 
 const READ_MS = 2500
 
@@ -109,13 +121,16 @@ interface State {
   operatorFollowers: Map<string, string[]>
   trust: Trust
   diagnostics: { step: number; reason: string }[]
+  chains: readonly string[]
+  testNetworks: boolean
+  relays: readonly string[]
 }
 
 const states = new WeakMap<Ctx, State>()
 const stateOf = (ctx: Ctx): State => {
   let s = states.get(ctx)
   if (s === undefined) {
-    s = { book: new VersionBook(), taps: new TapCache(), listings: new Map(), unreviewed: new Set(), recs: [], reports: [], operators: new Map(), operatorFollowers: new Map(), trust: { follows: new Set(), curators: new Set() }, diagnostics: [] }
+    s = { book: new VersionBook(), taps: new TapCache(), listings: new Map(), unreviewed: new Set(), recs: [], reports: [], operators: new Map(), operatorFollowers: new Map(), trust: { follows: new Set(), curators: new Set() }, diagnostics: [], chains: ['bitcoin'], testNetworks: false, relays: [] }
     states.set(ctx, s)
   }
   return s
@@ -137,10 +152,14 @@ export async function refreshDiscover(ctx: Ctx, o: DiscoverOptions): Promise<voi
     const k3 = (await read(ctx, o.relays, { kinds: [3], authors: [me] })).reduce<NostrEvent | undefined>((m, e) => (m === undefined || e.created_at > m.created_at ? e : m), undefined)
     follows = k3?.tags.filter((t) => t[0] === 'p' && typeof t[1] === 'string').map((t) => t[1]!) ?? []
   }
-  s.trust = { follows: new Set(follows ?? []), curators: new Set(o.curators ?? []) }
+  const curators = o.curators ?? (await ctx.settings()).discover?.curators ?? []
+  s.trust = { follows: new Set(follows ?? []), curators: new Set(curators) }
   const trusted = [...s.trust.follows, ...s.trust.curators]
   const now = ctx.nowSeconds()
   const chains = o.chains ?? ['bitcoin']
+  s.chains = chains
+  s.testNetworks = o.testNetworks === true
+  s.relays = [...o.relays]
   const signals: NostrEvent[] = []
   for (const f of trustedFilters({ trusted, nodes: [] }).filter((x) => x.kinds[0] !== KIND_LISTING && x.kinds[0] !== 5)) signals.push(...(await read(ctx, o.relays, f)))
   s.recs = signals.map(parseRecommendation).filter((r): r is Recommendation => r !== undefined)
@@ -176,6 +195,80 @@ export async function refreshDiscover(ctx: Ctx, o: DiscoverOptions): Promise<voi
     if (s.trust.follows.size > 0) {
       const k3 = await read(ctx, o.relays, { kinds: [3], authors: [...s.trust.follows], '#p': operators })
       for (const op of operators) s.operatorFollowers.set(op, [...new Set(k3.filter((e) => e.tags.some((t) => t[0] === 'p' && t[1] === op)).map((e) => e.pubkey))])
+    }
+  }
+  await saveDiscover(ctx)
+}
+
+// ---- persistence: the book, the tap outcomes and the events behind them survive a restart
+
+/** Writes what discover holds: version floors, tap outcomes, and the current listings and the signals behind them. */
+async function saveDiscover(ctx: Ctx): Promise<void> {
+  const s = stateOf(ctx)
+  const now = ctx.nowSeconds()
+  const rows = new Map<string, { event: NostrEvent; unreviewed: boolean }>()
+  for (const a of s.book.addresses()) {
+    const l = s.book.current(a, now)
+    if (l !== undefined) rows.set(l.event.id, { event: l.event, unreviewed: s.unreviewed.has(a) })
+  }
+  for (const e of [...s.recs.map((r) => r.event), ...s.reports.map((r) => r.event), ...[...s.operators.values()].map((o) => o.event)]) rows.set(e.id, { event: e, unreviewed: false })
+  await ctx.commit(async (t) => {
+    const cur = await t.get('discoverBook', 'self')
+    await t.put(
+      'discoverBook',
+      {
+        id: 'self',
+        book: s.book.snapshot(),
+        taps: s.taps.snapshot(),
+        follows: [...s.trust.follows],
+        curators: [...s.trust.curators],
+        operatorFollowers: [...s.operatorFollowers],
+        relays: s.relays,
+        chains: s.chains,
+        testNetworks: s.testNetworks,
+        version: (cur?.version ?? 0) + 1,
+      },
+      cur?.version ?? 0,
+    )
+    for (const old of await t.list('discoverEvents')) if (!rows.has(old.id)) await t.delete('discoverEvents', old.id)
+    for (const [id, r] of rows) {
+      const old = await t.get('discoverEvents', id)
+      if (old === undefined || old.unreviewed !== r.unreviewed) await t.put('discoverEvents', { id, event: JSON.stringify(r.event), unreviewed: r.unreviewed, version: (old?.version ?? 0) + 1 }, old?.version ?? 0)
+    }
+  })
+}
+
+/** Reads back what `saveDiscover` wrote, so `list` shows the last refresh at once. */
+export async function loadDiscover(ctx: Ctx): Promise<void> {
+  const [book, events] = await ctx.read(async (t) => [await t.get('discoverBook', 'self'), await t.list('discoverEvents')] as const)
+  if (book === undefined) return
+  const s = stateOf(ctx)
+  s.book.restore(book.book)
+  s.taps.restore(book.taps)
+  s.trust = { follows: new Set(book.follows), curators: new Set(book.curators) }
+  s.operatorFollowers = new Map(book.operatorFollowers.map(([k, v]) => [k, [...v]]))
+  s.relays = book.relays
+  s.chains = book.chains
+  s.testNetworks = book.testNetworks
+  const now = ctx.nowSeconds()
+  const evs = events.map((r) => ({ e: JSON.parse(r.event) as NostrEvent, unreviewed: r.unreviewed }))
+  for (const { e, unreviewed } of evs) {
+    if (e.kind === KIND_LISTING) {
+      try {
+        const l = parseListing(e, { chains: s.chains, testNetworks: s.testNetworks })
+        if (s.book.offer(l, now)) s.listings.set(listingAddress(l), l)
+        if (unreviewed) s.unreviewed.add(listingAddress(l))
+      } catch {
+        // a listing that no longer passes (a chain no longer held) is not shown
+      }
+    } else if (e.kind === KIND_RECOMMENDATION) {
+      const r = parseRecommendation(e)
+      if (r !== undefined) s.recs.push(r)
+    } else if (e.kind === KIND_OPERATOR_OFFERS) {
+      s.operators.set(e.pubkey, parseOperatorOffers(e))
+    } else {
+      const r = parseReport(e)
+      if (r !== undefined) s.reports.push(r)
     }
   }
 }
@@ -286,6 +379,7 @@ export async function tapDiscover(ctx: Ctx, address: string, o: { timeoutMs?: nu
   }
   const r = checkTap(l, info, error)
   stateOf(ctx).taps.record(l, r)
+  await saveTaps(ctx)
   return {
     outcome: r.outcome,
     reason: r.reason,
@@ -317,4 +411,247 @@ export async function recommendPreview(ctx: Ctx, address: string): Promise<{ all
   const last = Math.max(...orders.map((c) => Math.floor(c.createdAt / 1000)), ...conns.filter((c) => c.circle?.hubPubkey === l.d).map((c) => c.circle!.createdAt), -1)
   const r = recommendAllowed({ used, ...(last >= 0 && { lastOrderOrJoin: last }), sessionStart: Math.floor(ctx.openedAt / 1000), now: ctx.nowSeconds() })
   return { ...r, ...base }
+}
+
+async function saveTaps(ctx: Ctx): Promise<void> {
+  const taps = stateOf(ctx).taps.snapshot()
+  await ctx.commit(async (t) => {
+    const cur = await t.get('discoverBook', 'self')
+    if (cur !== undefined) await t.put('discoverBook', { ...cur, taps, version: cur.version + 1 }, cur.version)
+  })
+}
+
+// ---- the user's relays
+
+/** The write relays of `pubkey`'s newest kind 10002 (unmarked or `write`), read from `relays`. */
+async function writeRelaysOf(ctx: Ctx, pubkey: string, relays: readonly string[]): Promise<string[]> {
+  const evs = await read(ctx, relays, { kinds: [10002], authors: [pubkey] })
+  const newest = evs.reduce<NostrEvent | undefined>((m, e) => (m === undefined || e.created_at > m.created_at || (e.created_at === m.created_at && e.id < m.id) ? e : m), undefined)
+  return newest?.tags.filter((t) => t[0] === 'r' && typeof t[1] === 'string' && (t[2] === undefined || t[2] === 'write')).map((t) => t[1]!) ?? []
+}
+
+async function requireIdentity(ctx: Ctx) {
+  const signer = await ctx.signer()
+  if (signer === undefined) throw new CashkitError('usage', 'recommending, reporting and publishing curators sign with your Nostr identity: set one up first', { reason: 'identity_required' })
+  return signer
+}
+
+async function publishTo(ctx: Ctx, relays: readonly string[], ev: NostrEvent): Promise<string[]> {
+  const r = await Promise.all([...new Set(relays)].map(async (url) => ((await ctx.deps.relays.publish(url, ev).catch(() => ({ ok: false }))).ok ? url : undefined)))
+  return r.filter((x): x is string => x !== undefined)
+}
+
+// ---- curators (NIP-CASH §Curators)
+
+export interface CuratorsView {
+  readonly pubkeys: readonly string[]
+  /** `app`: defaults an app supplied ("Curated by <sourceName>"); `user`: the user's own. */
+  readonly source: 'user' | 'app'
+  readonly sourceName?: string
+}
+
+async function curatorSettings(ctx: Ctx): Promise<DiscoverSettings> {
+  return (await ctx.settings()).discover ?? { curators: [], curatorSource: 'user' }
+}
+
+async function writeCurators(ctx: Ctx, d: DiscoverSettings): Promise<CuratorsView> {
+  await ctx.commit(async (t) => {
+    const cur = await t.get('settings', 'settings')
+    await t.put('settings', { ...DEFAULT_SETTINGS, ...cur, discover: d, id: 'settings', version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+  })
+  return viewOf(d)
+}
+
+const viewOf = (d: DiscoverSettings): CuratorsView => ({ pubkeys: d.curators, source: d.curatorSource, ...(d.curatorSourceName !== undefined && { sourceName: d.curatorSourceName }) })
+const HEX64 = /^[0-9a-f]{64}$/
+
+export async function listCurators(ctx: Ctx): Promise<CuratorsView> {
+  return viewOf(await curatorSettings(ctx))
+}
+
+/** Adds or removes a curator: the list becomes the user's own. */
+export async function editCurators(ctx: Ctx, change: { add?: string; remove?: string }): Promise<CuratorsView> {
+  if (change.add !== undefined && !HEX64.test(change.add)) throw new CashkitError('invalid_input', 'a curator is a 64-hex lowercase pubkey', { input: change.add })
+  const d = await curatorSettings(ctx)
+  const list = d.curators.filter((c) => c !== change.remove)
+  if (change.add !== undefined && !list.includes(change.add)) list.push(change.add)
+  const { curatorSourceName: _n, ...rest } = d
+  return writeCurators(ctx, { ...rest, curators: list, curatorSource: 'user' })
+}
+
+/** An app's default curators. Ignored once the user has edited the list (the user's edits win). */
+export async function setDefaultCurators(ctx: Ctx, o: { pubkeys: readonly string[]; sourceName?: string }): Promise<CuratorsView> {
+  const d = (await ctx.settings()).discover
+  if (d !== undefined && d.curatorSource === 'user') return viewOf(d)
+  for (const p of o.pubkeys) if (!HEX64.test(p)) throw new CashkitError('invalid_input', 'a curator is a 64-hex lowercase pubkey', { input: p })
+  return writeCurators(ctx, { curators: [...new Set(o.pubkeys)], curatorSource: 'app', ...(o.sourceName !== undefined && { curatorSourceName: o.sourceName }), ...(d?.curatorsPrivate !== undefined && { curatorsPrivate: d.curatorsPrivate }) })
+}
+
+/**
+ * Publishes the curators as the user's NIP-51 set (kind 30000, `d`
+ * `cash-discover`, no title), its items private (NIP-44 to self) unless
+ * `curatorsPrivate` is false, to the user's write relays and `relays`.
+ */
+export async function publishCurators(ctx: Ctx, o: { relays?: readonly string[] } = {}): Promise<{ eventId: string; relays: string[] }> {
+  const signer = await requireIdentity(ctx)
+  const d = await curatorSettings(ctx)
+  const priv = d.curatorsPrivate !== false
+  if (priv && signer.nip44Encrypt === undefined) throw new CashkitError('usage', 'this signer cannot encrypt to itself, so the curators cannot be kept private', { reason: 'signer_cannot_encrypt' })
+  const t = await newCuratorSet({ curators: d.curators, private: priv }, (pt) => signer.nip44Encrypt!(signer.pubkey, pt))
+  const ev = await signer.signEvent({ ...t, created_at: ctx.nowSeconds() })
+  const base = o.relays ?? stateOf(ctx).relays
+  const relays = [...(await writeRelaysOf(ctx, signer.pubkey, base)), ...base]
+  return { eventId: ev.id, relays: await publishTo(ctx, relays, ev) }
+}
+
+/** Reads the newest copy of the user's set from their write relays and `relays`, and makes it the list. */
+export async function syncCurators(ctx: Ctx, o: { relays?: readonly string[] } = {}): Promise<CuratorsView> {
+  const signer = await requireIdentity(ctx)
+  const base = o.relays ?? stateOf(ctx).relays
+  const relays = [...new Set([...(await writeRelaysOf(ctx, signer.pubkey, base)), ...base])]
+  const evs = (await read(ctx, relays, { kinds: [CURATOR_SET_KIND], authors: [signer.pubkey], '#d': [CURATOR_SET_D] })).filter((e) => e.pubkey === signer.pubkey)
+  const newest = evs.reduce<NostrEvent | undefined>((m, e) => (m === undefined || e.created_at > m.created_at || (e.created_at === m.created_at && e.id < m.id) ? e : m), undefined)
+  if (newest === undefined) return listCurators(ctx)
+  const set = await parseCuratorSet(newest, (ct) => signer.nip44Decrypt(signer.pubkey, ct))
+  return writeCurators(ctx, { curators: set.curators, curatorSource: 'user', curatorsPrivate: set.private || newest.content !== '' })
+}
+
+// ---- the outbox: recommendations and reports, published later (NIP-CASH §Recommendations, §Reports)
+
+const DELAY_MIN = 3600
+const DELAY_MAX = 21_600
+
+export interface OutboxItem {
+  readonly id: string
+  readonly kind: 'recommendation' | 'report'
+  readonly node: string
+  readonly address?: string
+  readonly reason?: string
+  /** Unix seconds: not published before. */
+  readonly dueAt: number
+  readonly createdAt: number
+}
+
+const item = (r: DiscoverOutboxRow): OutboxItem => ({ id: r.id, kind: r.kind, node: r.node, ...(r.address !== undefined && { address: r.address }), ...(r.reason !== undefined && { reason: r.reason }), dueAt: r.dueAt, createdAt: r.createdAt })
+
+/** A delay drawn uniformly from [1 h, 6 h), so the publication time does not reveal when the user ordered or joined. */
+function delay(ctx: Ctx): number {
+  const b = ctx.random(4)
+  const u = (((b[0]! << 24) >>> 0) + (b[1]! << 16) + (b[2]! << 8) + b[3]!) / 2 ** 32
+  return DELAY_MIN + Math.floor(u * (DELAY_MAX - DELAY_MIN))
+}
+
+async function queue(ctx: Ctx, row: Omit<DiscoverOutboxRow, 'version' | 'dueAt' | 'createdAt' | 'relays'>, me: string): Promise<OutboxItem> {
+  const base = stateOf(ctx).relays
+  const relays = [...new Set([...(await writeRelaysOf(ctx, me, base)), ...base])]
+  const now = ctx.nowSeconds()
+  const full = { ...row, relays, dueAt: now + delay(ctx), createdAt: now }
+  await ctx.commit(async (t) => {
+    const cur = await t.get('discoverOutbox', row.id)
+    await t.put('discoverOutbox', { ...full, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+  })
+  return item({ ...full, version: 1 })
+}
+
+export type RecommendPreview = Awaited<ReturnType<typeof recommendPreview>>
+
+/**
+ * Recommends an offer the user has used: public, signed by the user's
+ * identity. Only when `recommendPreview` allows it; `confirm` is shown the
+ * preview and may decline. Queued, then published 1 to 6 hours later; a
+ * second recommendation of the same node replaces the first.
+ */
+export async function recommend(ctx: Ctx, address: string, o: { content: string; confirm?: (p: RecommendPreview) => Promise<boolean> }): Promise<{ queued: false } | { queued: true; item: OutboxItem }> {
+  const signer = await requireIdentity(ctx)
+  const p = await recommendPreview(ctx, address)
+  if (!p.allowed) throw new CashkitError('invalid_input', `recommending this offer is not offered now: ${p.reasonIfNot}`, { reason: 'recommend_not_allowed', input: address })
+  if (o.confirm !== undefined && !(await o.confirm(p))) return { queued: false }
+  const l = listing(ctx, address)
+  const t = newRecommendation(l.nodeIdentity, stateOf(ctx).relays[0] ?? '', [address], o.content)
+  return { queued: true, item: await queue(ctx, { id: `rec:${l.nodeIdentity}`, kind: 'recommendation', node: l.nodeIdentity, address, template: JSON.stringify(t) }, signer.pubkey) }
+}
+
+export interface ReportPreview {
+  readonly audience: { readonly public: true }
+  /** The report names the user as the reporter. */
+  readonly reporter: string
+  readonly node: string
+  readonly reason: ReportReason
+}
+
+/**
+ * Reports a node, or one of its offers by address: public, naming the user
+ * as the reporter. Queued like a recommendation; no "used" or timing rule.
+ */
+export async function report(ctx: Ctx, target: string, o: { reason: ReportReason; content: string; confirm?: (p: ReportPreview) => Promise<boolean> }): Promise<{ queued: false } | { queued: true; item: OutboxItem }> {
+  const signer = await requireIdentity(ctx)
+  let node = target
+  let address: string | undefined
+  let listingId: string | undefined
+  if (target.includes(':')) {
+    address = target
+    node = target.split(':')[1] ?? ''
+    listingId = stateOf(ctx).listings.get(target)?.event.id
+  }
+  if (!HEX64.test(node)) throw new CashkitError('invalid_input', 'report a node identity (64 hex) or a listing address', { input: target })
+  if (o.confirm !== undefined && !(await o.confirm({ audience: { public: true }, reporter: signer.pubkey, node, reason: o.reason }))) return { queued: false }
+  const t = newReport({ node, ...(address !== undefined && { address }), ...(listingId !== undefined && { listingId }), reason: o.reason, content: o.content })
+  return { queued: true, item: await queue(ctx, { id: `rep:${newId('r', ctx.random).slice(2)}`, kind: 'report', node, ...(address !== undefined && { address }), reason: o.reason, template: JSON.stringify(t) }, signer.pubkey) }
+}
+
+/**
+ * Withdraws the user's recommendation of a node: its NIP-09 deletion is
+ * signed and published at once (never delayed), and a recommendation still
+ * queued for that node is cancelled.
+ */
+export async function withdrawRecommendation(ctx: Ctx, node: string, o: { relays?: readonly string[]; confirm?: (p: { audience: { public: true }; node: string }) => Promise<boolean> } = {}): Promise<{ withdrawn: boolean; relays: string[] }> {
+  const signer = await requireIdentity(ctx)
+  if (!HEX64.test(node)) throw new CashkitError('invalid_input', 'a node identity is 64 hex', { input: node })
+  if (o.confirm !== undefined && !(await o.confirm({ audience: { public: true }, node }))) return { withdrawn: false, relays: [] }
+  await ctx.commit(async (t) => {
+    if ((await t.get('discoverOutbox', `rec:${node}`)) !== undefined) await t.delete('discoverOutbox', `rec:${node}`)
+  })
+  const ev = await signer.signEvent({ kind: 5, created_at: ctx.nowSeconds(), tags: [['a', `${KIND_RECOMMENDATION}:${signer.pubkey}:${node}`], ['k', String(KIND_RECOMMENDATION)]], content: '' })
+  const base = o.relays ?? stateOf(ctx).relays
+  return { withdrawn: true, relays: await publishTo(ctx, [...(await writeRelaysOf(ctx, signer.pubkey, base)), ...base], ev) }
+}
+
+export async function listOutbox(ctx: Ctx): Promise<OutboxItem[]> {
+  return (await ctx.read((t) => t.list('discoverOutbox'))).map(item)
+}
+
+export async function cancelOutbox(ctx: Ctx, id: string): Promise<void> {
+  await ctx.commit(async (t) => {
+    if ((await t.get('discoverOutbox', id)) === undefined) throw new CashkitError('not_found', 'no queued recommendation or report with this id', { input: id })
+    await t.delete('discoverOutbox', id)
+  })
+}
+
+/** The earliest `dueAt` still queued, in unix seconds. */
+export async function nextOutboxDue(ctx: Ctx): Promise<number | undefined> {
+  const rows = await ctx.read((t) => t.list('discoverOutbox'))
+  return rows.length === 0 ? undefined : Math.min(...rows.map((r) => r.dueAt))
+}
+
+/**
+ * Signs (now, with the identity's signer) and publishes every queued item
+ * whose time has come, never before; an item no relay accepted stays queued.
+ */
+export async function publishDue(ctx: Ctx): Promise<{ published: string[] }> {
+  const signer = await ctx.signer()
+  if (signer === undefined) return { published: [] }
+  const now = ctx.nowSeconds()
+  const due = (await ctx.read((t) => t.list('discoverOutbox'))).filter((r) => r.dueAt <= now)
+  const published: string[] = []
+  for (const r of due) {
+    const t = JSON.parse(r.template) as EventTemplate
+    const ev = await signer.signEvent({ ...t, created_at: now })
+    if ((await publishTo(ctx, r.relays, ev)).length === 0) continue
+    await ctx.commit(async (tx) => {
+      const cur = await tx.get('discoverOutbox', r.id)
+      if (cur !== undefined && cur.version === r.version) await tx.delete('discoverOutbox', r.id)
+    })
+    published.push(r.id)
+  }
+  return { published }
 }
