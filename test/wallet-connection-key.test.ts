@@ -107,6 +107,22 @@ describe('connection-key slices', () => {
     expect(row).toMatchObject({ mode: 'connection_key', origin: 'reminted', amount: 21_000_000n })
     expect(row.connectionKey?.key).toBe(KEY)
   })
+  test('recover: a lost connection-key withdrawal is found and followed, and its re-mint comes back bound to the same account', async () => {
+    const hub = new FakeWithdraw(h.bank)
+    const { holding } = await receiveCk(21_000_000n)
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(holding.id, PAYTO), { confirm: () => Promise.resolve(true) })
+    const lost = (await h.storage.tx('r', (x) => x.get('pendingCalls', v.id)))!
+    await h.storage.tx('rw', (x) => x.delete('pendingCalls', v.id))
+    const r = await h.wallet.withdraw.recover(holding.id)
+    const call = (await h.storage.tx('r', (x) => x.get('pendingCalls', r.id)))!
+    expect(call).toMatchObject({ requestId: lost.requestId, params: { recovered: '1' } })
+    expect(call.outputs).toEqual([{ role: 'remint', destination: { kind: 'connection_key', key: KEY, platform: 'discord', ia: IA } }])
+    hub.cancel(hub.only())
+    const after = await h.wallet.withdraw.refresh(r.id)
+    expect(after.phase).toBe('cancelled')
+    const row = (await h.storage.tx('r', (x) => x.get('holdings', after.remintHoldingId!)))!
+    expect(row).toMatchObject({ mode: 'connection_key', origin: 'reminted', amount: 21_000_000n })
+  })
   test('a held connection-key bill without its attestation cannot be spent, and says why', async () => {
     const { holding } = await receiveCk(5000n)
     await h.storage.tx('rw', async (t) => {

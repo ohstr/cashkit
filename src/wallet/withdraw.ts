@@ -576,14 +576,31 @@ function noticeWithdrawal(ctx: Ctx, v: WithdrawalView): WithdrawalView {
  * cash-mode bill's re-mint, should the payout be cancelled, cannot be kept:
  * its secret was in the lost record.
  */
+/** Where a recovered withdrawal's re-mint goes: the slice's own identity; a cash-mode remint secret was never known here. */
+function remintOf(credential: Credential, h: Holding): PlainOutput[] {
+  if (credential.kind === 'signing') return [{ role: 'remint', destination: { kind: 'pubkey', pubkey: credential.signer.pubkey } }]
+  const att = credential.kind === 'connection_key' ? credential.attestation : undefined
+  if (att !== undefined) return [{ role: 'remint', destination: { kind: 'connection_key', key: att.connectionKey, platform: h.connectionKey?.platform ?? '', ia: att.event.pubkey } }]
+  return []
+}
+
 export async function recoverWithdrawal(ctx: Ctx, holdingId: string): Promise<WithdrawalView> {
   const h = await ctx.read((t) => t.get('holdings', holdingId))
   if (h === undefined) throw new CashkitError('not_found', `no holding ${holdingId}`, { input: holdingId })
   const credential = await ctx.credentialFor(h)
-  const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope: 'mine' }])
+  const scope = ownScope(credential)
+  const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope }])
   const o = r.outcomes[0]
   if (o?.state !== 'result' || o.value === undefined) throw new CashkitError('network', "the bill's Hub did not answer its status; try again", { input: h.id })
-  const rid = o.value.tombstone?.withdrawRequestId ?? o.value.recipients[0]?.withdraw_request_id
+  let row: { withdraw_request_id?: string } | undefined
+  if (o.value.tombstone === undefined) {
+    try {
+      row = ownRow(o.value.recipients, credential, scope)
+    } catch {
+      throw new CashkitError('not_found', 'no slice of this bill answers to this wallet', { input: h.id })
+    }
+  }
+  const rid = o.value.tombstone?.withdrawRequestId ?? row?.withdraw_request_id
   if (rid === undefined || rid === '') throw new CashkitError('not_found', 'the Hub names no on-chain withdrawal of this bill for this wallet', { input: h.id, reason: 'no_withdrawal' })
   const known = (await ctx.read((t) => t.list('pendingCalls'))).find((c) => c.requestId === rid)
   if (known !== undefined) return withdrawalView(known)
@@ -601,7 +618,7 @@ export async function recoverWithdrawal(ctx: Ctx, holdingId: string): Promise<Wi
     amount: h.amount ?? 0n,
     sources: [h.id],
     authorizer: h.mode === 'cash' ? { kind: 'cash', holdingId: h.id } : { kind: 'identity' },
-    outputs: credential.kind === 'signing' ? [{ role: 'remint', destination: { kind: 'pubkey', pubkey: credential.signer.pubkey } }] : [],
+    outputs: remintOf(credential, h),
     context: { op: 'withdraw' },
     params: { recovered: '1' },
   })
