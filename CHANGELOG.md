@@ -72,9 +72,12 @@
 - Mines private requests to the relays' NIP-11 proof-of-work minimum and
   re-mines the same request after a `pow:` refusal; adds the `relayInfo` and
   `powBudget` options and the `pow_too_hard` error.
+  ([#14](https://github.com/ohstr/cashkit/pull/14))
 - Relay adapters return a relay's refusal message verbatim and read its
   NIP-11 document.
+  ([#14](https://github.com/ohstr/cashkit/pull/14))
 - Maps `QUOTA_EXCEEDED` to `conflict`.
+  ([#14](https://github.com/ohstr/cashkit/pull/14))
 
 ## [0.1.0-rc.2]
 
