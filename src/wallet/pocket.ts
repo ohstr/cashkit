@@ -115,6 +115,17 @@ async function identityOf(ctx: Ctx, h: Holding): Promise<PocketIdentity> {
   return { type: 'pubkey', value: (await ctx.requireSigner()).pubkey }
 }
 
+/**
+ * How an imported bill is held: a cash bill with its secret; a
+ * connection-key bill bound to its key and IA, without the attestation
+ * (receiving the bill again with it makes it spendable); else the identity.
+ */
+function modeOfEntry(id: PocketIdentity | undefined, sealed: Holding['cashSecret']) {
+  if (id?.type === 'cash') return { mode: 'cash' as const, protection: 'protected' as const, ...(sealed !== undefined && { cashSecret: sealed }) }
+  if (id?.type === 'connection_key') return { mode: 'connection_key' as const, protection: 'none' as const, connectionKey: { platform: '', externalId: '', attestationId: '', iaPubkey: id.ia, key: id.value } }
+  return { mode: 'pubkey' as const, protection: 'none' as const }
+}
+
 /** The live entry of a held bill: its token, identity, secret, minter and expiry. */
 export async function heldEntry(ctx: Ctx, h: Holding, state: PocketEntry['state'] = 'live') {
   return {
@@ -323,7 +334,7 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
           relayUrls: f.tok.relays,
           amount: e.amountMillis,
           verified: false,
-          ...(e.identity?.type === 'cash' ? { mode: 'cash' as const, protection: 'protected' as const, ...(sealed !== undefined && { cashSecret: sealed }) } : { mode: 'pubkey' as const, protection: 'none' as const }),
+          ...modeOfEntry(e.identity, sealed),
           ...(f.minterPubkey !== undefined && { minterPubkey: f.minterPubkey }),
           ...(e.expiresAt !== undefined && { expiresAt: e.expiresAt }),
           origin: 'received',

@@ -1214,7 +1214,9 @@ gift-wrapped to the user, each with a fresh wrap key it records.
   deleted with a kind 5 signed by its own wrap key. The wraps' local
   record (`pocket`) is never exported.
 - `pocket.sync()` imports live entries this device does not hold (with
-  their secret), writes entries for held bills the pocket lacks, and marks
+  their secret; a `connection_key` entry is held bound to its key and IA,
+  spendable once the bill is received again with the account's
+  attestation), writes entries for held bills the pocket lacks, and marks
   bills no longer held `spent`; `pocket.balance()` sums live entries per
   chain; `pocket.entries()` lists resolved entries without secrets.
 - **Older entries.** A live entry of a held bill without `expires_at` is

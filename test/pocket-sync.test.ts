@@ -3,17 +3,21 @@
 // turned on, 30-day removal of final entries, a missing `expires_at` filled
 // from cash_status, relay discovery (10050, then NIP-65), and NIP-42 AUTH.
 import { beforeEach, describe, expect, test } from 'vitest'
+import { sha256 } from '@noble/hashes/sha2.js'
 import {
   bySigning,
+  connectionKeyFromAttested,
   createRumor,
   createSeal,
   createWrap,
   decodeToken,
   derivedRequestId,
   finalizeEvent,
+  getPublicKey,
   newCashTarget,
   newRequestId,
   pubkeyTarget,
+  toHex,
   type EventTemplate,
   type NostrEvent,
 } from '../src/core/index.js'
@@ -153,6 +157,33 @@ describe('placing a call again: the derived-id check', () => {
     await h.wallet.settle()
     expect(transfers()).toHaveLength(0)
     expect((await row(call.id))?.state).not.toBe('done')
+  })
+})
+
+describe('importing a connection-key bill', () => {
+  test('held bound to its key and IA; receiving it again with the attestation makes it spendable', async () => {
+    const iaKey = fill(0x51, 32)
+    const ia = getPublicKey(iaKey)
+    const user = '80351110224678912'
+    const key = connectionKeyFromAttested('discord', user)
+    const w = h.bank.mintToConnectionKey(5000n, key, ia)
+    const tok = decodeToken(w.token)
+    await writeEntry(ctxOf(h.wallet), { w: tok.walletPubkey, state: 'live', cash: w.token, identity: { type: 'connection_key', value: key, ia }, amountMillis: 5000n, chain: 'flokicoin' })
+    const rep = await h.wallet.pocket.sync()
+    expect(rep.imported).toHaveLength(1)
+    const held = (await h.storage.tx('r', (t) => t.get('holdings', rep.imported[0]!)))!
+    expect(held).toMatchObject({ mode: 'connection_key', connectionKey: { key, iaPubkey: ia } })
+    const att = finalizeEvent(
+      {
+        kind: 35522,
+        created_at: 1_700_000_000,
+        tags: [['d', toHex(sha256(new TextEncoder().encode(`discord:${user}`)))], ['p', h.me], ['platform', 'discord'], ['evidence', JSON.stringify({ version: 1, auth_type: 'oauth', user_id: user, username: 'alice' })], ['expiration', '4000000000']],
+        content: '',
+      },
+      iaKey,
+    )
+    expect(await h.wallet.receive(w.token, { attestation: att })).toMatchObject({ received: true, holding: { id: held.id, mode: 'connection_key' } })
+    expect((await h.wallet.send({ to: BOB, holdings: [held.id] })).sent).toBe(5000n)
   })
 })
 
