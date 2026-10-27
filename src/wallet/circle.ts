@@ -247,12 +247,23 @@ export async function joinCircle(ctx: Ctx, hubString: string, t: JoinTermsInput,
       at: ctx.now(),
       version: 1,
     }
-    await ctx.commit((x) => x.put('pendingJoins', pj, 0))
+    try {
+      await ctx.commit((x) => x.put('pendingJoins', pj, 0))
+    } catch (err) {
+      throw new CashkitError('internal', 'could not record the join before sending it, so it was not sent', { cause: err })
+    }
+    const drop = () => ctx.commit((x) => x.delete('pendingJoins', pj.id)).catch(() => undefined)
+    // Read back in a new read and open the sealed secrets before anything is sent (write-ahead).
+    if (!(await joinReadsBack(ctx, pj.id, key.secret, hubString.trim()))) {
+      await drop()
+      throw new CashkitError('internal', 'the join read back from storage did not match what was written, so it was not sent')
+    }
+    // Only the unsent row this join wrote may be marked sent; a missing or already-sent row means nothing goes out.
     const markSent = () => ctx.commit(async (x) => {
       const cur = await x.get('pendingJoins', pj.id)
-      if (cur !== undefined) await x.put('pendingJoins', { ...cur, sent: true, version: cur.version + 1 }, cur.version)
+      if (cur === undefined || cur.sent) throw new CashkitError('internal', 'the pending join is no longer waiting to be sent, so it was not sent')
+      await x.put('pendingJoins', { ...cur, sent: true, version: cur.version + 1 }, cur.version)
     })
-    const drop = () => ctx.commit((x) => x.delete('pendingJoins', pj.id)).catch(() => undefined)
     ctx.emit({ op: 'join', phase: 'sent', id: opId })
     let r
     try {
@@ -290,6 +301,17 @@ export async function joinCircle(ctx: Ctx, hubString: string, t: JoinTermsInput,
     }
     throw pendingJoinError(pj.id)
   })
+}
+
+/** The pending join as read back: present, unsent, and its sealed secrets open to what was written. */
+async function joinReadsBack(ctx: Ctx, id: string, secret: string, hubString: string): Promise<boolean> {
+  const back = await ctx.read((x) => x.get('pendingJoins', id))
+  if (back === undefined || back.sent) return false
+  try {
+    return (await ctx.open(back.connectionSecret)) === secret && (await ctx.open(back.hubConnection)) === hubString
+  } catch {
+    return false
+  }
 }
 
 export interface SettleJoinsReport {

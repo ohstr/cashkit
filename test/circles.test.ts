@@ -3,7 +3,8 @@
 // Lightning through it, member requests, notifications and deletion.
 import { describe, expect, test } from 'vitest'
 import { verifyEvent } from '../src/core/index.js'
-import { CashkitError, toJSON } from '../src/wallet/index.js'
+import { MemoryStorage } from '../src/adapters/storage-memory.js'
+import { CashkitError, toJSON, type Storage, type StorageTx } from '../src/wallet/index.js'
 import { FakeCircle } from './fakeCircle.js'
 import { harness, type Harness } from './walletHarness.js'
 
@@ -77,6 +78,20 @@ describe('circles.join', () => {
     expect(await failure(h.wallet.circles.join(circle.string, terms))).toMatchObject({ code: 'conflict', nwcCode: 'RATE_LIMITED' })
     expect(circle.joins).toHaveLength(1)
     expect(h.wallet.state.pendingJoins).toEqual([])
+  })
+  test('a pending join that does not read back is never sent', async () => {
+    // Storage that loses every pending-join write: the join's secret would not survive, so nothing may go out.
+    class LosesJoins implements Storage {
+      constructor(readonly inner: MemoryStorage) {}
+      tx<T>(mode: 'r' | 'rw', fn: (t: StorageTx) => Promise<T>): Promise<T> {
+        return this.inner.tx(mode, (t) => fn(new Proxy(t, { get: (o, k) => (k === 'put' ? (c: string, ...rest: unknown[]) => (c === 'pendingJoins' ? Promise.resolve() : (o.put as (...a: unknown[]) => Promise<void>)(c, ...rest)) : Reflect.get(o, k)) })))
+      }
+    }
+    const h = await harness({ storage: new LosesJoins(new MemoryStorage()), deps: { nwcTimeoutMs: 2000 } })
+    const circle = new FakeCircle(h.bank, { rotationDelaySecs: 432000 })
+    expect(await failure(h.wallet.circles.join(circle.string, terms))).toMatchObject({ code: 'internal' })
+    expect(circle.joins).toHaveLength(0)
+    expect(privateJoins(h)).toBe(0)
   })
   test('one wallet per circle: a second join is refused locally', async () => {
     const { h, circle } = await setup()
