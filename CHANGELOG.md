@@ -197,8 +197,10 @@
   is published once its bill exists, also after a lost reply), `list`,
   `claim` (after rule 9) and `approveMinter`; the core verification rules
   1–8, identity tags, the 10522 and counting.
+  ([#25](https://github.com/ohstr/cashkit/pull/25))
 - A held zap bill keeps its Cash Zap fields, and every call on it uses them
   to find its Hub. Settings gain `trustedMinters` and `zapMinLifeSeconds`.
+  ([#25](https://github.com/ohstr/cashkit/pull/25))
 
 ## [0.1.0-rc.2]
 
