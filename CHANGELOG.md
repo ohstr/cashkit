@@ -127,11 +127,14 @@
 - Adds `wallet.mint`: mints over a stored Cash Hub connection as a pending
   call, to a cash note, to this wallet, or to any send target; a lost reply
   is settled by lookup, and an unknown one waits for confirmation.
+  ([#19](https://github.com/ohstr/cashkit/pull/19))
 - `connections.add` takes a `cashhub1` string: verified and checked online
   before it is stored as given (an unverified one only after
   `confirmUnverified`); never a URI built from it, and never the default
   Lightning wallet.
+  ([#19](https://github.com/ohstr/cashkit/pull/19))
 - Errors carry an optional machine-readable `reason` (also in `toJSON`).
+  ([#19](https://github.com/ohstr/cashkit/pull/19))
 
 ## [0.1.0-rc.2]
 
