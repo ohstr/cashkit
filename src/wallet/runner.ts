@@ -56,6 +56,8 @@ export interface CallKind {
   afterApply?(ctx: Ctx, callId: string): Promise<void>
   /** Whether `unknown` re-places it automatically (`cash_transfer`, `cash_consolidate`) or asks the user first. */
   readonly autoReplace: boolean
+  /** The confirmation request that asks the user to place it again (kinds that are not `autoReplace`). */
+  readonly replaceRequest?: 'confirmMintReplace' | 'confirmOrderReplace' | 'confirmWithdrawReplace'
 }
 
 const KINDS = new Map<string, CallKind>()
@@ -379,8 +381,6 @@ export async function closeByUser(ctx: Ctx, id: string): Promise<void> {
   await close(ctx, id, 'user_closed')
 }
 
-const REPLACE_REQUEST = { mint: 'confirmMintReplace', order: 'confirmOrderReplace', withdraw: 'confirmWithdrawReplace' } as const
-
 /**
  * Raises the kind's replace request for a call now waiting on
  * `confirm_replace`; a yes places it again (under the spend lock, once the
@@ -391,7 +391,7 @@ function askReplace(ctx: Ctx, id: string): void {
   if (!ctx.confirmations.handled) return
   void (async () => {
     const call = await ctx.read((t) => t.get('pendingCalls', id))
-    const type = call === undefined ? undefined : REPLACE_REQUEST[call.kind as keyof typeof REPLACE_REQUEST]
+    const type = call === undefined ? undefined : KINDS.get(call.kind)?.replaceRequest
     if (call === undefined || type === undefined) return
     if (await ctx.confirmations.ask({ type, call: pendingCallView(call, ctx.deviceId) })) await ctx.spend(() => confirmReplace(ctx, id))
   })().catch(() => undefined)

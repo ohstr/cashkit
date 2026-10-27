@@ -407,6 +407,7 @@ async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'rep
 
 const withdrawKind: CallKind = {
   autoReplace: false,
+  replaceRequest: 'confirmWithdrawReplace',
   async place(ctx, call, beforePublish) {
     const { credential, holding } = await credentialOfCall(ctx, call)
     const q = parseWithdrawQuote(call.params?.['quote'] ?? '')

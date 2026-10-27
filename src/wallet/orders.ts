@@ -365,6 +365,7 @@ function parseFor(call: PendingCall, raw: unknown): Order {
 
 const orderKind: CallKind = {
   autoReplace: false,
+  replaceRequest: 'confirmOrderReplace',
   async place(ctx, call, beforePublish) {
     const c = await connect(ctx, call.params?.['connection'] ?? '', { confirmUnverified: () => Promise.resolve(true) })
     const outcome = await c.place(requestOf(call), { buyerKey: await buyerKeyOf(ctx, call), send: { notAfter: call.deadline, beforePublish } })
