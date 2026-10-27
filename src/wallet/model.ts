@@ -51,6 +51,12 @@ export interface Holding {
   readonly origin?: HoldingOrigin
   /** Minted for this wallet's orders, or made only from such bills (local; never from the wire). */
   readonly ordered?: boolean
+  /**
+   * Sets of holdings (ids, sorted, joined by commas) whose merge the Hub
+   * refused `RESTRICTED` (fee terms that differ, which the client cannot
+   * see): such a set is not planned again.
+   */
+  readonly refusedMerges?: readonly string[]
   /** A zap bill's Cash Zap fields (NIP-CZ): its provenance, and so its Hub, is recovered only with them. */
   readonly zap?: { readonly recipient: string; readonly sender: string; readonly zapTarget: string; readonly issuedAt: number; readonly expiresAt: number }
   /** Kept out of every merge the wallet plans (local; set by the user). */

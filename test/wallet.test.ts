@@ -223,6 +223,21 @@ describe('consolidate (cmd/cash_consolidate_test.go)', () => {
     expect(r.outcomes[0]).toMatchObject({ ok: true, amount: 3000n, holding: { mode: 'pubkey', amount: 3000n } })
     expect(await h.wallet.holdings()).toHaveLength(1)
   })
+  test('a set the Hub refused RESTRICTED is not planned again', async () => {
+    await receivePubkey(1000n)
+    await receivePubkey(2000n)
+    h.bank.override = (m) => (m === 'cash_consolidate' ? { error: { code: 'RESTRICTED', message: 'fee terms differ' } } : undefined)
+    const r = await h.wallet.consolidate()
+    expect(r.outcomes[0]).toMatchObject({ ok: false, error: { nwcCode: 'RESTRICTED' } })
+    h.bank.override = undefined
+    for (const c of await h.wallet.pendingCalls.list()) if (c.state !== 'done') await h.wallet.pendingCalls.close(c.id)
+    const sent = h.bank.hub.requests.filter((x) => x.item.method === 'cash_consolidate').length
+    expect((await h.wallet.consolidate()).outcomes).toEqual([])
+    expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_consolidate')).toHaveLength(sent)
+    // Another set (a third bill joins the group) is planned.
+    await receivePubkey(3000n)
+    expect((await h.wallet.consolidate()).outcomes[0]).toMatchObject({ ok: true, amount: 6000n })
+  })
   test('a round that fits no envelope is halved until it does, keeping what merged (§7.3)', async () => {
     for (const a of [1000n, 2000n, 3000n, 4000n, 5000n]) await receivePubkey(a)
     const real = BatchSession.prototype.send
