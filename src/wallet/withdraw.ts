@@ -50,7 +50,7 @@ import { CashkitError, codeForNwc, fromWalletError } from './errors.js'
 import { addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { CallCreated, Holding, PendingCall, WithdrawalRecord } from './model.js'
 import type { StorageTx } from './ports.js'
-import { executeCall, registerCallKind, type CallKind } from './runner.js'
+import { executeCall, pocketHooks, registerCallKind, type CallKind } from './runner.js'
 
 /** Every witness HRP this SDK knows: the network is left to the Hub when the bill's chain is not known. */
 const KNOWN_HRPS = [...(withdrawHrps('bitcoin') ?? []), ...(withdrawHrps('flokicoin') ?? [])]
@@ -449,7 +449,10 @@ export async function refreshWithdrawal(ctx: Ctx, id: string): Promise<Withdrawa
   const v = o?.state === 'result' ? o.value : undefined
   if (v?.status === 'done') {
     const checked = await checkPayout(ctx, call, decodeLookupDone(v.result).result, 'lookup').catch(() => undefined)
-    if (checked !== undefined) await ctx.commit((t) => applyPayout(ctx, t, call, checked.payout, checked.remint))
+    if (checked !== undefined) {
+      await ctx.commit((t) => applyPayout(ctx, t, call, checked.payout, checked.remint))
+      if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)
+    }
   }
   return withdrawalView(await withdrawalCall(ctx, id))
 }

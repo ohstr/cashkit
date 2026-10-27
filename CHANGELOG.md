@@ -201,6 +201,12 @@
 - A held zap bill keeps its Cash Zap fields, and every call on it uses them
   to find its Hub. Settings gain `trustedMinters` and `zapMinLifeSeconds`.
   ([#25](https://github.com/ohstr/cashkit/pull/25))
+- Adds the Cash Pocket (NIP-CP) behind `WalletDeps.pocket` and the new
+  `adapters/sync-pocket`: every bill-creating call and withdrawal is
+  written ahead as a gift-wrapped pending entry (read back before the call
+  goes out), kept bills get entries, and `wallet.pocket.sync`, `balance`
+  and `entries` read it back on any device. Adds NIP-59 seal and wrap, and
+  `Signer.nip44Encrypt`.
 
 ## [0.1.0-rc.2]
 

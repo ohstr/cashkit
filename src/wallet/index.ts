@@ -9,7 +9,7 @@ export {
   type ErrorCode,
 } from './errors.js'
 export type { OperationEvent, OperationPhase } from './context.js'
-export type { Fetch, Lock, LogRecord, Logger, Query, SecretVault, Storage, StorageTx, SyncChannel, SyncMessage, WalletDeps } from './ports.js'
+export type { Fetch, Lock, LogRecord, Logger, Pocket, Query, SecretVault, Storage, StorageTx, SyncChannel, SyncMessage, WalletDeps } from './ports.js'
 export { ConcurrentUpdateError } from './ports.js'
 export type {
   Activity,
@@ -54,6 +54,7 @@ export type { Outcome, Report } from './report.js'
 export type { ReceiveResult, Secured, TokenReport } from './receive.js'
 export type { PlannedSource, SendInput, SendPlan, SendResult } from './send.js'
 export type { MintInput, MintResult } from './mint.js'
+export type { PocketSyncReport } from './pocket.js'
 export type { ZapInput, ZapSent, ZapView } from './zap.js'
 export type { WithdrawalView, WithdrawPhase, WithdrawPrivacy, WithdrawQuoteView, WithdrawTermsView } from './withdraw.js'
 export type { OrderQuote, OrderTo, OrderView, OrderWarning, PlaceOrderInput } from './orders.js'

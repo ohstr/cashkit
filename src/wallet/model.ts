@@ -410,6 +410,19 @@ export interface Rows {
   device: DeviceRow
   derivedIds: DerivedIdRow
   hubs: HubRow
+  pocket: PocketRow
+}
+
+/** What this device last wrote to the Cash Pocket for a `w`: its revision, state and the wrap (with its key, to delete it). */
+export interface PocketRow {
+  /** The entry's `w`. */
+  readonly id: string
+  readonly rev: number
+  readonly state: string
+  readonly wrapId: string
+  readonly wrapKey: Sealed
+  readonly at: number
+  readonly version: number
 }
 
 export type Collection = keyof Rows
@@ -418,6 +431,6 @@ export type AppendOnly = 'activity'
 export type Row<C extends Collection> = Rows[C]
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 export type NewRow<C extends AppendOnly> = DistributiveOmit<Rows[C], 'id'>
-export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs']
+export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs', 'pocket']
 /** Collections of this store only: never exported, never imported. */
-export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs']
+export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs', 'pocket']

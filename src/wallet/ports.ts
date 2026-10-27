@@ -1,6 +1,6 @@
 // The wallet's side-effecting interfaces (design §3). The engine reaches the
 // platform only through these; adapters implement them.
-import type { Signer } from '../core/index.js'
+import type { NostrEvent, Signer } from '../core/index.js'
 import type { RelayPool } from '../client/index.js'
 import type { AppendOnly, Collection, NewRow, Row, Sealed } from './model.js'
 
@@ -114,4 +114,20 @@ export interface WalletDeps {
    * `state.storagePersisted`.
    */
   readonly persist?: () => Promise<boolean>
+  /** A Cash Pocket (NIP-CP): the wallet's tokens and calls in flight, gift-wrapped to the user on relays. */
+  readonly pocket?: Pocket
+}
+
+/**
+ * Where a Cash Pocket's gift wraps live (`adapters/sync-pocket`): the
+ * user's inbox relays. `publish` resolves with the relays that stored the
+ * wrap; `has` reads one back.
+ */
+export interface Pocket {
+  publish(wrap: NostrEvent): Promise<readonly string[]>
+  has(wrapId: string): Promise<boolean>
+  fetch(pubkey: string, since?: number): Promise<NostrEvent[]>
+  remove(deletion: NostrEvent): Promise<void>
+  /** How many relays must store a wrap before it counts as stored (default 2, capped at the relays configured). */
+  readonly minRelays?: number
 }

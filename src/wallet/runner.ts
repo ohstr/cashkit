@@ -84,7 +84,19 @@ async function update(ctx: Ctx, id: string, change: (c: PendingCall) => PendingC
 }
 
 /** Closes an open call; a call already closed stays as it is. */
+/**
+ * Cash Pocket hooks (set by the pocket module when a Pocket is configured):
+ * the write-ahead pending entry, read back before the call is sent, and the
+ * entries a call's outcome makes once it is saved.
+ */
+export const pocketHooks: { writeAhead?: (ctx: Ctx, call: PendingCall) => Promise<void>; after?: (ctx: Ctx, callId: string) => Promise<void> } = {}
+
 async function close(ctx: Ctx, id: string, outcome: Parameters<typeof finishCall>[2], o: { code?: string; detail?: string; needsUser?: CallNeedsUser } = {}): Promise<void> {
+  await closeRow(ctx, id, outcome, o)
+  if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)
+}
+
+async function closeRow(ctx: Ctx, id: string, outcome: Parameters<typeof finishCall>[2], o: { code?: string; detail?: string; needsUser?: CallNeedsUser }): Promise<void> {
   await ctx.commit(async (t) => {
     const cur = await t.get('pendingCalls', id)
     if (cur === undefined || cur.state === 'done') return
@@ -123,6 +135,7 @@ async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: '
     })
   }
   await kind.afterApply?.(ctx, call.id).catch(() => undefined)
+  if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, call.id).catch(() => undefined)
   return created
 }
 
@@ -151,7 +164,11 @@ export async function executeCall(ctx: Ctx, call: PendingCall): Promise<CallCrea
   const kind = kindOf(call)
   let placed: PlaceResult
   try {
-    placed = await kind.place(ctx, call, async () => void (await markSent(ctx, call)))
+    placed = await kind.place(ctx, call, async () => {
+      await markSent(ctx, call)
+      // With a Cash Pocket the pending entry is stored and read back before the call goes out; failing that, nothing is sent.
+      if (ctx.deps.pocket !== undefined) await pocketHooks.writeAhead?.(ctx, call)
+    })
   } catch (err) {
     await close(ctx, call.id, 'not_sent').catch(() => undefined)
     throw err

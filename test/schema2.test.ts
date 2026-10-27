@@ -63,8 +63,8 @@ describe('T-511 schema 2', () => {
     await storage.tx('rw', (t) => t.put('meta', { id: 'meta', schemaVersion: 3, walletId: 'new', version: 1 }, 0))
     await expect(Wallet.open(deps({ storage }))).rejects.toMatchObject({ code: 'usage' })
   })
-  test('the device, derived ids and Hub records are local only', () => {
-    expect(LOCAL_ONLY).toEqual(['device', 'derivedIds', 'hubs'])
+  test('the device, derived ids, Hub records and Cash Pocket wraps are local only', () => {
+    expect(LOCAL_ONLY).toEqual(['device', 'derivedIds', 'hubs', 'pocket'])
   })
 })
 

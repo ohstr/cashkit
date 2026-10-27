@@ -5,7 +5,7 @@ import { fromHex, toHex, utf8 } from './bytes.js'
 import { newConnectionKey } from './connectionKey.js'
 import { CoreError } from './errors.js'
 import { finalizeEvent, getPublicKey, type EventTemplate, type NostrEvent } from './nip01.js'
-import { decrypt, getConversationKey } from './nip44.js'
+import { decrypt, encrypt, getConversationKey } from './nip44.js'
 import type { Attestation } from './attestation.js'
 
 export type IdentityType = 'pubkey' | 'connection_key' | 'cash'
@@ -88,6 +88,8 @@ export interface Signer {
   signEvent(t: EventTemplate): Promise<NostrEvent>
   /** NIP-44 v2 decrypt of a payload from `senderPubkey`. */
   nip44Decrypt(senderPubkey: string, ciphertext: string): Promise<string>
+  /** NIP-44 v2 encrypt to `recipientPubkey`; needed for a Cash Pocket's seals. */
+  nip44Encrypt?(recipientPubkey: string, plaintext: string): Promise<string>
 }
 
 /** A Signer over a 32-byte secret key held in memory. */
@@ -103,6 +105,7 @@ export function localSigner(secretKey: Uint8Array): Signer {
     pubkey,
     signEvent: async (t) => finalizeEvent(t, key),
     nip44Decrypt: async (sender, ciphertext) => decrypt(ciphertext, getConversationKey(key, sender)),
+    nip44Encrypt: async (recipient, plaintext) => encrypt(plaintext, getConversationKey(key, recipient)),
   }
 }
 

@@ -22,6 +22,7 @@ export default defineConfig({
     'adapters/vault-passphrase': 'src/adapters/vault-passphrase.ts',
     'adapters/storage-indexeddb': 'src/adapters/storage-indexeddb.ts',
     'adapters/storage-sqlite': 'src/adapters/storage-sqlite.ts',
+    'adapters/sync-pocket': 'src/adapters/sync-pocket.ts',
   },
   format: ['esm'],
   target: 'es2022',

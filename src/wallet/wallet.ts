@@ -3,6 +3,7 @@
 import { decodeCashHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
 import type { CircleWalletClient, HubView } from '../client/index.js'
 import { mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
+import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
@@ -501,6 +502,17 @@ export class Wallet {
   }
 
   // ---- circles, lightning, connections, identity, settings (§6.7–§6.9)
+
+  /**
+   * The Cash Pocket (NIP-CP, with `WalletDeps.pocket`): the wallet's tokens
+   * and calls in flight, gift-wrapped to the user. Every bill-creating call
+   * and withdrawal is written ahead to it; `sync` imports and republishes.
+   */
+  readonly pocket = {
+    sync: (): Promise<PocketSyncReport> => this.ctx.spend(() => syncPocket(this.ctx)),
+    balance: (): Promise<Map<string, bigint>> => pocketBalanceOf(this.ctx),
+    entries: () => pocketEntries(this.ctx),
+  }
 
   /**
    * Cash Zaps (NIP-CZ): send a zap as a zap transfer whose 9522 is published

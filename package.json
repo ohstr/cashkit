@@ -41,6 +41,10 @@
       "types": "./dist/wallet/index.d.ts",
       "import": "./dist/wallet/index.js"
     },
+    "./adapters/sync-pocket": {
+      "types": "./dist/adapters/sync-pocket.d.ts",
+      "import": "./dist/adapters/sync-pocket.js"
+    },
     "./adapters/storage-memory": {
       "types": "./dist/adapters/storage-memory.d.ts",
       "import": "./dist/adapters/storage-memory.js"

@@ -30,7 +30,7 @@ import { CashkitError, fromWalletError } from './errors.js'
 import { addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { CallCreated, OrderRecord, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
-import { executeCall, registerCallKind, type CallKind } from './runner.js'
+import { executeCall, pocketHooks, registerCallKind, type CallKind } from './runner.js'
 import { parseTarget } from './target.js'
 
 export type OrderTo = 'cash' | 'self' | string
@@ -416,7 +416,10 @@ export async function refreshOrder(ctx: Ctx, id: string): Promise<OrderView> {
         if (cur.order !== undefined) await t.put('pendingCalls', { ...cur, order: { ...cur.order, invalidReply: (err as Error).message, checkedAt: now }, version: cur.version + 1 }, cur.version)
       })
     }
-    if (order !== undefined) await ctx.commit((t) => applyOrder(ctx, t, call, order))
+    if (order !== undefined) {
+      await ctx.commit((t) => applyOrder(ctx, t, call, order))
+      if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)
+    }
   } else if (o?.state === 'error' && o.error?.code === 'UNAUTHORIZED') {
     throw new CashkitError('auth', 'the Hub does not recognise this order’s buyer key', { nwcCode: 'UNAUTHORIZED', input: id })
   } else if (v !== undefined && call.order !== undefined && now > call.order.payBy && !call.order.sawProgress && call.order.bills.length === 0) {
