@@ -320,6 +320,23 @@ describe('write-ahead ordering (auditD_cli_writeahead)', () => {
     expect(await openCalls(h)).toEqual([])
     expect((await h.wallet.handoffs()).length).toBe(1)
   })
+  test('redeem never picks or spends a bill an open call names (I-4)', async () => {
+    const h = await harness()
+    const nwc = new FakeNwcWallet(h.pool)
+    await h.wallet.connections.add('main', nwc.uri)
+    await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
+    const id = (await h.wallet.holdings())[0]!.id
+    const early = await h.wallet.planRedeem({ holdings: [id] }) // planned before the call opens
+    h.bank.loseReplyFor.add('cash_transfer')
+    h.bank.loseReplyFor.add('cash_lookup') // lookups go unanswered, so the call stays open
+    await failure(h.wallet.send({ amount: 2000n }))
+    expect((await openCalls(h)).map((c) => c.sources)).toEqual([[id]])
+    expect(await failure(h.wallet.planRedeem({ holdings: [id] }))).toMatchObject({ code: 'conflict' })
+    expect(await failure(h.wallet.redeem())).toMatchObject({ code: 'conflict' })
+    expect(await failure(h.wallet.redeem({ amount: 1000n }))).toMatchObject({ code: 'conflict' })
+    expect(await failure(h.wallet.executeRedeem(early))).toMatchObject({ code: 'conflict' })
+    expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_redeem')).toHaveLength(0)
+  })
   test('BAD_REQUEST is final: the call closes not applied and the bill is free at once', async () => {
     const h = await harness()
     await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token)
