@@ -296,6 +296,12 @@
 - `connectionKeyFromAttested` refuses a user id that is not in canonical
   form on a platform that has one (x, discord, email, dns).
   ([#35](https://github.com/ohstr/cashkit/pull/35))
+- Bills bound to a connection key can be held and spent:
+  `receive(token, { attestation })` checks the account's attestation and
+  keeps it on the holding; status, redeem, send and on-chain withdrawal
+  claim with it, reading the holder's row with `scope: all` (`ownScope`).
+  A split's remainder and a cancelled withdrawal's re-mint stay bound to the
+  same account.
 
 ## [0.1.0-rc.2]
 
