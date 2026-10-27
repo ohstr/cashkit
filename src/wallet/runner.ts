@@ -261,11 +261,10 @@ export async function settleCalls(ctx: Ctx): Promise<SettleCallsReport> {
         break
       }
       case 'expired': {
-        if (isOwnCall(ctx, call)) {
-          await close(ctx, call.id, 'lookup_expired', { needsUser: 'lookup_expired' })
-          needsUser.push(call.id)
-          ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
-        } else open.push(call.id)
+        // Final whatever the device: no re-placement is decided here, so a foreign call closes too.
+        await close(ctx, call.id, 'lookup_expired', { needsUser: 'lookup_expired' })
+        needsUser.push(call.id)
+        ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
         break
       }
       default:
