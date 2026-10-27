@@ -207,6 +207,7 @@
   goes out), kept bills get entries, and `wallet.pocket.sync`, `balance`
   and `entries` read it back on any device. Adds NIP-59 seal and wrap, and
   `Signer.nip44Encrypt`.
+  ([#26](https://github.com/ohstr/cashkit/pull/26))
 
 ## [0.1.0-rc.2]
 
