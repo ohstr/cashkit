@@ -288,6 +288,12 @@
 - Adds NIP-IC connection verification: `resolveConnection` (client) and
   `evaluateConnection`, `parseIdentityConnection` (core), reporting
   `verified`, `unverified` or `spoofed` per the Verification Model. ([#34](https://github.com/ohstr/cashkit/pull/34))
+- Claim checks now find the caller's own row from its credential and ask
+  whether it can still be spent: `checkClaim(credential)` (the pubkey
+  argument is gone) returns `claimable` and `reason`, and receive, status,
+  redeem quotes and zap claims treat a claimed, withdrawn or expired row as
+  such instead of as missing. New `ownClaim`; `matchClaim`,
+  `matchClaimAuto` and `NO_LOCAL_IDENTITY` are removed.
 
 ## [0.1.0-rc.2]
 

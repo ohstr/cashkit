@@ -364,8 +364,8 @@ import { CashClient } from '@ohstr/cashkit/client'
 import { RelayWs } from '@ohstr/cashkit/adapters/relay-ws'
 
 const bill = new CashClient({ relays: new RelayWs() }, decodeToken(token))
-const claim = await bill.checkClaim(bySecret(secret), '')
-console.log(claim.amountMillis, 'millis, net', claim.netRedeemableMillis)
+const claim = await bill.checkClaim(bySecret(secret))
+console.log(claim.amountMillis, 'millis, net', claim.netRedeemableMillis, claim.claimable ? '' : claim.reason)
 ```
 
 ## Development

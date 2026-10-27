@@ -814,9 +814,14 @@ Flow, from `cash_receive.go`:
 2. A cash token pasted without its secret first gets a probe as the local
    identity, then degrades to a read-only report.
 3. A token already held is a `conflict`.
-4. `checkClaim`:
+4. `checkClaim`, the caller's own row found from the credential (`ownRow`,
+   scope `mine`) and checked with `claimable`:
    - spent → `spent`
    - no match → `invalid_input`
+   - a row that is claimed or ended by a cash_withdraw → `spent` (reason
+     `claimed` or `withdrawn`); past its expiry → `invalid_input` (reason
+     `expired`). Status and redeem quotes read the row the same way;
+     `status` reports such a holding with `notClaimable`.
 5. Validate the amount against `MaxInt64` and the attested amount.
 6. Commit.
 7. Protect: rekey to a fresh secret, written ahead as a pending call.
