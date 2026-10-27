@@ -302,7 +302,7 @@
   (Node only): a local signer over a unix socket (NIP-LS), with
   `signerFromUri` for both `bunker://` and `bunker+unix://` addresses,
   attestations and `approvedEventId`; `parseBunkerUri` refuses a unix
-  address and points there.
+  address and points there. ([#36](https://github.com/ohstr/cashkit/pull/36))
 
 ## [0.1.0-rc.2]
 
