@@ -14,7 +14,6 @@ import {
   type CashConsolidateResult,
   type CashRedeemResult,
   type CashStatusResult,
-  type CashTarget,
   type CashTransferResult,
   type ConsolidateSource,
   type Credential,
@@ -23,7 +22,7 @@ import {
   type ZapFields,
 } from '../core/index.js'
 import { billFor, minterOf, type Bill } from './bill.js'
-import { ClientError, PartialProgressError, WalletError } from './errors.js'
+import { ClientError, WalletError } from './errors.js'
 import {
   consolidateMany,
   redeemMany,
@@ -49,41 +48,6 @@ export interface CheckClaimResult {
   readonly redeemFeeMillis: bigint
   readonly netRedeemableMillis: bigint
   readonly expiresAt?: number
-}
-
-export interface TransferFromSourcesParams {
-  /** At least one, with live amounts and credentials. */
-  readonly sources: readonly ConsolidateSource[]
-  readonly amount: bigint
-  readonly to: Target
-  /** Where the sources consolidate first, when there are several. */
-  readonly interimIdentity: Target
-  /** Proves control of the interim identity afterwards. */
-  readonly interimCredential: Credential
-}
-
-export interface TransferFromSourcesResult {
-  readonly consolidatedFirst?: CashConsolidateResult
-  readonly transfer: CashTransferResult
-}
-
-export interface RekeyCashSliceParams {
-  readonly cashSlice: ConsolidateSource
-  /** A pubkey target, used when consolidating with other bills. */
-  readonly interimIdentity?: Target
-  readonly interimCredential?: Credential
-  /** Bills to merge in; none may be cash-mode. */
-  readonly consolidateWith?: readonly ConsolidateSource[]
-  /** Minted (and recorded) by the caller before the call. */
-  readonly newTarget: CashTarget
-}
-
-export interface RekeyCashSliceResult {
-  readonly newSecret: string
-  readonly newWalletPubkey: string
-  /** "" when the slice moved in place. */
-  readonly newToken: string
-  readonly amountMillis: bigint
 }
 
 export class CashClient {
@@ -156,11 +120,13 @@ export class CashClient {
     return this.redeemMany([{ id: '1', bill: this.bill, ...p }]).then((r) => CashClient.one(r, 'cash_redeem'))
   }
 
-  cashTransfer(p: { credential: Credential; to: Target; currentAmount: bigint; splitAmount?: bigint; zapTarget?: string; remainderCommitment?: string; requestId?: string }): Promise<CashTransferResult> {
+  /** A bill-creating call: `requestId` is the caller's, saved before sending (`bad_input` without it). */
+  cashTransfer(p: { credential: Credential; to: Target; currentAmount: bigint; splitAmount?: bigint; zapTarget?: string; remainderCommitment?: string; requestId: string }): Promise<CashTransferResult> {
     return this.transferMany([{ id: '1', bill: this.bill, ...p }]).then((r) => CashClient.one(r, 'cash_transfer'))
   }
 
-  cashConsolidate(credential: Credential, p: { sources: readonly ConsolidateSource[]; to: Target; requestId?: string }): Promise<CashConsolidateResult> {
+  /** A bill-creating call: `requestId` is the caller's, saved before sending (`bad_input` without it). */
+  cashConsolidate(credential: Credential, p: { sources: readonly ConsolidateSource[]; to: Target; requestId: string }): Promise<CashConsolidateResult> {
     return this.consolidateMany([{ id: '1', bill: this.bill, credential, ...p }]).then((r) => CashClient.one(r, 'cash_consolidate'))
   }
 
@@ -204,62 +170,5 @@ export class CashClient {
       netRedeemableMillis: full.net_redeemable_millis,
       ...(full.expires_at !== undefined && { expiresAt: full.expires_at }),
     }
-  }
-
-  /** A client for another bill on the same Hub (used after a consolidate). */
-  reconnect(token: Token | string): CashClient {
-    return new CashClient(this.deps, token)
-  }
-
-  /**
-   * Sends `amount` to `to` from one or more bills. One source: a split
-   * transfer. Several: consolidate into the interim identity, reconnect to
-   * the new bill, then split-transfer from it. A failure after the
-   * consolidate is a PartialProgressError holding the consolidated bill.
-   */
-  async transferFromSources(p: TransferFromSourcesParams): Promise<TransferFromSourcesResult> {
-    if (p.sources.length === 0) throw new ClientError('bad_input', 'transferFromSources needs at least one source')
-    if (p.sources.length === 1) {
-      const src = p.sources[0]!
-      const transfer = await this.cashTransfer({ credential: src.credential, to: p.to, currentAmount: src.amount, splitAmount: p.amount })
-      return { transfer }
-    }
-    const consolidated = await this.cashConsolidate(p.sources[0]!.credential, { sources: p.sources, to: p.interimIdentity })
-    let transfer: CashTransferResult
-    try {
-      const next = this.reconnect(consolidated.newWalletToken)
-      transfer = await next.cashTransfer({ credential: p.interimCredential, to: p.to, currentAmount: consolidated.amountMillis, splitAmount: p.amount })
-    } catch (err) {
-      throw new PartialProgressError({ consolidated }, err)
-    }
-    if (transfer.newWalletToken === '' && transfer.remainderWalletToken === '') {
-      transfer = { ...transfer, newWalletToken: consolidated.newWalletToken, newWalletPubkey: consolidated.newWalletPubkey }
-    }
-    return { consolidatedFirst: consolidated, transfer }
-  }
-
-  /**
-   * Moves a cash slice to a new cash secret the caller already recorded.
-   * Alone: one transfer, in place. With other bills: transfer to the interim
-   * pubkey, then consolidate everything to the new secret.
-   */
-  async rekeyCashSlice(p: RekeyCashSliceParams): Promise<RekeyCashSliceResult> {
-    const others = p.consolidateWith ?? []
-    if (others.length === 0) {
-      const r = await this.cashTransfer({ credential: p.cashSlice.credential, to: p.newTarget, currentAmount: p.cashSlice.amount })
-      return { newSecret: p.newTarget.secret, newWalletPubkey: p.cashSlice.walletPubkey, newToken: '', amountMillis: r.amountMillis }
-    }
-    if (p.interimIdentity?.identityType !== 'pubkey' || p.interimCredential === undefined) {
-      throw new ClientError('bad_input', 'rekeyCashSlice needs a pubkey interim identity and its credential to consolidate')
-    }
-    const transferred = await this.cashTransfer({ credential: p.cashSlice.credential, to: p.interimIdentity, currentAmount: p.cashSlice.amount })
-    const self: ConsolidateSource = { walletPubkey: p.cashSlice.walletPubkey, amount: p.cashSlice.amount, credential: p.interimCredential }
-    let merged: CashConsolidateResult
-    try {
-      merged = await this.cashConsolidate(p.interimCredential, { sources: [self, ...others], to: p.newTarget })
-    } catch (err) {
-      throw new PartialProgressError({ transferred }, err)
-    }
-    return { newSecret: p.newTarget.secret, newWalletPubkey: merged.newWalletPubkey, newToken: merged.newWalletToken, amountMillis: merged.amountMillis }
   }
 }

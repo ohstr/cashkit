@@ -62,9 +62,6 @@ async function chooseTransport(circle: CircleClient, requirePrivate: boolean): P
 /** A failed join as the wallet reports it (the pending join is already settled). */
 function joinError(err: unknown, connectionPubkey: string): CashkitError {
   if (err instanceof PrivateJoinUnavailableError) return privateUnavailable(err)
-  if (isReplayGuard(err)) {
-    return new CashkitError('conflict', "the Hub's identity-proof replay guard rejected two attempts within the same second, even after retrying once: wait a few seconds and join again", { cause: err })
-  }
   if (err instanceof WalletError) return fromWalletError(err)
   if (isNotSent(err)) return classifySpendError(err, 'join')
   return new CashkitError(
@@ -73,13 +70,6 @@ function joinError(err: unknown, connectionPubkey: string): CashkitError {
     { cause: err },
   )
 }
-
-const isReplayGuard = (err: unknown) =>
-  err instanceof WalletError && err.walletCode === 'BAD_REQUEST' && err.walletMessage.includes('identity_event') && err.walletMessage.includes('already been used')
-
-/** A pre-SD-20 Hub says "already has a wallet" as RESTRICTED (`walletExistsFromLegacyRefusal`). */
-const normalizeExists = (err: unknown) =>
-  err instanceof WalletError && err.walletCode === 'RESTRICTED' && err.walletMessage.includes('already has an active circle wallet') ? new WalletError(err.method, 'WALLET_EXISTS', err.walletMessage) : err
 
 function resolveHub(hub: string): { uri: string; label: string } {
   switch (sniff(hub)) {
@@ -108,7 +98,7 @@ export function suggestName(taken: readonly string[], base: string, label: strin
   for (let i = 2; ; i++) if (!taken.includes(`${root}-${i}`)) return `${root}-${i}`
 }
 
-export async function joinCircle(ctx: Ctx, o: JoinInput, sleep: (ms: number) => Promise<void>): Promise<JoinResult> {
+export async function joinCircle(ctx: Ctx, o: JoinInput): Promise<JoinResult> {
   if (o.maxAmount === 0n) throw new CashkitError('invalid_input', "0 isn't a spend cap: there's no \"0 means unlimited\" convention here, so pass the most this wallet may spend", { input: '0' })
   validateRequestedAmount(o.maxAmount, 'maxAmount')
   const { uri, label } = resolveHub(o.hub)
@@ -134,15 +124,9 @@ export async function joinCircle(ctx: Ctx, o: JoinInput, sleep: (ms: number) => 
     const attempt = () => circle.createCircleWallet({ signer, maxAmountMillis: o.maxAmount, expirySeconds: o.expirySeconds ?? 0, connection, ...(o.budgetRenewal !== undefined && { budgetRenewal: o.budgetRenewal }) }, via)
     let joined
     try {
-      try {
-        joined = await attempt()
-      } catch (err) {
-        if (!isReplayGuard(err)) throw err
-        await sleep(1100)
-        joined = await attempt()
-      }
+      joined = await attempt()
     } catch (raw) {
-      const err = normalizeExists(raw)
+      const err = raw
       ctx.emit({ op: 'join', phase: 'failed', id: opId })
       if (isNotSent(err) || err instanceof WalletError || err instanceof PrivateJoinUnavailableError) {
         await ctx.commit((t) => t.delete('pendingJoins', connection.pubkey)).catch(() => undefined)

@@ -84,7 +84,7 @@ src/
   transport/   envelope, canonicalParams, padding, limits, proof,
                request (wrap), response (reply key), announcement, validate
   client/      relayIO, batchSession, batchPack, batchSend, outcome,
-               billState, cashClient, transferFromSources, rekeyCashSlice,
+               billState, cashClient,
                nwcClient, circleClient
   wallet/      Wallet, ports, model, journal, ledger, select, ops/*,
                errors, events, migrations
@@ -347,11 +347,18 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
 - **`BillState`** is `indeterminate` (the zero value), `available` or
   `spent`. Only an explicit `"spent"` answer produces `spent`; a timeout
   never does.
-- **Composite flows.**
-  - `transferFromSources`: consolidate into an interim identity, reconnect,
-    then split-transfer.
-  - `rekeyCashSlice`.
-  - Both surface `PartialProgressError { transferred?, consolidated?, cause }`.
+- **No composite flows.** A send from several bills or a protect that
+  merges is a wallet operation whose every step is its own call; the client
+  only places single calls. `cashTransfer`, `cashConsolidate` and every
+  transfer or consolidate item take the caller's `request_id`
+  (`bad_input` without it).
+- **Codes, never messages.** No code acts on a Hub's error message
+  (NIP-CASH §Errors); `rawMessage` is kept for display only, and
+  `tools/lint-no-message-match.mjs` (run by `pnpm lint`) fails the build on
+  any comparison or text test of it.
+- **Notifications.** `NwcClient.notifications(handler)` delivers the
+  wallet's NIP-47 notifications (kind 23197, and 23196 when the wallet speaks
+  NIP-04), each once, only from the wallet's own key.
 - **Lookups** (`lookupMany`, `lookupOne`): a `cash_lookup` item names the
   original call's target and is signed as that call was authorized (the
   claim-proof key, the Cash Hub connection's own key for a mint, or a cash

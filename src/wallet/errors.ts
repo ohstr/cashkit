@@ -3,7 +3,7 @@
 // so an app and an agent driving cashctl branch the same way. Classification
 // of Hub answers ports cmd/nwc_errors.go.
 import { CoreError, redact, sanitize } from '../core/index.js'
-import { ClientError, NotServedError, PartialProgressError, WalletError } from '../client/index.js'
+import { ClientError, NotServedError, WalletError } from '../client/index.js'
 
 export type ErrorCode =
   | 'usage'
@@ -222,8 +222,6 @@ export function classifyReadError(err: unknown, holdingId?: string): CashkitErro
   if (err instanceof CashkitError) return err
   const withInput = holdingId !== undefined ? { input: holdingId } : {}
   if (err instanceof WalletError) {
-    const refusal = explainCashSecretRefusal(err)
-    if (refusal !== undefined) return new CashkitError('invalid_input', refusal, { cause: err, nwcCode: err.walletCode, rawMessage: err.walletMessage, ...withInput })
     return fromWalletError(err, { cashToken: true, ...withInput })
   }
   if (err instanceof NotServedError) {
@@ -241,32 +239,8 @@ export function classifyReadError(err: unknown, holdingId?: string): CashkitErro
   return new CashkitError('network', messageOf(err), { cause: err, ...withInput })
 }
 
-/**
- * cashctl `explainCashSecretRefusal`, matched on the message whatever the
- * code: lokihub answers a wrong cash secret with NOT_FOUND "no slice of this
- * bill matches this cash secret" for every method (nip47/private_dispatch.go),
- * where cashctl expects BAD_REQUEST.
- */
-export function explainCashSecretRefusal(err: WalletError): string | undefined {
-  if (err.walletCode !== 'BAD_REQUEST' && err.walletCode !== 'NOT_FOUND') return undefined
-  if (err.walletMessage.includes('neither a slice proof nor a cash secret')) {
-    return 'this is a cash-mode bill, and its Hub answers about it only with its cash secret: pass it as <token>#<secret>'
-  }
-  if (err.walletMessage.includes('matches this cash secret')) {
-    return "the cash secret does not match this bill: check the part after '#' in <token>#<secret>"
-  }
-  return undefined
-}
-
-/** A Hub "different Hubs" decline (`isCrossHubSourcesDecline`). */
-export function isCrossHubDecline(err: unknown): boolean {
-  const msg = err instanceof WalletError ? err.walletMessage : err instanceof CashkitError ? (err.rawMessage ?? err.message) : ''
-  return msg.toLowerCase().includes('same cash hub')
-}
-
 export const isExpiredDecline = (err: unknown): boolean => err instanceof WalletError && err.walletCode === 'EXPIRED'
 
-export { PartialProgressError }
 
 const statusHint = (ids: readonly string[]) =>
   ids.length === 0 ? 'wallet.status()' : `wallet.status({ holdings: [${ids.map((i) => JSON.stringify(i)).join(', ')}] })`

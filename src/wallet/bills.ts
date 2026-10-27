@@ -5,7 +5,7 @@
 //
 // Every secret is sealed before the transaction that writes it opens: a
 // transaction never awaits anything but storage (§3).
-import { bySecret, bySigning, decodeToken, localSigner, newCashTarget, pubkeyTarget, toHex, type CashTarget, type CashTransferResult, type Credential, type Target } from '../core/index.js'
+import { bySecret, bySigning, decodeToken, localSigner, newCashTarget, newRequestId, pubkeyTarget, toHex, type CashTarget, type CashTransferResult, type Credential, type Target } from '../core/index.js'
 import { ClientError, WalletError } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import type { Ctx } from './context.js'
@@ -210,7 +210,7 @@ export async function moveCashNotesToKey(ctx: Ctx, ids: readonly string[], priv:
     let res: CashTransferResult
     try {
       if (parked.amount === undefined) throw new ClientError('no_relay', `${id} has no known amount`)
-      res = await ctx.client(parked.token).cashTransfer({ credential: await ctx.credentialFor(parked), to: pubkeyTarget(pub), currentAmount: parked.amount })
+      res = await ctx.client(parked.token).cashTransfer({ credential: await ctx.credentialFor(parked), to: pubkeyTarget(pub), currentAmount: parked.amount, requestId: newRequestId(ctx.random) })
     } catch (err) {
       const classified = classifySpendError(err, 'merge', [id])
       if (isNotSent(err) || isDefiniteRefusal(err)) {
@@ -258,7 +258,7 @@ export async function toCashNotes(ctx: Ctx, ids: readonly string[]): Promise<num
     let res: CashTransferResult
     try {
       const signer = localSigner(hexBytes(await ctx.open(h.throwawayKey!)))
-      res = await ctx.client(h.token).cashTransfer({ credential: bySigning(signer), to: target, currentAmount: h.amount! })
+      res = await ctx.client(h.token).cashTransfer({ credential: bySigning(signer), to: target, currentAmount: h.amount!, requestId: newRequestId(ctx.random) })
     } catch (err) {
       if (isDefiniteRefusal(err)) await ctx.commit((t) => updateHolding(t, id, ({ pendingCashSecret: _p, ...x }) => x)).catch(() => undefined)
       continue

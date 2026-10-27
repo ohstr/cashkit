@@ -1,7 +1,7 @@
 // @ohstr/cashkit/client: Hub and NWC clients over a RelayPool port
 // (design §2.3). Stateless about the wallet.
 export type { ClientDeps, Filter, RelayPool, SubscriptionHandlers } from './ports.js'
-export { ClientError, fallbackReasonOf, NotServedError, PartialProgressError, PrivateJoinUnavailableError, WalletError, type ClientErrorCode } from './errors.js'
+export { ClientError, fallbackReasonOf, NotServedError, PrivateJoinUnavailableError, WalletError, type ClientErrorCode } from './errors.js'
 export { billFor, billFromParts, checkBill, minterOf, selectVerifiedCopy, type Bill } from './bill.js'
 export {
   classifyCall,
@@ -32,10 +32,6 @@ export {
 export {
   CashClient,
   type CheckClaimResult,
-  type RekeyCashSliceParams,
-  type RekeyCashSliceResult,
-  type TransferFromSourcesParams,
-  type TransferFromSourcesResult,
 } from './cashClient.js'
 export { NWC_CALL_TIMEOUT_MS, NwcClient, type GetInfoResult, type MakeInvoiceParams } from './nwcClient.js'
 export { CircleClient, type CircleJoinResult, type JoinOptions, type JoinTransport } from './circleClient.js'

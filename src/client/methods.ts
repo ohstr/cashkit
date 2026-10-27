@@ -5,7 +5,6 @@ import {
   cashRedeemRequest,
   cashStatusRequest,
   cashTransferRequest,
-  newRequestId,
   parseCashConsolidateResult,
   parseCashRedeemResult,
   parseCashStatusResult,
@@ -49,6 +48,12 @@ export async function buildItem(id: string, bill: Bill, method: string, wirePara
   if (credential.kind === 'secret') return { id, target: bill.target, method, params, billProof }
   const proof = await buildItemProof(credential.signer, binding, now)
   return { id, target: bill.target, method, params, proof, billProof }
+}
+
+/** No bill-creating call leaves the client without the caller's request_id. */
+function requireId(id: string | undefined, item: string): string {
+  if (id === undefined || id === '') throw new ClientError('bad_input', `item ${item} creates a bill and needs the caller's request_id`)
+  return id
 }
 
 const itemId = (given: string | undefined, i: number) => (given !== undefined && given !== '' ? given : `#${i}`)
@@ -160,8 +165,8 @@ export interface BatchTransfer {
   readonly zapTarget?: string
   /** Required for a partial split of a cash source: a fresh commitment the caller wrote ahead. */
   readonly remainderCommitment?: string
-  /** The call's id; a fresh one is drawn when absent. Persist it before sending to be able to look the call up. */
-  readonly requestId?: string
+  /** The call's id, saved by the caller before sending so the call can be looked up; required. */
+  readonly requestId: string
 }
 
 export function transferMany(session: BatchSession, items: readonly BatchTransfer[], now: () => number): Promise<BatchResult<CashTransferResult>> {
@@ -182,7 +187,7 @@ export function transferMany(session: BatchSession, items: readonly BatchTransfe
           ...(it.splitAmount !== undefined && { splitAmount: it.splitAmount }),
           ...(it.zapTarget !== undefined && { zapTarget: it.zapTarget }),
           ...(it.remainderCommitment !== undefined && { remainderCommitment: it.remainderCommitment }),
-          requestId: it.requestId ?? newRequestId(),
+          requestId: requireId(it.requestId, itemIdArg),
           now: now(),
         })
         return buildItem(itemIdArg, it.bill, 'cash_transfer', req, it.credential, b, now())
@@ -200,8 +205,8 @@ export interface BatchConsolidate {
   readonly credential: Credential
   readonly sources: readonly ConsolidateSource[]
   readonly to: Target
-  /** The call's id; a fresh one is drawn when absent. */
-  readonly requestId?: string
+  /** The call's id, saved by the caller before sending; required. */
+  readonly requestId: string
 }
 
 export function consolidateMany(session: BatchSession, items: readonly BatchConsolidate[], now: () => number): Promise<BatchResult<CashConsolidateResult>> {
@@ -214,7 +219,7 @@ export function consolidateMany(session: BatchSession, items: readonly BatchCons
       method: 'cash_consolidate',
       build: async (itemIdArg, b) => {
         checkBill(it.bill, itemIdArg, session.hub)
-        const req = await cashConsolidateRequest({ sources: it.sources, to: it.to, requestId: it.requestId ?? newRequestId(), now: now() })
+        const req = await cashConsolidateRequest({ sources: it.sources, to: it.to, requestId: requireId(it.requestId, itemIdArg), now: now() })
         return buildItem(itemIdArg, it.bill, 'cash_consolidate', req, it.credential, b, now())
       },
     }

@@ -78,6 +78,13 @@
   ([#14](https://github.com/ohstr/cashkit/pull/14))
 - Maps `QUOTA_EXCEEDED` to `conflict`.
   ([#14](https://github.com/ohstr/cashkit/pull/14))
+- Removes `transferFromSources`, `rekeyCashSlice`, `reconnect` and
+  `PartialProgressError`; `cashTransfer`, `cashConsolidate` and every
+  transfer or consolidate item now need the caller's `request_id`.
+- Acts on Hub error codes only: a refusal's message no longer changes what
+  the wallet does (the circle-join retry, the cross-Hub and cash-secret
+  explanations), and the build fails on code that reads it.
+- Adds `NwcClient.notifications` for a wallet's NIP-47 notifications.
 
 ## [0.1.0-rc.2]
 

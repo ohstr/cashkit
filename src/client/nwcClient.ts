@@ -5,16 +5,21 @@ import {
   ENCRYPTION_NIP44_V2,
   fromHex,
   KIND_NWC_INFO,
+  KIND_NWC_NOTIFICATION,
+  KIND_NWC_NOTIFICATION_NIP04,
   KIND_NWC_RESPONSE,
   finalizeEvent,
   nwcRequestEvent,
   parseInfoEvent,
+  parseNotificationEvent,
+  getPublicKey,
   parsePairingURI,
   parseCircleWalletInfo,
   parseResponseEvent,
   verifyEvent,
   type CircleWalletInfo,
   type NWCEncryption,
+  type NWCNotification,
   type NWCResponse,
   type PairingInfo,
 } from '../core/index.js'
@@ -174,6 +179,34 @@ export class NwcClient {
     const resp = await this.call(method, params, timeoutMs)
     if (resp.error) throw new WalletError(method, resp.error.code, resp.error.message)
     return resp.result as T
+  }
+
+  /**
+   * The wallet's notifications to this connection (NIP-47 kinds 23197 and,
+   * when the wallet speaks NIP-04, 23196): only events authored by the
+   * wallet with a valid signature, each once. Returns the unsubscribe.
+   */
+  notifications(handler: (n: NWCNotification) => void): () => void {
+    const relays = this.pairing.relays.filter((r) => r.trim() !== '')
+    const seen = new Set<string>()
+    let nip04Allowed = false
+    void this.encryption().then(
+      (e) => (nip04Allowed = e !== ENCRYPTION_NIP44_V2),
+      () => undefined,
+    )
+    return this.deps.relays.subscribe(relays, { kinds: [KIND_NWC_NOTIFICATION, KIND_NWC_NOTIFICATION_NIP04], authors: [this.walletPubkey], '#p': [getPublicKey(this.secret)] }, {
+      onEvent: (e) => {
+        if (seen.has(e.id) || e.pubkey !== this.walletPubkey || !verifyEvent(e)) return
+        if (e.kind === KIND_NWC_NOTIFICATION_NIP04 && !nip04Allowed) return
+        seen.add(e.id)
+        try {
+          handler(parseNotificationEvent(e, this.secret))
+        } catch {
+          // not a notification this connection can read
+        }
+      },
+      onEose: () => {},
+    })
   }
 
   /** Refuses a malformed `circle_wallet` block, as nmilat's decoder does. */

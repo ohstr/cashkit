@@ -5,6 +5,7 @@
 // the NIP's tables (§Chunked Replies, §Deadlines, §Methods/Errors).
 import { beforeEach, describe, expect, test } from 'vitest'
 import { bySigning, decodeToken, localSigner, pubkeyTarget } from '../src/core/index.js'
+import { newRequestId } from '../src/core/index.js'
 import { BatchSession, billFor, CashClient, classifyCall, ClientError, deadlineFor, MIN_PUBLISH_MARGIN, statusMany, type ItemOutcome } from '../src/client/index.js'
 import { FakeHub, MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
@@ -95,7 +96,7 @@ describe('T-405 deadlines', () => {
     const c = new CashClient(deps(), bill(1))
     await expect(c.statusMany(statusItems(1))).resolves.toBeDefined()
     const before = pool.published.filter((p) => p.event.kind === 23190).length
-    await expect(c.cashTransfer({ credential: bySigning(holder), to: pubkeyTarget(holder.pubkey), currentAmount: 21000n })).rejects.toMatchObject({ code: 'hub_unusable' })
+    await expect(c.cashTransfer({ requestId: newRequestId(), credential: bySigning(holder), to: pubkeyTarget(holder.pubkey), currentAmount: 21000n })).rejects.toMatchObject({ code: 'hub_unusable' })
     expect(pool.published.filter((p) => p.event.kind === 23190).length).toBe(before)
   })
 })

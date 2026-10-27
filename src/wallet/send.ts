@@ -8,11 +8,11 @@
 // first (consolidateInRounds), then splits from it: the same wire calls and
 // the same result for the recipient, with no window where the only copy of
 // a landed bill is unsaved.
-import { decodeToken, MAX_AMOUNT_MILLIS, newCashTarget, pubkeyTarget, type CashTarget, type CashTransferResult, type Target } from '../core/index.js'
+import { decodeToken, MAX_AMOUNT_MILLIS, newCashTarget, newRequestId, pubkeyTarget, type CashTarget, type CashTransferResult, type Target } from '../core/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import { followMove, forgetPark, forgetRemainder, getHeld, newRemainder, releaseRemainder, liveAmount, moveCashNotesToKey, newThrowawayKey, parkDestination, promotePending, releasePark, toCashNotes, withPendingSecret } from './bills.js'
 import { tokenFacts, type Ctx } from './context.js'
-import { CashkitError, classifySpendError, isCrossHubDecline } from './errors.js'
+import { CashkitError, classifySpendError } from './errors.js'
 import { addHandoff, addHolding, appendActivity, heldHoldings, updateHolding } from './ledger.js'
 import { consolidateCap, consolidateInRounds, type MergeSource } from './merge.js'
 import type { Holding, TargetDisplay } from './model.js'
@@ -177,7 +177,7 @@ async function sendSingle(ctx: Ctx, plan: SendPlan, h: Holding, target: Target, 
   let out: { result: CashTransferResult; promoted?: import('./model.js').Sealed }
   try {
     out = await withPendingSecret(ctx, h, cred, (c) =>
-      ctx.client(h.token).cashTransfer({ credential: c, to: target, currentAmount: h.amount!, ...(split && { splitAmount: plan.amount }), ...(remainder !== undefined && { remainderCommitment: remainder.commitment }) }),
+      ctx.client(h.token).cashTransfer({ credential: c, to: target, currentAmount: h.amount!, requestId: newRequestId(ctx.random), ...(split && { splitAmount: plan.amount }), ...(remainder !== undefined && { remainderCommitment: remainder.commitment }) }),
     )
   } catch (err) {
     const c = classifySpendError(err, 'transfer', [h.id])
@@ -353,7 +353,6 @@ async function sendMerged(ctx: Ctx, plan: SendPlan, group: Holding[], target: Ta
   } catch (err) {
     const c = err instanceof CashkitError ? err : classifySpendError(err, 'transfer', group.map((h) => h.id))
     if (moved.length > 0 && c.code !== 'indeterminate') await toCashNotes(ctx, moved)
-    if (isCrossHubDecline(c)) throw new CashkitError('usage', `funds are fragmented across separate Hubs: these bills come from different Cash Hubs and only same-hub bills merge into the ${plan.amount} millis you're sending`, { cause: c })
     throw c
   }
 }

@@ -11,7 +11,6 @@ export type ClientErrorCode =
   | 'bad_input'
   | 'not_served'
   | 'wallet_error'
-  | 'partial_progress'
   | 'claim_not_found'
   | 'spent'
   /** The Hub answered with a success this client could not decode: it ran. */
@@ -58,27 +57,6 @@ export class NotServedError extends ClientError {
   constructor(method: string, options?: { cause?: unknown }) {
     super('not_served', `the hub returned no answer for this ${method}; it may or may not have been applied, so ask before retrying`, options)
     this.method = method
-  }
-}
-
-/**
- * The first step of a two-step flow landed and the second did not. Holds the
- * landed result: for a consolidate it is the only copy of the new bill.
- */
-export class PartialProgressError extends ClientError {
-  override readonly name = 'PartialProgressError'
-  readonly transferred?: unknown
-  readonly consolidated?: unknown
-  constructor(landed: { transferred?: unknown; consolidated?: unknown }, cause: unknown) {
-    super(
-      'partial_progress',
-      landed.transferred !== undefined
-        ? 'interim transfer landed, but the following consolidate failed'
-        : 'interim consolidate landed, but the following transfer failed',
-      { cause },
-    )
-    if (landed.transferred !== undefined) this.transferred = landed.transferred
-    if (landed.consolidated !== undefined) this.consolidated = landed.consolidated
   }
 }
 

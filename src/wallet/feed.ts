@@ -123,7 +123,6 @@ async function checkNote(ctx: Ctx, note: string): Promise<HandoffStatus | undefi
   } catch (err) {
     if (err instanceof ClientError && (err.code === 'spent' || err.code === 'claim_not_found')) return 'claimed'
     if (err instanceof WalletError && err.walletCode === 'EXPIRED') return 'expired'
-    if (err instanceof WalletError && err.walletCode === 'BAD_REQUEST' && err.walletMessage.includes('matches this cash secret')) return 'claimed'
     return undefined
   }
 }

@@ -1,12 +1,12 @@
 // Client behaviour against FakeHub. Cases follow nmilat nipcash/client
 // tests: batch_session, batch_pack, batch_send (chunking, failover, relay
 // close), batch_outcome, bill_state, client (oneItemOutcome), check_claim,
-// transfer_from_sources and rekey_cash_slice.
+// and the per-call request_id rule.
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
+  newRequestId,
   bySecret,
   bySigning,
-  cashTargetFromSecret,
   decodeToken,
   getPublicKey,
   localSigner,
@@ -19,7 +19,6 @@ import {
   CashClient,
   ClientError,
   NotServedError,
-  PartialProgressError,
   safeToResend,
   NOT_SENT,
   statusMany,
@@ -269,7 +268,7 @@ describe('bill state and claims (bill_state.go, check_claim.go)', () => {
   test('a tombstone answering a transfer is spent, never a decode failure', async () => {
     const c = new CashClient(deps(), bill(1))
     hub.handler = () => ({ result: { status: 'spent', reason: 'consolidated' } })
-    const err = await c.cashTransfer({ credential: bySigning(holder), to: pubkeyTarget(holder.pubkey), currentAmount: 21000n }).catch((e: unknown) => e)
+    const err = await c.cashTransfer({ requestId: newRequestId(), credential: bySigning(holder), to: pubkeyTarget(holder.pubkey), currentAmount: 21000n }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ClientError)
     expect((err as ClientError).code).toBe('spent')
   })
@@ -293,56 +292,6 @@ describe('bill state and claims (bill_state.go, check_claim.go)', () => {
     await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
     hub.handler = () => ({ result: { status: 'spent' } })
     await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'spent' })
-  })
-})
-
-describe('composite flows (transfer_from_sources.go, rekey_cash_slice.go)', () => {
-  const merged = fill(0x70, 32)
-  test('one source: a single split transfer', async () => {
-    hub.handler = (m) => (m === 'cash_transfer' ? { result: { amount_millis: 500, identity_type: 'pubkey', identity_value: 'cd'.repeat(32) } } : 'omit')
-    const c = new CashClient(deps(), bill(1))
-    const r = await c.transferFromSources({
-      sources: [{ walletPubkey: c.walletPubkey, amount: 21000n, credential: bySigning(holder) }],
-      amount: 500n,
-      to: pubkeyTarget('cd'.repeat(32)),
-      interimIdentity: pubkeyTarget(holder.pubkey),
-      interimCredential: bySigning(holder),
-    })
-    expect(r.consolidatedFirst).toBeUndefined()
-    expect(hub.requests[0]!.params['amount_millis']).toBe(500)
-  })
-  test('several sources: consolidate, reconnect, split; a failed split is PartialProgressError holding the new bill', async () => {
-    const newToken = hub.mintBill({ walletKey: merged, connSecret: fill(0x71, 32), amount: 3000n })
-    const c = new CashClient(deps(), bill(1))
-    const sources = [1, 2].map((i) => ({ walletPubkey: decodeToken(bill(i)).walletPubkey, amount: 1500n, credential: bySigning(holder) }))
-    // A cash interim target receives the new token as delivered (not encrypted).
-    hub.handler = (m) =>
-      m === 'cash_consolidate'
-        ? { result: { amount_millis: 3000, new_wallet_pubkey: getPublicKey(merged), new_wallet_token: newToken } }
-        : { error: { code: 'INTERNAL' } }
-    const err = await c
-      .transferFromSources({ sources, amount: 1000n, to: pubkeyTarget('cd'.repeat(32)), interimIdentity: cashTargetFromSecret('11'.repeat(32)), interimCredential: bySecret('11'.repeat(32)) })
-      .catch((e: unknown) => e)
-    expect(err).toBeInstanceOf(PartialProgressError)
-    expect((err as PartialProgressError).consolidated).toMatchObject({ amountMillis: 3000n, newWalletToken: newToken })
-  })
-  test('rekeying a lone cash slice is one in-place transfer to the new secret', async () => {
-    hub.handler = () => ({ result: { amount_millis: 21000, identity_type: 'cash' } })
-    const c = new CashClient(deps(), bill(1))
-    const target = cashTargetFromSecret('22'.repeat(32))
-    const r = await c.rekeyCashSlice({ cashSlice: { walletPubkey: c.walletPubkey, amount: 21000n, credential: bySecret('ab') }, newTarget: target })
-    expect(r).toEqual({ newSecret: target.secret, newWalletPubkey: c.walletPubkey, newToken: '', amountMillis: 21000n })
-    expect(hub.requests[0]!.params['new_identity']).toEqual({ identity_type: 'cash', identity_value: target.identityValue })
-  })
-  test('rekey with other bills needs a pubkey interim', async () => {
-    const c = new CashClient(deps(), bill(1))
-    await expect(
-      c.rekeyCashSlice({
-        cashSlice: { walletPubkey: c.walletPubkey, amount: 1n, credential: bySecret('ab') },
-        consolidateWith: [{ walletPubkey: 'cd'.repeat(32), amount: 1n, credential: bySigning(holder) }],
-        newTarget: cashTargetFromSecret('22'.repeat(32)),
-      }),
-    ).rejects.toThrow(ClientError)
   })
 })
 

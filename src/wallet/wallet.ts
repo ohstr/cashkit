@@ -83,8 +83,6 @@ export class Wallet {
   private refreshRunning: Promise<void> = Promise.resolve()
   private storagePersisted: boolean | undefined
   private readonly stops: (() => void)[] = []
-  /** Injected for tests; the circle join's replay back-off. */
-  sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))
 
   private constructor(private readonly ctx: Ctx) {
     ctx.onChange(() => this.refreshState())
@@ -335,7 +333,7 @@ export class Wallet {
   // ---- circles, lightning, connections, identity, settings (§6.7–§6.9)
 
   joinCircle(o: JoinInput): Promise<JoinResult> {
-    return joinCircle(this.ctx, o, this.sleep)
+    return joinCircle(this.ctx, o)
   }
 
   /** NIP-47 calls against a registered connection (default: the default one). */

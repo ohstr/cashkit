@@ -429,26 +429,26 @@ describe('circles (cmd/circle_test.go)', () => {
     expect(h.wallet.state.pendingJoins).toHaveLength(0)
     expect((await h.wallet.connections.list())[0]).toMatchObject({ name: 'circle', kind: 'circle', walletPubkey: '9a'.repeat(32) })
   })
-  test('maxAmount 0 is invalid_input; WALLET_EXISTS is exists and forgets the key', async () => {
+  test('maxAmount 0 is invalid_input; WALLET_EXISTS is exists and forgets the key; RESTRICTED stays auth whatever its message', async () => {
     const hub = new FakeNwcWallet(h.pool, 0x81)
     expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 0n })))?.code).toBe('invalid_input')
     hub.handler = (m) => (m === 'get_info' ? { result: {} } : { error: { code: 'RESTRICTED', message: 'this identity already has an active circle wallet' } })
+    expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n })))?.code).toBe('auth')
+    hub.handler = (m) => (m === 'get_info' ? { result: {} } : { error: { code: 'WALLET_EXISTS', message: 'x' } })
     const e = await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n }))
     expect([e?.code, e?.nwcCode]).toEqual(['exists', 'WALLET_EXISTS'])
     expect(h.wallet.state.pendingJoins).toHaveLength(0)
   })
-  test('a replay-guard refusal is retried once after 1.1 s', async () => {
+  test('a refused join is never retried with the same proof, whatever the message', async () => {
     const hub = new FakeNwcWallet(h.pool, 0x81)
     let calls = 0
-    const slept: number[] = []
-    h.wallet.sleep = async (ms) => void slept.push(ms)
     hub.handler = (m) => {
       if (m === 'get_info') return { result: {} }
       calls++
       return { error: { code: 'BAD_REQUEST', message: 'identity_event has already been used' } }
     }
-    expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n })))?.code).toBe('conflict')
-    expect([calls, slept]).toEqual([2, [1100]])
+    expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n })))?.code).toBe('invalid_input')
+    expect(calls).toBe(1)
   })
   test('silence keeps the pending join', async () => {
     const hub = new FakeNwcWallet(h.pool, 0x81)

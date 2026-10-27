@@ -14,6 +14,10 @@ export const PAIRING_URI_SCHEME = 'nostr+walletconnect'
 export const KIND_NWC_INFO = 13194
 export const KIND_NWC_REQUEST = 23194
 export const KIND_NWC_RESPONSE = 23195
+/** A wallet's notification, NIP-04 encrypted. */
+export const KIND_NWC_NOTIFICATION_NIP04 = 23196
+/** A wallet's notification, NIP-44 encrypted. */
+export const KIND_NWC_NOTIFICATION = 23197
 export const ENCRYPTION_NIP04 = 'nip04'
 export const ENCRYPTION_NIP44_V2 = 'nip44_v2'
 
@@ -267,6 +271,40 @@ export interface NWCResponse {
  * that do not re-tag (pass the scheme the request used). Exactly one `e`
  * tag is required, and at most one `d` tag.
  */
+export interface NWCNotification {
+  /** e.g. `payment_received`, or a NIP-CW `rotation_pending`, `wallet_frozen`. */
+  readonly type: string
+  readonly notification: Readonly<Record<string, unknown>>
+}
+
+/**
+ * Decrypts a wallet notification (kind 23197 under NIP-44, 23196 under
+ * NIP-04) sent to this connection. The caller checks the author is the
+ * wallet and the signature is valid.
+ */
+export function parseNotificationEvent(e: NostrEvent, connectionSecret: Uint8Array): NWCNotification {
+  if (e.kind !== KIND_NWC_NOTIFICATION && e.kind !== KIND_NWC_NOTIFICATION_NIP04) throw fail(`invalid kind ${e.kind}, expected a notification`)
+  let plaintext: string
+  try {
+    plaintext = e.kind === KIND_NWC_NOTIFICATION_NIP04 ? nip04.decrypt(e.content, connectionSecret, e.pubkey) : decrypt(e.content, getConversationKey(connectionSecret, e.pubkey))
+  } catch {
+    throw fail('decrypt notification failed')
+  }
+  let body: unknown
+  try {
+    body = JSON.parse(plaintext)
+  } catch {
+    throw fail('notification is not JSON')
+  }
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw fail('notification is not an object')
+  const o = body as Record<string, unknown>
+  const type = o['notification_type']
+  const n = o['notification']
+  if (typeof type !== 'string' || type === '') throw fail('notification_type is required')
+  if (n === null || typeof n !== 'object' || Array.isArray(n)) throw fail('notification must be an object')
+  return { type, notification: n as Record<string, unknown> }
+}
+
 export function parseResponseEvent(e: NostrEvent, connectionSecret: Uint8Array, fallbackEncryption = ENCRYPTION_NIP44_V2): NWCResponse {
   if (e.kind !== KIND_NWC_RESPONSE) throw fail(`invalid kind ${e.kind}, expected ${KIND_NWC_RESPONSE}`)
   const eTag = uniqueTag(e, 'e')

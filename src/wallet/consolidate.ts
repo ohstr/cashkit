@@ -4,7 +4,7 @@
 import { decodeToken, newCashTarget, pubkeyTarget, type Target } from '../core/index.js'
 import { getHeld, liveAmount, moveCashNotesToKey, newThrowawayKey, toCashNotes } from './bills.js'
 import type { Ctx } from './context.js'
-import { CashkitError, isCrossHubDecline } from './errors.js'
+import { CashkitError } from './errors.js'
 import { addHandoff, heldHoldings } from './ledger.js'
 import { consolidateCap, consolidateInRounds, type MergeSource } from './merge.js'
 import type { Holding } from './model.js'
@@ -41,6 +41,8 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
   const group: Holding[] = []
   for (const id of ids) group.push((await liveAmount(ctx, await getHeld(ctx, id))).holding)
   if (group.length < 2) throw new CashkitError('usage', `consolidate needs at least 2 sources, got ${group.length}`)
+  // Bills of different Cash Hubs never merge; known only from their hub groups, so checked locally.
+  if (new Set(group.map((h) => h.hubGroup).filter((g) => g !== '')).size > 1) throw crossHub(ids)
   const now = ctx.nowSeconds()
   const expired = group.filter((h) => h.expiresAt !== undefined && h.expiresAt <= now)
   if (expired.length > 0 && expired.length < group.length) {
@@ -95,7 +97,6 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
     }
   } catch (err) {
     if (moved.length > 0 && !(err instanceof CashkitError && err.code === 'indeterminate')) await toCashNotes(ctx, moved)
-    if (isCrossHubDecline(err)) throw crossHub(ids)
     throw err
   }
 }

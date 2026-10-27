@@ -10,7 +10,6 @@ import {
   codeForNwc,
   exitCode,
   fromWalletError,
-  isCrossHubDecline,
   isDefiniteRefusal,
   type ErrorCode,
 } from '../src/wallet/errors.js'
@@ -107,15 +106,11 @@ describe('classifyReadError', () => {
     expect(e.code).toBe('network')
     expect(e.message).toMatch(/deliberately does not distinguish/)
   })
-  test('a wrong cash secret is invalid_input with a plain explanation (explainCashSecretRefusal)', () => {
-    // lokihub's exact answer (nip47/private_dispatch.go): NOT_FOUND, not BAD_REQUEST.
-    for (const code of ['NOT_FOUND', 'BAD_REQUEST']) {
-      const e = classifyReadError(new WalletError('cash_status', code, 'no slice of this bill matches this cash secret'))
-      expect(e.code).toBe('invalid_input')
-      expect(e.message).toMatch(/does not match this bill/)
+  test('a refusal is read by its code, never its message (NIP-CASH §Errors)', () => {
+    for (const msg of ['no slice of this bill matches this cash secret', 'neither a slice proof nor a cash secret', 'anything at all']) {
+      expect(classifyReadError(new WalletError('cash_status', 'NOT_FOUND', msg)).code).toBe('not_found')
+      expect(classifyReadError(new WalletError('cash_status', 'BAD_REQUEST', msg)).code).toBe('invalid_input')
     }
-    const needs = classifyReadError(new WalletError('cash_status', 'BAD_REQUEST', 'neither a slice proof nor a cash secret'))
-    expect(needs.message).toMatch(/only with its cash secret/)
   })
   test('other wallet refusals map through the table', () => {
     expect(classifyReadError(new WalletError('cash_status', 'NOT_FOUND', 'no slice of this bill is registered for the identity that signed this item')).code).toBe('not_found')
@@ -136,7 +131,3 @@ describe('CashkitError', () => {
   })
 })
 
-test('isCrossHubDecline matches "same cash hub" in any case (isCrossHubSourcesDecline)', () => {
-  expect(isCrossHubDecline(new WalletError('cash_consolidate', 'BAD_REQUEST', 'sources must share the Same Cash Hub'))).toBe(true)
-  expect(isCrossHubDecline(new WalletError('cash_consolidate', 'BAD_REQUEST', 'other'))).toBe(false)
-})

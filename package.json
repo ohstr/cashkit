@@ -102,7 +102,7 @@
     "build": "tsup",
     "prepare": "tsup",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --deny-warnings src test && depcruise src",
+    "lint": "oxlint --deny-warnings src test && depcruise src && node tools/lint-no-message-match.mjs src",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.ts"
   },

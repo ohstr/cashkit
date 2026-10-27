@@ -2,7 +2,7 @@
 // doCashConsolidate, consolidateInRounds, reconcileAmbiguousSources and
 // hubConsolidateCap: rounds of at most the Hub's announced source cap, each
 // interim committed (with the merge key) before the next round goes out.
-import { bySigning, localSigner, pubkeyTarget, type CashConsolidateResult, type CashTarget, type ConsolidateSource, type Target } from '../core/index.js'
+import { bySigning, localSigner, newRequestId, pubkeyTarget, type CashConsolidateResult, type CashTarget, type ConsolidateSource, type Target } from '../core/index.js'
 import { ClientError, NotServedError } from '../client/index.js'
 import { DEFAULT_LIMITS, maxSourcesForEnvelope } from '../transport/index.js'
 import { forgetPark, hexBytes, parkDestination, releasePark, type Park } from './bills.js'
@@ -102,7 +102,7 @@ export async function consolidateOnce(
   for (const [n, dial] of items.entries()) {
     let result: CashConsolidateResult
     try {
-      result = await ctx.client(dial.token).cashConsolidate(sources[0]!.credential, { sources, to: target })
+      result = await ctx.client(dial.token).cashConsolidate(sources[0]!.credential, { sources, to: target, requestId: newRequestId(ctx.random) })
     } catch (err) {
       let cause: unknown = err
       if (isUndecodable(err) || err instanceof NotServedError) {
