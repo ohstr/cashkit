@@ -761,7 +761,7 @@ export class Wallet {
      * Circle Wallet Hub (`circlehub1…`). A connection string is decoded,
      * verified and checked online first, and stored as given (never a URI
      * built from it); an unverified one only after `confirmUnverified`
-     * resolved true. A held `circlehub1` joins nothing: a join goes through
+     * (else the wallet's `confirmUnverified` question) resolved true. A held `circlehub1` joins nothing: a join goes through
      * `circles.join`, and a held string of the same circle serves its
      * lookups. Neither is ever the default Lightning wallet.
      */
@@ -791,7 +791,7 @@ export class Wallet {
         return { name: row.id, kind: row.kind, isDefault: false, walletPubkey: v.walletPubkey, relays: v.relays, hubIdentity: row.hubIdentity!, ...(row.chain !== undefined && { chain: row.chain }), verified: row.verified!, ...(row.network !== undefined && { network: row.network }) }
       }
       if (o.kind === 'circlehub' || sniff(uri.trim()) === 'circlehub') {
-        const v = await verifyCircleHubString(this.ctx, uri, o.confirmUnverified)
+        const v = await verifyCircleHubString(this.ctx, uri, unverifiedAnswer(this.ctx.confirmations, o.confirmUnverified))
         const sealedConn = await this.ctx.seal(uri.trim())
         const now = this.ctx.nowSeconds()
         const row = await this.ctx.commit(async (t) => {

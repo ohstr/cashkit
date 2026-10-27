@@ -453,7 +453,7 @@ export async function recoverCircle(ctx: Ctx, hubString: string, newConnectionSe
     throw new CashkitError('invalid_input', `the new connection secret is not a valid key: ${(err as Error).message}`, { cause: err })
   }
   const signer = await ctx.requireSigner()
-  const hub = await connect(ctx, hubString, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }), purpose: 'lookup' })
+  const hub = await connect(ctx, hubString, { confirmUnverified: unverifiedAnswer(ctx.confirmations, o.confirmUnverified), purpose: 'lookup' })
   const hubPubkey = hub.connection.walletPubkey
   let out
   try {

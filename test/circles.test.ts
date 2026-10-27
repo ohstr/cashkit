@@ -2,7 +2,7 @@
 // ahead and settled by a join lookup, the Circle Wallet stored as fields,
 // Lightning through it, member requests, notifications and deletion.
 import { describe, expect, test } from 'vitest'
-import { getPublicKey, localSigner, toHex, verifyEvent } from '../src/core/index.js'
+import { decodeCircleHubConnection, encodeCircleHubConnection, getPublicKey, localSigner, toHex, verifyEvent } from '../src/core/index.js'
 import { CashkitError, toJSON } from '../src/wallet/index.js'
 import { FakeCircle } from './fakeCircle.js'
 import { fill } from './helpers.js'
@@ -161,6 +161,17 @@ describe('connections.add and inspect of a circlehub1', () => {
     expect(await failure(h.wallet.connections.setDefault('ada'))).toMatchObject({ code: 'usage' })
     expect(await failure(h.wallet.lightning('ada'))).toMatchObject({ code: 'usage' })
     expect(await failure(h.wallet.lightning())).toMatchObject({ code: 'not_found' })
+  })
+  test('an unverified string is added only on a yes: the caller\'s confirmUnverified, else the wallet\'s question', async () => {
+    const { h, circle } = await setup()
+    const c = decodeCircleHubConnection(circle.string)
+    const tampered = encodeCircleHubConnection({ ...c, label: 'Not Ada', labelBytes: new TextEncoder().encode('Not Ada') })
+    expect(await failure(h.wallet.connections.add('ada', tampered))).toMatchObject({ code: 'auth' })
+    const asked: string[] = []
+    h.wallet.on('confirm', (q) => (asked.push(q.type), q.type === 'confirmUnverified'))
+    const v = await h.wallet.connections.add('ada', tampered)
+    expect(v).toMatchObject({ kind: 'circlehub', verified: false })
+    expect(asked).toEqual(['confirmUnverified'])
   })
   test('a string whose get_info names another node is refused, and nothing is stored', async () => {
     const { h, circle } = await setup()
