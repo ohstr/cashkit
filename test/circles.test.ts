@@ -2,7 +2,7 @@
 // ahead and settled by a join lookup, the Circle Wallet stored as fields,
 // Lightning through it, member requests, notifications and deletion.
 import { describe, expect, test } from 'vitest'
-import { decodeCircleHubConnection, encodeCircleHubConnection, getPublicKey, localSigner, toHex, verifyEvent } from '../src/core/index.js'
+import { decodeCircleHubConnection, encodeCircleHubConnection, fromHex, getPublicKey, localSigner, toHex, verifyEvent } from '../src/core/index.js'
 import { MemoryStorage } from '../src/adapters/storage-memory.js'
 import { CashkitError, toJSON, type Storage, type StorageTx } from '../src/wallet/index.js'
 import { FakeCircle } from './fakeCircle.js'
@@ -365,6 +365,38 @@ describe('member requests end to end: watch and refresh', () => {
       circle.notify(w, 'rotation_completed', { connection_pubkey: 'nothex' })
       await new Promise((res) => setTimeout(res, 50))
       expect(alerts).toEqual(['rotation_alert'])
+    } finally {
+      stop()
+    }
+  }, 30_000)
+
+  test('a lost device: memberRequestFor on a new device signs a rotate for the wallet by its pubkey; the old device is alerted; recover takes it once completed', async () => {
+    const id = localSigner(fill(21, 32))
+    const h = await harness({ identity: false, deps: { nwcTimeoutMs: 2000 } })
+    const circle = new FakeCircle(h.bank, { rotationDelaySecs: 432000 })
+    await h.wallet.identity.useSigner(id)
+    const r = await h.wallet.circles.join(circle.string, terms)
+    const w = circle.wallets.get(r.walletPubkey)!
+    w.balance = 900n
+    const alerts: string[] = []
+    const stop = await h.wallet.circles.watch(r.name, { onAlert: (a) => alerts.push(a) })
+    try {
+      const b = await harness({ pool: h.pool, bank: h.bank, identity: false, deps: { nwcTimeoutMs: 2000 } })
+      await b.wallet.identity.useSigner(id)
+      expect(await failure(b.wallet.circles.memberRequestFor(circle.string, 'XY', 'rotate'))).toMatchObject({ code: 'invalid_input' })
+      const { event, newConnectionSecret } = await b.wallet.circles.memberRequestFor(circle.string, r.walletPubkey, 'rotate')
+      expect(verifyEvent(event)).toBe(true)
+      expect(event.tags.find((t) => t[0] === 'connection')![1]).toBe(getPublicKey(fromHex(newConnectionSecret!)))
+      expect(circle.submit(event)).toBeUndefined()
+      await eventually(() => alerts.includes('rotation_alert'), 'the old device sees the rotation')
+      expect(await b.wallet.circles.recover(circle.string, newConnectionSecret!)).toMatchObject({ state: 'pending' })
+      circle.completeRotation(w)
+      expect(await b.wallet.circles.recover(circle.string, newConnectionSecret!)).toMatchObject({ state: 'done', wallet: { walletPubkey: r.walletPubkey } })
+      expect((await (await b.wallet.lightning((await b.wallet.circles.list())[0]!.name)).getBalance()).balance).toBe(900)
+      // A freeze for a wallet held here goes through memberRequest: no secret comes back.
+      const held = await b.wallet.circles.memberRequestFor(circle.string, r.walletPubkey, 'freeze')
+      expect(held.newConnectionSecret).toBeUndefined()
+      expect(held.event.tags.find((t) => t[0] === 'action')![1]).toBe('freeze')
     } finally {
       stop()
     }

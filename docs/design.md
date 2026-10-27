@@ -1034,6 +1034,7 @@ circles.join(hub: string /* circlehub1… */, terms: { maxAmount; maxReceive; ex
              o?: { name?; makeDefault?; confirmUnverified?; confirmNoRecovery? }): Promise<JoinResult>
 circles.list(), circles.client(name), circles.memberRequest(name, action), circles.notify(name, n),
 circles.watch(name, o?: { onAlert? }): Promise<() => void>, circles.refresh(name, o?: { cancelRotation? }),
+circles.memberRequestFor(hub: string /* circlehub1… */, walletPubkey, action, o?: { confirmUnverified? }): Promise<{ event; newConnectionSecret? }>,
 circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin), circles.forgetJoin(id),
 circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name?; makeDefault?; confirmUnverified? }): Promise<RecoverResult>
 ```
@@ -1091,6 +1092,12 @@ circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name
   A subscription sends the Hub nothing, so it never cancels a rotation. A
   `rotation_pending` this device did not ask for marks the connection
   `moved` at its `completes_at` unless `rotation_cancelled` comes first.
+- `circles.memberRequestFor(hub, walletPubkey, action)` serves a member who
+  lost the device that held the wallet: on a new device with the same
+  identity it checks the `circlehub1` online and signs the request for the
+  wallet by its pubkey; a rotate returns the new key's secret
+  (secret-bearing) for `circles.recover` once the rotation completes. A
+  wallet held here goes through `memberRequest`, and no secret is returned.
 - `circles.refresh(name)` sends one `get_balance` over the current key past
   the local frozen gate: `FROZEN` marks the wallet frozen, an answer lifts
   the mark (an `unfreeze` has no notification). Any request by the old key

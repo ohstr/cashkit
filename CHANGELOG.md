@@ -433,6 +433,10 @@
   current key whether the wallet is frozen and lifts the local mark after an
   unfreeze, which has no notification; it is refused while this device's
   rotation is pending unless `cancelRotation` is set.
+- Circles: `circles.memberRequestFor(circlehub1, walletPubkey, action)`
+  signs a member request for a wallet this device does not hold, for a
+  member who lost the device that did; a rotate returns the new key's
+  secret for `circles.recover`.
 
 ## [0.1.0-rc.2]
 

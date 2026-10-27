@@ -628,6 +628,35 @@ export async function memberRequest(ctx: Ctx, name: string, action: MemberAction
   return buildMemberRequest(signer, { hubPubkey: c.circle.hubPubkey, action, walletPubkey: c.walletPubkey, ...(newKey !== undefined && { newConnectionPubkey: newKey.pubkey }), now: ctx.nowSeconds() })
 }
 
+/** A member request for a wallet this device does not hold, and a rotate's new key for `circles.recover`. */
+export interface MemberRequestForResult {
+  readonly event: NostrEvent
+  /** rotate only: the new key's secret, for `circles.recover` once the rotation completes. Secret-bearing: keep it until then. */
+  readonly newConnectionSecret?: string
+}
+
+/**
+ * A member request for a wallet named by its circle's `circlehub1` and its
+ * `wallet_pubkey` (NIP-CW §Recovering a Lost Connection): the case of a
+ * member who lost the device that held the connection, on a new device with
+ * the same identity. The string is checked online first; the request is
+ * signed by this identity, which must be the join's. A wallet this device
+ * holds goes through `memberRequest` (its rotate key is stored, not
+ * returned). The host submits the event; `circles.recover(hub,
+ * newConnectionSecret)` takes the wallet once the rotation completes.
+ */
+export async function memberRequestFor(ctx: Ctx, hubString: string, walletPubkey: string, action: MemberAction, o: { confirmUnverified?: (v: HubView) => Promise<boolean> } = {}): Promise<MemberRequestForResult> {
+  if (!/^[0-9a-f]{64}$/.test(walletPubkey)) throw new CashkitError('invalid_input', 'wallet_pubkey must be 64 lowercase hex characters', { input: walletPubkey })
+  if (!['rotate', 'freeze', 'unfreeze'].includes(action)) throw new CashkitError('invalid_input', `unknown member request action "${String(action)}"`)
+  const { hubPubkey } = await verifyCircleHubString(ctx, hubString, o.confirmUnverified)
+  const held = (await ctx.read((t) => t.list('connections'))).find((c) => c.kind === 'circle_wallet' && c.circle?.hubPubkey === hubPubkey && c.walletPubkey === walletPubkey && c.moved !== true)
+  if (held !== undefined) return { event: await memberRequest(ctx, held.id, action) }
+  const signer = await ctx.requireSigner()
+  const newKey = action === 'rotate' ? newConnectionKey(ctx) : undefined
+  const event = await buildMemberRequest(signer, { hubPubkey, action, walletPubkey, ...(newKey !== undefined && { newConnectionPubkey: newKey.pubkey }), now: ctx.nowSeconds() })
+  return { event, ...(newKey !== undefined && { newConnectionSecret: newKey.secret }) }
+}
+
 export type CircleNotification =
   | { readonly notification_type: 'rotation_pending'; readonly notification: { readonly connection_pubkey: string; readonly completes_at: number } }
   | { readonly notification_type: 'rotation_cancelled' | 'rotation_completed'; readonly notification: { readonly connection_pubkey: string } }

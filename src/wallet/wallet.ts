@@ -45,6 +45,7 @@ import {
   isLightning,
   joinCircle,
   memberRequest,
+  memberRequestFor,
   nwcFor,
   recoverCircle,
   refreshCircle,
@@ -57,6 +58,7 @@ import {
   type JoinOptions,
   type JoinResult,
   type JoinTermsInput,
+  type MemberRequestForResult,
   type RecoverOptions,
   type RecoverResult,
   type RefreshCircleOptions,
@@ -705,6 +707,12 @@ export class Wallet {
     client: (name: string): Promise<CircleWalletClient> => circleWalletClient(this.ctx, name),
     /** A signed member request (`rotate`, `freeze`, `unfreeze`) for the host to submit; cashkit never sends it. */
     memberRequest: (name: string, action: MemberAction): Promise<NostrEvent> => memberRequest(this.ctx, name, action),
+    /**
+     * A member request for a wallet this device does not hold (a lost
+     * device), by its circle's `circlehub1` and `wallet_pubkey`; a rotate
+     * returns the new key's secret for `recover`. For the host to submit.
+     */
+    memberRequestFor: (hub: string, walletPubkey: string, action: MemberAction, o: { confirmUnverified?: (v: HubView) => Promise<boolean> } = {}): Promise<MemberRequestForResult> => memberRequestFor(this.ctx, hub, walletPubkey, action, o),
     /** Applies a NIP-47 notification the wallet's key received; returns what it means for the member. */
     notify: (name: string, n: CircleNotification): Promise<CircleAlert> => applyCircleNotification(this.ctx, name, n),
     /**
