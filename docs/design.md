@@ -104,15 +104,22 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
 - **TLV strings.** Covers the token (types 0–8), the signed Hub connections
   `cashhub1`, `cashorder1` and `circlehub1` (0/1/2, 3 = label, 4 = Hub
   identity, 5 = connection signature, 6 = chain) and `nconnection1`.
-  - Decoding MUST apply no length limit and MUST accept a bech32 or a
-    bech32m checksum, matching go-flokicoin's `bech32.DecodeNoLimit`.
-    Encoding always writes bech32. `@scure/base`'s `bech32.decode` refuses
-    bech32m, so `core/bech32.ts` implements the framing itself. An
-    all-uppercase string decodes as its lowercase form; a mixed-case one is
-    refused (`CoreError` `mixed_case`).
+  - Decoding MUST apply no length limit (go-flokicoin's
+    `bech32.DecodeNoLimit`), so `core/bech32.ts` implements the framing
+    itself. Credentials are NIP-19 bech32 (BIP-173): every credential decoder
+    (token, Hub connection strings, `nconnection1`) refuses a bech32m
+    checksum, and encoding always writes bech32. An all-uppercase string
+    decodes as its lowercase form; a mixed-case one is refused (`CoreError`
+    `mixed_case`), and a token encoder refuses an HRP that is not lowercase.
   - Unknown TLV types (4 included) are ignored; entries decode in any order.
   - A duplicate or wrong-length pubkey, secret or identity_required is
-    fatal, and so is a token with no usable relay hint.
+    fatal, and so is a token with no usable relay hint. A hint is blank
+    when it is empty once ASCII whitespace is trimmed; any other hint,
+    non-ASCII included, is usable and listed in `relays`.
+  - `nconnection1` is strict: exactly one 32-byte key, at most one platform
+    matching `[a-z0-9._-]+`, and a truncated or overrunning TLV is refused.
+    The encoder refuses a key that is not 64 lowercase hex, a non-ASCII or
+    over-long relay and a bad platform name.
   - `Token.scheme` says what the mint signature signs: `mint_v1` (TLV 8 = 1),
     `zap_v1` (2), `malformed` (TLV 8 absent, wrong-length, repeated or
     unknown, or TLV 5/6 unpaired or malformed) or `none` (no 5/6). Only the
@@ -182,7 +189,8 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
   - Tokens delivered to the claimant are NIP-44 decrypted with
     ECDH(own priv, new wallet pubkey).
 - **Requests.** `request_id` (`newRequestId`, 32 random bytes;
-  `derivedRequestId` = sha256 of `retry:<id>` for a re-placed call) is
+  `derivedRequestId` = sha256 of `retry:<id>` for a re-placed call, which
+  refuses an `<id>` that is not a request id) is
   required on `cash_transfer`, `cash_consolidate` and `mint_cash`; the
   client draws one when the caller gives none. `cashTransferRequest`
   refuses a zero or excess amount, takes `zap_target` (pubkey slice to a

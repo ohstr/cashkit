@@ -230,6 +230,22 @@
   Unicode 15.0.0), `connectionKeyFromTyped` (x, discord, email, dns only)
   and `connectionKeyFromAttested`. They agree with nmilat on its 5000-domain
   corpus. ([#30](https://github.com/ohstr/cashkit/pull/30))
+- Credential decoders (tokens, Hub connection strings, `nconnection1`)
+  refuse a bech32m checksum; `encodeToken` refuses an HRP that is not
+  lowercase.
+- A relay hint is blank only when it is empty once ASCII whitespace is
+  trimmed: a token or Hub connection whose hints are non-ASCII now decodes,
+  and such hints are listed in `relays`.
+- `nconnection1` is strict: a second key or platform, a platform outside
+  `[a-z0-9._-]+` and a truncated TLV are refused; the encoder refuses a key
+  that is not lowercase hex, a non-ASCII relay and a bad platform name.
+- `zapPayloadV1` takes the `zap_target` itself and refuses an empty target
+  or a recipient or sender that is not 64 lowercase hex (breaking);
+  `chainForHrp` matches the HRP in lowercase; `relayHashOf` refuses a hint
+  over 255 bytes.
+- `derivedRequestId` refuses an id that is not a request id; adds
+  `requiresRequestId`.
+- `connectionKeyFromSecret` refuses uppercase hex.
 
 ## [0.1.0-rc.2]
 
