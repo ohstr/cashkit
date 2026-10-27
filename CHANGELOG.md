@@ -328,6 +328,24 @@
   ([#32](https://github.com/ohstr/cashkit/pull/32))
 - `budgetPeriodStart` returns undefined for a negative period index.
   ([#32](https://github.com/ohstr/cashkit/pull/32))
+- `decodeBolt11` also reads an invoice's creation time, expiry and payee
+  (the `n` field, else the key its signature recovers to);
+  `invoiceExpiresAt`.
+- Redeem: an invoice's amount must be what the Hub will pay, the full
+  amount when its payee is the bill's own minter (fee-free, same node),
+  else the net amount; any other is refused before sending (reason
+  `invoice_amount`). An invoice the app's wallet makes is made again for
+  the full amount when its payee is the minter. New `redeemInvoiceMillis`.
+- Consolidate: a set the Hub refused `RESTRICTED` is remembered and not
+  planned again.
+- Orders: the view's `payDeadline` is `pay_by` or the invoice's expiry,
+  whichever comes first; each bill's own row is read before it is kept (a
+  bill for another recipient is never kept, one with an expiry is kept
+  without the ordered mark); a confirmed re-placement carries a fresh
+  `notify`.
+- Withdrawals: `withdraw.requote` (a new quote listing what changed) and
+  `withdraw.recover` (a lost withdrawal found from the bill's
+  `withdraw_request_id`, looked up, never placed again).
 
 ## [0.1.0-rc.2]
 
