@@ -416,6 +416,14 @@
   curators (`curators.*`: app defaults, the user's edits, a private NIP-51
   set published and synced). A session now starts on the wallet's clock.
   ([#39](https://github.com/ohstr/cashkit/pull/39))
+- Reads a Hub's `NOT_FOUND` to a connection-key holder's `cash_status`, which
+  NIP-CASH §Scoping the Roster requires, as "status not readable": the bill
+  is received unverified at its attested amount (`statusUnreadable`),
+  `status` reports it `unreadable`, `BillState` gains `unreadable` and
+  `checkClaim` throws `status_unreadable`; a redeem or withdrawal is refused
+  before anything is sent (`usage`/`status_unreadable`), a send still works,
+  and `settle()` never settles a redeeming bill on that answer. Adds
+  `statusUnreadable`.
 
 ## [0.1.0-rc.2]
 

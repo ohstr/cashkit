@@ -65,6 +65,13 @@ export class FakeBank {
   loseMintReply = false
   /** Refuse a redeem invoice not for exactly the required amount (off by default: older tests use placeholder amounts). */
   strictInvoices = false
+  /**
+   * Serve `cash_status` with `scope: all` to a connection-key holder on the
+   * bill proof alone. Off by default: NIP-CASH §Scoping the Roster has a Hub
+   * answer such a holder `NOT_FOUND` (SG-1 (a)); on, it models a Hub that
+   * widens the roster (SG-1 (b)/(c)).
+   */
+  ckStatusAll = false
   /** The `withdraw` terms `cash_status` reports; undefined: withdrawals not offered. */
   withdrawTerms: Record<string, unknown> | undefined
 
@@ -191,8 +198,8 @@ export class FakeBank {
       return undefined
     }
     if (w.identity.type === 'connection_key') {
-      // A `mine` read names the item-proof signer, never a ConnectionKey; `all` is served on the bill proof.
-      if (info.item.method === 'cash_status') return p['scope'] === 'all' ? undefined : { error: { code: 'NOT_FOUND', message: 'no slice of this bill is registered for the identity that signed this item' } }
+      // "Mine" is the item-proof signer, never a ConnectionKey, and no scope widens it (§Scoping the Roster).
+      if (info.item.method === 'cash_status') return this.ckStatusAll && p['scope'] === 'all' ? undefined : { error: { code: 'NOT_FOUND', message: 'no slice of this bill is registered for the identity that signed this item' } }
       return this.checkConnectionKey(w.identity, info)
     }
     if (info.signer !== w.identity.value) return { error: { code: 'NOT_FOUND', message: 'no slice of this bill is registered for the identity that signed this item' } }

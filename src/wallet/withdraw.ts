@@ -45,11 +45,11 @@ import {
   type WithdrawQuote,
   type WithdrawTerms,
 } from '../core/index.js'
-import { cancelWithdraw, deadlineFor, lookupWithdraw, placeWithdraw, quoteWithdraw, watchPayout, WalletError, type LookupAuthorizer } from '../client/index.js'
+import { cancelWithdraw, deadlineFor, lookupWithdraw, placeWithdraw, quoteWithdraw, statusUnreadable, watchPayout, WalletError, type LookupAuthorizer } from '../client/index.js'
 import { getHeld, lockedHoldings } from './bills.js'
 import { prepareCall, finishCall, type PlainOutput } from './calls.js'
 import { billOf, tokenFacts, type Ctx } from './context.js'
-import { CashkitError, codeForNwc, fromWalletError } from './errors.js'
+import { CashkitError, codeForNwc, fromWalletError, statusUnreadableError } from './errors.js'
 import { addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { CallCreated, Holding, PendingCall, WithdrawalRecord } from './model.js'
 import type { StorageTx } from './ports.js'
@@ -167,6 +167,8 @@ async function statusRow(ctx: Ctx, h: Holding) {
   const credential = await ctx.credentialFor(h)
   const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope: ownScope(credential) }])
   const o = r.outcomes[0]
+  // A connection-key holder is answered NOT_FOUND by a spec Hub: no terms, no row, nothing quoted.
+  if (o?.state === 'error' && statusUnreadable(credential, o.error)) throw statusUnreadableError(h.id)
   if (o?.state !== 'result' || o.value === undefined) throw new CashkitError('network', "the bill's Hub did not answer its status; try again", { input: h.id })
   let row
   try {

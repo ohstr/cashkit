@@ -9,6 +9,7 @@ export {
   notServedOutcomes,
   oneItemError,
   safeToResend,
+  statusUnreadable,
   succeeded,
   type BillState,
   type CallClass,

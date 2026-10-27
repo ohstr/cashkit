@@ -9,7 +9,7 @@ import { decodeToken, localSigner, newCashTarget, pubkeyTarget, toHex } from '..
 import { ClientError } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import type { Ctx } from './context.js'
-import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
+import { CashkitError, classifyReadError, notClaimableError, statusUnreadableError } from './errors.js'
 import { appendActivity, notHeldError, updateHolding } from './ledger.js'
 import { runTransfer } from './kinds.js'
 import type { Holding } from './model.js'
@@ -56,6 +56,7 @@ export async function quoteHolding(ctx: Ctx, h: Holding): Promise<{ holding: Hol
     if (err instanceof ClientError && err.code === 'claim_not_found') {
       throw new CashkitError('not_found', "couldn't determine this token's amount: check that it is still valid", { input: h.id })
     }
+    if (err instanceof ClientError && err.code === 'status_unreadable') throw statusUnreadableError(h.id)
     throw classifyReadError(err, h.id)
   }
   if (!r.claimable) throw notClaimableError(r.reason, h.id)

@@ -3,16 +3,21 @@
 // recordQuote. Bills batch by `nodeKey` (the verified minter, whose
 // announcement names the inbox), never by hubGroup (design §6.3).
 import { cashCommitment, decodeToken, isCashSecret, isSpent, ownClaim, ownScope, type CashStatusResult, type NotClaimableReason, type OwnClaim, type RecipientStatus } from '../core/index.js'
-import { NotServedError, WalletError, type BatchStatus } from '../client/index.js'
+import { NotServedError, statusUnreadable, WalletError, type BatchStatus } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import { getHeld } from './bills.js'
 import { billOf, type Ctx } from './context.js'
-import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
+import { CashkitError, classifyReadError, notClaimableError, statusUnreadableError } from './errors.js'
 import { appendActivity, heldHoldings, updateHolding } from './ledger.js'
 import type { Holding } from './model.js'
 import { report, type Outcome, type Report } from './report.js'
 
-export type NodeStatus = { readonly state: 'available'; readonly result: CashStatusResult } | { readonly state: 'spent' } | { readonly error: CashkitError }
+/**
+ * One holding's `cash_status`. `unreadable` is a connection-key holding the
+ * Hub answered `NOT_FOUND` (`statusUnreadable`): no statement about the bill,
+ * so it is never tombstoned, released or settled on that answer.
+ */
+export type NodeStatus = { readonly state: 'available'; readonly result: CashStatusResult } | { readonly state: 'spent' } | { readonly state: 'unreadable' } | { readonly error: CashkitError }
 
 const noMinter = (id: string) =>
   new CashkitError('invalid_input', 'this token has no verifiable mint signature, so its hub cannot be identified and it cannot be spent', { input: id })
@@ -62,9 +67,12 @@ export async function statusByNode(ctx: Ctx, hs: readonly Holding[]): Promise<Ma
       continue
     }
     const secrets = new Map(items.flatMap((it) => (it.credential.kind === 'secret' ? [[it.id!, it.credential.secret] as const] : [])))
+    const credentials = new Map(items.map((it) => [it.id!, it.credential] as const))
     for (const o of r.outcomes) {
       const secret = secrets.get(o.id)
-      if (o.state === 'result' && o.value !== undefined && secret !== undefined && !secretMatches(o.value, secret)) {
+      const credential = credentials.get(o.id)
+      if (o.state === 'error' && credential !== undefined && statusUnreadable(credential, o.error)) out.set(o.id, { state: 'unreadable' })
+      else if (o.state === 'result' && o.value !== undefined && secret !== undefined && !secretMatches(o.value, secret)) {
         out.set(o.id, { error: new CashkitError('invalid_input', 'the cash secret does not match this bill: it was received incomplete, or someone else has re-keyed the note', { input: o.id }) })
       } else if (o.state === 'result' && o.value !== undefined) out.set(o.id, isSpent(o.value) ? { state: 'spent' } : { state: 'available', result: o.value })
       else if (o.state === 'error' && o.undecodable) out.set(o.id, { error: new CashkitError('network', "the Hub's answer for this bill could not be read; asking again is safe", { input: o.id }) })
@@ -112,6 +120,10 @@ export async function quoteMany(ctx: Ctx, hs: readonly Holding[]): Promise<Map<s
       out.set(h.id, { error: new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone', { input: h.id }) })
       continue
     }
+    if (s.state === 'unreadable') {
+      out.set(h.id, { error: statusUnreadableError(h.id) })
+      continue
+    }
     const own = await ownClaimOf(ctx, h, s.result)
     if (own === undefined) {
       out.set(h.id, { error: new CashkitError('not_found', "couldn't determine this token's amount: check that it is still valid", { input: h.id }) })
@@ -154,7 +166,11 @@ export async function quoteMany(ctx: Ctx, hs: readonly Holding[]): Promise<Map<s
 
 export interface StatusOutcome {
   readonly holdingId: string
-  readonly state: 'available' | 'spent'
+  /**
+   * `unreadable`: a connection-key bill whose Hub does not show its holder
+   * the status (NIP-CASH §Scoping the Roster); the holding is left as it was.
+   */
+  readonly state: 'available' | 'spent' | 'unreadable'
   readonly amount?: bigint
   readonly fee?: bigint
   readonly net?: bigint
@@ -181,6 +197,10 @@ export async function status(ctx: Ctx, o: { holdings?: readonly string[] } = {})
     if (s.state === 'spent') {
       if (h.status === 'held') spent.push(h.id)
       outcomes.push({ ok: true, holdingId: h.id, state: 'spent', recipients: 0 })
+      continue
+    }
+    if (s.state === 'unreadable') {
+      outcomes.push({ ok: true, holdingId: h.id, state: 'unreadable', recipients: 0 })
       continue
     }
     const own = await ownClaimOf(ctx, h, s.result)
