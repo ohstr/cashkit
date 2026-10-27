@@ -506,8 +506,7 @@ export async function publishCurators(ctx: Ctx, o: { relays?: readonly string[] 
   const signer = await requireIdentity(ctx)
   const d = await curatorSettings(ctx)
   const priv = d.curatorsPrivate !== false
-  if (priv && signer.nip44Encrypt === undefined) throw new CashkitError('usage', 'this signer cannot encrypt to itself, so the curators cannot be kept private', { reason: 'signer_cannot_encrypt' })
-  const t = await newCuratorSet({ curators: d.curators, private: priv }, (pt) => signer.nip44Encrypt!(signer.pubkey, pt))
+  const t = await newCuratorSet({ curators: d.curators, private: priv }, (pt) => signer.nip44Encrypt(signer.pubkey, pt))
   const ev = await signer.signEvent({ ...t, created_at: ctx.nowSeconds() })
   const base = o.relays ?? stateOf(ctx).relays
   const relays = [...(await writeRelaysOf(ctx, signer.pubkey, base)), ...base]
