@@ -1079,12 +1079,12 @@
       "name": "Lightning, open",
       "payment": "lightning",
       "lookup": false,
-      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210220n1...\",\"pay_by\":1720003600,\"bills\":[]}",
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210220n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrsss8c88hsmv8kfdzfahx9mxf5h9yvhenkyx5tqdwspwnzn8c696vgxjqy92qn6zy238w08cv95y2gal3arn0wy6hvcurqyq2p66jxadlgp0pdmzx\",\"pay_by\":1720003600,\"bills\":[]}",
       "want": {
         "amount_millis": 21000000,
         "bills": [],
         "fee_millis": 22000,
-        "invoice": "lnbc210220n1...",
+        "invoice": "lnbc210220n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrsss8c88hsmv8kfdzfahx9mxf5h9yvhenkyx5tqdwspwnzn8c696vgxjqy92qn6zy238w08cv95y2gal3arn0wy6hvcurqyq2p66jxadlgp0pdmzx",
         "pay_by": 1720003600,
         "pay_millis": 21022000,
         "payment": "lightning",
@@ -1095,17 +1095,85 @@
       "name": "Lightning, open",
       "payment": "lightning",
       "lookup": true,
-      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210220n1...\",\"pay_by\":1720003600,\"bills\":[]}",
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210220n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrsss8c88hsmv8kfdzfahx9mxf5h9yvhenkyx5tqdwspwnzn8c696vgxjqy92qn6zy238w08cv95y2gal3arn0wy6hvcurqyq2p66jxadlgp0pdmzx\",\"pay_by\":1720003600,\"bills\":[]}",
       "want": {
         "amount_millis": 21000000,
         "bills": [],
         "fee_millis": 22000,
-        "invoice": "lnbc210220n1...",
+        "invoice": "lnbc210220n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrsss8c88hsmv8kfdzfahx9mxf5h9yvhenkyx5tqdwspwnzn8c696vgxjqy92qn6zy238w08cv95y2gal3arn0wy6hvcurqyq2p66jxadlgp0pdmzx",
         "pay_by": 1720003600,
         "pay_millis": 21022000,
         "payment": "lightning",
         "state": "open"
       }
+    },
+    {
+      "name": "Lightning, the invoice is not for pay_millis",
+      "payment": "lightning",
+      "lookup": false,
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210210n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrssxvtwsj03r74z4jh8cj74mqkde04f7kluyultkuce83sayakzpx79hfze3fhhxuzj0z2456rfv0myynpkx4dm8mnfk6nml77sk3kgplgphgwvqr\",\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "amount_millis": 21000000,
+        "bills": [],
+        "fee_millis": 22000,
+        "invoice": "lnbc210210n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrssxvtwsj03r74z4jh8cj74mqkde04f7kluyultkuce83sayakzpx79hfze3fhhxuzj0z2456rfv0myynpkx4dm8mnfk6nml77sk3kgplgphgwvqr",
+        "pay_by": 1720003600,
+        "pay_millis": 21022000,
+        "payment": "lightning",
+        "state": "open"
+      },
+      "invoiceCheck": "nipCO: malformed order: the invoice is for 21021000, pay_millis is 21022000"
+    },
+    {
+      "name": "Lightning, the invoice is not for pay_millis",
+      "payment": "lightning",
+      "lookup": true,
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc210210n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrssxvtwsj03r74z4jh8cj74mqkde04f7kluyultkuce83sayakzpx79hfze3fhhxuzj0z2456rfv0myynpkx4dm8mnfk6nml77sk3kgplgphgwvqr\",\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "amount_millis": 21000000,
+        "bills": [],
+        "fee_millis": 22000,
+        "invoice": "lnbc210210n1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrssxvtwsj03r74z4jh8cj74mqkde04f7kluyultkuce83sayakzpx79hfze3fhhxuzj0z2456rfv0myynpkx4dm8mnfk6nml77sk3kgplgphgwvqr",
+        "pay_by": 1720003600,
+        "pay_millis": 21022000,
+        "payment": "lightning",
+        "state": "open"
+      },
+      "invoiceCheck": "nipCO: malformed order: the invoice is for 21021000, pay_millis is 21022000"
+    },
+    {
+      "name": "Lightning, an amountless invoice",
+      "payment": "lightning",
+      "lookup": false,
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrss09pjhvzk38y6jkgnccchuaj6qdg39mfqyvkgwz622x4gjcvayynxelsge0flwf8v0f4xhdel6lcruejpzpa3za5m3c54za9x943t48gq72xjjt\",\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "amount_millis": 21000000,
+        "bills": [],
+        "fee_millis": 22000,
+        "invoice": "lnbc1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrss09pjhvzk38y6jkgnccchuaj6qdg39mfqyvkgwz622x4gjcvayynxelsge0flwf8v0f4xhdel6lcruejpzpa3za5m3c54za9x943t48gq72xjjt",
+        "pay_by": 1720003600,
+        "pay_millis": 21022000,
+        "payment": "lightning",
+        "state": "open"
+      },
+      "invoiceCheck": "nipCO: malformed order: the invoice is for 0, pay_millis is 21022000"
+    },
+    {
+      "name": "Lightning, an amountless invoice",
+      "payment": "lightning",
+      "lookup": true,
+      "reply": "{\"state\":\"open\",\"payment\":\"lightning\",\"amount_millis\":21000000,\"fee_millis\":22000,\"pay_millis\":21022000,\"invoice\":\"lnbc1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrss09pjhvzk38y6jkgnccchuaj6qdg39mfqyvkgwz622x4gjcvayynxelsge0flwf8v0f4xhdel6lcruejpzpa3za5m3c54za9x943t48gq72xjjt\",\"pay_by\":1720003600,\"bills\":[]}",
+      "want": {
+        "amount_millis": 21000000,
+        "bills": [],
+        "fee_millis": 22000,
+        "invoice": "lnbc1png28sqpp5p9tx28pd4tdpgef5klwa9jtjtmzmhjqhf3acfsd84qz6vzj7dtssxqrrss09pjhvzk38y6jkgnccchuaj6qdg39mfqyvkgwz622x4gjcvayynxelsge0flwf8v0f4xhdel6lcruejpzpa3za5m3c54za9x943t48gq72xjjt",
+        "pay_by": 1720003600,
+        "pay_millis": 21022000,
+        "payment": "lightning",
+        "state": "open"
+      },
+      "invoiceCheck": "nipCO: malformed order: the invoice is for 0, pay_millis is 21022000"
     },
     {
       "name": "on-chain, minted (a lookup's done result)",

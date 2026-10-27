@@ -908,6 +908,17 @@
         "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
         "wallet": "abababababababababababababababababababababababababababababababab"
       },
+      "error": "nipcash: amount must not be sent with an invoice that carries an amount"
+    },
+    {
+      "name": "redeem an amountless invoice with an amount",
+      "method": "cash_redeem",
+      "inputs": {
+        "amount": 500000,
+        "credential": "signing",
+        "invoice": "lnfc1png28sqpp52pg4y56524t9wkzetfd4ch27tasxzcnrv3jkvemgd94xkmrddehsh3fx9md6x750kqe5n7szy73d5qphvwku8hdlue4qax4a742jea0kjfuvhyqxnj5j4skvl76p0fxg7r4rnzvhg2m7w0966msreksyj3gqyq7vjg",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
       "request": {
         "amount": 500000,
         "identity_event": {
@@ -925,14 +936,14 @@
             ],
             [
               "bolt11_hash",
-              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              "505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f"
             ]
           ],
           "valid": true
         },
         "identity_type": "pubkey",
         "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0"
+        "invoice": "lnfc1png28sqpp52pg4y56524t9wkzetfd4ch27tasxzcnrv3jkvemgd94xkmrddehsh3fx9md6x750kqe5n7szy73d5qphvwku8hdlue4qax4a742jea0kjfuvhyqxnj5j4skvl76p0fxg7r4rnzvhg2m7w0966msreksyj3gqyq7vjg"
       }
     },
     {
@@ -997,39 +1008,7 @@
         "to": "pubkey uppercase",
         "wallet": "abababababababababababababababababababababababababababababababab"
       },
-      "request": {
-        "identity_event": {
-          "content": "",
-          "kind": 23198,
-          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-          "tags": [
-            [
-              "d",
-              "abababababababababababababababababababababababababababababababab"
-            ],
-            [
-              "m",
-              "cash_transfer"
-            ],
-            [
-              "new_identity_hash",
-              "de7594371a4adb3c884513f962bbc86ca2d6fbd1dd0ca8c579b00f7447a3dd84"
-            ],
-            [
-              "amount_millis",
-              "21000"
-            ]
-          ],
-          "valid": true
-        },
-        "identity_type": "pubkey",
-        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "new_identity": {
-          "identity_type": "pubkey",
-          "identity_value": "4D4B6CD1361032CA9BD2AEB9D900AA4D45D9EAD80AC9423374C451A7254D0766"
-        },
-        "request_id": "00112233445566778899aabbccddeeff"
-      }
+      "error": "nipcash: a pubkey must be 64 lowercase hex characters"
     },
     {
       "name": "transfer to connection_key",

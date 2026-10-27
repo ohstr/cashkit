@@ -23,7 +23,8 @@
       "platform": "discord",
       "input": "080351110224678912",
       "mode": "attested",
-      "key": "fec2a66329b3254449b6ab5934972f151fb2f9f1545802fdb06ad8f515b7060f"
+      "key": "fec2a66329b3254449b6ab5934972f151fb2f9f1545802fdb06ad8f515b7060f",
+      "error": "nipIC: user id is not in canonical form"
     },
     {
       "id": "K-CK-2",
@@ -20364,6 +20365,128 @@
     },
     {
       "input": "yеubicαpςek.ñ4.xn--p1ai",
+      "error": "nipIC: user id is not in canonical form"
+    }
+  ],
+  "attestations": [
+    {
+      "name": "github, d = sha256(github:Alice)",
+      "event": {
+        "id": "e78760ebecc6616a31ff5b93e8b93b5f311715a62120edb1fd70515b2305afe4",
+        "pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "created_at": 1720000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "5aaf77cac277108947fa433a956917db62967e209141acb5f605bd6143422e96"
+          ],
+          [
+            "p",
+            "466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"oauth\",\"user_id\":\"Alice\",\"verified_at\":1720000000}"
+          ]
+        ],
+        "content": "",
+        "sig": "3a9eb06ac007675e68042f7c83a631b5cb1b7b5dfc6fd5ab5946585e4bc2716287e8324c5f6429a6c9b28210d6f8fff9790ec8b665aaaa6a7c0f0f32418438f3"
+      },
+      "key": "5aaf77cac277108947fa433a956917db62967e209141acb5f605bd6143422e96"
+    },
+    {
+      "name": "discord, canonical user id",
+      "event": {
+        "id": "ff5d8468e1a1a7af23db18a5a3886a3e42c914b9b80d23911ea6c4ae55931d98",
+        "pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "created_at": 1720000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d"
+          ],
+          [
+            "p",
+            "466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27"
+          ],
+          [
+            "platform",
+            "discord"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"discord\",\"auth_type\":\"oauth\",\"user_id\":\"80351110224678912\",\"verified_at\":1720000000}"
+          ]
+        ],
+        "content": "",
+        "sig": "cb5c527aad59374c8d83c127e00974911e1a5de6cfa2d8566e29395815fbeb9f6b846f9edf6c455e28a4a015c4d3502b5a21ff54a03783dc85993247ee8d567d"
+      },
+      "key": "22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d"
+    },
+    {
+      "name": "d is not sha256(platform:user id)",
+      "event": {
+        "id": "67de88f26a3ca5b0387b37c34c4078c9895e5352eae2ade8006b336d1af5a038",
+        "pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "created_at": 1720000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "abababababababababababababababababababababababababababababababab"
+          ],
+          [
+            "p",
+            "466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27"
+          ],
+          [
+            "platform",
+            "github"
+          ],
+          [
+            "evidence",
+            "{\"version\":1,\"platform\":\"github\",\"auth_type\":\"oauth\",\"user_id\":\"Alice\",\"verified_at\":1720000000}"
+          ]
+        ],
+        "content": "",
+        "sig": "cf772ba433f1f7ea8f9084a75f252f9d13e47ed954a91eba4e03cbde04e8f0029557cc3df4d2270894c4190f571dae2e6bbcc0f571d207fcd249dcc6a40c2d3d"
+      },
+      "error": "nipcash: the attestation's d is not the ConnectionKey of its platform and user id"
+    },
+    {
+      "name": "discord, a non-canonical user id (its own hash as d)",
+      "event": {
+        "id": "91712d54265e31ce40ce78c21edf0a513aa0873a979fa80b61112dda8a8ce253",
+        "pubkey": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+        "created_at": 1720000000,
+        "kind": 35522,
+        "tags": [
+          [
+            "d",
+            "fec2a66329b3254449b6ab5934972f151fb2f9f1545802fdb06ad8f515b7060f"
+          ],
+          [
+            "p",
+            "466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27"
+          ],
+          [
+            "platform",
+            "discord"
+          ],
+          [
+            "evidence",
+            "{\"auth_type\":\"oauth\",\"platform\":\"discord\",\"user_id\":\"080351110224678912\",\"verified_at\":1720000000,\"version\":1}"
+          ]
+        ],
+        "content": "",
+        "sig": "e1b47a44229bd30963c3037c1f371cba3120282e81c4afcc8db9c33cc91206231d62750fc7efef38e71168b7f1e887094931ec5c2df01999b427ceaf4b68c7a5"
+      },
       "error": "nipIC: user id is not in canonical form"
     }
   ]
