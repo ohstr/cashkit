@@ -593,6 +593,8 @@ export async function recoverWithdrawal(ctx: Ctx, holdingId: string): Promise<Wi
   const scope = ownScope(credential)
   const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope }])
   const o = r.outcomes[0]
+  // A spec Hub answers a connection-key holder NOT_FOUND: the status, and so the withdrawal's id, cannot be read.
+  if (o?.state === 'error' && statusUnreadable(credential, o.error)) throw statusUnreadableError(h.id)
   if (o?.state !== 'result' || o.value === undefined) throw new CashkitError('network', "the bill's Hub did not answer its status; try again", { input: h.id })
   let row: { withdraw_request_id?: string } | undefined
   if (o.value.tombstone === undefined) {

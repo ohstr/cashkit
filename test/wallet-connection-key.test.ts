@@ -196,6 +196,11 @@ describe('connection-key slices, on a spec Hub: the status is not readable', () 
     expect(statusUnreadable(credential, { code: 'RESTRICTED' })).toBe(false)
     expect(statusUnreadable(bySigning(signer), { code: 'NOT_FOUND' })).toBe(false)
   })
+  test('recover says the status is not readable, never that the Hub did not answer', async () => {
+    const { holding } = await receiveCk(5000n)
+    expect(await err(h.wallet.withdraw.recover(holding.id))).toMatchObject({ code: 'usage', reason: 'status_unreadable' })
+    expect(await h.storage.tx('r', (t) => t.list('pendingCalls'))).toEqual([])
+  })
   test('a redeem is refused before anything is sent, and the bill stays held', async () => {
     const nwc = new FakeNwcWallet(h.pool)
     await h.wallet.connections.add('main', nwc.uri)
