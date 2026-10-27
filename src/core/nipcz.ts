@@ -35,6 +35,8 @@ export interface CashZapTags {
   readonly k?: string
   readonly issuedAt?: number
   readonly expiresAt?: number
+  /** It carries a NIP-40 `expiration` tag, which a Cash Zap must not: shown, never counted. */
+  readonly hasExpiration?: true
 }
 
 const bad = (m: string) => new CoreError('zap_invalid', `rule 2: ${m}`)
@@ -44,16 +46,17 @@ const AT_MOST_ONCE = ['e', 'a', 'k', 'P', 'issued_at', 'expires_at', 'ia'] as co
 /**
  * Rule 2: the cardinality of §Kind 9522, decimals without leading zeros,
  * `p`/`P`/`w` 64 lowercase hex (never lowercased), `ia` iff `p` is a
- * ConnectionKey, `P` only a ConnectionKey, no NIP-40 `expiration`, and, when
+ * ConnectionKey, `P` only a ConnectionKey, and, when
  * the token is given, `w` equal to its TLV 0 and `issued_at`/`expires_at`
- * present on a zap-signed token. Throws `zap_invalid` naming the rule.
+ * present on a zap-signed token. Throws `zap_invalid` naming the rule. A
+ * NIP-40 `expiration` tag is not a rule 2 failure: it is reported as
+ * `hasExpiration`, and the zap is never counted.
  */
 export function checkCashZapTags(ev: Pick<NostrEvent, 'tags'>, token?: Token): CashZapTags {
   const by = new Map<string, (readonly string[])[]>()
   for (const t of ev.tags) by.set(t[0] ?? '', [...(by.get(t[0] ?? '') ?? []), t])
   for (const k of ONCE) if ((by.get(k)?.length ?? 0) !== 1) throw bad(`exactly one ${k} tag`)
   for (const k of AT_MOST_ONCE) if ((by.get(k)?.length ?? 0) > 1) throw bad(`at most one ${k} tag`)
-  if (by.has('expiration')) throw bad('a Cash Zap carries no NIP-40 expiration')
   const one = (k: string) => by.get(k)?.[0]
   const p = parseIdentityTag(one('p')!)
   if (!HEX64.test(p.value)) throw bad('p is 64 lowercase hex')
@@ -92,6 +95,7 @@ export function checkCashZapTags(ev: Pick<NostrEvent, 'tags'>, token?: Token): C
     ...(one('k') !== undefined && { k: one('k')![1]! }),
     ...(issuedAt !== undefined && { issuedAt }),
     ...(expiresAt !== undefined && { expiresAt }),
+    ...(by.has('expiration') && { hasExpiration: true as const }),
   }
 }
 
@@ -136,7 +140,7 @@ export interface CashZapVerdict {
   readonly minter?: string
   /** Rules 1–6 hold: the event may be shown. */
   readonly valid: boolean
-  /** Rules 1–8 hold and the token is zap-signed: it may be totalled (with the life check of §Counting). */
+  /** Rules 1–8 hold, the token is zap-signed and no NIP-40 `expiration` tag: it may be totalled (with the life check of §Counting). */
   readonly countable: boolean
   /** The failing rule, when there is one. */
   readonly failed?: number
@@ -146,10 +150,11 @@ export interface CashZapVerdict {
  * Verifies a 9522 (§Verification Algorithm), rule 1 first: its signature,
  * its tags, the token, the chain, the identity hint, the Minter over the
  * token's payload with the amount, the zap signature against its target
- * (author and time; `target` is the zapped event or, for an `a` tag, its
- * author is read from the coordinate), and a trusted Minter.
+ * (`target` is the zapped event: an `e`-only zap must name its `id`, when
+ * given, and is not issued before it; its author is `p`; without `target`,
+ * an `a` tag's author is read from the coordinate), and a trusted Minter.
  */
-export function verifyCashZap(ev: NostrEvent, o: { target?: Pick<NostrEvent, 'pubkey' | 'created_at'>; zapInfo?: CashZapInfo; trusted?: readonly { minter: string; chain: string }[] } = {}): CashZapVerdict {
+export function verifyCashZap(ev: NostrEvent, o: { target?: Pick<NostrEvent, 'pubkey' | 'created_at'> & { readonly id?: string }; zapInfo?: CashZapInfo; trusted?: readonly { minter: string; chain: string }[] } = {}): CashZapVerdict {
   const rules: Partial<Record<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8, boolean>> = {}
   const fail = (n: number, extra: Partial<CashZapVerdict> = {}): CashZapVerdict => ({ rules, valid: false, countable: false, failed: n, ...extra })
   rules[1] = ev.kind === KIND_CASH_ZAP && verifyEvent(ev)
@@ -186,11 +191,13 @@ export function verifyCashZap(ev: NostrEvent, o: { target?: Pick<NostrEvent, 'pu
   rules[6] = m !== undefined && token.attestedAmountMillis === tags.amountMillis
   if (!rules[6]) return fail(6, { tags, token })
   const minter = m!.minter
-  const author = tags.a !== undefined ? tags.a.split(':')[1] : o.target?.pubkey
-  rules[7] = token.scheme === 'zap_v1' && zap !== undefined && author !== undefined && author === tags.p.value && (tags.a !== undefined || o.target === undefined || (tags.issuedAt ?? 0) >= o.target.created_at)
+  const t = o.target
+  const author = t !== undefined ? t.pubkey : tags.a?.split(':')[1]
+  const namesTarget = t === undefined || tags.a !== undefined || t.id === undefined || tags.e === t.id
+  rules[7] = token.scheme === 'zap_v1' && zap !== undefined && author !== undefined && author === tags.p.value && namesTarget && (tags.a !== undefined || t === undefined || (tags.issuedAt ?? 0) >= t.created_at)
   const trustList = [...(o.trusted ?? []), ...(o.zapInfo?.mints ?? [])]
   rules[8] = isTrustedMinter(minter, tags.chain, trustList)
-  return { rules, tags, token, minter, valid: true, countable: rules[7] && rules[8], ...(!rules[7] ? { failed: 7 } : !rules[8] ? { failed: 8 } : {}) }
+  return { rules, tags, token, minter, valid: true, countable: rules[7] && rules[8] && tags.hasExpiration !== true, ...(!rules[7] ? { failed: 7 } : !rules[8] ? { failed: 8 } : {}) }
 }
 
 /**

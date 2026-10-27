@@ -4,7 +4,7 @@
 // is reported as such rather than spoken to.
 import { fromUtf8, goFields, utf8 } from './bytes.js'
 import { CoreError } from './errors.js'
-import { decodeGoStruct } from './gojson.js'
+import { decodeGoStruct, parseJSONStrictIntegers } from './gojson.js'
 import { toJSONText } from './json.js'
 import { getPublicKey, type NostrEvent, type UnsignedEvent } from './nip01.js'
 import { decrypt, encrypt, getConversationKey } from './nip44.js'
@@ -323,7 +323,7 @@ export function parseResponseEvent(e: NostrEvent, connectionSecret: Uint8Array, 
   }
   let body: unknown
   try {
-    body = JSON.parse(plaintext)
+    body = parseJSONStrictIntegers(plaintext)
   } catch {
     throw fail('response is not JSON')
   }

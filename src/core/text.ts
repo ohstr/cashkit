@@ -5,20 +5,24 @@
 /** Check-mark look-alikes a lister could use to fake a verified badge. */
 export const LOOKALIKE_MARKS: readonly string[] = ['✓', '✔', '✅', '☑', '\u{1F5F8}', '√']
 
-// Bidirectional controls U+202A–U+202E and U+2066–U+2069; zero-width U+200B–U+200D, U+2060, U+FEFF.
-const INVISIBLE = new RegExp('[\\u202A-\\u202E\\u2066-\\u2069\\u200B-\\u200D\\u2060\\uFEFF]', 'gu')
-const MARKS = new RegExp(`[${LOOKALIKE_MARKS.join('')}]`, 'gu')
-const BREAKS = new RegExp('\\r\\n|[\\r\\n\\t\\v\\f\\u0085\\u2028\\u2029]', 'gu')
+// One pass, as each code point is read: a look-alike mark (with an emoji
+// variation selector U+FE0F right after it), a bidirectional control
+// U+202A–U+202E or U+2066–U+2069, or a zero-width U+200B–U+200D, U+2060,
+// U+FEFF is removed; CR LF and every other line break or tab is one space.
+const STRIP = `[${LOOKALIKE_MARKS.join('')}]\\uFE0F?|[\\u202A-\\u202E\\u2066-\\u2069\\u200B-\\u200D\\u2060\\uFEFF]`
+const BREAK = '\\r\\n|[\\r\\n\\t\\v\\f\\u0085\\u2028\\u2029]'
+const SCAN = new RegExp(`(${BREAK})|${STRIP}`, 'gu')
 
 /**
  * Strips look-alike marks, bidirectional controls and zero-width
  * characters, turns every line break and tab into one space, and keeps at
- * most `maxClusters` user-perceived characters (extended grapheme clusters).
+ * most `maxClusters` user-perceived characters (extended grapheme clusters;
+ * no cap when `maxClusters` is 0 or less).
  * Links stay plain text: nothing here parses or renders one.
  */
 export function sanitizeText(s: string, maxClusters: number): string {
-  const clean = s.replace(INVISIBLE, '').replace(MARKS, '').replace(BREAKS, ' ')
-  if (maxClusters <= 0) return ''
+  const clean = s.replace(SCAN, (_, lineBreak?: string) => (lineBreak === undefined ? '' : ' '))
+  if (maxClusters <= 0) return clean
   const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
   let out = ''
   let n = 0
