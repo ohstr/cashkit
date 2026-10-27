@@ -25,9 +25,9 @@ const CHECK = 'cashkit backup key check'
 export const SEALED_FIELDS: Readonly<Partial<Record<Collection, readonly string[]>>> = {
   holdings: ['cashSecret', 'throwawayKey'],
   handoffs: ['handoff'],
-  connections: ['uri', 'connection'],
+  connections: ['uri', 'connection', 'secret', 'circle.hubConnection', 'rotation.newSecret'],
   identity: ['priv'],
-  pendingJoins: ['connectionSecret'],
+  pendingJoins: ['connectionSecret', 'hubConnection'],
   pendingCalls: ['authorizer.authorizerKey', 'authorizer.buyerKey', 'outputs[].destination.secret', 'outputs[].destination.key'],
 }
 

@@ -1,7 +1,7 @@
 // @ohstr/cashkit/client: Hub and NWC clients over a RelayPool port
 // (design §2.3). Stateless about the wallet.
 export type { ClientDeps, Filter, RelayPool, SubscriptionHandlers } from './ports.js'
-export { ClientError, fallbackReasonOf, NotServedError, PrivateJoinUnavailableError, WalletError, type ClientErrorCode } from './errors.js'
+export { ClientError, NotServedError, WalletError, type ClientErrorCode } from './errors.js'
 export { billFor, billFromParts, checkBill, minterOf, selectVerifiedCopy, type Bill } from './bill.js'
 export {
   classifyCall,
@@ -34,8 +34,9 @@ export {
   type CheckClaimResult,
 } from './cashClient.js'
 export { NWC_CALL_TIMEOUT_MS, NwcClient, type GetInfoResult, type MakeInvoiceParams } from './nwcClient.js'
-export { CircleClient, type CircleJoinResult, type JoinOptions, type JoinTransport } from './circleClient.js'
-export { createCircleWalletItem, createCircleWalletMany, type BatchCircleJoin, type CircleJoinOutcome, type CreateCircleWalletParams } from './circleJoin.js'
+export { connectCircle, type CircleHub, type ConnectCircleOptions } from './circleClient.js'
+export { CircleWalletClient, type CircleBudget, type PaymentPreview } from './circleWalletClient.js'
+export { createCircleWalletItem, createCircleWalletMany, type BatchCircleJoin, type CircleJoinOutcome } from './circleJoin.js'
 export { EventQueue, fetchRelayInfo, readEvents } from './relayIO.js'
 export { lookupMany, lookupOne, type BatchLookup, type LookupAuthorizer } from './lookup.js'
 export { hubView, type HubView } from './hubView.js'

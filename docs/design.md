@@ -381,14 +381,22 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   kind 13194 info event: `nip44_v2` when listed, `nip04` when the wallet
   lists only that or nothing. Only a reply authored and signed by
   the wallet is accepted.
-- **`CircleClient.createCircleWallet`**: generates the connection key
-  locally and sends only `connection_pubkey`.
-- **`CircleClient.join(params, { requirePrivate })`**: `chooseTransport`
-  then `createCircleWallet` over it (NIP-CW §Private Join, §6.7).
-  `openBatchSession(identity, relays)` opens a session from `get_info`'s
-  identity instead of a bill, and `createCircleWalletMany` sends joins over
-  it. `NwcClient.getInfo` types the `circle_wallet` block, with
-  `circle_policy` `'allowlist' | 'follow_set'`.
+- **`connectCircle(deps, circlehub1, { confirmUnverified?, purpose? })`**:
+  decodes and verifies the string, reads `get_info` and checks
+  `circle_wallet.identity` and `chain` against it (no `circle_wallet` block
+  or no `identity` is no Circle Wallet Hub), asks `confirmUnverified` for an
+  unverified string, refuses a Hub not `accepting` joins (joins only), and
+  opens the private transport from the announcement of `identity`
+  (`join_unavailable` when none verifies). Joins and join lookups go over
+  that transport only (NIP-CW §Private Join); there is no standard-transport
+  join. `createCircleWalletMany` sends prepared joins; the details decrypt
+  from the Hub connection key only and must name the join's
+  `connection_pubkey`.
+- **`CircleWalletClient(connection)`**: a member's Circle Wallet from its
+  fields (`walletPubkey`, `relays`, the member's own `secret`), never a URI:
+  `getInfo`, `getBalance`, `getBudget`, `makeInvoice` (amount above zero),
+  `payInvoice`, `payKeysend`, `lookupInvoice`, `listTransactions`,
+  `deleteWallet`, and the advisory `previewPayment`.
 
 The client layer is stateless about the wallet. It never persists anything,
 and it returns enough for the engine to journal before and after each call.
@@ -859,45 +867,42 @@ handoffs(o?: { status?: Handoff['status'][]; includeSecrets?: boolean }): Promis
 ### 6.7 Circles
 
 ```ts
-joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; name?: string; makeDefault?: boolean; requirePrivate?: boolean }): Promise<JoinResult>
+circles.join(hub: string /* circlehub1… */, terms: { maxAmount; maxReceive; expirySeconds?; budgetRenewal? },
+             o?: { name?; makeDefault?; confirmUnverified?; confirmNoRecovery? }): Promise<JoinResult>
+circles.list(), circles.client(name), circles.memberRequest(name, action), circles.notify(name, n),
+circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin), circles.forgetJoin(id)
 ```
 
-- `maxAmount` MUST be greater than 0.
-- The connection key is generated locally and `pendingJoin` is committed
-  before the request goes out.
-- The transport is chosen first, as NIP-CW §Finding the Private Transport
-  says, and kept for the retry below:
-  - `get_info`'s `circle_wallet.identity` is the only source of the node
-    identity. When it is present, the Hub's kind-11190 announcement is
-    fetched and verified against it (§2.2, §2.3: newest wins,
-    never backwards) and the join goes over the private transport without
-    asking.
-  - The item targets the Hub connection pubkey. Its kind-23192 proof is
-    signed by the joining key, with `d` = Hub pubkey and `h` = identity; its
-    kind-23193 bill proof is signed with the Hub connection secret. The
-    params are the standard request, kind-23199 proof included.
-  - `encrypted_details` is decrypted from the Hub connection pubkey on both
-    transports, never from the inbox or node key.
-  - No identity means the standard transport and no `fallbackReason`. A
-    `get_info` that fails, refused or unanswered, fails the join before
-    anything is written ahead or sent.
-  - An announcement that can't be found or verified, or a private item that
-    fails before it is sent, falls back to the standard transport and sets
-    `fallbackReason`. With `requirePrivate` it is a `not_found` error
-    instead, and nothing is sent.
-  - A private join that was sent never falls back: a missing reply may mean
-    it ran.
-  - A standard join that fails after a fallback keeps its code, and the
-    `CashkitError` carries `fallbackReason` (`fallbackReasonOf(err)` in the
-    client), so the member still learns the join was not private.
-- A replay-guard error is retried once after 1.1 s.
-- An answer of "already exists" is an `exists` error.
-- On success the connection is added and the pending join deleted in one
-  transaction.
-- The result carries `walletPubkey`, `relays`, `connectionPubkey`,
-  `expiresAt`, `maxAmount` (granted), `feesPpm`, `budgetRenewal`, `private`
-  and, after a fallback, `fallbackReason`. It never carries the connection
-  string.
+- `hub` is a `circlehub1` string only; a `cashhub1`, `cashorder1` or a URI is
+  `connection_invalid`. `connectCircle` runs first: nothing is signed or
+  written before its checks pass. Terms over the Hub's reported limits are
+  refused locally (`limit_exceeded`, naming the field).
+- A Hub without `rotation_delay_secs` cannot move a wallet to a new key:
+  `confirmNoRecovery()` must resolve true before anything is signed.
+- One wallet per circle, keyed by the Hub pubkey (TLV 0).
+- The connection key is generated locally; only its pubkey leaves. The join
+  is written ahead as a `pendingJoins` row (its secret and the `circlehub1`
+  sealed, `deadline` = proof `created_at` + 300) before it is sent.
+- Every refusal but `REQUEST_REUSED` is final for that proof and drops the
+  pending join; a retry signs a new proof with a new key. `REQUEST_REUSED`
+  or a lost reply leaves it pending: `settle()` looks it up by connection key
+  and deadline, signed by the join's key: `done` adds the wallet, `pending`
+  waits, `unknown` asks the member (`needsUser: 'join_not_made'`), `expired`
+  is shown and never rejoined with that key, `UNAUTHORIZED` is final for the
+  lookup, and omissions past deadline + 360 s are `lookup_unanswered`.
+- The wallet is stored as kind `circle_wallet`: `walletPubkey`, `relays`, the
+  member's sealed `secret`, and the terms its details fixed. No URI is
+  built. `lightning(name)` and redeem use it like any Lightning wallet; a
+  frozen one attempts no payment.
+- Member requests (`rotate`, `freeze`, `unfreeze`) are signed by the join's
+  key and returned for the host to submit; a rotate stores the new key
+  sealed first. A wallet whose details carry no `rotation_delay_secs` takes
+  none (`rotation_not_served`).
+- `circles.notify(name, n)` applies a notification: `rotation_pending`
+  (`rotation_alert` event), `rotation_cancelled`, `rotation_completed`
+  (switches to the stored new key), `wallet_frozen` (`frozen_alert`).
+- `circles.delete` refuses above the wallet's dust threshold and asks
+  `confirmDelete({ dust })` first.
 
 ### 6.8 Lightning, connections, identity
 

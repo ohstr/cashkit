@@ -155,6 +155,19 @@
 - Handed-out cash notes are re-checked by `cash_status` without sending the
   secret.
   ([#21](https://github.com/ohstr/cashkit/pull/21))
+- Joins a circle with `wallet.circles.join(circlehub1, terms, options)`
+  over the private transport only, after `connectCircle` checked the
+  string, its `get_info` and the announcement; the join carries
+  `max_receive` and a `terms`-bound proof, is written ahead, and a lost
+  reply is settled by the join lookup. **Breaking:** `joinCircle`,
+  `CircleClient`, the standard-transport join, `requirePrivate`,
+  `fallbackReason` and `PrivateJoinUnavailableError` are removed.
+- Stores a Circle Wallet as its fields and the member's own secret, never a
+  URI, and adds `CircleWalletClient` (budget, keysend, delete, payment
+  preview); `lightning(name)` and redeem use it.
+- Adds member requests, rotation and freeze notifications, wallet deletion
+  above dust refused, budget periods, and the full `circle_wallet` terms
+  (`accepting`, `fee_reserve`, limits).
 
 ## [0.1.0-rc.2]
 

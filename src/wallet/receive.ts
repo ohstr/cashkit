@@ -36,7 +36,7 @@ export type ReceiveResult =
 function refuseKind(input: string): void {
   const kind = sniff(input)
   const why: Partial<Record<typeof kind, string>> = {
-    circlehub: "that's a Circle Hub connection: join it with wallet.joinCircle()",
+    circlehub: "that's a Circle Hub connection: join it with wallet.circles.join()",
     cashhub: "that's a Cash Hub connection (for minting cash), not a cash token: add it with wallet.connections.add()",
     cashorder: "that's an Order connection (for buying cash), not a cash token",
     nwc_uri: "that looks like a wallet connection, not a cash token: add it with wallet.connections.add()",

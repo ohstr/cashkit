@@ -2,15 +2,16 @@
 // cmd/wallet_balance.go and cmd/handoffs.go (refreshHandoffs, checkHandoff,
 // maskedHandoff, outstandingCashNotes).
 import { bySecret, cashCommitment, decodeToken, splitCashString } from '../core/index.js'
-import { billFor, NwcClient, WalletError } from '../client/index.js'
+import { billFor, WalletError } from '../client/index.js'
 import type { Ctx } from './context.js'
 import { CashkitError, classifyReadError, codeForNwc, fromWalletError } from './errors.js'
+import { isLightning, nwcFor } from './circle.js'
 import { heldHoldings } from './ledger.js'
-import type { Activity, Handoff, HandoffStatus } from './model.js'
+import type { Activity, ConnectionKind, Handoff, HandoffStatus } from './model.js'
 
 export interface WalletBalance {
   readonly name: string
-  readonly kind: 'nwc' | 'circle'
+  readonly kind: ConnectionKind
   readonly balance?: bigint
   /** An auth-class decline with a cached figure: shown, still counted, as cashctl does. */
   readonly stranded?: boolean
@@ -31,7 +32,7 @@ export interface Balance {
 export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<Balance> {
   const refresh = o.refresh ?? true
   // Lightning wallets only: a Cash Hub connection holds no balance of its own.
-  const conns = (await ctx.read((t) => t.list('connections'))).filter((c): c is typeof c & { uri: NonNullable<typeof c.uri>; kind: 'nwc' | 'circle' } => c.uri !== undefined && c.kind !== 'cashhub')
+  const conns = (await ctx.read((t) => t.list('connections'))).filter(isLightning)
   const wallets: WalletBalance[] = []
   let total = 0n
   let stranded = 0n
@@ -42,7 +43,7 @@ export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<
       continue
     }
     try {
-      const r = await new NwcClient(ctx.clientDeps, await ctx.open(c.uri)).getBalance()
+      const r = await (await nwcFor(ctx, c)).getBalance()
       const millis = BigInt(r.balance)
       total += millis
       wallets.push({ name: c.id, kind: c.kind, balance: millis })

@@ -1,30 +1,54 @@
-// Joining a circle (design §6.7). Port of cashctl cmd/circle.go
-// runCircleJoin: the connection key is generated here and parked as a
-// pending join before the request goes out; on success the connection is
-// added and the pending join deleted in one transaction. The join travels
-// over the private transport when the Hub offers it (NIP-CW §Private Join).
-import { buildPairingURI, decodeCircleHubConnection, parsePairingURI, sniff } from '../core/index.js'
-import { CircleClient, ClientError, fallbackReasonOf, PrivateJoinUnavailableError, WalletError, type JoinTransport } from '../client/index.js'
+// Circles (design §6.7, NIP-CW): joining over the private transport only,
+// with the join written ahead and settled by a join lookup when its reply is
+// lost; the member's Circle Wallet as fields and its own secret (never a
+// URI); member requests and the notifications that move a wallet's key.
+import {
+  buildMemberRequest,
+  connectionKeyFromSecret,
+  decodeLookupDone,
+  isRenewal,
+  parseCreateCircleWalletResult,
+  sniff,
+  toHex,
+  validateJoinTerms,
+  type CircleWalletDetails,
+  type JoinTerms,
+  type MemberAction,
+  type NostrEvent,
+  type Renewal,
+} from '../core/index.js'
+import { CircleWalletClient, ClientError, connectCircle, NwcClient, WalletError, type CircleHub, type ConnectCircleOptions, type HubView } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import type { Ctx } from './context.js'
-import { CashkitError, classifySpendError, fromWalletError, isNotSent, withJoinFallback } from './errors.js'
+import { CashkitError, fromWalletError } from './errors.js'
 import { appendActivity } from './ledger.js'
-import type { Connection } from './model.js'
+import type { CircleDetailsRow, Connection, PendingJoin, Sealed } from './model.js'
 
-export interface JoinInput {
-  /** A circlehub1… string or the Hub's NWC URI. */
-  readonly hub: string
+export interface JoinTermsInput {
+  /** Send cap per budget period, in milli-units. */
   readonly maxAmount: bigint
-  readonly name?: string
-  readonly makeDefault?: boolean
-  /** Requested lifetime in seconds; 0 lets the Hub choose. */
+  /** Receive cap per budget period, in milli-units. */
+  readonly maxReceive: bigint
+  /** Lifetime in seconds; 0 or omitted lets the Hub choose its default. */
   readonly expirySeconds?: number
-  readonly budgetRenewal?: string
-  /** Refuse rather than join over the shared Hub connection when the private transport can't be used. */
-  readonly requirePrivate?: boolean
+  readonly budgetRenewal?: Renewal
 }
 
-/** Carries no connection string (§6.7). */
+export interface JoinOptions {
+  readonly name?: string
+  readonly makeDefault?: boolean
+  /** Asked once for a `circlehub1` whose signature does not verify. */
+  readonly confirmUnverified?: (view: HubView) => Promise<boolean>
+  /**
+   * Asked before anything is signed when the Hub cannot rotate a wallet to a
+   * new key: losing the connection secret then makes the balance
+   * unreachable. Resolve true to join anyway; back the secret up with
+   * `circles.exportConnectionSecret` after.
+   */
+  readonly confirmNoRecovery?: () => Promise<boolean>
+}
+
+/** Carries no secret and no connection string. */
 export interface JoinResult {
   readonly name: string
   readonly isDefault: boolean
@@ -32,61 +56,65 @@ export interface JoinResult {
   readonly relays: readonly string[]
   readonly connectionPubkey: string
   readonly expiresAt: number
-  readonly maxAmount?: bigint
+  readonly maxAmount: bigint
+  readonly maxReceive: bigint
   readonly feesPpm: number
+  readonly dustThresholdMillis: bigint
   readonly budgetRenewal: string
-  /** Whether the join went over the private transport. */
-  readonly private: boolean
-  /**
-   * Why the join went over the standard transport although the Hub offers
-   * Private Join. Show the member that the join was not private.
-   */
-  readonly fallbackReason?: string
+  /** Whether the wallet can be moved to a new key if its secret is lost. */
+  readonly rotatable: boolean
+  readonly network?: string
+  readonly testNetwork: boolean
+  /** Required terms the details did not carry; shown as unknown. */
+  readonly missingTerms: readonly string[]
 }
 
-const privateUnavailable = (err: unknown) =>
-  new CashkitError('not_found', `this Hub's private transport can't be used, so nothing was sent: ${(err as Error).message}`, { cause: err })
-
-/** The transport, chosen before anything is parked: nothing has been sent yet. */
-async function chooseTransport(circle: CircleClient, requirePrivate: boolean): Promise<JoinTransport> {
-  try {
-    return await circle.chooseTransport({ requirePrivate })
-  } catch (err) {
-    if (err instanceof PrivateJoinUnavailableError) throw privateUnavailable(err)
-    if (err instanceof WalletError) throw fromWalletError(err)
-    if (err instanceof ClientError) throw new CashkitError('network', `could not read the Hub's terms (get_info), so nothing was sent: ${err.message}`, { cause: err })
-    throw new CashkitError('internal', `the Hub's get_info could not be read: ${(err as Error).message}`, { cause: err })
-  }
+export interface CircleView {
+  readonly name: string
+  readonly hubPubkey: string
+  readonly hubLabel: string
+  readonly walletPubkey: string
+  readonly connectionPubkey: string
+  readonly maxAmount: bigint
+  readonly maxReceive: bigint
+  readonly expiresAt: number
+  readonly feesPpm: number
+  readonly dustThresholdMillis: bigint
+  readonly budgetRenewal: string
+  /** From the join's details, never from the Hub's current `get_info`. */
+  readonly rotatable: boolean
+  readonly frozen: boolean
+  /** The key moved to one this device does not hold: recover on the device that does. */
+  readonly moved: boolean
+  readonly rotation?: { readonly newConnectionPubkey: string; readonly completesAt?: number }
 }
 
-/** A failed join as the wallet reports it (the pending join is already settled). */
-function joinError(err: unknown, connectionPubkey: string): CashkitError {
-  if (err instanceof PrivateJoinUnavailableError) return privateUnavailable(err)
+/** A connection-layer failure, as the wallet reports it; nothing was signed or sent. */
+function connectError(err: unknown): CashkitError {
+  if (err instanceof CashkitError) return err
   if (err instanceof WalletError) return fromWalletError(err)
-  if (isNotSent(err)) return classifySpendError(err, 'join')
-  return new CashkitError(
-    'indeterminate',
-    `the join got no usable answer, so whether the wallet was created is unknown. If a later join says you already hold one, it is the wallet with connection key ${connectionPubkey} (listed in state.pendingJoins): ask the circle's host to delete it, then join again`,
-    { cause: err },
-  )
+  if (err instanceof ClientError) {
+    switch (err.code) {
+      case 'connection_invalid':
+      case 'connection_mismatch':
+        return new CashkitError('invalid_input', err.message, { reason: err.code, cause: err })
+      case 'connection_unverified':
+      case 'not_accepting':
+        return new CashkitError('auth', err.message, { reason: err.code, cause: err })
+      case 'join_unavailable':
+        return new CashkitError('network', err.message, { reason: err.code, cause: err })
+      default:
+        return new CashkitError('network', `the Circle Wallet Hub could not be reached, so nothing was sent: ${err.message}`, { cause: err })
+    }
+  }
+  return new CashkitError('internal', (err as Error).message, { cause: err })
 }
 
-function resolveHub(hub: string): { uri: string; label: string } {
-  switch (sniff(hub)) {
-    case 'cashhub':
-      throw new CashkitError('invalid_input', "that's a Cash Hub connection (for minting cash), not a Circle Hub connection", { input: hub })
-    case 'circlehub': {
-      try {
-        const c = decodeCircleHubConnection(hub)
-        return { uri: buildPairingURI(c.walletPubkey, c.relays, c.secret), label: c.label }
-      } catch (err) {
-        throw new CashkitError('invalid_input', (err as Error).message, { input: hub, cause: err })
-      }
-    }
-    case 'nwc_uri':
-      return { uri: hub.trim(), label: '' }
-    default:
-      throw new CashkitError('invalid_input', 'not a Circle Hub connection: pass a circlehub1… string or the Hub’s nostr+walletconnect:// URI', { input: hub })
+async function connect(ctx: Ctx, hub: string, o: ConnectCircleOptions): Promise<CircleHub> {
+  try {
+    return await connectCircle(ctx.clientDeps, hub, o)
+  } catch (err) {
+    throw connectError(err)
   }
 }
 
@@ -98,75 +126,402 @@ export function suggestName(taken: readonly string[], base: string, label: strin
   for (let i = 2; ; i++) if (!taken.includes(`${root}-${i}`)) return `${root}-${i}`
 }
 
-export async function joinCircle(ctx: Ctx, o: JoinInput): Promise<JoinResult> {
-  if (o.maxAmount === 0n) throw new CashkitError('invalid_input', "0 isn't a spend cap: there's no \"0 means unlimited\" convention here, so pass the most this wallet may spend", { input: '0' })
-  validateRequestedAmount(o.maxAmount, 'maxAmount')
-  const { uri, label } = resolveHub(o.hub)
-  let hubPubkey: string
-  try {
-    hubPubkey = parsePairingURI(uri).walletPubkey
-  } catch (err) {
-    throw new CashkitError('invalid_input', (err as Error).message, { input: o.hub, cause: err })
+function newConnectionKey(ctx: Ctx) {
+  for (;;) {
+    try {
+      return connectionKeyFromSecret(toHex(ctx.random(32)))
+    } catch {
+      // an out-of-range draw
+    }
   }
+}
+
+function termsOf(t: JoinTermsInput): JoinTerms {
+  validateRequestedAmount(t.maxAmount, 'maxAmount')
+  if (t.maxReceive < 0n) throw new CashkitError('invalid_input', 'maxReceive cannot be negative')
+  if (t.budgetRenewal !== undefined && !isRenewal(t.budgetRenewal)) throw new CashkitError('invalid_input', `budgetRenewal must be one of daily, weekly, monthly, yearly, never`)
+  return { maxAmount: t.maxAmount, maxReceive: t.maxReceive, ...(t.expirySeconds !== undefined && { expiry: t.expirySeconds }), ...(t.budgetRenewal !== undefined && { budgetRenewal: t.budgetRenewal }) }
+}
+
+/** Adds the member's Circle Wallet and drops its pending join, in one transaction. */
+async function addCircleWallet(ctx: Ctx, pj: PendingJoin, d: CircleWalletDetails, hubIdentity: string): Promise<{ row: Connection; isDefault: boolean }> {
+  return ctx.commit(async (t) => {
+    const conns = await t.list('connections')
+    const lightning = conns.filter((c) => c.kind !== 'cashhub')
+    let name = pj.name
+    if (conns.some((c) => c.id === name)) name = suggestName(conns.map((c) => c.id), 'circle', pj.hubLabel)
+    const makeDefault = pj.makeDefault || lightning.length === 0
+    if (makeDefault) for (const c of conns.filter((x) => x.isDefault)) await t.put('connections', { ...c, isDefault: false, version: c.version + 1 }, c.version)
+    const circle: CircleDetailsRow = {
+      hubPubkey: pj.hubPubkey,
+      hubIdentity,
+      hubLabel: pj.hubLabel,
+      hubConnection: pj.hubConnection,
+      memberPubkey: pj.signerPubkey,
+      connectionPubkey: pj.id,
+      maxAmount: d.maxAmount,
+      maxReceive: d.maxReceive,
+      expiresAt: d.expiresAt,
+      feesPpm: d.feesPpm,
+      dustThresholdMillis: d.dustThresholdMillis,
+      ...(d.rotationDelaySecs !== undefined && { rotationDelaySecs: d.rotationDelaySecs }),
+      budgetRenewal: d.budgetRenewal,
+      createdAt: pj.proofCreatedAt,
+    }
+    const row: Connection = { id: name, kind: 'circle_wallet', isDefault: makeDefault, walletPubkey: d.walletPubkey, relays: d.relays, secret: pj.connectionSecret, circle, version: 1 }
+    await t.put('connections', row, 0)
+    await t.delete('pendingJoins', pj.id)
+    await appendActivity(t, ctx.now(), { action: 'join', circle: pj.hubLabel !== '' ? pj.hubLabel : pj.hubPubkey, connection: name })
+    return { row, isDefault: makeDefault }
+  })
+}
+
+function joinResult(row: Connection, d: CircleWalletDetails, hub: CircleHub | undefined): JoinResult {
+  const network = hub?.view().network
+  return {
+    name: row.id,
+    isDefault: row.isDefault,
+    walletPubkey: d.walletPubkey,
+    relays: d.relays,
+    connectionPubkey: d.connectionPubkey,
+    expiresAt: d.expiresAt,
+    maxAmount: d.maxAmount,
+    maxReceive: d.maxReceive,
+    feesPpm: d.feesPpm,
+    dustThresholdMillis: d.dustThresholdMillis,
+    budgetRenewal: d.budgetRenewal,
+    rotatable: d.rotationDelaySecs !== undefined,
+    ...(network !== undefined && { network }),
+    testNetwork: hub?.view().testNetwork ?? false,
+    missingTerms: d.missingTerms,
+  }
+}
+
+const pendingJoinError = (id: string, cause?: unknown) =>
+  new CashkitError('indeterminate', `the join got no decided answer, so whether the wallet was made is unknown; settle() looks it up (pending join ${id})`, { reason: 'join_pending', ...(cause !== undefined && { cause }) })
+
+/**
+ * Joins a circle through its `circlehub1` string, over the private
+ * transport only. The connection key is generated here and only its pubkey
+ * leaves the device; the join is written ahead (deadline = proof
+ * `created_at` + 300) before it is sent. A refusal is final for that proof
+ * (a retry signs a new one with a new key); `REQUEST_REUSED` or a lost reply
+ * leaves the join pending for `settle()`'s lookup.
+ */
+export async function joinCircle(ctx: Ctx, hubString: string, t: JoinTermsInput, o: JoinOptions = {}): Promise<JoinResult> {
+  const kind = sniff(hubString.trim())
+  if (kind === 'cashhub' || kind === 'cashorder') throw new CashkitError('invalid_input', 'that is a Cash Hub or Order connection, not a Circle Wallet Hub: a circle is joined through its circlehub1 string', { reason: 'connection_invalid' })
+  if (kind !== 'circlehub') throw new CashkitError('invalid_input', 'not a circlehub1 connection string', { reason: 'connection_invalid' })
+  const terms = termsOf(t)
   const signer = await ctx.requireSigner()
+  const hub = await connect(ctx, hubString, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }), purpose: 'join' })
+  const over = validateJoinTerms(hub.circle, terms)
+  if (over !== undefined) throw new CashkitError('invalid_input', `${over} is over this circle's limits`, { reason: 'limit_exceeded', input: over })
+  if (hub.circle.rotation_delay_secs === undefined && (o.confirmNoRecovery === undefined || !(await o.confirmNoRecovery()))) {
+    throw new CashkitError('usage', 'this circle cannot move a wallet to a new key: losing its connection secret would make the balance unreachable, and that was not confirmed', { reason: 'no_recovery_unconfirmed' })
+  }
+  const hubPubkey = hub.connection.walletPubkey
   return ctx.spend(async () => {
     const opId = ctx.newOpId('join')
-    const circle = new CircleClient(ctx.clientDeps, uri)
-    const connection = circle.newConnectionKey()
-    const sealedSecret = await ctx.seal(connection.secret)
-    const existing = await ctx.read((t) => t.list('connections'))
-    const name = o.name ?? suggestName(existing.map((c) => c.id), 'circle', label)
-    if (existing.some((c) => c.id === name)) throw new CashkitError('exists', `a connection named "${name}" already exists`, { input: name })
-    const via = await chooseTransport(circle, o.requirePrivate === true)
-    await ctx.commit((t) => t.put('pendingJoins', { id: connection.pubkey, connectionSecret: sealedSecret, hubPubkey, hubLabel: label, name, at: ctx.now(), version: 1 }, 0))
-    ctx.emit({ op: 'join', phase: 'sent', id: opId })
-    // The same transport for the retry: a sent private join never falls back.
-    const attempt = () => circle.createCircleWallet({ signer, maxAmountMillis: o.maxAmount, expirySeconds: o.expirySeconds ?? 0, connection, ...(o.budgetRenewal !== undefined && { budgetRenewal: o.budgetRenewal }) }, via)
-    let joined
-    try {
-      joined = await attempt()
-    } catch (raw) {
-      const err = raw
-      ctx.emit({ op: 'join', phase: 'failed', id: opId })
-      if (isNotSent(err) || err instanceof WalletError || err instanceof PrivateJoinUnavailableError) {
-        await ctx.commit((t) => t.delete('pendingJoins', connection.pubkey)).catch(() => undefined)
-      }
-      throw withJoinFallback(joinError(err, connection.pubkey), fallbackReasonOf(raw)?.message)
-    }
-    const { wallet } = joined
-    const sealedUri = await ctx.seal(wallet.pairingUri)
-    let isDefault = false
-    try {
-      isDefault = await ctx.commit(async (t) => {
-        const conns = await t.list('connections')
-        const makeDefault = o.makeDefault === true || conns.length === 0
-        if (makeDefault) for (const c of conns.filter((x) => x.isDefault)) await t.put('connections', { ...c, isDefault: false, version: c.version + 1 }, c.version)
-        const row: Connection = { id: name, uri: sealedUri, kind: 'circle', isDefault: makeDefault, version: 1 }
-        await t.put('connections', row, 0)
-        await t.delete('pendingJoins', connection.pubkey)
-        await appendActivity(t, ctx.now(), { action: 'join', circle: label !== '' ? label : hubPubkey, connection: name })
-        return makeDefault
-      })
-    } catch (err) {
-      throw new CashkitError('internal', 'Your new circle wallet was created but could not be saved.', {
-        cause: err,
-        recovery: `Register it with wallet.connections.add("${name}", <connection>), using: ${wallet.pairingUri}`,
-        recoveryHandoffs: [wallet.pairingUri],
-      })
-    }
-    ctx.emit({ op: 'join', phase: 'committed', id: opId })
-    return {
+    const [conns, joins] = await ctx.read(async (x) => [await x.list('connections'), await x.list('pendingJoins')] as const)
+    if (conns.some((c) => c.circle?.hubPubkey === hubPubkey)) throw new CashkitError('exists', 'you already hold a wallet in this circle', { reason: 'wallet_exists' })
+    if (joins.some((j) => j.hubPubkey === hubPubkey && j.needsUser === undefined)) throw new CashkitError('conflict', 'a join to this circle is still pending; settle() resolves it', { reason: 'join_pending' })
+    const name = o.name ?? suggestName(conns.map((c) => c.id), 'circle', hub.connection.label)
+    if (conns.some((c) => c.id === name)) throw new CashkitError('exists', `a connection named "${name}" already exists`, { input: name })
+    const key = newConnectionKey(ctx)
+    const prepared = await hub.prepareJoin(signer, key.pubkey, terms)
+    const pj: PendingJoin = {
+      id: key.pubkey,
+      connectionSecret: await ctx.seal(key.secret),
+      hubPubkey,
+      hubLabel: hub.connection.label,
+      hubConnection: await ctx.seal(hubString.trim()),
+      signerPubkey: signer.pubkey,
       name,
-      isDefault,
-      walletPubkey: wallet.walletPubkey,
-      relays: wallet.relays,
-      connectionPubkey: connection.pubkey,
-      expiresAt: wallet.expiresAt,
-      ...(wallet.maxAmountMillis !== undefined && { maxAmount: wallet.maxAmountMillis }),
-      feesPpm: wallet.feesPpm,
-      budgetRenewal: wallet.budgetRenewal,
-      private: joined.private,
-      ...(joined.fallbackReason !== undefined && { fallbackReason: joined.fallbackReason.message }),
+      makeDefault: o.makeDefault === true,
+      proofCreatedAt: prepared.createdAt,
+      deadline: prepared.deadline,
+      terms: { maxAmount: terms.maxAmount, maxReceive: terms.maxReceive, expiry: terms.expiry ?? 0, budgetRenewal: terms.budgetRenewal ?? 'never' },
+      device: ctx.deviceId,
+      sent: false,
+      at: ctx.now(),
+      version: 1,
     }
+    await ctx.commit((x) => x.put('pendingJoins', pj, 0))
+    const markSent = () => ctx.commit(async (x) => {
+      const cur = await x.get('pendingJoins', pj.id)
+      if (cur !== undefined) await x.put('pendingJoins', { ...cur, sent: true, version: cur.version + 1 }, cur.version)
+    })
+    const drop = () => ctx.commit((x) => x.delete('pendingJoins', pj.id)).catch(() => undefined)
+    ctx.emit({ op: 'join', phase: 'sent', id: opId })
+    let r
+    try {
+      r = await hub.join(signer, prepared, terms, { beforePublish: markSent })
+    } catch (err) {
+      ctx.emit({ op: 'join', phase: 'failed', id: opId })
+      const cur = await ctx.read((x) => x.get('pendingJoins', pj.id))
+      if (cur?.sent !== true) {
+        await drop()
+        throw connectError(err)
+      }
+      throw pendingJoinError(pj.id, err)
+    }
+    const out = r.outcomes[0]
+    if (out?.state === 'result' && out.value !== undefined) {
+      let saved
+      try {
+        saved = await addCircleWallet(ctx, pj, out.value, hub.connection.hubIdentity)
+      } catch (err) {
+        throw new CashkitError('internal', 'your new circle wallet was made but could not be saved; settle() saves it from the join lookup', {
+          cause: err,
+          recovery: `Wallet ${out.value.walletPubkey} on relays ${out.value.relays.join(', ')}; its secret is the pending join's connection secret (circles.exportConnectionSecret("${pj.id}")).`,
+          recoveryHandoffs: [out.value.walletPubkey, ...out.value.relays],
+        })
+      }
+      ctx.emit({ op: 'join', phase: 'committed', id: opId })
+      return joinResult(saved.row, out.value, hub)
+    }
+    ctx.emit({ op: 'join', phase: 'failed', id: opId })
+    if (out?.state === 'error' && out.error !== undefined && out.error.code !== 'REQUEST_REUSED') {
+      // Every join code but REQUEST_REUSED is final for this proof: nothing was made.
+      await drop()
+      if (out.error.code === 'NOT_SENT') throw new CashkitError('network', 'the join was not sent, so nothing was made', { nwcCode: out.error.code })
+      throw fromWalletError(new WalletError('create_circle_wallet', out.error.code, out.error.message ?? ''))
+    }
+    throw pendingJoinError(pj.id)
   })
+}
+
+export interface SettleJoinsReport {
+  readonly joined: readonly string[]
+  readonly pending: readonly string[]
+  readonly needsUser: readonly string[]
+}
+
+/**
+ * Looks every pending join of this device up, by its connection key and
+ * exact deadline, signed by the join's `pubkey`: `done` adds the wallet;
+ * `pending` waits; `unknown` asks the member (they may join again, with a new
+ * proof and key); `expired` is shown and never rejoined with that key; an
+ * `UNAUTHORIZED` answer is final for that lookup. Omissions are counted and,
+ * past the deadline plus 360 s, shown as unanswered.
+ */
+export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
+  const joins = (await ctx.read((t) => t.list('pendingJoins'))).filter((j) => j.needsUser === undefined && j.device === ctx.deviceId)
+  const joined: string[] = []
+  const pending: string[] = []
+  const needsUser: string[] = []
+  if (joins.length === 0) return { joined, pending, needsUser }
+  const signer = await ctx.signer()
+  for (const pj of joins) {
+    const now = ctx.nowSeconds()
+    if (!pj.sent) {
+      await ctx.commit((t) => t.delete('pendingJoins', pj.id)).catch(() => undefined)
+      continue
+    }
+    if (signer === undefined || signer.pubkey !== pj.signerPubkey || (pj.lookup?.retryAfter !== undefined && now < pj.lookup.retryAfter)) {
+      pending.push(pj.id)
+      continue
+    }
+    const set = (f: (x: PendingJoin) => PendingJoin) =>
+      ctx.commit(async (t) => {
+        const cur = await t.get('pendingJoins', pj.id)
+        if (cur !== undefined) await t.put('pendingJoins', { ...f(cur), version: cur.version + 1 }, cur.version)
+      })
+    let hub: CircleHub
+    try {
+      hub = await connectCircle(ctx.clientDeps, await ctx.open(pj.hubConnection), { purpose: 'lookup', confirmUnverified: () => Promise.resolve(true) })
+    } catch {
+      // No verified announcement: the lookup is not sent and the join stays open.
+      pending.push(pj.id)
+      continue
+    }
+    let o
+    try {
+      o = await hub.lookupJoin(signer, pj.id, pj.deadline)
+    } catch {
+      o = undefined
+    }
+    const v = o?.state === 'result' ? o.value : undefined
+    if (v?.status === 'done') {
+      const d = await parseCreateCircleWalletResult(decodeLookupDone(v.result).result, { signer, hubPubkey: pj.hubPubkey, connectionPubkey: pj.id })
+      await addCircleWallet(ctx, pj, d, hub.connection.hubIdentity)
+      joined.push(pj.id)
+    } else if (v?.status === 'pending') {
+      await set((x) => ({ ...x, lookup: { omissions: x.lookup?.omissions ?? 0, retryAfter: v.retryAfter } }))
+      pending.push(pj.id)
+    } else if (v?.status === 'unknown' || v?.status === 'expired') {
+      await set((x) => ({ ...x, needsUser: v.status === 'unknown' ? 'join_not_made' : 'lookup_expired' }))
+      needsUser.push(pj.id)
+    } else if (o?.state === 'error' && o.error?.code === 'UNAUTHORIZED') {
+      await set((x) => ({ ...x, needsUser: 'auth' }))
+      needsUser.push(pj.id)
+    } else {
+      const omissions = (pj.lookup?.omissions ?? 0) + 1
+      const unanswered = now > pj.deadline + 360
+      await set((x) => ({ ...x, lookup: { omissions }, ...(unanswered && { needsUser: 'lookup_unanswered' as const }) }))
+      ;(unanswered ? needsUser : pending).push(pj.id)
+    }
+  }
+  return { joined, pending, needsUser }
+}
+
+/** A stored Circle Wallet connection by name. */
+export async function circleRow(ctx: Ctx, name: string): Promise<Connection & { circle: CircleDetailsRow; secret: Sealed; walletPubkey: string; relays: readonly string[] }> {
+  const c = await ctx.read((t) => t.get('connections', name))
+  if (c === undefined) throw new CashkitError('not_found', `no connection named "${name}"`, { input: name })
+  if (c.kind !== 'circle_wallet' || c.circle === undefined || c.secret === undefined || c.walletPubkey === undefined || c.relays === undefined) throw new CashkitError('usage', `"${name}" is not a circle wallet`, { input: name })
+  return c as Connection & { circle: CircleDetailsRow; secret: Sealed; walletPubkey: string; relays: readonly string[] }
+}
+
+/** The member's own client for a stored Circle Wallet. A frozen wallet attempts no payment. */
+export async function circleWalletClient(ctx: Ctx, name: string): Promise<CircleWalletClient> {
+  const c = await circleRow(ctx, name)
+  return new CircleWalletClient(ctx.clientDeps, { walletPubkey: c.walletPubkey, relays: c.relays, secret: await ctx.open(c.secret) })
+}
+
+export function circleView(c: Connection & { circle: CircleDetailsRow; walletPubkey: string }): CircleView {
+  const d = c.circle
+  return {
+    name: c.id,
+    hubPubkey: d.hubPubkey,
+    hubLabel: d.hubLabel,
+    walletPubkey: c.walletPubkey,
+    connectionPubkey: d.connectionPubkey,
+    maxAmount: d.maxAmount,
+    maxReceive: d.maxReceive,
+    expiresAt: d.expiresAt,
+    feesPpm: d.feesPpm,
+    dustThresholdMillis: d.dustThresholdMillis,
+    budgetRenewal: d.budgetRenewal,
+    rotatable: d.rotationDelaySecs !== undefined,
+    frozen: c.frozen === true,
+    moved: c.moved === true,
+    ...(c.rotation !== undefined && { rotation: { newConnectionPubkey: c.rotation.newConnectionPubkey, ...(c.rotation.completesAt !== undefined && { completesAt: c.rotation.completesAt }) } }),
+  }
+}
+
+/**
+ * A member request for the host to submit (cashkit never sends it): signed
+ * by the join's key; a `rotate` generates the new connection key and stores
+ * its secret sealed first. A wallet that cannot be rotated takes none.
+ */
+export async function memberRequest(ctx: Ctx, name: string, action: MemberAction): Promise<NostrEvent> {
+  const c = await circleRow(ctx, name)
+  if (c.circle.rotationDelaySecs === undefined) throw new CashkitError('usage', 'this circle does not serve member requests for this wallet: it cannot be rotated, frozen or unfrozen', { reason: 'rotation_not_served' })
+  const signer = await ctx.requireSigner()
+  if (signer.pubkey !== c.circle.memberPubkey) throw new CashkitError('auth', 'a member request must be signed by the key that joined', { reason: 'not_the_member' })
+  let newKey: { pubkey: string; secret: string } | undefined
+  if (action === 'rotate') {
+    newKey = newConnectionKey(ctx)
+    const sealed = await ctx.seal(newKey.secret)
+    const requestedAt = ctx.nowSeconds()
+    await ctx.commit(async (t) => {
+      const cur = (await t.get('connections', name))!
+      await t.put('connections', { ...cur, rotation: { newConnectionPubkey: newKey!.pubkey, newSecret: sealed, requestedAt }, version: cur.version + 1 }, cur.version)
+    })
+  }
+  return buildMemberRequest(signer, { hubPubkey: c.circle.hubPubkey, action, walletPubkey: c.walletPubkey, ...(newKey !== undefined && { newConnectionPubkey: newKey.pubkey }), now: ctx.nowSeconds() })
+}
+
+export type CircleNotification =
+  | { readonly notification_type: 'rotation_pending'; readonly notification: { readonly connection_pubkey: string; readonly completes_at: number } }
+  | { readonly notification_type: 'rotation_cancelled' | 'rotation_completed'; readonly notification: { readonly connection_pubkey: string } }
+  | { readonly notification_type: 'wallet_frozen'; readonly notification: Record<string, never> }
+
+/** What a notification means for the member, as an event for the app. */
+export type CircleAlert = 'rotation_alert' | 'rotation_cancelled' | 'rotation_completed' | 'frozen_alert' | 'ignored'
+
+/**
+ * Applies a NIP-47 notification a Circle Wallet's key received.
+ * `rotation_pending` records the pending rotation and asks the app whether
+ * the member asked for it (any request by the old key cancels it);
+ * `rotation_completed` switches to the stored new key; `wallet_frozen` marks
+ * the wallet frozen until an unfreeze succeeds or a rotation completes.
+ */
+export async function applyCircleNotification(ctx: Ctx, name: string, n: CircleNotification): Promise<CircleAlert> {
+  const c = await circleRow(ctx, name)
+  const put = (f: (x: Connection) => Connection) =>
+    ctx.commit(async (t) => {
+      const cur = (await t.get('connections', name))!
+      await t.put('connections', { ...f(cur), version: cur.version + 1 }, cur.version)
+    })
+  switch (n.notification_type) {
+    case 'rotation_pending': {
+      const mine = c.rotation?.newConnectionPubkey === n.notification.connection_pubkey
+      await put((x) => ({ ...x, ...(mine && x.rotation !== undefined ? { rotation: { ...x.rotation, completesAt: n.notification.completes_at } } : {}) }))
+      ctx.emit({ op: 'circle', phase: 'rotation_alert', id: name })
+      return 'rotation_alert'
+    }
+    case 'rotation_cancelled':
+      await put((x) => {
+        const { rotation: _r, ...rest } = x
+        return rest as Connection
+      })
+      return 'rotation_cancelled'
+    case 'rotation_completed': {
+      if (c.rotation?.newConnectionPubkey !== n.notification.connection_pubkey) return 'ignored'
+      const r = c.rotation
+      await put((x) => {
+        const { rotation: _r, frozen: _f, ...rest } = x
+        return { ...rest, secret: r.newSecret, circle: { ...x.circle!, connectionPubkey: r.newConnectionPubkey } } as Connection
+      })
+      return 'rotation_completed'
+    }
+    case 'wallet_frozen':
+      await put((x) => ({ ...x, frozen: true }))
+      ctx.emit({ op: 'circle', phase: 'frozen_alert', id: name })
+      return 'frozen_alert'
+    default:
+      return 'ignored'
+  }
+}
+
+/**
+ * A device holding only the old key learns of a completed rotation by its
+ * absence: once now ≥ `completes_at` with no cancellation seen, the
+ * connection is marked moved (recover on the device that holds the new key).
+ */
+export async function markMovedIfDue(ctx: Ctx, name: string, completesAt: number): Promise<boolean> {
+  if (ctx.nowSeconds() < completesAt) return false
+  const c = await circleRow(ctx, name)
+  if (c.rotation !== undefined) return false
+  await ctx.commit(async (t) => {
+    const cur = (await t.get('connections', name))!
+    await t.put('connections', { ...cur, moved: true, version: cur.version + 1 }, cur.version)
+  })
+  return true
+}
+
+/**
+ * Deletes the member's Circle Wallet: refused locally while it holds more
+ * than its dust threshold; `confirmDelete({dust})` must resolve true (the
+ * dust goes to the host). The connection is removed once the Hub agrees.
+ */
+export async function deleteCircleWallet(ctx: Ctx, name: string, confirmDelete: (x: { dust: bigint }) => Promise<boolean>): Promise<void> {
+  const c = await circleRow(ctx, name)
+  const client = await circleWalletClient(ctx, name)
+  const balance = await client.getBalance()
+  if (balance > c.circle.dustThresholdMillis) throw new CashkitError('usage', `this wallet still holds ${balance} millis, more than its dust threshold of ${c.circle.dustThresholdMillis}: pay it out first`, { reason: 'not_dust' })
+  if (!(await confirmDelete({ dust: balance }))) throw new CashkitError('usage', 'deleting was not confirmed', { reason: 'not_confirmed' })
+  try {
+    await client.deleteWallet()
+  } catch (err) {
+    if (err instanceof WalletError) throw fromWalletError(err)
+    throw connectError(err)
+  }
+  await ctx.commit((t) => t.delete('connections', name))
+}
+
+/** Whether a stored connection is a Lightning wallet: a NIP-47 URI, or a Circle Wallet (a Hub connection is not). */
+export const isLightning = (c: Connection): boolean => c.kind !== 'cashhub' && (c.uri !== undefined || c.secret !== undefined)
+
+/** The NIP-47 client for a Lightning connection: from its URI, or a Circle Wallet's fields and the member's secret. */
+export async function nwcFor(ctx: Ctx, c: Connection): Promise<NwcClient> {
+  if (c.uri !== undefined) return new NwcClient(ctx.clientDeps, await ctx.open(c.uri))
+  if (c.kind === 'circle_wallet' && c.secret !== undefined && c.walletPubkey !== undefined && c.relays !== undefined) {
+    if (c.frozen === true) throw new CashkitError('auth', 'this circle wallet is frozen: no payment is attempted until it is unfrozen or rotated', { nwcCode: 'FROZEN', input: c.id })
+    return new NwcClient(ctx.clientDeps, { walletPubkey: c.walletPubkey, relays: c.relays, secret: await ctx.open(c.secret), extra: {} })
+  }
+  throw new CashkitError('usage', `"${c.id}" is a Cash Hub connection, not a Lightning wallet`, { input: c.id })
 }

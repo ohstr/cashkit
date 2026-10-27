@@ -204,15 +204,16 @@ await wallet.protect() // re-key every cash note still shared with its sender
 
 ### Join a Circle
 
-The connection key is generated locally; the Hub only sees its pubkey. When
-the Hub reports `circle_wallet.identity`, the join goes over the private
-transport, and a fallback to the shared connection is reported in
-`fallbackReason` (`requirePrivate: true` refuses instead):
+The connection key is generated locally; the Hub only sees its pubkey. The
+join goes over the Hub's private transport only, and a lost reply is
+settled by `settle()`:
 
 ```ts
-const joined = await wallet.joinCircle({ hub: 'circlehub1…', maxAmount: 100_000_000n })
+const joined = await wallet.circles.join('circlehub1…', { maxAmount: 100_000_000n, maxReceive: 100_000_000n }, {
+  // Asked when the circle cannot move a wallet to a new key: back up the secret.
+  confirmNoRecovery: async () => window.confirm('Losing this device loses the wallet. Continue?'),
+})
 console.log('joined', joined.name, 'wallet', joined.walletPubkey)
-if (joined.fallbackReason !== undefined) console.warn('joined without the private transport:', joined.fallbackReason)
 
 const ln = await wallet.lightning(joined.name)
 console.log(await ln.getBalance())

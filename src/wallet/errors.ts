@@ -44,8 +44,6 @@ export interface CashkitErrorOptions {
   /** Verbatim handoffs for a confirmed Hub mutation the local commit missed. */
   readonly recovery?: string
   readonly recoveryHandoffs?: readonly string[]
-  /** Why a failed circle join went over the standard transport, not the private one. */
-  readonly fallbackReason?: string
   /** The pending call this failure left open (looked up by `settle`). */
   readonly pendingCallId?: string
   /** A stable, machine-readable reason within the code (e.g. `connection_unverified`). */
@@ -63,11 +61,6 @@ export class CashkitError extends Error {
   /** Deliberately never redacted or truncated (§10): it is the only copy. */
   readonly recovery?: string
   readonly recoveryHandoffs?: readonly string[]
-  /**
-   * Set when a circle join failed after falling back to the standard
-   * transport: the member's pubkey was on the shared Hub connection.
-   */
-  readonly fallbackReason?: string
   /** The pending call this failure left open: `settle()` looks it up; `pendingCalls.list()` shows it. */
   readonly pendingCallId?: string
   readonly reason?: string
@@ -81,7 +74,6 @@ export class CashkitError extends Error {
     if (o.hint !== undefined) this.hint = o.hint
     if (o.recovery !== undefined) this.recovery = o.recovery
     if (o.recoveryHandoffs !== undefined) this.recoveryHandoffs = [...o.recoveryHandoffs]
-    if (o.fallbackReason !== undefined) this.fallbackReason = sanitize(o.fallbackReason)
     if (o.pendingCallId !== undefined) this.pendingCallId = o.pendingCallId
     if (o.reason !== undefined) this.reason = o.reason
   }
@@ -104,26 +96,10 @@ export class CashkitError extends Error {
       ...(this.input !== undefined && this.input !== '' && { input: this.input }),
       ...(this.hint !== undefined && { hint: this.hint }),
       ...(this.recovery !== undefined && { recovery: this.recovery }),
-      ...(this.fallbackReason !== undefined && { fallback_reason: this.fallbackReason }),
       ...(this.pendingCallId !== undefined && { pending_call: this.pendingCallId }),
       ...(this.reason !== undefined && { reason: this.reason }),
     }
   }
-}
-
-/** `e` with `fallbackReason` set; `e` itself when there is none. */
-export function withJoinFallback(e: CashkitError, fallbackReason: string | undefined): CashkitError {
-  if (fallbackReason === undefined) return e
-  return new CashkitError(e.code, e.message, {
-    ...(e.input !== undefined && { input: e.input }),
-    ...(e.nwcCode !== undefined && { nwcCode: e.nwcCode }),
-    ...(e.rawMessage !== undefined && { rawMessage: e.rawMessage }),
-    ...(e.hint !== undefined && { hint: e.hint }),
-    ...(e.recovery !== undefined && { recovery: e.recovery }),
-    ...(e.recoveryHandoffs !== undefined && { recoveryHandoffs: e.recoveryHandoffs }),
-    fallbackReason,
-    cause: e.cause,
-  })
 }
 
 export const isCashkitError = (e: unknown): e is CashkitError => e instanceof CashkitError
@@ -138,7 +114,13 @@ export function codeForNwc(nwcCode: string): ErrorCode {
     case 'RESTRICTED':
     case 'UNAUTHORIZED':
     case 'EXPIRED':
+    case 'FROZEN':
       return 'auth'
+    case 'LIMIT_EXCEEDED':
+      return 'invalid_input'
+    case 'INSUFFICIENT_CAPACITY':
+    case 'ROTATION_PENDING':
+      return 'conflict'
     case 'RATE_LIMITED':
     case 'QUOTA_EXCEEDED': // a size or count limit: retry smaller or later
       return 'conflict'

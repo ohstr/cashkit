@@ -13,7 +13,7 @@ import { ConcurrentUpdateError, type Lock, type Logger, type StorageTx, type Wal
  * `settle`); `recovered`: a lookup found it applied; `needs_user`: it waits
  * for the user (a confirmation, or an answer that never came).
  */
-export type OperationPhase = 'planned' | 'sent' | 'committed' | 'failed' | 'pending' | 'recovered' | 'needs_user'
+export type OperationPhase = 'planned' | 'sent' | 'committed' | 'failed' | 'pending' | 'recovered' | 'needs_user' | 'rotation_alert' | 'frozen_alert'
 export interface OperationEvent {
   readonly op: string
   readonly phase: OperationPhase

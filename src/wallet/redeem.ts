@@ -6,6 +6,7 @@ import { decodeBolt11, decodeToken, type CashRedeemResult } from '../core/index.
 import { billFor, NotServedError, NwcClient, WalletError, type BatchRedeem } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import { getHeld, getHolding } from './bills.js'
+import { isLightning, nwcFor } from './circle.js'
 import type { Ctx } from './context.js'
 import { CashkitError, classifyReadError, classifySpendError, fromWalletError } from './errors.js'
 import { appendActivity, heldHoldings, updateHolding } from './ledger.js'
@@ -75,8 +76,8 @@ async function selectByAmount(ctx: Ctx, target: bigint): Promise<Holding[]> {
   throw new CashkitError('usage', `funds are fragmented across separate Hubs: you hold ${totalNet} millis total, but no single Hub's tokens sum to exactly the ${target} millis you're redeeming`)
 }
 
-async function destinationConnection(ctx: Ctx, into: string | undefined): Promise<Connection & { uri: NonNullable<Connection['uri']> }> {
-  const rows = (await ctx.read((t) => t.list('connections'))).filter((r) => r.uri !== undefined || r.id === into)
+async function destinationConnection(ctx: Ctx, into: string | undefined): Promise<Connection> {
+  const rows = (await ctx.read((t) => t.list('connections'))).filter((r) => isLightning(r) || r.id === into)
   const c = into !== undefined ? rows.find((r) => r.id === into) : (rows.find((r) => r.isDefault) ?? rows[0])
   if (c === undefined) {
     throw new CashkitError(
@@ -85,8 +86,8 @@ async function destinationConnection(ctx: Ctx, into: string | undefined): Promis
       into !== undefined ? { input: into } : {},
     )
   }
-  if (c.uri === undefined) throw new CashkitError('usage', `"${c.id}" is a Cash Hub connection, not a Lightning wallet to redeem into`, { input: c.id })
-  return c as Connection & { uri: NonNullable<Connection['uri']> }
+  if (!isLightning(c)) throw new CashkitError('usage', `"${c.id}" is a Cash Hub connection, not a Lightning wallet to redeem into`, { input: c.id })
+  return c
 }
 
 export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> {
@@ -173,7 +174,7 @@ export async function executeRedeem(ctx: Ctx, plan: RedeemPlan): Promise<Report<
       for (const l of live) ready.push({ ...l, invoice: plan.destination.invoice })
     } else {
       const conn = await destinationConnection(ctx, plan.destination.name)
-      const nwc = new NwcClient(ctx.clientDeps, await ctx.open(conn.uri))
+      const nwc = await nwcFor(ctx, conn)
       freshInvoice = (r) => makeInvoice(nwc, r.item.net)
       for (const l of live) {
         try {
@@ -377,8 +378,8 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
 async function invoiceSettled(ctx: Ctx, connection: string, invoice: string): Promise<boolean> {
   try {
     const c = await ctx.read((t) => t.get('connections', connection))
-    if (c?.uri === undefined) return false
-    const r = await new NwcClient(ctx.clientDeps, await ctx.open(c.uri)).lookupInvoice(invoice)
+    if (c === undefined || !isLightning(c)) return false
+    const r = await (await nwcFor(ctx, c)).lookupInvoice(invoice)
     return typeof r.settled_at === 'number' && r.settled_at > 0
   } catch {
     return false

@@ -6,15 +6,13 @@ import {
   buildPairingURI,
   finalizeEvent,
   getPublicKey,
-  KIND_CIRCLE_IDENTITY_PROOF,
-  localSigner,
   nip04,
   nip44,
   toHex,
   verifyEvent,
   type NostrEvent,
 } from '../src/core/index.js'
-import { CircleClient, ClientError, NwcClient, WalletError } from '../src/client/index.js'
+import { ClientError, NwcClient, WalletError } from '../src/client/index.js'
 import { MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
 
@@ -78,7 +76,7 @@ describe('NwcClient', () => {
     expect(await new NwcClient({ relays: pool }, pairing()).getInfo()).toEqual({
       alias: 'hub',
       methods: ['create_circle_wallet'],
-      circle_wallet: { available_millis: 7n, max_exp_secs: 60, fees_ppm: 1, circle_policy: 'follow_set', identity: '79'.repeat(32) },
+      circle_wallet: { available_millis: 7n, max_exp_secs: 60, fees_ppm: 1, fee_reserve: { ppm: 0, min_millis: 0n }, dust_threshold_millis: 0n, circle_policy: 'follow_set', identity: '79'.repeat(32), accepting: false },
     })
   })
   test('get_info without a circle_wallet block has none', async () => {
@@ -164,27 +162,3 @@ describe('NwcClient encryption negotiation (NIP-47 §Encryption)', () => {
   })
 })
 
-describe('CircleClient', () => {
-  const member = localSigner(fill(0x24, 32))
-  test('generates the connection key locally and sends only its pubkey', async () => {
-    let request: Record<string, unknown> = {}
-    startWallet(pool, (_m, params) => {
-      request = params as Record<string, unknown>
-      const details = JSON.stringify({ wallet_pubkey: '9a'.repeat(32), relays: ['wss://c1'], max_amount: 5000, expires_at: 1, fees_ppm: 0, budget_renewal: 'monthly' })
-      return { result: { encrypted_details: nip44.encrypt(details, nip44.getConversationKey(walletKey, member.pubkey)) } }
-    })
-    const c = new CircleClient({ relays: pool }, pairing())
-    const { wallet, connection } = await c.createCircleWallet({ signer: member, maxAmountMillis: 5000n, expirySeconds: 3600, budgetRenewal: 'monthly' })
-    expect(request['connection_pubkey']).toBe(connection.pubkey)
-    expect(JSON.stringify(request)).not.toContain(connection.secret)
-    const proof = JSON.parse(request['identity_event'] as string) as NostrEvent
-    expect(proof.kind).toBe(KIND_CIRCLE_IDENTITY_PROOF)
-    expect(proof.tags).toEqual([['d', WALLET], ['connection', connection.pubkey]])
-    expect(wallet.pairingUri).toBe(buildPairingURI('9a'.repeat(32), ['wss://c1'], connection.secret))
-    expect(wallet.maxAmountMillis).toBe(5000n)
-  })
-  test('a refusal surfaces as WalletError', async () => {
-    startWallet(pool, () => ({ error: { code: 'RESTRICTED', message: 'not a member' } }))
-    await expect(new CircleClient({ relays: pool }, pairing()).createCircleWallet({ signer: member, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toMatchObject({ walletCode: 'RESTRICTED' })
-  })
-})

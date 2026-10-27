@@ -17,8 +17,10 @@ export type ClientErrorCode =
   | 'undecodable_result'
   /** Signing one item took the whole not_after window (design §3). Nothing was sent. */
   | 'signer_too_slow'
-  /** A join that required the private transport could not use it. Nothing was sent. */
-  | 'private_join_unavailable'
+  /** The Circle Wallet Hub's announcement could not be found or verified, so no join was sent (NIP-CW §Finding the Private Transport). */
+  | 'join_unavailable'
+  /** The Circle Wallet Hub is not taking joins (`accepting` false). Nothing was signed. */
+  | 'not_accepting'
   /** A zap bill's provenance needs its Cash Zap's fields, which were not given. Nothing was sent. */
   | 'no_zap_event'
   /** The token carries no mint signature that verifies, so its Hub cannot be identified. Nothing was sent. */
@@ -58,33 +60,6 @@ export class NotServedError extends ClientError {
     super('not_served', `the hub returned no answer for this ${method}; it may or may not have been applied, so ask before retrying`, options)
     this.method = method
   }
-}
-
-/**
- * `requirePrivate` was set and the join could not travel over the private
- * transport, so nothing was sent.
- */
-export class PrivateJoinUnavailableError extends ClientError {
-  override readonly name = 'PrivateJoinUnavailableError'
-  constructor(reason: string, options?: { cause?: unknown }) {
-    super('private_join_unavailable', `private join is unavailable: ${reason}`, options)
-  }
-}
-
-const fallbackReasons = new WeakMap<object, Error>()
-
-/**
- * Why a failed join went over the standard transport although the Hub
- * offers Private Join: the error came from the fallback, so the member's
- * pubkey was on the shared connection. The error itself keeps its class and
- * code; undefined for any other error.
- */
-export const fallbackReasonOf = (err: unknown): Error | undefined => (typeof err === 'object' && err !== null ? fallbackReasons.get(err) : undefined)
-
-/** Records `reason` against `err` for fallbackReasonOf, and returns `err`. */
-export function withFallbackReason<E>(err: E, reason: Error): E {
-  if (typeof err === 'object' && err !== null) fallbackReasons.set(err, reason)
-  return err
 }
 
 /** The Hub (or wallet) answered with a refusal and a reason. */

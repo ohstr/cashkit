@@ -104,7 +104,7 @@ export interface Handoff {
   readonly version: number
 }
 
-export type ConnectionKind = 'nwc' | 'circle' | 'cashhub'
+export type ConnectionKind = 'nwc' | 'circle_wallet' | 'cashhub'
 
 export interface Connection {
   /** The connection's name; the key. */
@@ -119,6 +119,17 @@ export interface Connection {
   readonly verified?: boolean
   readonly confirmedUnverifiedAt?: number
   readonly network?: string
+  /** `circle_wallet`: the wallet's fields (never a URI) and the member's own secret, sealed. */
+  readonly walletPubkey?: string
+  readonly relays?: readonly string[]
+  readonly secret?: Sealed
+  /** `circle_wallet`: the circle it belongs to and the terms its details fixed. */
+  readonly circle?: CircleDetailsRow
+  /** `circle_wallet`: a rotation this device asked for: the new key, its secret sealed, and when it completes. */
+  readonly rotation?: { readonly newConnectionPubkey: string; readonly newSecret: Sealed; readonly completesAt?: number; readonly requestedAt: number }
+  /** `circle_wallet`: frozen (no payment is attempted until unfrozen or rotated), or moved to a key this device does not hold. */
+  readonly frozen?: boolean
+  readonly moved?: boolean
   readonly kind: ConnectionKind
   readonly isDefault: boolean
   readonly lastKnownBalance?: { readonly millis: bigint; readonly at: number }
@@ -135,13 +146,49 @@ export interface IdentityRow {
   readonly version: number
 }
 
+/** A Circle Wallet's circle and the terms its join details fixed (NIP-CW §Response). */
+export interface CircleDetailsRow {
+  /** The Hub connection's pubkey (TLV 0): one wallet per Hub pubkey. */
+  readonly hubPubkey: string
+  readonly hubIdentity: string
+  readonly hubLabel: string
+  /** The `circlehub1` the join used, sealed (it carries the Hub connection's secret). */
+  readonly hubConnection: Sealed
+  /** The member key the join was signed with: member requests and lookups are signed by it. */
+  readonly memberPubkey: string
+  readonly connectionPubkey: string
+  readonly maxAmount: bigint
+  readonly maxReceive: bigint
+  readonly expiresAt: number
+  readonly feesPpm: number
+  readonly dustThresholdMillis: bigint
+  readonly rotationDelaySecs?: number
+  readonly budgetRenewal: string
+  readonly createdAt: number
+}
+
+export type PendingJoinNeedsUser = 'join_not_made' | 'lookup_expired' | 'lookup_unanswered' | 'auth'
+
+/** A join written ahead before it is sent (NIP-CW §Lost Join Reply): settled by a join lookup. */
 export interface PendingJoin {
   /** The connection pubkey. */
   readonly id: string
   readonly connectionSecret: Sealed
   readonly hubPubkey: string
   readonly hubLabel: string
+  /** The `circlehub1` the join goes through, sealed. */
+  readonly hubConnection: Sealed
+  readonly signerPubkey: string
   readonly name: string
+  readonly makeDefault: boolean
+  readonly proofCreatedAt: number
+  /** `proofCreatedAt + 300`, as the lookup must send it. */
+  readonly deadline: number
+  readonly terms: { readonly maxAmount: bigint; readonly maxReceive: bigint; readonly expiry: number; readonly budgetRenewal: string }
+  readonly device: string
+  readonly sent: boolean
+  readonly lookup?: { readonly retryAfter?: number; readonly omissions: number }
+  readonly needsUser?: PendingJoinNeedsUser
   readonly at: number
   readonly version: number
 }

@@ -23,7 +23,6 @@ import {
   splitCashString,
   toHex,
   buildPairingURI,
-  createCircleWalletRequest,
   decodeNaddr,
   decodeNevent,
   decodeNote,
@@ -37,7 +36,6 @@ import {
   encodeNpub,
   encodeNsec,
   nwcRequestEvent,
-  parseCreateCircleWalletResult,
   parseInfoEvent,
   parsePairingURI,
   parseResponseEvent,
@@ -65,8 +63,6 @@ import {
   type NConnection,
   type Token,
 } from '../src/core/index.js'
-import { billFromParts, createCircleWalletItem } from '../src/client/index.js'
-import { paramsHash, verifyBillProof, verifyItemProof } from '../src/transport/index.js'
 
 type Json = any
 
@@ -435,117 +431,9 @@ describe('nip47.json', () => {
   })
 })
 
-describe('nipcw.json', () => {
-  const v = load('nipcw.json')
-  const signer = localSigner(fromHex('02'.repeat(32)))
-  const hub = toHex(secp256k1.getPublicKey(fromHex('06'.repeat(32)), true).subarray(1))
-  const conn = connectionKeyFromSecret('11'.repeat(32))
-  test.each(named(v.requests, (c) => c.name))('request: %s', async (_: string, c: Json) => {
-    const i = c.inputs
-    const run = () =>
-      createCircleWalletRequest({
-        signer,
-        connection: i.connectionSecret === '' ? undefined : connectionKeyFromSecret(i.connectionSecret),
-        hubPubkey: i.hub,
-        maxAmountMillis: BigInt(i.maxAmountMillis),
-        expirySeconds: i.expirySeconds,
-        ...(i.budgetRenewal !== '' && { budgetRenewal: i.budgetRenewal }),
-      })
-    if (c.error) {
-      await expect(run()).rejects.toThrow()
-      return
-    }
-    expect(flatten(await run())).toEqual(c.request)
-  })
-  test.each(named(v.results, (c) => c.name))('result: %s', async (_: string, c: Json) => {
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(c.result)
-    } catch {
-      expect(c.error).toBeTruthy()
-      return
-    }
-    const run = () => parseCreateCircleWalletResult(parsed, { signer, connection: conn, hubPubkey: hub })
-    if (c.error) {
-      await expect(run()).rejects.toThrow()
-      return
-    }
-    const w = await run()
-    expect({
-      PairingURI: w.pairingUri,
-      WalletPubkey: w.walletPubkey,
-      Relays: w.relays,
-      MaxAmountMillis: w.maxAmountMillis === undefined ? null : Number(w.maxAmountMillis),
-      ExpiresAt: w.expiresAt,
-      FeesPpm: w.feesPpm,
-      BudgetRenewal: w.budgetRenewal,
-    }).toEqual(c.want)
-  })
-})
-
-/** A proof as private-join.json records it: no time-dependent fields, ph checked then replaced. */
-function proofShape(proof: string, ph: string) {
-  const e = JSON.parse(proof)
-  expect(e.tags.find((t: string[]) => t[0] === 'ph')?.[1]).toBe(ph)
-  return { kind: e.kind, pubkey: e.pubkey, tags: e.tags.map((t: string[]) => (t[0] === 'ph' ? ['ph', '<params hash>'] : t)) }
-}
-
-/** A verifier's signer, or that it refused. */
-function signerOrError(f: () => string): { signer: string } | { error: true } {
-  try {
-    return { signer: f() }
-  } catch {
-    return { error: true }
-  }
-}
-
-// nmilat nipcw/private_join_test.go, nipcash/client/batch_circle_join_test.go.
-describe('private-join.json', () => {
-  const v = load('private-join.json')
-  const signer = localSigner(fromHex('02'.repeat(32)))
-  const binding = { hub: v.node, nonce: v.nonce, notAfter: v.notAfter }
-  test.each(named(v.build, (c) => c.name))('build: %s', async (_: string, c: Json) => {
-    const i = c.inputs
-    const run = async () =>
-      createCircleWalletItem(
-        'join',
-        billFromParts(v.hub, i.hubConnectionSecret),
-        {
-          signer,
-          ...(i.connectionSecret !== '' && { connection: connectionKeyFromSecret(i.connectionSecret) }),
-          maxAmountMillis: BigInt(i.maxAmountMillis),
-          expirySeconds: i.expirySeconds,
-          ...(i.budgetRenewal !== '' && { budgetRenewal: i.budgetRenewal }),
-        },
-        binding,
-        Math.floor(Date.now() / 1000),
-      )
-    if (c.error) {
-      await expect(run()).rejects.toThrow()
-      return
-    }
-    const item = await run()
-    const ph = paramsHash(item.params!)
-    expect({
-      id: item.id,
-      target: item.target,
-      method: item.method,
-      params: flatten(JSON.parse(item.params!)),
-      proof: proofShape(item.proof!, ph),
-      billProof: proofShape(item.billProof!, ph),
-    }).toEqual(c.item)
-  })
-  test.each(named(v.verify, (c) => c.name))('verify: %s', (_: string, c: Json) => {
-    const want = { target: c.target, hub: v.node, method: 'create_circle_wallet', paramsHash: paramsHash(c.params), nonce: v.nonce, notAfter: v.notAfter }
-    const item = signerOrError(() => verifyItemProof(c.proof, want, v.now))
-    const bill = signerOrError(() => verifyBillProof(c.billProof, want, v.now))
-    expect(item).toEqual(c.itemError ? { error: true } : { signer: c.itemSigner })
-    expect(bill).toEqual(c.billError ? { error: true } : { signer: c.billSigner })
-    const hubConnection = getPublicKey(fromHex(v.hubConnectionSecret))
-    const admitted = c.target === v.hub && 'signer' in item && 'signer' in bill && item.signer === JSON.parse(c.params).pubkey && bill.signer === hubConnection
-    expect(admitted).toBe(c.admitted)
-  })
-})
+// nipcw.json and private-join.json predate the join's max_receive and terms
+// binding: they come back with the vector export from nmilat, and the core
+// and client tests cover the current form meanwhile (test/nipcw.test.ts).
 
 describe('nip01.json', () => {
   const v = load('nip01.json')

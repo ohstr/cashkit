@@ -4,11 +4,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   buildPairingURI,
-  CIRCLE_POLICY_ALLOWLIST,
-  CIRCLE_POLICY_FOLLOW_SET,
-  connectionKeyFromSecret,
   CoreError,
-  createCircleWalletRequest,
   decodeNaddr,
   decodeNevent,
   decodeNprofile,
@@ -21,12 +17,8 @@ import {
   encodeNsec,
   finalizeEvent,
   getPublicKey,
-  KIND_CIRCLE_IDENTITY_PROOF,
-  localSigner,
   nip44,
   nwcRequestEvent,
-  parseCircleWalletInfo,
-  parseCreateCircleWalletResult,
   parseInfoEvent,
   parsePairingURI,
   parseResponseEvent,
@@ -147,86 +139,3 @@ describe('nip47 events (events_test.go)', () => {
   })
 })
 
-describe('nipcw create_circle_wallet (create_circle_wallet_test.go)', () => {
-  const memberKey = fill(2, 32)
-  const signer = localSigner(memberKey)
-  const hubKey = fill(6, 32)
-  const hub = getPublicKey(hubKey)
-  const conn = connectionKeyFromSecret('11'.repeat(32))
-
-  test('the request carries a proof binding the Hub and the connection key', async () => {
-    const req = await createCircleWalletRequest({ signer, connection: conn, hubPubkey: hub, maxAmountMillis: 100000n, expirySeconds: 60, budgetRenewal: 'monthly', now: 5 })
-    const proof = JSON.parse(req.identity_event) as NostrEvent
-    expect(verifyEvent(proof)).toBe(true)
-    expect(proof.kind).toBe(KIND_CIRCLE_IDENTITY_PROOF)
-    expect(proof.tags).toEqual([['d', hub], ['connection', conn.pubkey]])
-    expect(req).toMatchObject({ pubkey: signer.pubkey, connection_pubkey: conn.pubkey, max_amount: 100000n, expiry: 60, budget_renewal: 'monthly' })
-  })
-  test('refuses a missing connection key, one equal to the member key, and a bad expiry', async () => {
-    await expect(createCircleWalletRequest({ signer, connection: undefined, hubPubkey: hub, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toThrow(CoreError)
-    await expect(createCircleWalletRequest({ signer, connection: connectionKeyFromSecret('02'.repeat(32)), hubPubkey: hub, maxAmountMillis: 1n, expirySeconds: 0 })).rejects.toThrow(/differ/)
-    await expect(createCircleWalletRequest({ signer, connection: conn, hubPubkey: hub, maxAmountMillis: 1n, expirySeconds: 1.5 })).rejects.toThrow(CoreError)
-  })
-  const seal = (details: string) => ({ encrypted_details: nip44.encrypt(details, nip44.getConversationKey(hubKey, signer.pubkey)) })
-  test('the result decrypts the details and pairs over the member’s connection secret', async () => {
-    const w = await parseCreateCircleWalletResult(seal(`{"wallet_pubkey":"${'9a'.repeat(32)}","relays":[" ","wss://r1.example"],"max_amount":5,"expires_at":9,"fees_ppm":2500,"budget_renewal":"weekly"}`), { signer, connection: conn, hubPubkey: hub })
-    expect(w).toEqual({
-      pairingUri: buildPairingURI('9a'.repeat(32), ['wss://r1.example'], conn.secret),
-      walletPubkey: '9a'.repeat(32),
-      relays: ['wss://r1.example'],
-      maxAmountMillis: 5n,
-      expiresAt: 9,
-      feesPpm: 2500,
-      budgetRenewal: 'weekly',
-    })
-  })
-  test.each([
-    ['no encrypted_details', {}],
-    ['no usable relay', null],
-    ['a bad wallet pubkey', 'bad'],
-  ] as const)('the result refuses %s', async (_, kind) => {
-    const result = kind === null ? seal(`{"wallet_pubkey":"${'9a'.repeat(32)}","relays":[" "]}`) : kind === 'bad' ? seal('{"wallet_pubkey":"abc","relays":["wss://r"]}') : kind
-    await expect(parseCreateCircleWalletResult(result, { signer, connection: conn, hubPubkey: hub })).rejects.toThrow(CoreError)
-  })
-  // TestCreateCircleWalletParams_ParseResult_RejectsOtherSender. NIP-CW §Response: on
-  // either transport the details come from the Hub connection key, never the
-  // private transport's inbox or node key.
-  test.each([
-    ['the inbox key', fill(8, 32)],
-    ['the node key', fill(9, 32)],
-    ['the member’s own key', memberKey],
-  ] as const)('details sealed by %s are rejected', async (_, from) => {
-    const details = `{"wallet_pubkey":"${'9a'.repeat(32)}","relays":["wss://r"]}`
-    const other = { encrypted_details: nip44.encrypt(details, nip44.getConversationKey(from, signer.pubkey)) }
-    await expect(parseCreateCircleWalletResult(other, { signer, connection: conn, hubPubkey: hub })).rejects.toThrow(/decrypt/)
-  })
-})
-
-describe('nipcw get_info circle_wallet (nip47/methods_test.go)', () => {
-  const ID = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798'
-  // TestGetInfoResult_CircleWalletRoundTrips.
-  test('decodes the block, identity included', () => {
-    const info = JSON.parse(`{"alias":"hub","circle_wallet":{"available_millis":42000,"max_exp_secs":86400,"fees_ppm":5000,"circle_policy":"follow_set","identity":"${ID}"}}`) as unknown
-    expect(parseCircleWalletInfo(info)).toEqual({ available_millis: 42000n, max_exp_secs: 86400, fees_ppm: 5000, circle_policy: CIRCLE_POLICY_FOLLOW_SET, identity: ID })
-  })
-  test('no identity means no Private Join; an empty one is the same', () => {
-    expect(parseCircleWalletInfo({ circle_wallet: { available_millis: 1, max_exp_secs: 0, fees_ppm: 0, circle_policy: 'allowlist' } })).toEqual({ available_millis: 1n, max_exp_secs: 0, fees_ppm: 0, circle_policy: CIRCLE_POLICY_ALLOWLIST })
-    expect(parseCircleWalletInfo({ circle_wallet: { identity: '' } })).not.toHaveProperty('identity')
-  })
-  test('no block means not a Circle Hub', () => {
-    expect(parseCircleWalletInfo({ alias: 'wallet' })).toBeUndefined()
-    expect(parseCircleWalletInfo({ circle_wallet: null })).toBeUndefined()
-    expect(parseCircleWalletInfo(null)).toBeUndefined()
-  })
-  test('an unknown policy, the retired "following" included, is left out', () => {
-    expect(parseCircleWalletInfo({ circle_wallet: { circle_policy: 'following' } })).not.toHaveProperty('circle_policy')
-  })
-  test.each([
-    ['a string amount', { available_millis: '1' }],
-    ['a negative amount', { available_millis: -1 }],
-    ['a numeric identity', { identity: 7 }],
-    ['an array block', []],
-  ] as const)('refuses %s', (_, block) => {
-    expect(() => parseCircleWalletInfo({ circle_wallet: block })).toThrow(CoreError)
-  })
-})
