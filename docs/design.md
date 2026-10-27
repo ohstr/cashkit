@@ -1374,7 +1374,10 @@ circle whose Hub cannot rotate the wallet), `confirmDelete` (a circle
 wallet's dust goes to the host), `approveMinter` (a zap's minter, its
 network unverifiable), `confirmWithdraw` (every figure of the quote,
 `irreversible` and `deliberate`: no default action), `confirmRecommend` and
-`confirmReport` (the audience, membership, identity link and delay range).
+`confirmReport` (the node and offer named, the audience, membership,
+identity link and delay range; `withdrawal` for the deletion of a
+recommendation, published at once). `discover.recommend`, `report` and
+`withdrawRecommendation` raise them when no `confirm` is passed.
 Notices are only shown: `rotationAlert` (an unexpected rotation),
 `walletFrozen`, `lookupExpired`, `expiringSoon`, `withdrawLate` and
 `withdrawCancelled`. A per-call callback (`confirmUnverified`,

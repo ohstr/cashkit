@@ -14,17 +14,21 @@ export interface ConfirmWithdrawData extends WithdrawQuoteView {
   readonly deliberate: true
 }
 
-/** The audience and what publishing tells it, for a recommendation or a report. */
+/** The audience and what publishing tells it, for a recommendation, a report, or a recommendation's withdrawal. */
 export interface PublishNotice {
-  /** The offer's address (`31190:<pubkey>:<d>`). */
-  readonly address: string
+  /** The offer's address (`31190:<pubkey>:<d>`), when the event names one offer. */
+  readonly address?: string
+  /** The node identity the event names. */
+  readonly node: string
   readonly audience: { readonly public: true }
   /** A recommendation of a circle shows that the user is a member. */
   readonly revealsMembership: boolean
   /** The event is signed by the user's Nostr key, linking it to them. */
   readonly linksIdentity: true
-  /** Published after a random delay in this range. */
+  /** Published after a random delay in this range (0 to 0: at once). */
   readonly delay: { readonly minSecs: number; readonly maxSecs: number }
+  /** The deletion of the user's recommendation of `node`, published at once. */
+  readonly withdrawal?: true
 }
 
 /** Questions: the wallet acts only on `true`. */
@@ -47,7 +51,7 @@ export type ConfirmQuestion =
   | { readonly type: 'approveMinter'; readonly minter: string; readonly chain: string; readonly networkUnverifiable: true }
   /** Sending an on-chain withdrawal: irreversible once sent. */
   | { readonly type: 'confirmWithdraw'; readonly quote: ConfirmWithdrawData }
-  /** Publishing a recommendation or a report of an offer. */
+  /** Publishing a recommendation (or withdrawing one) or a report: who will see it. */
   | ({ readonly type: 'confirmRecommend' } & PublishNotice)
   | ({ readonly type: 'confirmReport' } & PublishNotice)
 

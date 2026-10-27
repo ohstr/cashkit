@@ -10,6 +10,7 @@ import { fill } from './helpers.js'
 import { harness } from './walletHarness.js'
 
 const R = 'wss://social.test'
+const yes = async () => true
 
 function listingEvent(key: Uint8Array, o: { d: string; connection: string; created_at: number }): NostrEvent {
   return finalizeEvent(
@@ -135,6 +136,14 @@ describe('the outbox', () => {
     let shown: unknown
     const r = await h.wallet.discover.report(node, { reason: 'no_payout', content: 'paid, never minted', confirm: async (p) => ((shown = p), true) })
     expect(shown).toEqual({ audience: { public: true }, reporter: h.me, node, reason: 'no_payout' })
+    // Without `confirm`, the wallet asks its handler: none means no.
+    expect(await h.wallet.discover.report(node, { reason: 'spam', content: 'x' })).toEqual({ queued: false })
+    const asked: unknown[] = []
+    const off = h.wallet.on('confirm', (q) => (asked.push(q), false))
+    expect(await h.wallet.discover.report(node, { reason: 'spam', content: 'x' })).toEqual({ queued: false })
+    expect(asked).toEqual([{ type: 'confirmReport', node, audience: { public: true }, revealsMembership: false, linksIdentity: true, delay: { minSecs: 3600, maxSecs: 21_600 } }])
+    off()
+    expect(await h.wallet.discover.outbox.list()).toHaveLength(1)
     if (!r.queued) throw new Error('not queued')
     expect(r.item.dueAt - now()).toBeGreaterThanOrEqual(3600)
     expect(r.item.dueAt - now()).toBeLessThan(21_600)
@@ -154,14 +163,14 @@ describe('the outbox', () => {
     const h = await harness({ storage, deps: { clock: () => t } })
     const node = getPublicKey(fill(0x53, 32))
     expect(await h.wallet.discover.report(node, { reason: 'spam', content: '', confirm: async () => false })).toEqual({ queued: false })
-    const a = await h.wallet.discover.report(node, { reason: 'spam', content: 'a' })
-    const b = await h.wallet.discover.report(`31190:${node}:${'ab'.repeat(32)}`, { reason: 'impersonation', content: 'b' })
+    const a = await h.wallet.discover.report(node, { reason: 'spam', content: 'a', confirm: yes })
+    const b = await h.wallet.discover.report(`31190:${node}:${'ab'.repeat(32)}`, { reason: 'impersonation', content: 'b', confirm: yes })
     if (!a.queued || !b.queued) throw new Error('not queued')
     await h.wallet.discover.outbox.cancel(a.item.id)
     expect((await h.wallet.discover.outbox.list()).map((x) => x.id)).toEqual([b.item.id])
     // No relay read yet: publish to the user's write relays from a refresh.
     await h.wallet.discover.refresh({ relays: [R], follows: [] })
-    const c = await h.wallet.discover.report(node, { reason: 'spam', content: 'c' })
+    const c = await h.wallet.discover.report(node, { reason: 'spam', content: 'c', confirm: yes })
     if (!c.queued) throw new Error('not queued')
     t += 21_600_000
     await h.reopen()
@@ -185,13 +194,21 @@ describe('the outbox', () => {
     advance(2 * 86400)
     const later = await h.reopen({ clock: () => now() * 1000 })
     expect((await later.discover.recommendPreview(addr)).allowed).toBe(true)
+    // With no confirmation handler, nothing is queued or published.
+    expect(await later.discover.recommend(addr, { content: 'fast' })).toEqual({ queued: false })
+    expect(await later.discover.withdrawRecommendation(h.bank.hub.node, { relays: [R] })).toEqual({ withdrawn: false, relays: [] })
+    expect(await later.discover.outbox.list()).toEqual([])
+    const asked: unknown[] = []
+    later.on('confirm', (r) => (asked.push(r), true))
     const first = await later.discover.recommend(addr, { content: 'fast' })
     const second = await later.discover.recommend(addr, { content: '' })
     if (!first.queued || !second.queued) throw new Error('not queued')
     expect(second.item.id).toBe(first.item.id)
     expect(await later.discover.outbox.list()).toHaveLength(1)
+    expect(asked[0]).toEqual({ type: 'confirmRecommend', address: addr, node: h.bank.hub.node, audience: { public: true }, revealsMembership: false, linksIdentity: true, delay: { minSecs: 3600, maxSecs: 21_600 } })
     const w = await later.discover.withdrawRecommendation(h.bank.hub.node, { relays: [R] })
     expect(w).toEqual({ withdrawn: true, relays: [R] })
+    expect(asked.at(-1)).toMatchObject({ type: 'confirmRecommend', node: h.bank.hub.node, withdrawal: true })
     expect(await later.discover.outbox.list()).toEqual([])
     const del = h.pool.published.find((p) => p.event.kind === 5)!.event
     expect(del.tags).toEqual([['a', `31191:${h.me}:${h.bank.hub.node}`], ['k', '31191']])
@@ -201,7 +218,7 @@ describe('the outbox', () => {
     await h.wallet.discover.refresh({ relays: [R], follows: [] })
     const timers: { fn: () => void; ms: number }[] = []
     const stop = h.wallet.autoSettle({ setTimeout: (fn, ms) => timers.push({ fn, ms }), clearTimeout: () => undefined })
-    const r = await h.wallet.discover.report('dd'.repeat(32), { reason: 'spam', content: '' })
+    const r = await h.wallet.discover.report('dd'.repeat(32), { reason: 'spam', content: '', confirm: async () => true })
     if (!r.queued) throw new Error('not queued')
     await vi.waitFor(() => expect(timers.length).toBeGreaterThan(0))
     const t = timers.at(-1)!

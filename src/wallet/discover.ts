@@ -568,7 +568,8 @@ export type RecommendPreview = Awaited<ReturnType<typeof recommendPreview>>
 
 /**
  * Recommends an offer the user has used: public, signed by the user's
- * identity. Only when `recommendPreview` allows it; `confirm` is shown the
+ * identity. Only when `recommendPreview` allows it; `confirm` (else the
+ * wallet's `confirmRecommend` question, no without a handler) is shown the
  * preview and may decline. Queued, then published 1 to 6 hours later; a
  * second recommendation of the same node replaces the first.
  */
@@ -576,8 +577,12 @@ export async function recommend(ctx: Ctx, address: string, o: { content: string;
   const signer = await requireIdentity(ctx)
   const p = await recommendPreview(ctx, address)
   if (!p.allowed) throw new CashkitError('invalid_input', `recommending this offer is not offered now: ${p.reasonIfNot}`, { reason: 'recommend_not_allowed', input: address })
-  if (o.confirm !== undefined && !(await o.confirm(p))) return { queued: false }
   const l = listing(ctx, address)
+  const yes =
+    o.confirm !== undefined
+      ? await o.confirm(p)
+      : await ctx.confirmations.ask({ type: 'confirmRecommend', address, node: l.nodeIdentity, audience: p.audience, revealsMembership: p.revealsMembership, linksIdentity: true, delay: p.delay })
+  if (!yes) return { queued: false }
   const t = newRecommendation(l.nodeIdentity, stateOf(ctx).relays[0] ?? '', [address], o.content)
   return { queued: true, item: await queue(ctx, { id: `rec:${l.nodeIdentity}`, kind: 'recommendation', node: l.nodeIdentity, address, template: JSON.stringify(t) }, signer.pubkey) }
 }
@@ -593,6 +598,8 @@ export interface ReportPreview {
 /**
  * Reports a node, or one of its offers by address: public, naming the user
  * as the reporter. Queued like a recommendation; no "used" or timing rule.
+ * Asks `confirm`, else the wallet's `confirmReport` question (no without a
+ * handler).
  */
 export async function report(ctx: Ctx, target: string, o: { reason: ReportReason; content: string; confirm?: (p: ReportPreview) => Promise<boolean> }): Promise<{ queued: false } | { queued: true; item: OutboxItem }> {
   const signer = await requireIdentity(ctx)
@@ -605,7 +612,11 @@ export async function report(ctx: Ctx, target: string, o: { reason: ReportReason
     listingId = stateOf(ctx).listings.get(target)?.event.id
   }
   if (!HEX64.test(node)) throw new CashkitError('invalid_input', 'report a node identity (64 hex) or a listing address', { input: target })
-  if (o.confirm !== undefined && !(await o.confirm({ audience: { public: true }, reporter: signer.pubkey, node, reason: o.reason }))) return { queued: false }
+  const yes =
+    o.confirm !== undefined
+      ? await o.confirm({ audience: { public: true }, reporter: signer.pubkey, node, reason: o.reason })
+      : await ctx.confirmations.ask({ type: 'confirmReport', ...(address !== undefined && { address }), node, audience: { public: true }, revealsMembership: false, linksIdentity: true, delay: { minSecs: DELAY_MIN, maxSecs: DELAY_MAX } })
+  if (!yes) return { queued: false }
   const t = newReport({ node, ...(address !== undefined && { address }), ...(listingId !== undefined && { listingId }), reason: o.reason, content: o.content })
   return { queued: true, item: await queue(ctx, { id: `rep:${newId('r', ctx.random).slice(2)}`, kind: 'report', node, ...(address !== undefined && { address }), reason: o.reason, template: JSON.stringify(t) }, signer.pubkey) }
 }
@@ -613,12 +624,17 @@ export async function report(ctx: Ctx, target: string, o: { reason: ReportReason
 /**
  * Withdraws the user's recommendation of a node: its NIP-09 deletion is
  * signed and published at once (never delayed), and a recommendation still
- * queued for that node is cancelled.
+ * queued for that node is cancelled. Asks `confirm`, else the wallet's
+ * `confirmRecommend` question with `withdrawal` (no without a handler).
  */
 export async function withdrawRecommendation(ctx: Ctx, node: string, o: { relays?: readonly string[]; confirm?: (p: { audience: { public: true }; node: string }) => Promise<boolean> } = {}): Promise<{ withdrawn: boolean; relays: string[] }> {
   const signer = await requireIdentity(ctx)
   if (!HEX64.test(node)) throw new CashkitError('invalid_input', 'a node identity is 64 hex', { input: node })
-  if (o.confirm !== undefined && !(await o.confirm({ audience: { public: true }, node }))) return { withdrawn: false, relays: [] }
+  const yes =
+    o.confirm !== undefined
+      ? await o.confirm({ audience: { public: true }, node })
+      : await ctx.confirmations.ask({ type: 'confirmRecommend', node, audience: { public: true }, revealsMembership: false, linksIdentity: true, delay: { minSecs: 0, maxSecs: 0 }, withdrawal: true })
+  if (!yes) return { withdrawn: false, relays: [] }
   await ctx.commit(async (t) => {
     if ((await t.get('discoverOutbox', `rec:${node}`)) !== undefined) await t.delete('discoverOutbox', `rec:${node}`)
   })
