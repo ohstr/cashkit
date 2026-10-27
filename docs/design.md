@@ -579,12 +579,16 @@ interface RelayPool {
   subscribe(relays: string[], filter: Filter,
             h: { onEvent(e: SignedEvent): void; onEose(relay: string): void }): () => void
   publish(relay: string, e: SignedEvent): Promise<{ ok: boolean; message?: string }>
+  setAuth?(sign: ((t: EventTemplate) => Promise<SignedEvent>) | undefined): void
 }
 ```
 
 Adapters: `relay-ws` (built in, uses the global `WebSocket`, which Node ≥ 22
 has), `relay-nostr-tools` (`SimplePool`), `relay-ndk`. The last two are
-optional peer dependencies.
+optional peer dependencies. `setAuth` turns on NIP-42: `relay-ws` answers a
+relay's AUTH challenge with a kind-22242 event signed by `sign` and sends a
+REQ or EVENT refused `auth-required:` once more; `relay-nostr-tools` passes
+it to SimplePool as `onauth`. `relay-ndk` does not authenticate.
 
 **Lock.** `withLock(name, fn)` serialises money-moving operations per wallet
 (§5.4). `lock-weblocks` uses `navigator.locks`; `lock-memory` is per-process.
@@ -1129,6 +1133,30 @@ gift-wrapped to the user, each with a fresh wrap key it records.
   their secret), writes entries for held bills the pocket lacks, and marks
   bills no longer held `spent`; `pocket.balance()` sums live entries per
   chain; `pocket.entries()` lists resolved entries without secrets.
+- **Older entries.** A live entry of a held bill without `expires_at` is
+  rewritten with the expiry `cash_status` reports; a bill whose status
+  shows none is remembered and not asked again.
+- **Removal.** On sync, the wraps of a final entry (`spent`, `expired`,
+  `reclaimed`, `done`) checked more than 30 days ago are deleted, stale
+  copies included. Kept: the `done` entry of a closed on-chain order, a
+  withdrawal's `done` entry still carrying its address, quote or receipt,
+  any `done` entry with a `notify` whose call this device does not hold,
+  and the source of a call still open.
+- **NIP-40.** With `settings.pocketNip40` on (off by default), a wrap of an
+  entry with `expires_at` carries an `expiration` of `expires_at` plus 30
+  days, rounded up to the week, plus 0–6 random days; the wrap is deleted
+  all the same.
+- **Placing a call again.** With a pocket, before a call is placed again
+  under its derived id the pocket is read: an entry carrying the derived
+  id, in any state, recognised or not, only closes the old call
+  (`replaced`); an old entry already final closes it `not_applied`; a
+  pocket that does not show the old entry stops the re-placement and the
+  call stays open.
+- **Relays** (`adapters/sync-pocket`). With `discovery`, the user's newest
+  kind 10050 `relay` tags, else the write relays of their newest NIP-65
+  kind 10002 (`r` with no marker or `write`), else the configured `relays`;
+  `ownRelays` are always added. With `auth`, the pool's `setAuth` answers
+  NIP-42 challenges, for relays that serve a 1059 only to its `p`.
 
 ### 6.7e Discover
 

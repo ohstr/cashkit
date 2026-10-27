@@ -328,6 +328,23 @@
   ([#32](https://github.com/ohstr/cashkit/pull/32))
 - `budgetPeriodStart` returns undefined for a negative period index.
   ([#32](https://github.com/ohstr/cashkit/pull/32))
+- Cash Pocket upkeep: a sync fills a missing `expires_at` from
+  `cash_status` and deletes the wraps of final entries after 30 days
+  (keeping a closed on-chain order's `done` entry, an unscrubbed
+  withdrawal's, and any source of an open call); `settings.pocketNip40`
+  (off by default) sets a NIP-40 `expiration` on wraps of entries with an
+  expiry; a rewrite after a sync takes the pocket's `rev` and deletes every
+  wrap it read for that entry. `PocketSyncReport` gains `pruned` and
+  `expiryFilled`.
+- Before a call is placed again under its derived id, the wallet reads its
+  Cash Pocket: an entry with the derived id, in any state, only closes the
+  old call; an old entry already final closes it without placing; an entry
+  the pocket does not show stops the re-placement.
+- `adapters/sync-pocket` finds the user's relays (kind 10050, else NIP-65
+  write relays, else the configured ones, plus `ownRelays`) and takes an
+  `auth` signer for NIP-42. `RelayPool.setAuth` is new: `relay-ws` answers
+  AUTH challenges and retries a request refused `auth-required:` once;
+  `relay-nostr-tools` passes it on as `onauth`.
 
 ## [0.1.0-rc.2]
 
