@@ -1,5 +1,6 @@
 // NIP-IC: ConnectionKey refs (T-205, T-206, T-208) and the Verification
 // Model over a MemoryRelayPool (T-209, T-1601, T-1602).
+import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, test } from 'vitest'
 import { resolveConnection } from '../src/client/index.js'
 import {
@@ -16,6 +17,7 @@ import {
   parseIdentityConnection,
   type AttestationSource,
   type NostrEvent,
+  toHex,
 } from '../src/core/index.js'
 import { MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
@@ -80,7 +82,7 @@ describe('ConnectionKey refs (T-205, T-206, T-208)', () => {
   })
   test('an attestation whose d is another key, or whose user id is not canonical on a canonical platform, is refused', () => {
     expect(() => connectionKeyFromAttestation(parseAttestation(att({ d: OTHER_CK })))).toThrow(/d is not the ConnectionKey/)
-    const padded = parseAttestation(att({ userId: `0${UID}`, d: connectionKeyFromAttested('discord', `0${UID}`) }))
+    const padded = parseAttestation(att({ userId: `0${UID}`, d: toHex(sha256(new TextEncoder().encode(`discord:0${UID}`))) }))
     expect(() => connectionKeyFromAttestation(padded)).toThrow(/not in canonical form/)
   })
   test('an nconnection key is taken as it is, with the IA the sender names; no IA or no platform is refused', () => {

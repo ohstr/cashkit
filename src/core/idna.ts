@@ -254,8 +254,13 @@ export function connectionKeyFromTyped(platform: string, typed: string): string 
   return toHex(sha256(utf8(`${platform}:${canonicalUserId(platform, typed)}`)))
 }
 
-/** The ConnectionKey of an attested user id: the exact string, byte for byte. */
+/**
+ * The ConnectionKey of an attested user id: the exact string, byte for byte.
+ * On a platform with a canonical form the id must already be canonical; an
+ * IA that attests any other spelling is refused.
+ */
 export function connectionKeyFromAttested(platform: string, userId: string): string {
   if (!validPlatformName(platform)) throw new CoreError('invalid_field', 'nipIC: platform name must match [a-z0-9._-]+')
+  if (hasCanonicalForm(platform) && canonicalUserId(platform, userId) !== userId) throw notCanonical()
   return toHex(sha256(utf8(`${platform}:${userId}`)))
 }
