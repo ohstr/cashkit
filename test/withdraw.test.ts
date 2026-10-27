@@ -114,6 +114,8 @@ async function setup(): Promise<{ h: Harness; hub: FakeWithdraw; id: string }> {
   return { h, hub, id: r.received ? r.holding.id : '' }
 }
 const yes = () => Promise.resolve(true)
+// sent_by follows the clock, so a second may pass between two quotes.
+const noClock = (f: readonly string[] | undefined) => (f ?? []).filter((x) => x !== 'sentBy')
 
 describe('wallet.withdraw', () => {
   test('terms from one status read; quote checked; nothing written', async () => {
@@ -185,8 +187,6 @@ describe('wallet.withdraw', () => {
     const { h, hub, id } = await setup()
     const q = await h.wallet.withdraw.quote(id, PAYTO)
     const same = await h.wallet.withdraw.requote(q)
-    // sent_by follows the clock, so a second may pass between the two quotes.
-    const noClock = (f: readonly string[] | undefined) => (f ?? []).filter((x) => x !== 'sentBy')
     expect(noClock(same.quoteChanged)).toEqual([])
     expect(same.handle).not.toBe(q.handle)
     expect(await failure(h.wallet.withdraw.send(q, { confirm: yes }))).toMatchObject({ reason: 'quote_used' })
