@@ -301,7 +301,7 @@
   keeps it on the holding; status, redeem, send and on-chain withdrawal
   claim with it, reading the holder's row with `scope: all` (`ownScope`).
   A split's remainder and a cancelled withdrawal's re-mint stay bound to the
-  same account.
+  same account. ([#37](https://github.com/ohstr/cashkit/pull/37))
 
 ## [0.1.0-rc.2]
 
