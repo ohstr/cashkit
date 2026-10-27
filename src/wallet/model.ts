@@ -74,6 +74,7 @@ export type ActivityDetail =
     }
   | { readonly action: 'consolidate'; readonly amount: bigint; readonly from: readonly string[]; readonly into?: string }
   | { readonly action: 'spent'; readonly holdingId: string }
+  | { readonly action: 'mint'; readonly amount: bigint; readonly to: TargetDisplay; readonly holdingId?: string; readonly handoffId?: string }
   | { readonly action: 'join'; readonly circle: string; readonly connection: string }
 
 export type Activity = ActivityDetail & { readonly id: string; readonly at: number }
@@ -96,12 +97,21 @@ export interface Handoff {
   readonly version: number
 }
 
-export type ConnectionKind = 'nwc' | 'circle'
+export type ConnectionKind = 'nwc' | 'circle' | 'cashhub'
 
 export interface Connection {
   /** The connection's name; the key. */
   readonly id: string
-  readonly uri: Sealed
+  /** A NIP-47 pairing URI (`nwc`, `circle`). */
+  readonly uri?: Sealed
+  /** A signed connection string (`cashhub`): it carries the connection secret, so it is sealed. Never a URI built from it. */
+  readonly connection?: Sealed
+  /** `cashhub`: the Hub identity (TLV 4), the chain (TLV 6), whether the signature verified, when an unverified one was confirmed, the network `get_info` last reported. */
+  readonly hubIdentity?: string
+  readonly chain?: string
+  readonly verified?: boolean
+  readonly confirmedUnverifiedAt?: number
+  readonly network?: string
   readonly kind: ConnectionKind
   readonly isDefault: boolean
   readonly lastKnownBalance?: { readonly millis: bigint; readonly at: number }

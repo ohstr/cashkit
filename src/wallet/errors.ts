@@ -48,6 +48,8 @@ export interface CashkitErrorOptions {
   readonly fallbackReason?: string
   /** The pending call this failure left open (looked up by `settle`). */
   readonly pendingCallId?: string
+  /** A stable, machine-readable reason within the code (e.g. `connection_unverified`). */
+  readonly reason?: string
   readonly cause?: unknown
 }
 
@@ -68,6 +70,7 @@ export class CashkitError extends Error {
   readonly fallbackReason?: string
   /** The pending call this failure left open: `settle()` looks it up; `pendingCalls.list()` shows it. */
   readonly pendingCallId?: string
+  readonly reason?: string
 
   constructor(code: ErrorCode, message: string, o: CashkitErrorOptions = {}) {
     super(message, o.cause !== undefined ? { cause: o.cause } : undefined)
@@ -80,6 +83,7 @@ export class CashkitError extends Error {
     if (o.recoveryHandoffs !== undefined) this.recoveryHandoffs = [...o.recoveryHandoffs]
     if (o.fallbackReason !== undefined) this.fallbackReason = sanitize(o.fallbackReason)
     if (o.pendingCallId !== undefined) this.pendingCallId = o.pendingCallId
+    if (o.reason !== undefined) this.reason = o.reason
   }
 
   /** Only a conflict or a network failure is worth retrying as is. */
@@ -102,6 +106,7 @@ export class CashkitError extends Error {
       ...(this.recovery !== undefined && { recovery: this.recovery }),
       ...(this.fallbackReason !== undefined && { fallback_reason: this.fallbackReason }),
       ...(this.pendingCallId !== undefined && { pending_call: this.pendingCallId }),
+      ...(this.reason !== undefined && { reason: this.reason }),
     }
   }
 }

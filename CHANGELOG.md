@@ -124,6 +124,14 @@
   open for `settle()`, and the error's recovery text carries the cash notes
   it created.
   ([#18](https://github.com/ohstr/cashkit/pull/18))
+- Adds `wallet.mint`: mints over a stored Cash Hub connection as a pending
+  call, to a cash note, to this wallet, or to any send target; a lost reply
+  is settled by lookup, and an unknown one waits for confirmation.
+- `connections.add` takes a `cashhub1` string: verified and checked online
+  before it is stored as given (an unverified one only after
+  `confirmUnverified`); never a URI built from it, and never the default
+  Lightning wallet.
+- Errors carry an optional machine-readable `reason` (also in `toJSON`).
 
 ## [0.1.0-rc.2]
 

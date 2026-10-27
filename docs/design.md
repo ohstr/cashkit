@@ -878,7 +878,21 @@ joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; n
 - `wallet.lightning(name?)` returns the NIP-47 calls against a registered
   connection: `getInfo`, `getBalance`, `makeInvoice`, `payInvoice`,
   `listTransactions`, `signMessage`.
-- `wallet.connections`: `add`, `list`, `remove`, `setDefault`.
+- `wallet.connections`: `add`, `list`, `remove`, `setDefault`. `add` takes
+  a NIP-47 pairing URI (a Lightning wallet) or a Cash Hub's signed
+  `cashhub1` string. The string is decoded, verified and checked online
+  (`get_info` must name its node and chain) before it is stored, as given
+  and sealed; an unverified one only after `confirmUnverified(view)`
+  resolved true. A URI given as a Cash Hub is `connection_invalid`. A Cash
+  Hub connection is never the default Lightning wallet: `lightning(name)`,
+  `setDefault` and redeem refuse it (`usage`).
+- `wallet.mint({ hub, amount, to? | recipients, expirySeconds? })` mints over
+  a stored Cash Hub connection as one `mint` pending call: `to` is `cash`
+  (default; the note comes back as `cashNote`, its secret written ahead),
+  `self` (a held bill, `origin: 'minted'`, verified when its minter is the
+  connection's node), or any send target (the token comes back as
+  `recipientToken`). A lost reply is settled by lookup; an `unknown` lookup
+  waits for `pendingCalls.confirmReplace`.
 - `wallet.identity`:
   - `get`
   - `generate`

@@ -30,7 +30,8 @@ export interface Balance {
 
 export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<Balance> {
   const refresh = o.refresh ?? true
-  const conns = await ctx.read((t) => t.list('connections'))
+  // Lightning wallets only: a Cash Hub connection holds no balance of its own.
+  const conns = (await ctx.read((t) => t.list('connections'))).filter((c): c is typeof c & { uri: NonNullable<typeof c.uri>; kind: 'nwc' | 'circle' } => c.uri !== undefined && c.kind !== 'cashhub')
   const wallets: WalletBalance[] = []
   let total = 0n
   let stranded = 0n

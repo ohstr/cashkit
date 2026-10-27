@@ -75,8 +75,8 @@ async function selectByAmount(ctx: Ctx, target: bigint): Promise<Holding[]> {
   throw new CashkitError('usage', `funds are fragmented across separate Hubs: you hold ${totalNet} millis total, but no single Hub's tokens sum to exactly the ${target} millis you're redeeming`)
 }
 
-async function destinationConnection(ctx: Ctx, into: string | undefined): Promise<Connection> {
-  const rows = await ctx.read((t) => t.list('connections'))
+async function destinationConnection(ctx: Ctx, into: string | undefined): Promise<Connection & { uri: NonNullable<Connection['uri']> }> {
+  const rows = (await ctx.read((t) => t.list('connections'))).filter((r) => r.uri !== undefined || r.id === into)
   const c = into !== undefined ? rows.find((r) => r.id === into) : (rows.find((r) => r.isDefault) ?? rows[0])
   if (c === undefined) {
     throw new CashkitError(
@@ -85,7 +85,8 @@ async function destinationConnection(ctx: Ctx, into: string | undefined): Promis
       into !== undefined ? { input: into } : {},
     )
   }
-  return c
+  if (c.uri === undefined) throw new CashkitError('usage', `"${c.id}" is a Cash Hub connection, not a Lightning wallet to redeem into`, { input: c.id })
+  return c as Connection & { uri: NonNullable<Connection['uri']> }
 }
 
 export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> {
