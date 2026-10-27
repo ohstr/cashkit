@@ -55,6 +55,8 @@ export interface CallKind {
   afterApply?(ctx: Ctx, callId: string): Promise<void>
   /** Whether `unknown` re-places it automatically (`cash_transfer`, `cash_consolidate`) or asks the user first. */
   readonly autoReplace: boolean
+  /** Changes a re-placed call before it is written (a `cash_order` gets a fresh `notify`). */
+  forReplace?(ctx: Ctx, call: PendingCall): PendingCall
 }
 
 const KINDS = new Map<string, CallKind>()
@@ -340,7 +342,7 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
   const h = session.maxRequestAge ?? call.hAtSend
   const deadline = deadlineFor(h, ctx.nowSeconds())
   const hub = await ctx.read((t) => t.get('hubs', call.node))
-  const next: PendingCall = {
+  const placed: PendingCall = {
     ...stripOpen(base as PendingCall),
     id: `pc-${newRequestId(ctx.random).slice(0, 16)}`,
     requestId: derived,
@@ -353,6 +355,7 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
     createdAt: ctx.now(),
     version: 1,
   }
+  const next = kindOf(call).forReplace?.(ctx, placed) ?? placed
   await ctx.commit(async (t) => {
     await recordDerivedId(t, { derivedId: derived, parentCallId: call.id, deadline, hMax: Math.max(hub?.hMax ?? 0, h) })
     await t.put('pendingCalls', next, 0)

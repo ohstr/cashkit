@@ -412,6 +412,8 @@ function parseFor(call: PendingCall, raw: unknown, lookup: boolean): Order {
 
 const orderKind: CallKind = {
   autoReplace: false,
+  // §Request: notify is fresh for every order, and a re-placed order is a new one.
+  forReplace: (ctx, call) => ({ ...call, params: { ...call.params, notify: newNotify(ctx.random) } }),
   async place(ctx, call, beforePublish) {
     const c = await connect(ctx, call.params?.['connection'] ?? '', { confirmUnverified: () => Promise.resolve(true) })
     const outcome = await c.place(requestOf(call), { buyerKey: await buyerKeyOf(ctx, call), send: { notAfter: call.deadline, beforePublish } })

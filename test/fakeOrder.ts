@@ -62,6 +62,8 @@ export class FakeOrder {
   invoiceFor: (pay: bigint, payBy: number) => string = (pay, payBy) => signedInvoice({ amountMillis: pay, nodeKey: this.bank.hub.nodeKey, timestamp: this.now, expiry: Math.max(1, payBy - this.now), hashByte: 0x77 })
   /** Applies the order but loses its reply. */
   loseReply = false
+  /** Answers nothing and keeps nothing: the order was never placed. */
+  dropOrder = false
   readonly orders = new Map<string, FakeOrderRow>()
   readonly placed: RequestInfo[] = []
   readonly string: string
@@ -101,6 +103,7 @@ export class FakeOrder {
 
   private order(info: RequestInfo): Answer {
     this.placed.push(info)
+    if (this.dropOrder) return 'omit'
     const p = info.params as Record<string, unknown>
     const rid = p['request_id']
     if (typeof rid !== 'string') return { error: { code: 'BAD_REQUEST', message: 'request_id' } }
@@ -162,7 +165,7 @@ export class FakeOrder {
 
   /** A payment of `received` millis arrives and is minted (§Minting), then a notice goes out. */
   /** A misbehaving Hub: bills minted to another recipient, or with an expiry. */
-  mintTo?: Identity
+  mintTo?: Identity | undefined
   mintExpiry?: number
 
   async pay(o: FakeOrderRow, received: bigint): Promise<void> {

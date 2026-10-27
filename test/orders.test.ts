@@ -226,6 +226,27 @@ describe('wallet.orders', () => {
     expect(o).toMatchObject({ id: e.pendingCallId, state: 'open' })
     expect(o!.invoice).toMatch(/^ln/)
   }, 20_000)
+  test('an order never placed is placed again only on confirmation, with a fresh notify', async () => {
+    let skew = 0
+    const clock = () => Date.now() + skew
+    const h = await harness({ deps: { clock, replyWaitMs: 300, nwcTimeoutMs: 2000 } })
+    h.bank.hub.clock = clock
+    const shop = new FakeOrder(h.bank)
+    shop.dropOrder = true
+    const e = await failure(h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' }))
+    const id = e.pendingCallId!
+    const first = (await h.storage.tx('r', (t) => t.get('pendingCalls', id)))!
+    skew = (first.deadline + 2) * 1000 - Date.now()
+    await h.wallet.settle()
+    expect(await h.storage.tx('r', (t) => t.get('pendingCalls', id))).toMatchObject({ needsUser: 'confirm_replace' })
+    shop.dropOrder = false
+    await h.wallet.pendingCalls.confirmReplace(id)
+    const next = (await h.storage.tx('r', (t) => t.list('pendingCalls'))).find((c) => c.derivedFrom === id)!
+    expect(next.params!['notify']).toMatch(/^[0-9a-f]{64}$/)
+    expect(next.params!['notify']).not.toBe(first.params!['notify'])
+    expect(shop.placed.at(-1)!.params['notify']).toBe(next.params!['notify'])
+    expect(next.state).toBe('open_order')
+  }, 20_000)
   test('watch: a notice reads the order', async () => {
     const { h, shop } = await setup()
     const v = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' })
