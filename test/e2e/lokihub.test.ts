@@ -2,6 +2,8 @@
 // mint over a signed cashhub1, lost replies settled by lookup, Lightning and
 // on-chain orders paid by the stack's payer, withdrawals mined to final, a
 // Cash Zap, a Cash Pocket read on a second device and a listed circle joined.
+// Lost replies are made with a reply wait of 1 ms: a mint, a transfer, an
+// order and a withdrawal, each settled by lookup on a reopened wallet.
 // Opt-in, like wallet.test.ts:
 //
 //   CASHKIT_E2E_CONFIG=<lokihub>/integration/config.local.yaml   admin_api and relay_url
@@ -151,6 +153,32 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: orders paid by the p
     expect((await w.balance()).holdings.held).toBe(5_000n)
   }, 300_000)
 
+  test('an order whose reply was lost is found by settle(), then minted once after payment', async () => {
+    const storage = new MemoryStorage()
+    const vault = new NoneVault()
+    const first = await openWallet({ storage, vault })
+    await first.identity.generate()
+    first.close()
+    const lossy = await openWallet({ storage, vault, replyWaitMs: 1 }, false)
+    const lost = await lossy.orders.place({ connection: cashorder, amountMillis: 6_000n, payment: 'lightning' }).catch((e: unknown) => e)
+    expect(lost).toBeInstanceOf(CashkitError)
+    expect((lost as CashkitError).code).toBe('indeterminate')
+    lossy.close()
+
+    const w = await openWallet({ storage, vault }, false)
+    const report = await settleAll(w)
+    expect(report.open).toEqual([])
+    const orders = await w.orders.list()
+    expect(orders).toHaveLength(1)
+    const [o] = orders
+    expect(o).toMatchObject({ id: (lost as CashkitError).pendingCallId, state: 'open' })
+    expect(o!.invoice).toMatch(/^ln/)
+    expect((await hooks.payInvoice(o!.invoice!)).status).toBe('SUCCEEDED')
+    await until('order finished', async () => (await w.orders.refresh(o!.id)).finished)
+    expect((await w.orders.get(o!.id)).bills).toHaveLength(1)
+    expect((await w.balance()).holdings.held).toBe(6_000n)
+  }, 600_000)
+
   test('an on-chain order is minted after one confirmation', async () => {
     const w = await openWallet()
     await w.identity.generate()
@@ -216,6 +244,34 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: on-chain withdrawals
       await hooks.withhold(txid!, false)
     }
     await until('payout final after release', async () => (await w.withdraw.refresh(sent.id)).state === 'final', { mine: true, tries: 40 })
+  }, 900_000)
+
+  test('a withdrawal whose reply was lost is found by settle(): the bill is spent once and the payout followed to final', async (ctx) => {
+    if (!offered) ctx.skip()
+    const storage = new MemoryStorage()
+    const vault = new NoneVault()
+    const first = await openWallet({ storage, vault })
+    await first.identity.generate()
+    await withHub(first, hub)
+    const m = await first.mint({ hub: 'hub', amount: 21_000_000n, to: 'self' })
+    const q = await first.withdraw.quote(m.holdingId!, await hooks.payerAddress())
+    first.close()
+    const lossy = await openWallet({ storage, vault, replyWaitMs: 1 }, false)
+    const lost = await lossy.withdraw.send(q, { confirm: async () => true }).catch((e: unknown) => e)
+    expect(lost).toBeInstanceOf(CashkitError)
+    expect((lost as CashkitError).code).toBe('indeterminate')
+    lossy.close()
+
+    const w = await openWallet({ storage, vault }, false)
+    const report = await settleAll(w)
+    expect(report.open).toEqual([])
+    const all = await w.withdraw.list()
+    expect(all).toHaveLength(1)
+    const v = all[0]!
+    expect(v.id).toBe((lost as CashkitError).pendingCallId)
+    expect(['accepted', 'broadcast', 'confirmed', 'final']).toContain(v.phase)
+    expect((await w.balance()).holdings.held).toBe(0n)
+    await until('payout final', async () => (await w.withdraw.refresh(v.id)).state === 'final', { mine: true, tries: 40 })
   }, 900_000)
 
   test('a cancel before broadcast re-mints the bill', async (ctx) => {
