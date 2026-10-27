@@ -321,7 +321,7 @@ export {
 } from './nipco.js'
 export { cashZapTags, checkCashZapTags, countCashZaps, incomingZapFilter, isTrustedMinter, KIND_CASH_ZAP, KIND_CASH_ZAP_INFO, parseCashZapInfo, parseIdentityTag, sentZapFilters, verifyCashZap, zapFieldsFromEvent, type CashZapInfo, type CashZapTags, type CashZapVerdict } from './nipcz.js'
 export { createRumor, createSeal, createWrap, KIND_GIFT_WRAP, KIND_SEAL, unwrap, wrapDeletion, type Rumor } from './nip59.js'
-export { FINAL_STATES, KIND_POCKET_ENTRY, parsePocketEntry, pocketBalance, pocketEntryTags, POCKET_STATES, resolveEntries, SECRET_ROLE_REMAINDER, SECRET_ROLE_REMINT, stateForTombstone, wrapExpiration, type PocketEntry, type PocketIdentity, type PocketState } from './nipcp.js'
+export { checkPendingEntry, FINAL_STATES, KIND_POCKET_ENTRY, parsePocketEntry, pocketBalance, pocketEntryTags, POCKET_STATES, resolveEntries, SECRET_ROLE_REMAINDER, SECRET_ROLE_REMINT, stateForTombstone, validatePocketEntry, wrapExpiration, type PocketEntry, type PocketIdentity, type PocketState } from './nipcp.js'
 export {
   checkTap,
   chunkAuthors,
