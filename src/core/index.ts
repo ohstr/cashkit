@@ -96,7 +96,7 @@ export {
   type ConnectionKeyPair,
   type ConnectionKeyRef,
 } from './connectionKey.js'
-export { decodeBolt11, type Bolt11Invoice } from './bolt11.js'
+export { decodeBolt11, invoiceExpiresAt, type Bolt11Invoice } from './bolt11.js'
 export {
   decodeNaddr,
   decodeNevent,

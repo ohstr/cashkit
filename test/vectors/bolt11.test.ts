@@ -9,6 +9,12 @@ describe('bolt11.json', () => {
       expect(() => decodeBolt11(c.invoice)).toThrow()
       return
     }
-    expect(decodeBolt11(c.invoice)).toEqual({ ...c.want, amountMillis: BigInt(c.want.amountMillis) })
+    // The fields nmilat reads; cashkit also reads the creation time, expiry and payee.
+    const { currency, amountMillis, description, descriptionHash, paymentHash } = decodeBolt11(c.invoice)
+    expect({ currency, amountMillis, description, descriptionHash, paymentHash }).toEqual({ ...c.want, amountMillis: BigInt(c.want.amountMillis) })
+  })
+  test("the BOLT 11 example's payee recovers from its signature", () => {
+    const c = load('bolt11.json').decode.find((x: Json) => x.name === 'real lnbc no amount (BOLT 11 example)')
+    expect(decodeBolt11(c.invoice).payee).toBe('03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad')
   })
 })

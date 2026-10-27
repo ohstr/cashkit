@@ -1,9 +1,10 @@
 // Unit tests for bolt11 decoding. Cases follow nmilat nip57/bolt11 tests and
 // the invoices cashctl's redeem tests use.
+import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { describe, expect, test } from 'vitest'
 import { bech32Encode, toWords } from '../src/core/bech32.js'
-import { CoreError, decodeBolt11 } from '../src/core/index.js'
-import { fill } from './helpers.js'
+import { CoreError, decodeBolt11, invoiceExpiresAt, toHex } from '../src/core/index.js'
+import { fill, signedInvoice } from './helpers.js'
 
 type Field = [type: number, words: Uint8Array]
 
@@ -69,5 +70,23 @@ describe('decodeBolt11', () => {
   })
   test('accepts an all-uppercase invoice', () => {
     expect(decodeBolt11(invoice('lnfc1u', PH).toUpperCase()).paymentHash).toBe('aa'.repeat(32))
+  })
+})
+
+describe('decodeBolt11: creation time, expiry and payee', () => {
+  const node = fill(0x5a, 32)
+  const nodeKey = toHex(secp256k1.getPublicKey(node, true))
+  test('the payee recovers from the signature; the expiry defaults to an hour', () => {
+    const i = decodeBolt11(signedInvoice({ amountMillis: 21000n, nodeKey: node, timestamp: 1_700_000_000 }))
+    expect(i).toMatchObject({ amountMillis: 21000n, timestamp: 1_700_000_000, expirySeconds: 3600, payee: nodeKey })
+    expect(invoiceExpiresAt(i)).toBe(1_700_003_600)
+  })
+  test('an x field sets the expiry; an n field names the payee', () => {
+    const other = toHex(secp256k1.getPublicKey(fill(0x6b, 32), true))
+    const i = decodeBolt11(signedInvoice({ nodeKey: node, timestamp: 1_700_000_000, expiry: 600, payeeField: other }))
+    expect(i).toMatchObject({ expirySeconds: 600, payee: other })
+  })
+  test('a zero signature recovers no payee', () => {
+    expect(decodeBolt11(invoice('lnfc10n', PH)).payee).toBeUndefined()
   })
 })
