@@ -162,12 +162,15 @@
   reply is settled by the join lookup. **Breaking:** `joinCircle`,
   `CircleClient`, the standard-transport join, `requirePrivate`,
   `fallbackReason` and `PrivateJoinUnavailableError` are removed.
+  ([#22](https://github.com/ohstr/cashkit/pull/22))
 - Stores a Circle Wallet as its fields and the member's own secret, never a
   URI, and adds `CircleWalletClient` (budget, keysend, delete, payment
   preview); `lightning(name)` and redeem use it.
+  ([#22](https://github.com/ohstr/cashkit/pull/22))
 - Adds member requests, rotation and freeze notifications, wallet deletion
   above dust refused, budget periods, and the full `circle_wallet` terms
   (`accepting`, `fee_reserve`, limits).
+  ([#22](https://github.com/ohstr/cashkit/pull/22))
 
 ## [0.1.0-rc.2]
 
