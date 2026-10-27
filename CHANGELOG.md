@@ -295,6 +295,7 @@
   ([#35](https://github.com/ohstr/cashkit/pull/35))
 - `connectionKeyFromAttested` refuses a user id that is not in canonical
   form on a platform that has one (x, discord, email, dns).
+  ([#35](https://github.com/ohstr/cashkit/pull/35))
 
 ## [0.1.0-rc.2]
 
