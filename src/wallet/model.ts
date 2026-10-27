@@ -203,6 +203,19 @@ export interface Settings {
   readonly trustedMinters: readonly { readonly minter: string; readonly chain: string }[]
   /** The least life a Cash Zap needs to be totalled (NIP-CZ §Counting). */
   readonly zapMinLifeSeconds: number
+  /** Discover: the user's curators. Absent until set. */
+  readonly discover?: DiscoverSettings
+}
+
+/** Whose lists rank offers besides the user's follows (NIP-CASH §Curators). */
+export interface DiscoverSettings {
+  readonly curators: readonly string[]
+  /** `app`: defaults an app supplied; any edit by the user makes them `user`. */
+  readonly curatorSource: 'user' | 'app'
+  /** The app's name for its defaults ("Curated by …"). */
+  readonly curatorSourceName?: string
+  /** Publish the set with private items (NIP-44 to self). Default true. */
+  readonly curatorsPrivate?: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -397,6 +410,55 @@ export interface HubRow {
   readonly version: number
 }
 
+/** What discover keeps between runs (local): version floors, tap outcomes and whom it ranked by. */
+export interface DiscoverBookRow {
+  /** Always "self". */
+  readonly id: string
+  /** VersionBook snapshot: the newest version seen and the deletion floor per address. */
+  readonly book: string
+  /** TapCache snapshot. */
+  readonly taps: string
+  readonly follows: readonly string[]
+  readonly curators: readonly string[]
+  /** Per verified operator, the follows that follow it. */
+  readonly operatorFollowers: readonly (readonly [string, readonly string[]])[]
+  /** The relays the last refresh read: a recommendation's relay hint. */
+  readonly relays: readonly string[]
+  /** What the last refresh accepted: chains held, test networks shown. */
+  readonly chains: readonly string[]
+  readonly testNetworks: boolean
+  readonly version: number
+}
+
+/** An event discover holds (local): a current listing, a signal, a deletion or operator offers. */
+export interface DiscoverEventRow {
+  /** The event id. */
+  readonly id: string
+  /** The event, as JSON. */
+  readonly event: string
+  /** A listing only the global request found: shown apart. */
+  readonly unreviewed: boolean
+  readonly version: number
+}
+
+/** A recommendation or report waiting to be signed and published (local). */
+export interface DiscoverOutboxRow {
+  /** `rec:<node>` (one per node) or `rep:<random>`. */
+  readonly id: string
+  readonly kind: 'recommendation' | 'report'
+  readonly node: string
+  readonly address?: string
+  readonly reason?: string
+  /** The unsigned event, as JSON; signed only when published. */
+  readonly template: string
+  readonly relays: readonly string[]
+  /** Unix seconds: never published before. */
+  readonly dueAt: number
+  /** Unix seconds. */
+  readonly createdAt: number
+  readonly version: number
+}
+
 export interface Rows {
   holdings: Holding
   activity: Activity
@@ -411,6 +473,9 @@ export interface Rows {
   derivedIds: DerivedIdRow
   hubs: HubRow
   pocket: PocketRow
+  discoverBook: DiscoverBookRow
+  discoverEvents: DiscoverEventRow
+  discoverOutbox: DiscoverOutboxRow
 }
 
 /** What this device last wrote to the Cash Pocket for a `w`: its revision, state and the wrap (with its key, to delete it). */
@@ -431,6 +496,6 @@ export type AppendOnly = 'activity'
 export type Row<C extends Collection> = Rows[C]
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 export type NewRow<C extends AppendOnly> = DistributiveOmit<Rows[C], 'id'>
-export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs', 'pocket']
+export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox']
 /** Collections of this store only: never exported, never imported. */
-export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs', 'pocket']
+export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox']
