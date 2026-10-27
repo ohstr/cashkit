@@ -341,6 +341,15 @@
   claim with it, reading the holder's row with `scope: all` (`ownScope`).
   A split's remainder and a cancelled withdrawal's re-mint stay bound to the
   same account. ([#37](https://github.com/ohstr/cashkit/pull/37))
+- Circles: `circles.recover(hub, newConnectionSecret)` takes a wallet onto
+  the device that holds the key a rotation moved it to (`done`, `pending`
+  with `retryAt`, or `not_found`); `connections.add` stores a `circlehub1`
+  string (checked online, never joined), and a pending join whose own string
+  stays unanswered past its deadline plus 360 s is looked up once through
+  another held string of the same circle before it is shown as unanswered;
+  `connections.inspect` shows what a `cashhub1`, `cashorder1` or
+  `circlehub1` string is, with nothing stored.
+  ([#38](https://github.com/ohstr/cashkit/pull/38))
 
 ## [0.1.0-rc.2]
 

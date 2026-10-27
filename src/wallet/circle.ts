@@ -11,13 +11,15 @@ import {
   sniff,
   toHex,
   validateJoinTerms,
+  type CashLookupResult,
   type CircleWalletDetails,
   type JoinTerms,
   type MemberAction,
   type NostrEvent,
   type Renewal,
+  type Signer,
 } from '../core/index.js'
-import { CircleWalletClient, ClientError, connectCircle, NwcClient, WalletError, type CircleHub, type ConnectCircleOptions, type HubView } from '../client/index.js'
+import { CircleWalletClient, ClientError, connectCircle, inspectConnection, NwcClient, WalletError, type CircleHub, type ConnectCircleOptions, type HubView, type TypedOutcome } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import type { Ctx } from './context.js'
 import { CashkitError, fromWalletError } from './errors.js'
@@ -143,11 +145,15 @@ function termsOf(t: JoinTermsInput): JoinTerms {
   return { maxAmount: t.maxAmount, maxReceive: t.maxReceive, ...(t.expirySeconds !== undefined && { expiry: t.expirySeconds }), ...(t.budgetRenewal !== undefined && { budgetRenewal: t.budgetRenewal }) }
 }
 
-/** Adds the member's Circle Wallet and drops its pending join, in one transaction. */
-async function addCircleWallet(ctx: Ctx, pj: PendingJoin, d: CircleWalletDetails, hubIdentity: string): Promise<{ row: Connection; isDefault: boolean }> {
+/**
+ * Adds the member's Circle Wallet and drops its pending join, in one
+ * transaction. `hubConnection` is the string the answer came through when
+ * it was not the join's own.
+ */
+async function addCircleWallet(ctx: Ctx, pj: PendingJoin, d: CircleWalletDetails, hubIdentity: string, hubConnection: Sealed = pj.hubConnection): Promise<{ row: Connection; isDefault: boolean }> {
   return ctx.commit(async (t) => {
     const conns = await t.list('connections')
-    const lightning = conns.filter((c) => c.kind !== 'cashhub')
+    const lightning = conns.filter(isLightning)
     let name = pj.name
     if (conns.some((c) => c.id === name)) name = suggestName(conns.map((c) => c.id), 'circle', pj.hubLabel)
     const makeDefault = pj.makeDefault || lightning.length === 0
@@ -156,7 +162,7 @@ async function addCircleWallet(ctx: Ctx, pj: PendingJoin, d: CircleWalletDetails
       hubPubkey: pj.hubPubkey,
       hubIdentity,
       hubLabel: pj.hubLabel,
-      hubConnection: pj.hubConnection,
+      hubConnection,
       memberPubkey: pj.signerPubkey,
       connectionPubkey: pj.id,
       maxAmount: d.maxAmount,
@@ -298,13 +304,52 @@ export interface SettleJoinsReport {
   readonly needsUser: readonly string[]
 }
 
+/** A join lookup sent through one `circlehub1`: the connected Hub, its answer (undefined when none came) and the string, sealed. */
+interface Looked {
+  readonly hub: CircleHub
+  readonly o: TypedOutcome<CashLookupResult> | undefined
+  readonly via: Sealed
+}
+
+/** Connects through `via` for a lookup and looks the join up; undefined when no verified announcement was found (nothing sent). */
+async function lookupThrough(ctx: Ctx, via: Sealed, signer: Signer, pj: PendingJoin): Promise<Looked | undefined> {
+  let hub: CircleHub
+  try {
+    hub = await connectCircle(ctx.clientDeps, await ctx.open(via), { purpose: 'lookup', confirmUnverified: () => Promise.resolve(true) })
+  } catch {
+    return undefined
+  }
+  try {
+    return { hub, o: await hub.lookupJoin(signer, pj.id, pj.deadline), via }
+  } catch {
+    return { hub, o: undefined, via }
+  }
+}
+
+/** Whether a lookup was answered: a status, or `UNAUTHORIZED` (final for that lookup). Anything else counts as an omission. */
+const answered = (r: Looked | undefined): boolean => (r?.o?.state === 'result' && r.o.value !== undefined) || (r?.o?.state === 'error' && r.o.error?.code === 'UNAUTHORIZED')
+
+/** Another held `circlehub1` (added with `connections.add`) naming the join's Hub pubkey, sealed; undefined when there is none. */
+async function otherHubString(ctx: Ctx, pj: PendingJoin): Promise<Sealed | undefined> {
+  const own = (await ctx.open(pj.hubConnection)).trim()
+  const rows = await ctx.read((t) => t.list('connections'))
+  for (const c of rows) {
+    if (c.kind !== 'circlehub' || c.walletPubkey !== pj.hubPubkey || c.connection === undefined) continue
+    if ((await ctx.open(c.connection)).trim() !== own) return c.connection
+  }
+  return undefined
+}
+
 /**
  * Looks every pending join of this device up, by its connection key and
- * exact deadline, signed by the join's `pubkey`: `done` adds the wallet;
- * `pending` waits; `unknown` asks the member (they may join again, with a new
- * proof and key); `expired` is shown and never rejoined with that key; an
- * `UNAUTHORIZED` answer is final for that lookup. Omissions are counted and,
- * past the deadline plus 360 s, shown as unanswered.
+ * exact deadline, signed by the join's `pubkey`, through the string the join
+ * used: `done` adds the wallet; `pending` waits; `unknown` asks the member
+ * (they may join again, with a new proof and key); `expired` is shown and
+ * never rejoined with that key; an `UNAUTHORIZED` answer is final for that
+ * lookup. Omissions are counted. Past the deadline plus 360 s (the join's
+ * string may have been revoked), one lookup goes through another held
+ * `circlehub1` of the same Hub pubkey, if there is one; a join still
+ * unanswered then is shown as unanswered.
  */
 export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
   const joins = (await ctx.read((t) => t.list('pendingJoins'))).filter((j) => j.needsUser === undefined && j.device === ctx.deviceId)
@@ -328,27 +373,31 @@ export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
         const cur = await t.get('pendingJoins', pj.id)
         if (cur !== undefined) await t.put('pendingJoins', { ...f(cur), version: cur.version + 1 }, cur.version)
       })
-    let hub: CircleHub
-    try {
-      hub = await connectCircle(ctx.clientDeps, await ctx.open(pj.hubConnection), { purpose: 'lookup', confirmUnverified: () => Promise.resolve(true) })
-    } catch {
+    const late = now > pj.deadline + 360
+    let r = await lookupThrough(ctx, pj.hubConnection, signer, pj)
+    let viaOther = pj.lookup?.viaOther === true
+    if (!answered(r) && late && !viaOther) {
+      const other = await otherHubString(ctx, pj)
+      if (other !== undefined) {
+        viaOther = true
+        await set((x) => ({ ...x, lookup: { omissions: x.lookup?.omissions ?? 0, viaOther: true } }))
+        const r2 = await lookupThrough(ctx, other, signer, pj)
+        if (r2 !== undefined) r = r2
+      }
+    }
+    if (r === undefined) {
       // No verified announcement: the lookup is not sent and the join stays open.
       pending.push(pj.id)
       continue
     }
-    let o
-    try {
-      o = await hub.lookupJoin(signer, pj.id, pj.deadline)
-    } catch {
-      o = undefined
-    }
+    const { o } = r
     const v = o?.state === 'result' ? o.value : undefined
     if (v?.status === 'done') {
       const d = await parseCreateCircleWalletResult(decodeLookupDone(v.result).result, { signer, hubPubkey: pj.hubPubkey, connectionPubkey: pj.id })
-      await addCircleWallet(ctx, pj, d, hub.connection.hubIdentity)
+      await addCircleWallet(ctx, pj, d, r.hub.connection.hubIdentity, r.via)
       joined.push(pj.id)
     } else if (v?.status === 'pending') {
-      await set((x) => ({ ...x, lookup: { omissions: x.lookup?.omissions ?? 0, retryAfter: v.retryAfter } }))
+      await set((x) => ({ ...x, lookup: { omissions: x.lookup?.omissions ?? 0, retryAfter: v.retryAfter, ...(viaOther && { viaOther }) } }))
       pending.push(pj.id)
     } else if (v?.status === 'unknown' || v?.status === 'expired') {
       await set((x) => ({ ...x, needsUser: v.status === 'unknown' ? 'join_not_made' : 'lookup_expired' }))
@@ -358,12 +407,131 @@ export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
       needsUser.push(pj.id)
     } else {
       const omissions = (pj.lookup?.omissions ?? 0) + 1
-      const unanswered = now > pj.deadline + 360
-      await set((x) => ({ ...x, lookup: { omissions }, ...(unanswered && { needsUser: 'lookup_unanswered' as const }) }))
-      ;(unanswered ? needsUser : pending).push(pj.id)
+      await set((x) => ({ ...x, lookup: { omissions, ...(viaOther && { viaOther }) }, ...(late && { needsUser: 'lookup_unanswered' as const }) }))
+      ;(late ? needsUser : pending).push(pj.id)
     }
   }
   return { joined, pending, needsUser }
+}
+
+export interface RecoverOptions {
+  /** The name for a wallet this device does not hold yet (default: from the circle's label). */
+  readonly name?: string
+  readonly makeDefault?: boolean
+  /** Asked once for a `circlehub1` whose signature does not verify. */
+  readonly confirmUnverified?: (view: HubView) => Promise<boolean>
+}
+
+/**
+ * What `circles.recover` found: the wallet, now held under the new key; a
+ * rotation still pending (ask again at `retryAt`, its `completes_at`); or no
+ * rotation to that key (`not_found`).
+ */
+export type RecoverResult =
+  | { readonly state: 'done'; readonly wallet: JoinResult }
+  | { readonly state: 'pending'; readonly retryAt: number }
+  | { readonly state: 'not_found' }
+
+/**
+ * Recovers a Circle Wallet on the device that holds the key a rotation moved
+ * it to (NIP-CW §Recovering a Lost Connection): a join lookup through the
+ * circle's `circlehub1`, signed by the member's identity (the join's
+ * `pubkey`), naming the new key. Its deadline is a second in the past, so a
+ * Hub with no rotation to that key answers `unknown` at once. `done` is
+ * checked as a join reply (its `connection_pubkey` must be the new key) and
+ * the wallet is stored with the new key's secret: in place of the moved
+ * connection when this device holds one, else as a new connection.
+ */
+export async function recoverCircle(ctx: Ctx, hubString: string, newConnectionSecret: string, o: RecoverOptions = {}): Promise<RecoverResult> {
+  if (sniff(hubString.trim()) !== 'circlehub') throw new CashkitError('invalid_input', 'not a circlehub1 connection string', { reason: 'connection_invalid' })
+  let key
+  try {
+    key = connectionKeyFromSecret(newConnectionSecret.trim())
+  } catch (err) {
+    throw new CashkitError('invalid_input', `the new connection secret is not a valid key: ${(err as Error).message}`, { cause: err })
+  }
+  const signer = await ctx.requireSigner()
+  const hub = await connect(ctx, hubString, { ...(o.confirmUnverified !== undefined && { confirmUnverified: o.confirmUnverified }), purpose: 'lookup' })
+  const hubPubkey = hub.connection.walletPubkey
+  let out
+  try {
+    out = await hub.lookupJoin(signer, key.pubkey, ctx.nowSeconds() - 1)
+  } catch (err) {
+    throw connectError(err)
+  }
+  if (out.state === 'error' && out.error !== undefined) throw fromWalletError(new WalletError('cash_lookup', out.error.code, out.error.message ?? ''))
+  const v = out.state === 'result' ? out.value : undefined
+  if (v === undefined) throw new CashkitError('network', 'the Hub did not answer the recovery lookup; nothing changed, so asking again is safe', { reason: 'lookup_unanswered' })
+  if (v.status === 'pending') return { state: 'pending', retryAt: v.retryAfter ?? ctx.nowSeconds() }
+  if (v.status !== 'done') return { state: 'not_found' }
+  let d: CircleWalletDetails
+  try {
+    d = await parseCreateCircleWalletResult(decodeLookupDone(v.result).result, { signer, hubPubkey, connectionPubkey: key.pubkey })
+  } catch (err) {
+    throw new CashkitError('invalid_input', `the recovered wallet details do not check out: ${(err as Error).message}`, { reason: 'lookup_undecodable', cause: err })
+  }
+  const secret = await ctx.seal(key.secret)
+  const hubConnection = await ctx.seal(hubString.trim())
+  const row = await ctx.commit(async (t) => {
+    const conns = await t.list('connections')
+    const held = conns.find((c) => c.kind === 'circle_wallet' && c.circle?.hubPubkey === hubPubkey)
+    if (held !== undefined) {
+      if (held.walletPubkey !== d.walletPubkey) throw new CashkitError('conflict', `this device holds another wallet of this circle ("${held.id}"), not the one the new key controls`, { input: held.id })
+      const { rotation: _r, frozen: _f, moved: _m, ...rest } = held
+      const next: Connection = { ...rest, secret, relays: d.relays, circle: { ...held.circle!, connectionPubkey: key.pubkey }, version: held.version + 1 }
+      await t.put('connections', next, held.version)
+      return next
+    }
+    const name = o.name ?? suggestName(conns.map((c) => c.id), 'circle', hub.connection.label)
+    if (conns.some((c) => c.id === name)) throw new CashkitError('exists', `a connection named "${name}" already exists`, { input: name })
+    const makeDefault = o.makeDefault === true || !conns.some(isLightning)
+    if (makeDefault) for (const c of conns.filter((x) => x.isDefault)) await t.put('connections', { ...c, isDefault: false, version: c.version + 1 }, c.version)
+    const circle: CircleDetailsRow = {
+      hubPubkey,
+      hubIdentity: hub.connection.hubIdentity,
+      hubLabel: hub.connection.label,
+      hubConnection,
+      memberPubkey: signer.pubkey,
+      connectionPubkey: key.pubkey,
+      maxAmount: d.maxAmount,
+      maxReceive: d.maxReceive,
+      expiresAt: d.expiresAt,
+      feesPpm: d.feesPpm,
+      dustThresholdMillis: d.dustThresholdMillis,
+      ...(d.rotationDelaySecs !== undefined && { rotationDelaySecs: d.rotationDelaySecs }),
+      budgetRenewal: d.budgetRenewal,
+      // The join's own proof time is not in the details: this is when this device took the wallet.
+      createdAt: ctx.nowSeconds(),
+    }
+    const r: Connection = { id: name, kind: 'circle_wallet', isDefault: makeDefault, walletPubkey: d.walletPubkey, relays: d.relays, secret, circle, version: 1 }
+    await t.put('connections', r, 0)
+    return r
+  })
+  return { state: 'done', wallet: joinResult(row, d, hub) }
+}
+
+/**
+ * Checks a `circlehub1` string for `connections.add`: decoded (a URI or any
+ * other form is `connection_invalid`), its signature checked, its Hub's
+ * `get_info` read and matched with TLV 4 and TLV 6 (`connection_mismatch`),
+ * and an unverified one confirmed (`connection_unverified`). Nothing is
+ * signed, sent or joined: a held string serves the lookups of a join made
+ * through another string of the same circle.
+ */
+export async function verifyCircleHubString(ctx: Ctx, value: string, confirmUnverified?: (v: HubView) => Promise<boolean>): Promise<{ view: HubView; hubPubkey: string; confirmed: boolean }> {
+  const s = value.trim()
+  if (sniff(s) !== 'circlehub') throw new CashkitError('invalid_input', 'not a circlehub1 connection string (a URI form is never accepted)', { reason: 'connection_invalid' })
+  let view: HubView
+  try {
+    view = await inspectConnection(ctx.clientDeps, s, { online: true })
+  } catch (err) {
+    throw connectError(err)
+  }
+  if (view.online !== 'pass') throw new CashkitError('invalid_input', "this Circle Wallet Hub's get_info does not match its connection string", { reason: 'connection_mismatch' })
+  if (!view.verified && (confirmUnverified === undefined || !(await confirmUnverified(view)))) {
+    throw new CashkitError('auth', "this connection string's signature does not verify, and it was not confirmed", { reason: 'connection_unverified' })
+  }
+  return { view, hubPubkey: view.connectionPubkey, confirmed: !view.verified }
 }
 
 /** A stored Circle Wallet connection by name. */
@@ -513,8 +681,8 @@ export async function deleteCircleWallet(ctx: Ctx, name: string, confirmDelete: 
   await ctx.commit((t) => t.delete('connections', name))
 }
 
-/** Whether a stored connection is a Lightning wallet: a NIP-47 URI, or a Circle Wallet (a Hub connection is not). */
-export const isLightning = (c: Connection): boolean => c.kind !== 'cashhub' && (c.uri !== undefined || c.secret !== undefined)
+/** Whether a stored connection is a Lightning wallet: a NIP-47 URI, or a Circle Wallet (a Hub connection string is not). */
+export const isLightning = (c: Connection): boolean => (c.kind === 'nwc' || c.kind === 'circle_wallet') && (c.uri !== undefined || c.secret !== undefined)
 
 /** The NIP-47 client for a Lightning connection: from its URI, or a Circle Wallet's fields and the member's secret. */
 export async function nwcFor(ctx: Ctx, c: Connection): Promise<NwcClient> {

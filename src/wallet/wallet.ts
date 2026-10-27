@@ -1,8 +1,8 @@
 // The wallet engine's public face (design §6). Every money-moving operation
 // is plan, then execute; the one-call forms are execute(await plan(...)).
-import { decodeCashHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
-import type { CircleWalletClient, HubView } from '../client/index.js'
-import { mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
+import { decodeCashHubConnection, decodeCircleHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
+import { inspectConnection, type CircleWalletClient, type HubView } from '../client/index.js'
+import { fromConnectionError, mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
 import { listDiscover, listedConnection, recommendPreview, refreshDiscover, tapDiscover, type DiscoverOptions, type DiscoverView, type TapView } from './discover.js'
 import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
@@ -20,13 +20,17 @@ import {
   joinCircle,
   memberRequest,
   nwcFor,
+  recoverCircle,
   settleJoins,
+  verifyCircleHubString,
   type CircleAlert,
   type CircleNotification,
   type CircleView,
   type JoinOptions,
   type JoinResult,
   type JoinTermsInput,
+  type RecoverOptions,
+  type RecoverResult,
   type SettleJoinsReport,
 } from './circle.js'
 import { consolidate, type ConsolidateReport } from './consolidate.js'
@@ -54,7 +58,7 @@ export interface ConnectionView {
   readonly isDefault: boolean
   readonly walletPubkey: string
   readonly relays: readonly string[]
-  /** `cashhub`: the Hub identity, chain, whether the signature verified, and the network last seen. */
+  /** `cashhub`, `circlehub`: the Hub identity, chain, whether the signature verified, and the network last seen. `walletPubkey` is the Hub pubkey (TLV 0). */
   readonly hubIdentity?: string
   readonly chain?: string
   readonly verified?: boolean
@@ -624,6 +628,14 @@ export class Wallet {
       if (pj !== undefined) return this.ctx.open(pj.connectionSecret)
       return this.ctx.open((await circleRow(this.ctx, nameOrPendingJoin)).secret)
     },
+    /**
+     * On the device that holds the key a rotation moved a wallet to: looks
+     * the wallet up through the circle's `circlehub1`, signed by this
+     * identity, naming the new key; `done` stores it with the new key's
+     * secret, `pending` says when to ask again, `not_found` means no
+     * rotation to that key.
+     */
+    recover: (hub: string, newConnectionSecret: string, o: RecoverOptions = {}): Promise<RecoverResult> => this.ctx.spend(() => recoverCircle(this.ctx, hub, newConnectionSecret, o)),
     /** Drops a pending join the member decided about (`needsUser`). */
     forgetJoin: (connectionPubkey: string): Promise<void> => this.ctx.commit((t) => t.delete('pendingJoins', connectionPubkey)),
   }
@@ -663,10 +675,13 @@ export class Wallet {
 
   readonly connections = {
     /**
-     * Adds a NIP-47 wallet (a pairing URI) or a Cash Hub (`cashhub1…`). A
-     * `cashhub1` string is decoded, verified and checked online first, and
-     * stored as given; an unverified one only after `confirmUnverified`
-     * resolved true. A Cash Hub is never the default Lightning wallet.
+     * Adds a NIP-47 wallet (a pairing URI), a Cash Hub (`cashhub1…`) or a
+     * Circle Wallet Hub (`circlehub1…`). A connection string is decoded,
+     * verified and checked online first, and stored as given (never a URI
+     * built from it); an unverified one only after `confirmUnverified`
+     * resolved true. A held `circlehub1` joins nothing: a join goes through
+     * `circles.join`, and a held string of the same circle serves its
+     * lookups. Neither is ever the default Lightning wallet.
      */
     add: async (name: string, uri: string, o: { kind?: ConnectionKind; makeDefault?: boolean; confirmUnverified?: (view: HubView) => Promise<boolean> } = {}): Promise<ConnectionView> => {
       if (name.trim() === '') throw new CashkitError('usage', 'a connection needs a name')
@@ -693,7 +708,31 @@ export class Wallet {
         })
         return { name: row.id, kind: row.kind, isDefault: false, walletPubkey: v.walletPubkey, relays: v.relays, hubIdentity: row.hubIdentity!, ...(row.chain !== undefined && { chain: row.chain }), verified: row.verified!, ...(row.network !== undefined && { network: row.network }) }
       }
-      if (sniff(uri.trim()) === 'circlehub') throw new CashkitError('usage', 'a circlehub1 string is joined, not added: use wallet.circles.join()', { input: name })
+      if (o.kind === 'circlehub' || sniff(uri.trim()) === 'circlehub') {
+        const v = await verifyCircleHubString(this.ctx, uri, o.confirmUnverified)
+        const sealedConn = await this.ctx.seal(uri.trim())
+        const now = this.ctx.nowSeconds()
+        const row = await this.ctx.commit(async (t) => {
+          if ((await t.get('connections', name)) !== undefined) throw new CashkitError('exists', `a connection named "${name}" already exists`, { input: name })
+          const r: Connection = {
+            id: name,
+            kind: 'circlehub',
+            connection: sealedConn,
+            isDefault: false,
+            walletPubkey: v.hubPubkey,
+            hubIdentity: v.view.hubIdentity,
+            chain: v.view.chain,
+            verified: v.view.verified,
+            ...(v.confirmed && { confirmedUnverifiedAt: now }),
+            ...(v.view.network !== undefined && { network: v.view.network }),
+            version: 1,
+          }
+          await t.put('connections', r, 0)
+          return r
+        })
+        const relays = decodeCircleHubConnection(uri.trim()).relays
+        return { name: row.id, kind: row.kind, isDefault: false, walletPubkey: v.hubPubkey, relays, hubIdentity: row.hubIdentity!, chain: row.chain!, verified: row.verified!, ...(row.network !== undefined && { network: row.network }) }
+      }
       if (o.kind !== undefined && o.kind !== 'nwc') throw new CashkitError('usage', `a pairing URI is added as kind nwc, not ${o.kind}`, { input: name })
       let pairing
       try {
@@ -720,6 +759,10 @@ export class Wallet {
           if (c.kind === 'circle_wallet') {
             return { name: c.id, kind: c.kind, isDefault: c.isDefault, walletPubkey: c.walletPubkey ?? '', relays: c.relays ?? [], ...(c.lastKnownBalance !== undefined && { lastKnownBalance: c.lastKnownBalance }) }
           }
+          if (c.kind === 'circlehub') {
+            const hc = decodeCircleHubConnection(await this.ctx.open(c.connection!))
+            return { name: c.id, kind: c.kind, isDefault: false, walletPubkey: hc.walletPubkey, relays: hc.relays, hubIdentity: hc.hubIdentity, chain: hc.chain, verified: c.verified ?? false, ...(c.network !== undefined && { network: c.network }) }
+          }
           if (c.uri === undefined) {
             const hc = decodeCashHubConnection(await this.ctx.open(c.connection!))
             return { name: c.id, kind: c.kind, isDefault: c.isDefault, walletPubkey: hc.walletPubkey, relays: hc.relays, hubIdentity: hc.hubIdentity, ...(c.chain !== undefined && { chain: c.chain }), verified: c.verified ?? false, ...(c.network !== undefined && { network: c.network }) }
@@ -728,6 +771,19 @@ export class Wallet {
           return { name: c.id, kind: c.kind, isDefault: c.isDefault, walletPubkey: p.walletPubkey, relays: p.relays, ...(c.lastKnownBalance !== undefined && { lastKnownBalance: c.lastKnownBalance }) }
         }),
       )
+    },
+    /**
+     * What a `cashhub1`, `cashorder1` or `circlehub1` string is, with nothing
+     * stored: who signed it and whether that verified; with `online`, whether
+     * its Hub's `get_info` matches it. A URI or any other form is
+     * `connection_invalid`.
+     */
+    inspect: async (value: string, o: { online?: boolean } = {}): Promise<HubView> => {
+      try {
+        return await inspectConnection(this.ctx.clientDeps, value, o)
+      } catch (err) {
+        throw fromConnectionError(err)
+      }
     },
     remove: async (name: string): Promise<void> => {
       await this.ctx.commit(async (t) => {
@@ -744,7 +800,7 @@ export class Wallet {
       await this.ctx.commit(async (t) => {
         const conns = await t.list('connections')
         if (!conns.some((c) => c.id === name)) throw new CashkitError('not_found', `no connection named "${name}"`, { input: name })
-        if (!isLightning(conns.find((c) => c.id === name)!)) throw new CashkitError('usage', `"${name}" is a Cash Hub connection, not a Lightning wallet`, { input: name })
+        if (!isLightning(conns.find((c) => c.id === name)!)) throw new CashkitError('usage', `"${name}" is a Hub connection string, not a Lightning wallet`, { input: name })
         for (const c of conns) {
           const isDefault = c.id === name
           if (c.isDefault !== isDefault) await t.put('connections', { ...c, isDefault, version: c.version + 1 }, c.version)

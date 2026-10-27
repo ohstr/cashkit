@@ -213,6 +213,8 @@ export class FakeHub {
   readonly requests: RequestInfo[] = []
   /** Bill wallet pubkey -> its connection pubkey, as the Hub's records hold it. */
   readonly bills = new Map<string, string>()
+  /** Target -> every connection pubkey whose bill proof verifies for it (several live connections of one Hub); takes precedence over `bills`. */
+  readonly billKeys = new Map<string, Set<string>>()
   clock: () => number = () => Date.now()
 
   constructor(
@@ -271,8 +273,9 @@ export class FakeHub {
       let info: RequestInfo
       try {
         const billSigner = verifyBillProof(item.billProof ?? '', binding, now)
+        const keys = this.billKeys.get(item.target)
         const known = this.bills.get(item.target)
-        if (known !== undefined && known !== billSigner) continue // not the bill's key: omit
+        if (keys !== undefined ? !keys.has(billSigner) : known !== undefined && known !== billSigner) continue // not the bill's key: omit
         const signer = hasProof(item) ? verifyItemProof(item.proof ?? '', binding, now) : undefined
         info = { item, params: JSON.parse(item.params ?? '{}'), signer, billSigner, notAfter: envelope.notAfter }
       } catch {

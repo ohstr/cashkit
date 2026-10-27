@@ -42,6 +42,7 @@ export { createCircleWalletItem, createCircleWalletMany, type BatchCircleJoin, t
 export { EventQueue, fetchRelayInfo, readEvents } from './relayIO.js'
 export { lookupMany, lookupOne, type BatchLookup, type LookupAuthorizer } from './lookup.js'
 export { hubView, type HubView } from './hubView.js'
+export { inspectConnection } from './inspect.js'
 export { CashHubClient, type CashHubClientOptions } from './cashHubClient.js'
 export {
   AnnouncementError,
