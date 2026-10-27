@@ -1,9 +1,35 @@
 // The wallet engine's public face (design §6). Every money-moving operation
 // is plan, then execute; the one-call forms are execute(await plan(...)).
-import { decodeCashHubConnection, decodeCircleHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
+import { decodeCashHubConnection, decodeCircleHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type ReportReason, type Signer } from '../core/index.js'
 import { inspectConnection, type CircleWalletClient, type HubView } from '../client/index.js'
 import { fromConnectionError, mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
-import { listDiscover, listedConnection, recommendPreview, refreshDiscover, tapDiscover, type DiscoverOptions, type DiscoverView, type TapView } from './discover.js'
+import {
+  cancelOutbox,
+  editCurators,
+  listCurators,
+  listDiscover,
+  listedConnection,
+  listOutbox,
+  loadDiscover,
+  nextOutboxDue,
+  publishCurators,
+  publishDue,
+  recommend,
+  recommendPreview,
+  refreshDiscover,
+  report as reportOffer,
+  setDefaultCurators,
+  syncCurators,
+  tapDiscover,
+  withdrawRecommendation,
+  type CuratorsView,
+  type DiscoverOptions,
+  type DiscoverView,
+  type OutboxItem,
+  type RecommendPreview,
+  type ReportPreview,
+  type TapView,
+} from './discover.js'
 import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, recoverWithdrawal, requoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
@@ -199,6 +225,8 @@ export class Wallet {
     }
     if (deps.persist !== undefined) w.storagePersisted = await deps.persist().catch(() => false)
     if (o.settle !== false && !deps.vault.locked()) await w.settle().catch(() => undefined)
+    await loadDiscover(ctx).catch(() => undefined)
+    if (!deps.vault.locked()) await publishDue(ctx).catch(() => undefined)
     await w.refreshState()
     return w
   }
@@ -405,14 +433,34 @@ export class Wallet {
           .then(schedule)
       }, delay)
     }
+    // The discover outbox: publish each queued item once its time comes.
+    let outbox: unknown
+    let outboxAt: number | undefined
+    const scheduleOutbox = () => {
+      void nextOutboxDue(this.ctx).then((due) => {
+        if (stopped || due === undefined || (outbox !== undefined && outboxAt === due)) return
+        if (outbox !== undefined) clear(outbox)
+        outboxAt = due
+        outbox = set(() => {
+          outbox = undefined
+          outboxAt = undefined
+          void publishDue(this.ctx)
+            .catch(() => undefined)
+            .then(scheduleOutbox)
+        }, Math.max(due * 1000 - this.ctx.now(), 0))
+      })
+    }
     const unsub = this.subscribe(() => {
       if (handle === undefined) schedule()
+      scheduleOutbox()
     })
     schedule()
+    scheduleOutbox()
     return () => {
       stopped = true
       unsub()
       if (handle !== undefined) clear(handle)
+      if (outbox !== undefined) clear(outbox)
     }
   }
 
@@ -540,6 +588,27 @@ export class Wallet {
       return this.circles.join(c.connection, terms, o)
     },
     recommendPreview: (address: string) => recommendPreview(this.ctx, address),
+    /** Queues a public recommendation of a used offer, published 1 to 6 hours later. */
+    recommend: (address: string, o: { content: string; confirm?: (p: RecommendPreview) => Promise<boolean> }) => recommend(this.ctx, address, o),
+    /** Queues a public report of a node or an offer (by address), naming the user as the reporter. */
+    report: (target: string, o: { reason: ReportReason; content: string; confirm?: (p: ReportPreview) => Promise<boolean> }) => reportOffer(this.ctx, target, o),
+    /** Publishes the deletion of the user's recommendation of `node` at once. */
+    withdrawRecommendation: (node: string, o: { relays?: readonly string[]; confirm?: (p: { audience: { public: true }; node: string }) => Promise<boolean> } = {}) => withdrawRecommendation(this.ctx, node, o),
+    outbox: {
+      list: (): Promise<OutboxItem[]> => listOutbox(this.ctx),
+      cancel: (id: string): Promise<void> => cancelOutbox(this.ctx, id),
+      /** Publishes what is due; also run on open and by `autoSettle`. */
+      publishDue: (): Promise<{ published: string[] }> => publishDue(this.ctx),
+    },
+    curators: {
+      list: (): Promise<CuratorsView> => listCurators(this.ctx),
+      add: (pubkey: string): Promise<CuratorsView> => editCurators(this.ctx, { add: pubkey }),
+      remove: (pubkey: string): Promise<CuratorsView> => editCurators(this.ctx, { remove: pubkey }),
+      /** An app's defaults, shown as curated by `sourceName`; ignored once the user has edited the list. */
+      setDefaults: (o: { pubkeys: readonly string[]; sourceName?: string }): Promise<CuratorsView> => setDefaultCurators(this.ctx, o),
+      publish: (o: { relays?: readonly string[] } = {}) => publishCurators(this.ctx, o),
+      sync: (o: { relays?: readonly string[] } = {}): Promise<CuratorsView> => syncCurators(this.ctx, o),
+    },
   }
 
   /**

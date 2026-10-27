@@ -476,6 +476,18 @@ export class TapCache {
     const r = this.m.get(listingAddress(l))
     return r !== undefined && r.createdAt === l.event.created_at ? r.outcome : undefined
   }
+
+  /** The outcomes worth keeping across restarts: every hide (an `unavailable` is tried again). */
+  snapshot(): string {
+    return JSON.stringify([...this.m].filter(([, r]) => r.outcome !== 'unavailable'))
+  }
+
+  restore(json: string): void {
+    for (const [a, r] of JSON.parse(json) as [string, { outcome: TapOutcome; createdAt: number }][]) {
+      const cur = this.m.get(a)
+      if (cur === undefined || cur.createdAt <= r.createdAt) this.m.set(a, r)
+    }
+  }
 }
 
 // ---- fetching (informative)

@@ -34,6 +34,10 @@ export type {
   CallOutput,
   CallState,
   DerivedIdRow,
+  DiscoverBookRow,
+  DiscoverEventRow,
+  DiscoverOutboxRow,
+  DiscoverSettings,
   DeviceRow,
   HoldingOrigin,
   HubRow,
@@ -54,7 +58,7 @@ export type { Outcome, Report } from './report.js'
 export type { ReceiveOptions, ReceiveResult, Secured, TokenReport } from './receive.js'
 export type { PlannedSource, SendInput, SendPlan, SendResult } from './send.js'
 export type { MintInput, MintResult } from './mint.js'
-export type { DiscoverOptions, DiscoverView, OfferCard, TapView } from './discover.js'
+export type { CuratorsView, DiscoverOptions, DiscoverView, OfferCard, OutboxItem, RecommendPreview, ReportPreview, TapView } from './discover.js'
 export type { PocketSyncReport } from './pocket.js'
 export type { ZapInput, ZapSent, ZapView } from './zap.js'
 export { isNotice, type ConfirmHandler, type ConfirmNotice, type ConfirmQuestion, type ConfirmRequest, type ConfirmWithdrawData, type PublishNotice } from './confirm.js'
