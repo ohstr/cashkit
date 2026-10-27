@@ -328,6 +328,12 @@
   ([#32](https://github.com/ohstr/cashkit/pull/32))
 - `budgetPeriodStart` returns undefined for a negative period index.
   ([#32](https://github.com/ohstr/cashkit/pull/32))
+- Discover keeps the last refresh, its version floors and the tap outcomes
+  across restarts; adds recommending and reporting through a delayed outbox
+  signed by the identity (`recommend`, `report`, `withdrawRecommendation`,
+  `outbox.*`, published at open and by `autoSettle`), and the user's
+  curators (`curators.*`: app defaults, the user's edits, a private NIP-51
+  set published and synced). A session now starts on the wallet's clock.
 
 ## [0.1.0-rc.2]
 

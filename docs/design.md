@@ -1137,6 +1137,10 @@ discover.refresh({ relays, follows?, curators?, includeUnreviewed?, chains?, tes
 discover.list(): DiscoverView
 discover.tap(address): Promise<TapView>
 discover.order(address, input), discover.join(address, terms, options), discover.recommendPreview(address)
+discover.recommend(address, { content, confirm? }), discover.report(nodeOrAddress, { reason, content, confirm? })
+discover.withdrawRecommendation(node, { relays?, confirm? })
+discover.outbox.list() / cancel(id) / publishDue()
+discover.curators.list() / add(pubkey) / remove(pubkey) / setDefaults({ pubkeys, sourceName? }) / publish({ relays? }) / sync({ relays? })
 ```
 
 - **Fetching** contacts no Hub: first the recommendations and reports of
@@ -1163,6 +1167,31 @@ discover.order(address, input), discover.join(address, terms, options), discover
   it as unavailable for now. The terms always come from `get_info`, with a
   banner when a hint differs. `order` and `join` then hand the listed
   string to `orders.place` and `circles.join`.
+- **Kept across restarts** (local, never exported): the version book's
+  floors (the newest version seen and each deletion), the tap outcomes
+  other than "unavailable for now" (tried again), and the events of the
+  last refresh (current listings, recommendations, reports, operators'
+  offers). `list` shows them as soon as the wallet opens; a new or restored
+  device starts empty.
+- **Recommending and reporting** are public and signed by the user's
+  identity; without one they are refused (`identity_required`), and cashkit
+  never makes a key for them. A recommendation is allowed only for an offer
+  the user has used, outside the session of the order or join there and a
+  day after it (`recommend_not_allowed` otherwise); a report has no such
+  rule. `confirm` receives what will be public and may decline. Both are
+  queued with a delay drawn from [1 h, 6 h) and signed only when published,
+  to the user's write relays (their kind 10002) and the relays of the last
+  refresh; `publishDue` runs at open and from `autoSettle`, never early.
+  One recommendation per node: a second replaces the first.
+  `withdrawRecommendation` publishes the NIP-09 deletion at once and
+  cancels a queued one. The outbox lists items without their text.
+- **Curators** live in `settings.discover` (backed up). An app may set
+  defaults, shown as curated by its name; any edit by the user makes the
+  list the user's, and the app's defaults no longer apply. `publish` writes
+  the list as the user's NIP-51 set (kind 30000, `d` `cash-discover`, no
+  title), its items private (NIP-44 to self) unless `curatorsPrivate` is
+  false; `sync` reads the newest copy back. `refresh` ranks by the stored
+  curators unless others are passed.
 
 ### 6.8 Lightning, connections, identity
 
