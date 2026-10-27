@@ -9,7 +9,7 @@ import { Ctx, type OperationEvent } from './context.js'
 import { CashkitError } from './errors.js'
 import { activity, balance, listHandoffs, type ActivityItem, type Balance, type HandoffView } from './feed.js'
 import { newId } from './ledger.js'
-import { DEFAULT_SETTINGS, SCHEMA_VERSION, type ConnectionKind, type HandoffStatus, type Settings } from './model.js'
+import { DEFAULT_SETTINGS, SCHEMA_VERSION, type ConnectionKind, type HandoffStatus, type Meta, type Settings } from './model.js'
 import type { WalletDeps } from './ports.js'
 import { executeRedeem, planRedeem, type RedeemInput, type RedeemOutcome, type RedeemPlan } from './redeem.js'
 import { protectMany, receive, type ReceiveResult, type Secured } from './receive.js'
@@ -76,6 +76,27 @@ export interface Lightning {
 
 const EMPTY_STATE: WalletState = { holdings: [], balance: { held: 0n, count: 0, expired: 0n }, pendingJoins: [], unfinishedCashSends: [], pendingMerge: 0, backupStale: false, locked: false }
 
+/**
+ * This store's device id, created on first open. A store whose meta names
+ * another fingerprint than its device row (a copied or restored store) gets
+ * a new device id, so the calls it holds become foreign and are never
+ * re-placed from here.
+ */
+async function ensureDevice(ctx: Ctx, meta: Meta): Promise<string> {
+  return ctx.commit(async (t) => {
+    let m = meta
+    if (m.storeFingerprint === undefined) {
+      m = { ...m, storeFingerprint: toHex(ctx.random(16)), version: m.version + 1 }
+      await t.put('meta', m, meta.version)
+    }
+    const cur = await t.get('device', 'self')
+    if (cur !== undefined && cur.storeFingerprint === m.storeFingerprint) return cur.deviceId
+    const row = { id: 'self', deviceId: toHex(ctx.random(16)), createdAt: ctx.now(), storeFingerprint: m.storeFingerprint!, version: (cur?.version ?? 0) + 1 }
+    await t.put('device', row, cur?.version ?? 0)
+    return row.deviceId
+  })
+}
+
 export class Wallet {
   private snapshot: WalletState = EMPTY_STATE
   private readonly subscribers = new Set<(s: WalletState) => void>()
@@ -97,16 +118,22 @@ export class Wallet {
     if (deps.storage === undefined || deps.vault === undefined) throw new CashkitError('usage', 'Wallet.open needs storage and a vault (vault-none must be chosen explicitly)')
     const ctx = new Ctx(deps)
     const random = ctx.random
+    // Refuse another schema before writing anything: there is no migration from schema 1.
+    const existing = await ctx.read((t) => t.get('meta', 'meta'))
+    if (existing !== undefined && existing.schemaVersion > SCHEMA_VERSION) throw new CashkitError('usage', `this wallet was written by a newer cashkit (schema ${existing.schemaVersion}); upgrade to open it`)
+    if (existing !== undefined && existing.schemaVersion < SCHEMA_VERSION) {
+      throw new CashkitError('internal', `this store was written by an older cashkit (schema ${existing.schemaVersion}) and cannot be opened by this one: start a new store, then restore what it held from the old app`)
+    }
     const meta = await ctx.commit(async (t) => {
       const m = await t.get('meta', 'meta')
       if (m !== undefined) return m
-      const row = { id: 'meta', schemaVersion: SCHEMA_VERSION, walletId: newId('w', random).slice(2) + toHex(random(4)), version: 1 }
+      const row = { id: 'meta', schemaVersion: SCHEMA_VERSION, walletId: newId('w', random).slice(2) + toHex(random(4)), storeFingerprint: toHex(random(16)), version: 1 }
       await t.put('meta', row, 0)
-      await t.put('settings', { id: 'settings', ...DEFAULT_SETTINGS, ...(deps.fallbackRelays !== undefined && { fallbackRelays: deps.fallbackRelays }), version: 1 }, 0)
+      await t.put('settings', { id: 'settings', ...DEFAULT_SETTINGS, version: 1 }, 0)
       return row
     })
-    if (meta.schemaVersion > SCHEMA_VERSION) throw new CashkitError('usage', `this wallet was written by a newer cashkit (schema ${meta.schemaVersion}); upgrade to open it`)
     ctx.walletId = meta.walletId
+    ctx.deviceId = await ensureDevice(ctx, meta)
     if (deps.signer !== undefined) {
       const signer = deps.signer
       await ctx.commit(async (t) => {

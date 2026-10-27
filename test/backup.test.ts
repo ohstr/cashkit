@@ -47,7 +47,7 @@ describe('backup', () => {
     expect(priv).toBe(true)
     for (const secret of [cashSecret, note.split('#')[1]!, Buffer.from(nwc.appSecret).toString('hex')]) expect(text).not.toContain(secret)
     const f = decodeRow<BackupFile>(text)
-    expect(f).toMatchObject({ format: BACKUP_FORMAT, version: 1, kdf: { name: 'scrypt', logN: 4, r: 8, p: 1 } })
+    expect(f).toMatchObject({ format: BACKUP_FORMAT, version: 2, kdf: { name: 'scrypt', logN: 4, r: 8, p: 1 } })
     expect((f.collections.holdings as { amount?: bigint }[]).map((x) => x.amount)).toContain(3000n)
     expect(text).toContain('{"$bigint":"3000"}')
     expect(JSON.stringify(f.collections.identity)).toContain('"priv":{"sealed":')
@@ -59,7 +59,7 @@ describe('backup', () => {
     await expect((await fresh()).importBackup(text, 'nope')).rejects.toMatchObject({ code: 'auth' })
     await expect((await fresh()).importBackup('not json', 'backup pw')).rejects.toMatchObject({ code: 'invalid_input' })
     await expect((await fresh()).importBackup('{"format":"other"}', 'backup pw')).rejects.toMatchObject({ code: 'invalid_input' })
-    await expect((await fresh()).importBackup(text.replace('"version":1', '"version":9'), 'backup pw')).rejects.toMatchObject({ code: 'usage' })
+    await expect((await fresh()).importBackup(text.replace('"version":2', '"version":9'), 'backup pw')).rejects.toMatchObject({ code: 'usage' })
     const f = decodeRow<BackupFile>(text)
     const row = (f.collections.holdings as { cashSecret?: { sealed: string } }[]).find((x) => x.cashSecret !== undefined)!
     row.cashSecret = { sealed: row.cashSecret!.sealed.slice(0, -4) + 'AAAA' }

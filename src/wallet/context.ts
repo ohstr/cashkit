@@ -34,6 +34,8 @@ export class Ctx {
   readonly clientDeps: ClientDeps
   readonly random: (n: number) => Uint8Array
   walletId = ''
+  /** This store's device id: the owner of the calls it places. */
+  deviceId = ''
   /** Set by identity.useSigner or a stored local key. */
   signerOverride: Signer | undefined
   private readonly opListeners = new Set<(e: OperationEvent) => void>()

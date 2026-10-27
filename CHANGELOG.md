@@ -88,6 +88,12 @@
   ([#15](https://github.com/ohstr/cashkit/pull/15))
 - Adds `NwcClient.notifications` for a wallet's NIP-47 notifications.
   ([#15](https://github.com/ohstr/cashkit/pull/15))
+- Moves the wallet store to schema 2: a schema-1 store is refused on open
+  (start a new store), and pending calls, a device id and local derived-id
+  and Hub records are added. Backups are version 2 and carry pending calls
+  sealed; a version-1 backup is refused.
+- Removes the unused `fallbackRelays` option and the `timeouts` and
+  `displayUnit` settings.
 
 ## [0.1.0-rc.2]
 

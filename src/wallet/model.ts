@@ -46,10 +46,21 @@ export interface Holding {
   readonly pendingRemainderCashSecret?: Sealed
   readonly pendingThrowawayKey?: Sealed
   readonly throwawayKey?: Sealed
+  /** The minter's x-only key, for comparing with Nostr keys. */
+  readonly minterXonly?: string
+  /**
+   * How the wallet came to hold this bill (local, set once): drives the
+   * warning that others may know its amount.
+   */
+  readonly origin?: HoldingOrigin
+  /** Minted for this wallet's orders, or made only from such bills (local; never from the wire). */
+  readonly ordered?: boolean
   /** ms epoch. */
   readonly addedAt: number
   readonly version: number
 }
+
+export type HoldingOrigin = 'received' | 'minted' | 'split' | 'remainder' | 'consolidated' | 'ordered' | 'reminted' | 'zap'
 
 /** What a send was addressed to, in public form only (§4.2). */
 export type TargetDisplay = string
@@ -126,16 +137,11 @@ export interface PendingJoin {
 export interface Settings {
   readonly autoProtect: boolean
   readonly allowAutoConsolidate: boolean
-  readonly fallbackRelays: readonly string[]
-  readonly timeouts: { readonly statusMs: number; readonly redeemPerBillMs: number; readonly redeemCapMs: number }
-  readonly displayUnit?: 'loki' | 'sat' | 'millis'
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   autoProtect: true,
   allowAutoConsolidate: true,
-  fallbackRelays: [],
-  timeouts: { statusMs: 15_000, redeemPerBillMs: 30_000, redeemCapMs: 300_000 },
 }
 
 export interface SettingsRow extends Settings {
@@ -147,13 +153,113 @@ export interface Meta {
   readonly id: string
   readonly schemaVersion: number
   readonly walletId: string
+  /** Written with the device row: a store whose device row names another fingerprint was copied or restored. */
+  readonly storeFingerprint?: string
   /** ms epoch of the last backup export, and what it covered (see backup.ts valueFingerprint). */
   readonly lastBackupAt?: number
   readonly backupFingerprint?: string
   readonly version: number
 }
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
+
+/** A call's method (NIP-CASH and NIP-CO calls that carry a request_id). */
+export type CallMethod = 'mint_cash' | 'cash_transfer' | 'cash_consolidate' | 'cash_withdraw' | 'cash_order'
+
+/** Who authorized a call, as its lookups must be signed. */
+export type CallAuthorizer =
+  | { readonly kind: 'identity' }
+  | { readonly kind: 'throwaway'; readonly authorizerKey: Sealed }
+  | { readonly kind: 'cash'; readonly holdingId: string }
+  | { readonly kind: 'hub' }
+  | { readonly kind: 'join' }
+  | { readonly kind: 'buyer'; readonly buyerKey: Sealed }
+
+/** What a call creates: its destination, with the secret written ahead for a cash one. */
+export interface CallOutput {
+  readonly role: 'new' | 'remainder' | 'remint'
+  readonly destination:
+    | { readonly kind: 'pubkey'; readonly pubkey: string }
+    | { readonly kind: 'connection_key'; readonly key: string; readonly platform: string; readonly ia: string }
+    | { readonly kind: 'cash'; readonly secret: Sealed }
+}
+
+export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
+export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced'
+export type CallNeedsUser = 'confirm_replace' | 'replace_cap' | 'lookup_expired' | 'lookup_unanswered' | 'foreign_device' | 'refused' | 'receipt_invalid'
+
+/**
+ * A call written ahead before its first byte is sent (NIP-CASH §Lost
+ * Replies): its id, exact deadline, target, sources, authorizer and every
+ * secret it creates, so a crash or a lost reply can be settled by lookup.
+ */
+export interface PendingCall {
+  /** `pc-<16 hex>`. */
+  readonly id: string
+  readonly requestId: string
+  readonly method: CallMethod
+  /** The call's target: the bill, `sources[0]`, or the Hub connection. */
+  readonly target: string
+  /** The Hub's node identity (x-only). */
+  readonly node: string
+  readonly relays: readonly string[]
+  /** The exact deadline sent (`not_after` or NIP-47 `expiration`). */
+  readonly deadline: number
+  /** The Hub's `max_request_age` when sent. */
+  readonly hAtSend: number
+  /** The device that placed it; another device's call is foreign and never re-placed. */
+  readonly device: string
+  readonly attempts: number
+  readonly derivedFrom?: string
+  readonly amount: bigint
+  readonly chain?: string
+  /** Holding ids the call spends or authorizes with. */
+  readonly sources: readonly string[]
+  readonly authorizer: CallAuthorizer
+  readonly outputs: readonly CallOutput[]
+  /** Display context only (op, target display); never a secret. */
+  readonly context?: Readonly<Record<string, string>>
+  readonly state: CallState
+  readonly outcome?: CallOutcome
+  readonly lastCode?: string
+  readonly lastDetail?: string
+  readonly lookup?: { readonly status?: string; readonly retryAfter?: number; readonly checkedAt?: number; readonly omissions: number; readonly bearerStage?: 'without' | 'with' }
+  readonly needsUser?: CallNeedsUser
+  /** ms epoch. */
+  readonly createdAt: number
+  readonly version: number
+}
+
+/** This store's device (local, never exported). */
+export interface DeviceRow {
+  /** Always "self". */
+  readonly id: string
+  /** 16 random bytes, hex. */
+  readonly deviceId: string
+  readonly createdAt: number
+  readonly storeFingerprint: string
+  readonly version: number
+}
+
+/** A derived request id placed by a re-placement (local): blocks placing it twice. */
+export interface DerivedIdRow {
+  /** The derived request id. */
+  readonly id: string
+  readonly parentCallId: string
+  readonly deadline: number
+  /** Unix seconds: deadline + the largest H seen for the Hub. */
+  readonly keepUntil: number
+  readonly version: number
+}
+
+/** What the wallet saw of a Hub (local): the largest H, so records are kept long enough. */
+export interface HubRow {
+  /** The node identity, x-only. */
+  readonly id: string
+  readonly hMax: number
+  readonly announcementCreatedAt?: number
+  readonly version: number
+}
 
 export interface Rows {
   holdings: Holding
@@ -164,6 +270,10 @@ export interface Rows {
   pendingJoins: PendingJoin
   settings: SettingsRow
   meta: Meta
+  pendingCalls: PendingCall
+  device: DeviceRow
+  derivedIds: DerivedIdRow
+  hubs: HubRow
 }
 
 export type Collection = keyof Rows
@@ -172,4 +282,6 @@ export type AppendOnly = 'activity'
 export type Row<C extends Collection> = Rows[C]
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 export type NewRow<C extends AppendOnly> = DistributiveOmit<Rows[C], 'id'>
-export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta']
+export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs']
+/** Collections of this store only: never exported, never imported. */
+export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs']

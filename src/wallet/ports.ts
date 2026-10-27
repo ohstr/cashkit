@@ -102,7 +102,6 @@ export interface WalletDeps {
   readonly clock?: () => number
   readonly random?: (n: number) => Uint8Array
   readonly logger?: Logger
-  readonly fallbackRelays?: readonly string[]
   /** The longest a private send waits for its reply, in ms (never past the call's deadline); tests shorten it. */
   readonly replyWaitMs?: number
   /** How long an NWC call waits for its answer, in ms; default 60 s. */

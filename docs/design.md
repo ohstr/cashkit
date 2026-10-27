@@ -409,7 +409,6 @@ interface WalletDeps {
   clock?: () => number        // ms epoch
   random?: (n: number) => Uint8Array
   logger?: Logger             // receives already-redacted records only
-  fallbackRelays?: string[]   // announcement discovery
 }
 ```
 
@@ -529,7 +528,22 @@ JSON-serialisable through the public `toJSON` (§10).
 | `handoffs` | `kind` (`cash_note` / `gift`), sealed `handoff`, `amount`, `target`, `walletPubkey`, `expiresAt`, `status`, `checkedAt` | `handoffs` |
 | `pendingJoins` | `connectionPubkey`, sealed `connectionSecret`, `hubPubkey`, `hubLabel`, `at` | `pending_joins` |
 | `settings` | §6.9 | config |
-| `meta` | `schemaVersion`, `walletId` | — |
+| `meta` | `schemaVersion` (2), `walletId`, `storeFingerprint` | — |
+| `pendingCalls` | `requestId`, `method`, `target`, `node`, `relays`, exact `deadline`, `hAtSend`, `device`, `attempts`, `derivedFrom?`, `amount`, `sources`, `authorizer` (sealed `authorizerKey` / `buyerKey` where it is a key), `outputs` (a cash destination's sealed `secret`), `state`, `outcome?`, `lookup?`, `needsUser?` | — |
+| `device` (local) | `deviceId`, `storeFingerprint` | — |
+| `derivedIds` (local) | `parentCallId`, `deadline`, `keepUntil` | — |
+| `hubs` (local) | `hMax` (the largest `max_request_age` seen) | — |
+
+Schema 2 has no migration: a store written by schema 1 is refused on open
+(`internal`) before anything is written. Local collections are never
+exported or imported. Every call that carries a `request_id` is written
+ahead by `prepareCall` (secrets sealed, the row read back and every sealed
+field opened and compared before anything is sent), marked sent from the
+session's `beforePublish`, and closed by `finishCall` in the transaction
+that commits its result; `openCallsFor` lists the calls that lock a
+holding. A call records the device that placed it: on another device (a
+restored backup, a store whose meta fingerprint no longer matches its
+device row) it is foreign and never re-placed.
 
 ### 4.1 Holding
 
@@ -863,9 +877,6 @@ joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; n
 | `defaultConnection` | first added | where `redeem` lands when `into` is omitted |
 | `autoProtect` | `true` | rekey cash-mode receipts |
 | `allowAutoConsolidate` | `true` | let `send` merge a same-hub subset; the plan still discloses it |
-| `fallbackRelays` | `[]` | extra relays for finding Hub announcements |
-| `timeouts` | per op: status 15 s, redeem 30 s/bill (cap 5 min) | cashctl's values |
-| `displayUnit` | from HRP | `loki` / `sat` / `millis`, for formatting helpers only |
 
 ### 6.10 Offline helpers
 
@@ -1024,13 +1035,13 @@ This lets cashkit and cashctl share fixtures.
     last export (a fingerprint of the value-bearing rows' ids and versions,
     kept in `meta` at export, so no ordinary commit writes a shared row)
 
-  **Backup format, version 1.** One JSON document, written with the
+  **Backup format, version 2.** One JSON document, written with the
   row codec (a bigint is `{"$bigint":"<decimal>"}`), so another tool can
   import it:
 
   ```jsonc
   {
-    "format": "cashkit-backup", "version": 1,
+    "format": "cashkit-backup", "version": 2,
     "walletId": "…", "createdAt": 1760870000,          // Unix seconds
     "kdf": { "name": "scrypt", "logN": 16, "r": 8, "p": 1, "salt": "<base64, 16 bytes>" },
     "check": "<sealed 'cashkit backup key check'>",     // tells a wrong passphrase from damage
@@ -1038,8 +1049,8 @@ This lets cashkit and cashctl share fixtures.
       "holdings": [ { "id": "h-…", "token": "lokicash1…", "amount": {"$bigint":"5000"},
                       "cashSecret": { "sealed": "<base64 nonce‖ciphertext>" }, … } ],
       "handoffs": […], "connections": […], "identity": […], "pendingJoins": […],
-      "activity": […], "settings": […], "meta": […]
-    }
+      "activity": […], "settings": […], "meta": […], "pendingCalls": […]
+    }                                                    // never device, derivedIds or hubs
   }
   ```
 
@@ -1049,8 +1060,10 @@ This lets cashkit and cashctl share fixtures.
   - The secret-bearing fields are exactly: holdings `cashSecret`,
     `pendingCashSecret`, `pendingDestinationCashSecret`, `pendingRemainderCashSecret`,
     `pendingThrowawayKey`, `throwawayKey`; handoffs `handoff`; connections
-    `uri`; identity `priv`; pendingJoins `connectionSecret`. Each is
-    `{ "sealed": … }` in the file and nothing else is secret.
+    `uri`; identity `priv`; pendingJoins `connectionSecret`; pendingCalls
+    `authorizer.authorizerKey`, `authorizer.buyerKey` and
+    `outputs[].destination.secret`. Each is `{ "sealed": … }` in the file and
+    nothing else is secret. A version-1 backup is refused.
   - `importBackup` restores into an empty wallet only (merging two ledgers is
     not a restore), re-seals every secret under the new wallet's vault,
     adopts the backup's `walletId`, then runs `settle()`.

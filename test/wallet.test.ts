@@ -567,7 +567,7 @@ describe('connections, identity, settings', () => {
   })
   test('settings update and read back', async () => {
     expect((await h.wallet.settings.get()).autoProtect).toBe(true)
-    expect((await h.wallet.settings.update({ fallbackRelays: ['wss://f'] })).fallbackRelays).toEqual(['wss://f'])
+    expect((await h.wallet.settings.update({ autoProtect: false })).autoProtect).toBe(false)
   })
 })
 
