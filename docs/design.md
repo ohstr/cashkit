@@ -1040,6 +1040,40 @@ gift-wrapped to the user, each with a fresh wrap key it records.
   bills no longer held `spent`; `pocket.balance()` sums live entries per
   chain; `pocket.entries()` lists resolved entries without secrets.
 
+### 6.7e Discover
+
+```ts
+discover.refresh({ relays, follows?, curators?, includeUnreviewed?, chains?, testNetworks? })
+discover.list(): DiscoverView
+discover.tap(address): Promise<TapView>
+discover.order(address, input), discover.join(address, terms, options), discover.recommendPreview(address)
+```
+
+- **Fetching** contacts no Hub: first the recommendations and reports of
+  the user's follows and curators and the listings and deletions of the
+  nodes they name (so a flood cannot push signalled offers out), then
+  operators' 11191 and who among the follows follows them, then, only if
+  asked, the global request, shown apart as unreviewed.
+- **Before showing**, `parseListing` runs steps 1–4 (signature and counts;
+  the type and the connection's HRP, no other string decoded; the string
+  signed by TLV 4 = `pubkey`, TLV 0 = `d`, TLV 6 = `n`; a held chain on
+  mainnet unless test networks are on). A failure is a diagnostic with its
+  step, never an offer. `VersionBook` keeps the newest version per address
+  (never undercut, 15 minutes of skew, deletions by the node identity, the
+  30-day expiry cap).
+- **Signals** come only from follows and curators; an operator is shown
+  only when verified (the listing's `p` and the operator's newest 11191
+  naming the listing). Cards carry sanitized text (look-alike marks,
+  bidirectional and zero-width characters stripped, capped by grapheme
+  clusters), an identicon until the user taps, and never the connection
+  string. Listings of different pubkeys sharing a `d` are never merged.
+- **At tap** `get_info` is read over the listed connection's public secret
+  and checked: another identity or network hides that version for good,
+  the Hub's closed signal hides it until a newer one, anything else keeps
+  it as unavailable for now. The terms always come from `get_info`, with a
+  banner when a hint differs. `order` and `join` then hand the listed
+  string to `orders.place` and `circles.join`.
+
 ### 6.8 Lightning, connections, identity
 
 - `wallet.lightning(name?)` returns the NIP-47 calls against a registered

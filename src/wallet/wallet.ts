@@ -3,6 +3,7 @@
 import { decodeCashHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
 import type { CircleWalletClient, HubView } from '../client/index.js'
 import { mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
+import { listDiscover, listedConnection, recommendPreview, refreshDiscover, tapDiscover, type DiscoverOptions, type DiscoverView, type TapView } from './discover.js'
 import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
@@ -502,6 +503,31 @@ export class Wallet {
   }
 
   // ---- circles, lightning, connections, identity, settings (§6.7–§6.9)
+
+  /**
+   * Discover (NIP-CASH §Listing Offers): offer listings ranked by the
+   * user's follows and curators only; browsing contacts no Hub. A tap reads
+   * the terms from the listed connection; an order or a join then runs over
+   * the listed string.
+   */
+  readonly discover = {
+    refresh: (o: DiscoverOptions): Promise<void> => refreshDiscover(this.ctx, o),
+    list: (): DiscoverView => listDiscover(this.ctx),
+    tap: (address: string, o: { timeoutMs?: number } = {}): Promise<TapView> => tapDiscover(this.ctx, address, o),
+    /** After a tap showed the terms: an order over the listed `cashorder1`. */
+    order: async (address: string, o: Omit<PlaceOrderInput, 'connection'>): Promise<OrderView> => {
+      const c = listedConnection(this.ctx, address)
+      if (c.type !== 'cash_order') throw new CashkitError('usage', 'this offer is a circle: join it', { input: address })
+      return this.orders.place({ ...o, connection: c.connection })
+    },
+    /** After a tap showed the terms: a join over the listed `circlehub1`, private only. */
+    join: async (address: string, terms: JoinTermsInput, o: JoinOptions = {}): Promise<JoinResult> => {
+      const c = listedConnection(this.ctx, address)
+      if (c.type !== 'circle_wallet') throw new CashkitError('usage', 'this offer sells cash: order from it', { input: address })
+      return this.circles.join(c.connection, terms, o)
+    },
+    recommendPreview: (address: string) => recommendPreview(this.ctx, address),
+  }
 
   /**
    * The Cash Pocket (NIP-CP, with `WalletDeps.pocket`): the wallet's tokens

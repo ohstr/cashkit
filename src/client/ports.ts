@@ -17,6 +17,12 @@ export interface Filter {
   readonly '#a'?: readonly string[]
   readonly '#k'?: readonly string[]
   readonly '#d'?: readonly string[]
+  readonly '#t'?: readonly string[]
+  readonly '#n'?: readonly string[]
+  readonly '#l'?: readonly string[]
+  readonly '#g'?: readonly string[]
+  /** NIP-50; sent only to relays that list 50. */
+  readonly search?: string
 }
 
 export interface SubscriptionHandlers {

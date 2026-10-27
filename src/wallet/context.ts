@@ -43,6 +43,8 @@ export class Ctx {
   walletId = ''
   /** This store's device id: the owner of the calls it places. */
   deviceId = ''
+  /** When this wallet object was opened (ms): a session's start. */
+  readonly openedAt: number = Date.now()
   /** Set by identity.useSigner or a stored local key. */
   signerOverride: Signer | undefined
   private readonly opListeners = new Set<(e: OperationEvent) => void>()

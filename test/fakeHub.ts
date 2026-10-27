@@ -55,9 +55,10 @@ export function matches(f: Filter, e: NostrEvent): boolean {
   if (f.ids && !f.ids.includes(e.id)) return false
   if (f.since !== undefined && e.created_at < f.since) return false
   if (f.until !== undefined && e.created_at > f.until) return false
-  for (const k of ['p', 'e'] as const) {
-    const want = f[`#${k}`]
-    if (want && !e.tags.some((t) => t[0] === k && want.includes(t[1]!))) return false
+  for (const [key, want] of Object.entries(f)) {
+    if (!key.startsWith('#') || !Array.isArray(want)) continue
+    const k = key.slice(1)
+    if (!e.tags.some((t) => t[0] === k && (want as string[]).includes(t[1]!))) return false
   }
   return true
 }
