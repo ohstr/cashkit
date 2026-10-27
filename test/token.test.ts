@@ -154,10 +154,12 @@ describe('T-007 relay hints', () => {
     expect(t.relays).toEqual([R2, R1])
     expect(t.relayBytes!.map((b) => b.length)).toEqual([R2.length, 0, 3, R1.length])
   })
-  test('[""] and whitespace-only hints alone are rejected: no usable relay', () => {
+  test('[""] and ASCII-whitespace-only hints alone are rejected: no usable relay', () => {
     expect(() => decodeToken(rawBech32('satscash', [[0, fromHex(WALLET)], [1, ''], [2, SECRET]]))).toThrow(/usable relay/)
     expect(() => decodeToken(rawBech32('satscash', [[0, fromHex(WALLET)], [1, ' \t'], [2, SECRET]]))).toThrow(/usable relay/)
-    expect(() => decodeToken(rawBech32('satscash', [[0, fromHex(WALLET)], [1, Uint8Array.of(0xc3, 0xbc)], [2, SECRET]]))).toThrow(/usable relay/)
+  })
+  test('a non-ASCII hint alone still counts as a hint', () => {
+    expect(decodeToken(rawBech32('satscash', [[0, fromHex(WALLET)], [1, Uint8Array.of(0xc3, 0xbc)], [2, SECRET]])).relays).toEqual(['\u00fc'])
   })
   test('a 255-byte hint is the largest an encoder writes', () => {
     const t = { ...decodeToken(SPEC_TOKEN), relays: ['w'.repeat(255)] }

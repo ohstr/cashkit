@@ -171,13 +171,13 @@ describe('T-1201 / T-1203 the NIP examples (K-CH-1, K-CO-1, K-CWH-1)', () => {
     expect(chainSignedMessagePrefix('bitcoin')).toBe('Lightning Signed Message:')
     expect(chainSignedMessagePrefix('bitcoin-x')).toBeUndefined()
   })
-  test('a non-UTF-8 relay hint is hashed as encoded and skipped for dialling', () => {
+  test('a non-UTF-8 relay hint is hashed as encoded and listed as decoded', () => {
     const k = KATS[0]!
     const odd = Uint8Array.of(0xff, 0x01)
     const fields = { ...decodeCashHubConnection(K_CH_1), relays: [RELAY], relayBytes: [utf8(RELAY), odd] }
     const sig = signConnection(connFieldsOf('cashhub', fields), HUB_KEY)
     const c = decodeCashHubConnection(rawBech32('cashhub', [...entries(k, { 5: sig }), [1, odd]]))
-    expect(c.relays).toEqual([RELAY])
+    expect(c.relays).toEqual([RELAY, '\uFFFD\u0001'])
     expect(verifyCashHubConnection(c)).toEqual({ verified: true })
   })
 })

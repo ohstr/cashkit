@@ -3,7 +3,7 @@
 import { isBlank, toHex } from './bytes.js'
 import { CoreError } from './errors.js'
 import { HUB_GROUP_LEN } from './hubGroup.js'
-import { KEY_LEN, MAX_TLV_VALUE_LEN, decodeBech32TLV, encodeBech32TLV, keyFromHex, readTLVs, type TLVEntry } from './tlv.js'
+import { KEY_LEN, MAX_TLV_VALUE_LEN, decodeBech32TLV, encodeBech32TLV, keyFromHex, readTLVs, usableHint, type TLVEntry } from './tlv.js'
 
 const T_WALLET_PUBKEY = 0
 const T_RELAY = 1
@@ -44,8 +44,8 @@ export interface Token {
   /** Hex, 32 bytes. */
   readonly secret: string
   /**
-   * The relay hints a client dials, in encoded order: only usable ones (an
-   * empty, whitespace-only or non-ASCII hint is skipped).
+   * The relay hints a client dials, in encoded order: every hint that is not
+   * blank (empty once ASCII whitespace is trimmed).
    */
   readonly relays: readonly string[]
   /**
@@ -75,13 +75,6 @@ export interface Token {
 }
 
 const invalid = (msg: string) => new CoreError('invalid_tlv', `token: ${msg}`)
-
-/** A relay hint a client can dial: printable ASCII, not blank. */
-function usableRelay(value: Uint8Array): string | undefined {
-  for (const b of value) if (b < 0x20 || b > 0x7e) return undefined
-  const s = String.fromCharCode(...value)
-  return isBlank(s) ? undefined : s
-}
 
 /**
  * Decodes a cash token under any HRP.
@@ -120,7 +113,7 @@ export function decodeToken(s: string): Token {
         break
       case T_RELAY: {
         relayBytes.push(value.slice())
-        const r = usableRelay(value)
+        const r = usableHint(value)
         if (r !== undefined) relays.push(r)
         break
       }
@@ -192,6 +185,7 @@ export type TokenFields = Omit<Token, 'relayBytes'> & { readonly relayBytes?: re
  * non-ASCII relay hint, and a wrong-length hub group.
  */
 export function encodeToken(t: TokenFields): string {
+  if (t.hrp !== t.hrp.toLowerCase()) throw new CoreError('invalid_field', `a token's hrp must be lowercase: ${JSON.stringify(t.hrp)}`)
   if (t.relays.length === 0) throw new CoreError('invalid_field', 'a cash token needs at least one relay url')
   const relayValues = t.relays.map((r) => {
     if (!/^[\x20-\x7e]+$/.test(r) || isBlank(r)) throw new CoreError('invalid_field', 'a relay hint must be non-empty printable ASCII')

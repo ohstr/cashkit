@@ -1,7 +1,7 @@
 // The TLV stream inside cash tokens, cashhub1, circlehub1 and nconnection1:
 // one type byte, one length byte, then the value.
 import { bech32Decode, bech32Encode, fromWords, toWords } from './bech32.js'
-import { concatBytes, fromHex, isBlank, utf8 } from './bytes.js'
+import { concatBytes, fromHex, fromUtf8, isBlank, utf8 } from './bytes.js'
 import { CoreError } from './errors.js'
 
 export interface TLVEntry {
@@ -44,9 +44,13 @@ export function writeTLVs(entries: readonly TLVEntry[]): Uint8Array {
   return concatBytes(...parts)
 }
 
-/** Decodes the bech32 framing; returns the lowercase HRP and the TLV bytes. */
+/**
+ * Decodes a credential's bech32 framing; returns the lowercase HRP and the TLV
+ * bytes. Credentials are NIP-19 bech32 (BIP-173): a bech32m checksum is refused.
+ */
 export function decodeBech32TLV(s: string): { hrp: string; data: Uint8Array } {
-  const { hrp, words } = bech32Decode(s)
+  const { hrp, words, bech32m } = bech32Decode(s)
+  if (bech32m) throw new CoreError('invalid_bech32', 'bech32: bech32m checksum where a bech32 checksum is required')
   return { hrp, data: fromWords(words) }
 }
 
@@ -85,4 +89,14 @@ export function countUsableRelays(relays: readonly string[]): number {
   let n = 0
   for (const r of relays) if (!isBlank(r)) n++
   return n
+}
+
+/**
+ * A decoded relay hint as a client lists it, or undefined when it is blank:
+ * empty once ASCII whitespace (space, \t, \n, \v, \f, \r) is trimmed. Any
+ * other hint counts, non-ASCII ones included, as nmilat counts them.
+ */
+export function usableHint(value: Uint8Array): string | undefined {
+  for (const b of value) if (b !== 0x20 && (b < 0x09 || b > 0x0d)) return fromUtf8(value)
+  return undefined
 }

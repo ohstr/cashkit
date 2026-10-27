@@ -6,22 +6,11 @@ import { load, named, type Json } from './helpers.js'
 
 const v = load('tlv.json')
 
-const MISMATCH = new Set([
-  // decode: cashkit refuses a token whose only relay hint is a non-ASCII blank (no usable relay); nmilat decodes it.
-  'relay of U+0085 only is blank',
-  // decode: same, U+3000.
-  'relay of U+3000 only is blank',
-  // decode: cashkit refuses a lone U+FEFF hint (no usable relay); nmilat decodes it.
-  'relay of U+FEFF only is not blank',
-  // encode: nmilat refuses an hrp that is not lowercase; cashkit encodes it.
-  'token uppercase hrp is lowercased',
-  // encode: same, mixed case.
-  'token mixed-case hrp',
-])
+const MISMATCH = new Set<string>()
 
 const SCHEME_NUM: Record<TokenScheme, number> = { none: 0, mint_v1: 1, zap_v1: 2, malformed: 255 }
 const SCHEME_NAME: Record<number, TokenScheme> = { 0: 'none', 1: 'mint_v1', 2: 'zap_v1', 255: 'malformed' }
-const utf8 = new TextDecoder()
+const utf8 = new TextDecoder('utf-8', { ignoreBOM: true })
 
 /** A decoded token in vector form: every TLV 1 entry as encoded, hex bytes, decimal amount, null for absent. */
 const tokenToJSON = (t: Token) => ({

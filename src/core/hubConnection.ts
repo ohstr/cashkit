@@ -7,7 +7,7 @@ import { fromUtf8, isBlank, toHex } from './bytes.js'
 import { connSignedText, signConnection, validChainName, verifyConnection, type ConnFields, type ConnVerdict } from './connection.js'
 import { CoreError } from './errors.js'
 import { MINT_SIGNATURE_LEN } from './token.js'
-import { KEY_LEN, MAX_TLV_VALUE_LEN, decodeBech32TLV, encodeBech32TLV, keyFromHex, readTLVs, type TLVEntry } from './tlv.js'
+import { KEY_LEN, MAX_TLV_VALUE_LEN, decodeBech32TLV, encodeBech32TLV, keyFromHex, readTLVs, usableHint, type TLVEntry } from './tlv.js'
 
 export const CASH_HUB_HRP = 'cashhub'
 export const ORDER_CONNECTION_HRP = 'cashorder'
@@ -46,12 +46,6 @@ const T_HUB_IDENTITY = 4
 const T_SIGNATURE = 5
 const T_CHAIN = 6
 
-function usableRelay(value: Uint8Array): string | undefined {
-  for (const b of value) if (b < 0x20 || b > 0x7e) return undefined
-  const s = String.fromCharCode(...value)
-  return isBlank(s) ? undefined : s
-}
-
 function decodeHub(s: string, wantHrp: string): HubConnection {
   const invalid = (msg: string) => new CoreError('invalid_tlv', `${wantHrp}: ${msg}`)
   const { hrp, data } = decodeBech32TLV(s)
@@ -77,7 +71,7 @@ function decodeHub(s: string, wantHrp: string): HubConnection {
         break
       case 1: {
         relayBytes.push(value.slice())
-        const r = usableRelay(value)
+        const r = usableHint(value)
         if (r !== undefined) relays.push(r)
         break
       }

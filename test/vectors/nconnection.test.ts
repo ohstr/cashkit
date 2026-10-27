@@ -7,16 +7,7 @@ const v = load('nconnection.json')
 
 // Genuine mismatches: cashkit ports nmilat's earlier, lenient decoder (last key or platform wins,
 // truncated tail ignored, platform and relay text unchecked); nmilat now refuses each of these.
-const MISMATCH = new Set([
-  'decode two keys', // nmilat: "more than one ConnectionKey"; cashkit: decodes, the last key wins
-  'decode two platforms', // nmilat: "more than one platform"; cashkit: decodes, the last platform wins
-  'decode platform Discord', // nmilat: platform must match [a-z0-9._-]+; cashkit: decodes "Discord"
-  'decode platform git:hub', // nmilat: platform must match [a-z0-9._-]+; cashkit: decodes "git:hub"
-  'decode overrun', // nmilat: "TLV at offset 34 runs past the end"; cashkit: ignores the truncated tail
-  'decode lone trailing byte', // nmilat: "truncated TLV at offset 34"; cashkit: ignores the trailing byte
-  'encode platform Discord', // nmilat: refuses the platform; cashkit: encodes it
-  'encode non-ASCII relay', // nmilat: refuses a non-ASCII relay; cashkit: encodes it as UTF-8
-])
+const MISMATCH = new Set<string>()
 const plainNc = (c: NConnection) => ({ connectionKey: c.connectionKey, relays: [...c.relays], platform: c.platform })
 const fieldsOf = (f: Json): NConnection => ({ connectionKey: f.connectionKey, relays: f.relays ?? [], platform: f.platform ?? '' })
 

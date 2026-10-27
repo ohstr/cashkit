@@ -188,9 +188,9 @@ describe('cash token', () => {
     const t = decodeToken(rawBech32('lokicash', [[0, fill(0x22, 32)], [4, Uint8Array.of(1, 2, 3)], [1, RELAY], [200, 'future'], [2, fill(0x33, 32)], [99, new Uint8Array()], [255, fill(0xee, 40)]]))
     expect(t.relays).toEqual([RELAY])
   })
-  test('decode skips a blank or non-ASCII relay beside a usable one, and keeps its raw bytes', () => {
+  test('decode skips an ASCII-blank relay, lists any other hint, and keeps every raw byte', () => {
     const t = decodeToken(rawBech32('lokicash', [...BASE, [1, ' '], [1, '\uFEFFwss://x'], [1, Uint8Array.of(0xff)]]))
-    expect(t.relays).toEqual([RELAY])
+    expect(t.relays).toEqual([RELAY, '\uFEFFwss://x', '\uFFFD'])
     expect(t.relayBytes).toHaveLength(4)
     expect(t.relayBytes![3]).toEqual(Uint8Array.of(0xff))
     expect(t.scheme).toBe('none')
@@ -256,9 +256,11 @@ describe('nconnection1', () => {
     const c = { connectionKey: ck, relays: ['wss://a', 'wss://b'], platform: 'discord' }
     expect(decodeNConnection(encodeNConnection(c))).toEqual(c)
   })
-  test('is lenient like nmilat: last key wins, a truncated tail is ignored', () => {
-    expect(decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [0, fill(0x55, 32)]])).connectionKey).toBe('55'.repeat(32))
-    expect(decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)]], [1, 32, 119])).relays).toEqual([])
+  test('refuses a second key, a second platform, a bad platform name and a truncated tail', () => {
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [0, fill(0x55, 32)]]))).toThrow(/more than one ConnectionKey/)
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [2, 'x'], [2, 'dns']]))).toThrow(/more than one platform/)
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [2, 'X']]))).toThrow(/platform name/)
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)]], [1, 32, 119]))).toThrow(/runs past the end/)
   })
   test('refuses a missing or short key, and the wrong HRP', () => {
     expect(() => decodeNConnection(rawBech32('nconnection', [[1, RELAY]]))).toThrow(CoreError)
