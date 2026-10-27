@@ -382,3 +382,14 @@ export {
   type Trust,
 } from './listing.js'
 export { canonicalDomain, canonicalUserId, connectionKeyFromAttested, connectionKeyFromTyped, hasCanonicalForm, NO_CANONICAL_FORM, NOT_CANONICAL, punycodeDecode, punycodeEncode, validPlatformName } from './idna.js'
+export {
+  evaluateConnection,
+  KIND_IDENTITY_CONNECTION,
+  MAX_ATTESTATION_FUTURE,
+  parseIdentityConnection,
+  type AttestationRef,
+  type AttestationSource,
+  type IdentityConnection,
+  type VerificationState,
+  type Verdict,
+} from './icVerify.js'

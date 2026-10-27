@@ -68,3 +68,4 @@ export {
   type LspOption,
   type LspStatus,
 } from './lsp.js'
+export { relayAttestationSource, resolveConnection, RESOLVE_READ_MS, type ResolveConnectionOptions, type ResolvedConnection } from './identity.js'
