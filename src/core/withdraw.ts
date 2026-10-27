@@ -4,7 +4,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { toHex } from './bytes.js'
 import { buildProof, eventJSON } from './claim.js'
 import { CoreError } from './errors.js'
-import { MAX_FEE_PPM } from './fees.js'
+import { MAX_FEE_PPM, MAX_U64 } from './fees.js'
 import type { Credential } from './identity.js'
 import { tokenOrTombstone } from './lookup.js'
 import { getEventHash, verifyEvent, type NostrEvent } from './nip01.js'
@@ -36,6 +36,7 @@ const DEC = /^(0|[1-9][0-9]*)$/
 export function withdrawFee(amount: bigint, networkFee: bigint, base: bigint, ppm: bigint, redeemFee: bigint): { hubFee: bigint; fee: bigint; payout: bigint } {
   if (ppm > MAX_FEE_PPM || ppm < 0n) throw new CoreError('withdraw_fee_invalid', 'withdraw_fee_ppm must be from 0 to 1000000')
   const hubFee = base + (ppm * amount) / 1_000_000n
+  if (hubFee > MAX_U64 || networkFee + hubFee > MAX_U64) throw new CoreError('withdraw_fee_invalid', 'the withdraw fee overflows a uint64')
   let fee = networkFee + hubFee > redeemFee ? networkFee + hubFee : redeemFee
   if (fee > amount) fee = amount
   const rem = (amount - fee) % 1000n
@@ -266,10 +267,19 @@ export interface Payout {
 
 const badPayout = (m: string) => new CoreError('invalid_payload', `cash_withdraw: ${m}`)
 
-/** Reads a payout (§Response): an unknown state, a missing receipt, broadcast fields under `cancelled`, or re-mint fields elsewhere are malformed, never a state. */
+/**
+ * Reads a payout (§Response) strictly: a known state; every required field
+ * present; fee plus payout equal to the amount; `txid`, `vout` and `depth`
+ * never under `queued` or `cancelled` and always from `broadcast` on; `tx`
+ * (lowercase hex) only once signed and never under `cancelled`; the re-minted
+ * bill's `new_wallet_pubkey` and `new_wallet_token` only, and always, under
+ * `cancelled`. Anything else is malformed, never a state.
+ */
 export function parsePayout(v: unknown): Payout {
   if (v === null || typeof v !== 'object' || Array.isArray(v)) throw badPayout('the payout is not an object')
   const o = v as Record<string, unknown>
+  const has = (k: string) => o[k] !== undefined && o[k] !== null
+  for (const k of ['state', 'address', 'amount_millis', 'fee_millis', 'payout_millis', 'sent_by', 'final_depth', 'signed', 'receipt']) if (!has(k)) throw badPayout(`no ${k}`)
   const state = o['state']
   if (!(PAYOUT_STATES as readonly unknown[]).includes(state)) throw badPayout(`unknown state ${String(state)}`)
   const n = (k: string): bigint => {
@@ -278,12 +288,30 @@ export function parsePayout(v: unknown): Payout {
     if (typeof x === 'bigint' && x >= 0n) return x
     throw badPayout(`${k} is not a non-negative integer`)
   }
-  if (typeof o['receipt'] !== 'string' || o['receipt'] === '') throw badPayout('no receipt')
+  const str = (k: string): string | undefined => {
+    if (!has(k)) return undefined
+    if (typeof o[k] !== 'string') throw badPayout(`${k} is not a string`)
+    return o[k]
+  }
+  const address = str('address')!
+  const receipt = str('receipt')!
+  if (address === '' || receipt === '') throw badPayout('empty address or receipt')
   if (typeof o['signed'] !== 'boolean') throw badPayout('signed is not a boolean')
+  const amount = n('amount_millis')
+  const fee = n('fee_millis')
+  if (fee > amount || amount - fee !== n('payout_millis')) throw badPayout('fee and payout do not add up to the amount')
+  const tx = str('tx')
+  const txid = str('txid')
+  const newWalletPubkey = str('new_wallet_pubkey')
+  const onChain = txid !== undefined || has('vout') || has('depth')
   const cancelled = state === 'cancelled'
-  if (cancelled && ('tx' in o || 'txid' in o || 'vout' in o || 'depth' in o)) throw badPayout('a cancelled payout carries broadcast fields')
-  if (!cancelled && ('new_wallet_pubkey' in o || 'new_wallet_token' in o)) throw badPayout('re-mint fields outside cancelled')
-  if (state !== 'queued' && !cancelled && typeof o['txid'] !== 'string') throw badPayout('a broadcast payout names its txid')
+  if (cancelled && (tx !== undefined || onChain)) throw badPayout('a cancelled payout carries broadcast fields')
+  if (cancelled && (newWalletPubkey === undefined || newWalletPubkey === '' || !has('new_wallet_token'))) throw badPayout('a cancelled payout without its re-minted bill')
+  if (!cancelled && (newWalletPubkey !== undefined || has('new_wallet_token'))) throw badPayout('re-mint fields outside cancelled')
+  if (state === 'queued' && onChain) throw badPayout('a queued payout carries a broadcast')
+  if (state !== 'queued' && !cancelled && (txid === undefined || !HEX64.test(txid) || !has('vout') || !has('depth'))) throw badPayout('a broadcast payout needs txid, vout and depth')
+  if (tx !== undefined && (o['signed'] !== true || !/^[0-9a-f]+$/.test(tx))) throw badPayout('tx only once signed, as lowercase hex')
+  if (newWalletPubkey !== undefined && !HEX64.test(newWalletPubkey)) throw badPayout('new_wallet_pubkey is not 64 lowercase hex')
   let token: string | Tombstone | undefined
   if (cancelled && 'new_wallet_token' in o) {
     try {
@@ -294,19 +322,19 @@ export function parsePayout(v: unknown): Payout {
   }
   return {
     state: state as PayoutState,
-    address: typeof o['address'] === 'string' ? o['address'] : '',
-    amountMillis: n('amount_millis'),
-    feeMillis: n('fee_millis'),
+    address,
+    amountMillis: amount,
+    feeMillis: fee,
     payoutMillis: n('payout_millis'),
     sentBy: Number(n('sent_by')),
     finalDepth: Number(n('final_depth')),
     signed: o['signed'],
-    receipt: o['receipt'],
-    ...(typeof o['tx'] === 'string' && { tx: o['tx'] }),
-    ...(typeof o['txid'] === 'string' && { txid: o['txid'] }),
-    ...(o['vout'] !== undefined && { vout: Number(n('vout')) }),
-    ...(o['depth'] !== undefined && { depth: Number(n('depth')) }),
-    ...(typeof o['new_wallet_pubkey'] === 'string' && { newWalletPubkey: o['new_wallet_pubkey'] }),
+    receipt,
+    ...(tx !== undefined && { tx }),
+    ...(txid !== undefined && { txid }),
+    ...(has('vout') && { vout: Number(n('vout')) }),
+    ...(has('depth') && { depth: Number(n('depth')) }),
+    ...(newWalletPubkey !== undefined && { newWalletPubkey }),
     ...(token !== undefined && { newWalletToken: token }),
   }
 }

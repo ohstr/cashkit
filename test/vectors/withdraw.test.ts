@@ -43,21 +43,6 @@ const PAYS: ScriptType[] = [
 ]
 const label = (c: Json, i: number) => c.name ?? (c.id ? `${c.id} ${c.address ?? c.input ?? i}` : `case ${i} ${c.address ?? c.input ?? ''}`)
 
-const MISMATCH = new Set<string>([
-  // cashkit's withdrawFee works in bigint: a network fee of 2^64-1 does not overflow, so it is not refused.
-  'amount 10 network 18446744073709551615',
-  // nmilat's hrp "" accepts any HRP; cashkit's classifyAddress requires exactly the HRP given and refuses "bc" under "".
-  'case 16 bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
-  // cashkit's parsePayout does not refuse a txid on a queued payout.
-  'queued with a txid',
-  // cashkit's parsePayout does not refuse a tx on an unsigned payout.
-  'tx while unsigned',
-  // nmilat accepts an empty script_types list; cashkit's validateWithdrawTerms refuses it.
-  'no script type',
-  // cashkit's validateWithdrawTerms takes any program length 2..40; nmilat refuses a version-0 length other than 20 or 32.
-  'an invalid script type',
-])
-
 const CLASS: Record<string, string> = { address_network: 'network', address_malformed: 'malformed', address_no_witness: 'script_type' }
 const classOf = (run: () => unknown): string => {
   try {
@@ -104,14 +89,12 @@ describe('withdraw.json quotes and receipts', () => {
 })
 
 describe('withdraw.json fee and addresses', () => {
-  test.each(named(v.withdrawFee, (c) => c.id || `amount ${c.amountMillis} network ${c.networkFeeMillis}`))('withdraw fee: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.withdrawFee, (c) => c.id || `amount ${c.amountMillis} network ${c.networkFeeMillis}`))('withdraw fee: %s', (_, c: Json) => {
     const run = () => withdrawFee(BigInt(c.amountMillis), BigInt(c.networkFeeMillis), BigInt(c.withdrawFeeBase), BigInt(c.withdrawFeePpm), BigInt(c.redeemFeeMillis))
     if (c.error !== undefined) expect(run).toThrow()
     else expect(run()).toEqual({ hubFee: BigInt(c.hubFeeMillis), fee: BigInt(c.feeMillis), payout: BigInt(c.payoutMillis) })
   })
-  test.each(named(v.address, label))('address: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.address, label))('address: %s', (_, c: Json) => {
     if (c.error !== undefined) {
       expect(classOf(() => classifyAddress(c.address, c.hrp))).toBe(c.class)
       return
@@ -199,14 +182,12 @@ const snake = (p: Payout) => ({
 })
 
 describe('withdraw.json payouts and terms', () => {
-  test.each(named(v.payouts))('payout: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.payouts))('payout: %s', (_, c: Json) => {
     const run = () => parsePayout(JSON.parse(c.input))
     if (c.error !== undefined) expect(run).toThrow()
     else expect(canon(snake(run()))).toEqual(canon(c.want))
   })
-  test.each(named(v.withdrawObject))('withdraw terms: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.withdrawObject))('withdraw terms: %s', (_, c: Json) => {
     const t = validateWithdrawTerms(JSON.parse(c.input))
     if (c.error !== undefined) {
       expect(t).toBeUndefined()

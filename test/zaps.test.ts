@@ -40,12 +40,15 @@ describe('identity tags and rule 2', () => {
     ['two p tags', [...base, ['p', H]]],
     ['an uppercase p', base.map((t) => (t[0] === 'p' ? ['p', H.toUpperCase()] : t))],
     ['a leading zero', base.map((t) => (t[0] === 'amount' ? ['amount', '021000'] : t))],
-    ['a NIP-40 expiration', [...base, ['expiration', '1']]],
     ['ia on a pubkey p', [...base, ['ia', H]]],
     ['a ConnectionKey p without ia', base.map((t) => (t[0] === 'p' ? ['p', H, 'discord'] : t))],
     ['a P that is a pubkey', [...base, ['P', H]]],
   ])('refuses %s', (_, tags) => {
     expect(() => checkCashZapTags({ tags })).toThrow(expect.objectContaining({ code: 'zap_invalid' }))
+  })
+  test('a NIP-40 expiration tag is reported, not refused', () => {
+    expect(checkCashZapTags({ tags: [...base, ['expiration', '1']] }).hasExpiration).toBe(true)
+    expect(checkCashZapTags({ tags: base }).hasExpiration).toBeUndefined()
   })
   test('a 10522: a mint without a chain, or for a chain not accepted, is ignored', () => {
     const info = parseCashZapInfo({ kind: 10522, tags: [['chain', 'bitcoin'], ['mint', `02${X}`, 'bitcoin'], ['mint', `02${X}`, 'other'], ['mint', `02${X}`], ['relay', SOCIAL]] })

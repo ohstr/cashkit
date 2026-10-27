@@ -70,10 +70,10 @@ function decodeAny(addr: string): { hrp: string; version: number; program: Uint8
   return { hrp: dec.prefix, version, program }
 }
 
-/** Decodes a witness address under exactly `hrp`; a valid one of another HRP is `address_network`. */
+/** Decodes a witness address under exactly `hrp` (any HRP when `hrp` is empty); a valid one of another HRP is `address_network`. */
 export function decodeWitnessAddress(addr: string, hrp: string): { version: number; program: Uint8Array } {
   const d = decodeAny(addr)
-  if (d.hrp !== hrp) throw new CoreError('address_network', `the address is for ${d.hrp}, not ${hrp}`)
+  if (hrp !== '' && d.hrp !== hrp) throw new CoreError('address_network', `the address is for ${d.hrp}, not ${hrp}`)
   return { version: d.version, program: d.program }
 }
 
