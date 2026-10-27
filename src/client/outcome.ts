@@ -1,5 +1,6 @@
 // One outcome per batched item. Port of nmilat nipcash/client/batch_outcome.go
 // and bill_state.go.
+import type { Credential } from '../core/index.js'
 import type { ResponseEnvelope, ResultError } from '../transport/index.js'
 import { ClientError, NotServedError, WalletError } from './errors.js'
 
@@ -74,8 +75,29 @@ export function oneItemError(o: (Pick<ItemOutcome, 'state' | 'error'> & { readon
  * - `indeterminate` (the default): no answer. A timeout is never `spent`.
  * - `available`: the roster came back.
  * - `spent`: the Hub said so explicitly.
+ * - `unreadable`: a connection-key holder asked, and the Hub answered
+ *   `NOT_FOUND`, as NIP-CASH §Scoping the Roster requires of a spec Hub
+ *   (it finds "mine" from the item-proof signer, never a ConnectionKey).
+ *   It says nothing about the bill: neither that it is gone nor that the
+ *   slice is not this holder's.
  */
-export type BillState = 'indeterminate' | 'available' | 'spent'
+export type BillState = 'indeterminate' | 'available' | 'spent' | 'unreadable'
+
+/**
+ * A `cash_status` refusal that only means the status cannot be read: the
+ * caller holds a `connection_key` slice and the Hub answered `NOT_FOUND`.
+ * NIP-CASH §Scoping the Roster has a Hub decide "mine" from the item proof's
+ * signer and answer `NOT_FOUND` to a signer holding no slice, for `scope:
+ * all` too, and a connection-key holder's signer is its attested key, never
+ * the ConnectionKey. So that answer is neither "spent" nor "not yours".
+ * `err` is a refusal as `statusMany` reports it, or the `WalletError` the
+ * one-item calls throw.
+ */
+export function statusUnreadable(credential: Pick<Credential, 'kind'>, err: unknown): boolean {
+  if (credential.kind !== 'connection_key') return false
+  if (err instanceof WalletError) return err.walletCode === 'NOT_FOUND'
+  return (err as Partial<ResultError> | undefined)?.code === 'NOT_FOUND'
+}
 
 /**
  * What a call's outcome means for its pending record (NIP-CASH §Methods,

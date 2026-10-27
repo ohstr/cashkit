@@ -35,7 +35,7 @@ import {
   type BatchTransfer,
   type TypedOutcome,
 } from './methods.js'
-import { oneItemError, type BillState } from './outcome.js'
+import { oneItemError, statusUnreadable, type BillState } from './outcome.js'
 import { nowSeconds, type ClientDeps } from './ports.js'
 import { BatchSession } from './session.js'
 
@@ -138,15 +138,17 @@ export class CashClient {
 
   /**
    * What the bill is: `available` with its roster, `spent` only when the Hub
-   * says so, and `indeterminate` for anything else, a timeout included. The
-   * error is returned for logging, never to infer that the bill is gone.
+   * says so, `unreadable` when a connection-key holder is answered
+   * `NOT_FOUND` (`statusUnreadable`), and `indeterminate` for anything else,
+   * a timeout included. The error is returned for logging, never to infer
+   * that the bill is gone.
    */
   async state(credential: Credential): Promise<{ state: BillState; result?: CashStatusResult; error?: Error }> {
     try {
       const result = await this.cashStatus(credential, ownScope(credential))
       return { state: isSpent(result) ? 'spent' : 'available', result }
     } catch (err) {
-      return { state: 'indeterminate', error: err as Error }
+      return { state: statusUnreadable(credential, err) ? 'unreadable' : 'indeterminate', error: err as Error }
     }
   }
 
@@ -155,14 +157,17 @@ export class CashClient {
    * CheckClaim). The row is found from the credential, never from the
    * caller's word: a pubkey, a connection_key with its IA, or the cash row
    * the secret commits to. NOT_FOUND, or an answer that is not exactly that
-   * row, is `claim_not_found`; a destroyed bill is `spent`; a claimed,
-   * withdrawn or expired row comes back with `claimable` false.
+   * row, is `claim_not_found`, except for a connection-key holder, whose
+   * NOT_FOUND is `status_unreadable` (`statusUnreadable`); a destroyed bill
+   * is `spent`; a claimed, withdrawn or expired row comes back with
+   * `claimable` false.
    */
   async checkClaim(credential: Credential): Promise<CheckClaimResult> {
     let result: CashStatusResult
     try {
       result = await this.cashStatus(credential, ownScope(credential))
     } catch (err) {
+      if (statusUnreadable(credential, err)) throw new ClientError('status_unreadable', "this Hub does not show a connection-key holder its bill's status", { cause: err })
       if (err instanceof WalletError && err.walletCode === 'NOT_FOUND') throw new ClientError('claim_not_found', 'no matching, unclaimed recipient on this hub')
       throw err
     }

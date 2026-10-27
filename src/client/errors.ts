@@ -12,6 +12,13 @@ export type ClientErrorCode =
   | 'not_served'
   | 'wallet_error'
   | 'claim_not_found'
+  /**
+   * A connection-key holder's `cash_status` was answered `NOT_FOUND`: a spec
+   * Hub never shows such a holder its row (NIP-CASH §Scoping the Roster), so
+   * the status cannot be read. Not a statement that the bill is gone or not
+   * the holder's.
+   */
+  | 'status_unreadable'
   | 'spent'
   /** The Hub answered with a success this client could not decode: it ran. */
   | 'undecodable_result'
