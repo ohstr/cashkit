@@ -138,11 +138,17 @@ export async function prepareCall(ctx: Ctx, spec: CallSpec): Promise<PendingCall
   return back!
 }
 
-/** Marks a call sent: the body of the session's `beforePublish`, after its write-ahead was read back. */
+/**
+ * Marks a call sent: the body of the session's `beforePublish`, after its
+ * write-ahead was read back. Only a `prepared` call may be sent: one that a
+ * concurrent settle has already closed (`not_sent`, sources released) or
+ * removed throws, and nothing is published.
+ */
 export async function markSent(ctx: Ctx, call: Pick<PendingCall, 'id' | 'version'>): Promise<PendingCall> {
   return ctx.commit(async (t) => {
     const cur = await t.get('pendingCalls', call.id)
     if (cur === undefined) throw new CashkitError('internal', `no pending call ${call.id}`)
+    if (cur.state !== 'prepared') throw new CashkitError('internal', `pending call ${call.id} is no longer waiting to be sent, so it was not sent`)
     const next = { ...cur, state: 'sent' as const, version: cur.version + 1 }
     await t.put('pendingCalls', next, cur.version)
     return next

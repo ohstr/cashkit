@@ -135,6 +135,10 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
   if (hub === '' || group.some((h) => h.hubGroup !== hub || h.mode === 'connection_key' || (h.mode === 'cash' && h.cashSecret === undefined))) {
     throw new CashkitError('usage', 'only bills from one Cash Hub, in pubkey mode or with a known cash secret, can be merged into one send')
   }
+  // Ordered bills never merge with others (as consolidate refuses): refused before any call moves a cash note.
+  if (new Set(group.map((h) => h.ordered === true)).size > 1) {
+    throw new CashkitError('invalid_input', 'bills minted for your orders never merge with other bills; nothing was changed', { reason: 'mixed_ordered', input: group.map((h) => h.id).join(',') })
+  }
   if (amount > sum) throw new CashkitError('usage', `can't send ${amount} millis: the named holdings only have ${sum} millis`)
   const now = ctx.nowSeconds()
   const expired = group.filter((h) => h.expiresAt !== undefined && h.expiresAt <= now)

@@ -140,10 +140,16 @@ async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: '
   return created
 }
 
-/** A tombstone for the call's source: the bill is gone, so the call never ran. */
+/**
+ * A tombstone for the bill the call's item named: that bill is gone, so the
+ * call never ran. A `cash_consolidate` item names only its first source
+ * (NIP-CASH §What Can Be Consolidated Together), so the tombstone says
+ * nothing about the others: they stay held and are released by the close.
+ */
 async function applyTombstone(ctx: Ctx, call: PendingCall): Promise<void> {
+  const named = call.method === 'cash_consolidate' ? call.sources.slice(0, 1) : call.sources
   await ctx.commit(async (t) => {
-    for (const id of call.sources) {
+    for (const id of named) {
       const h = await t.get('holdings', id)
       if (h?.status !== 'held') continue
       await updateHolding(t, id, (x) => ({ ...x, status: 'spent' }))
@@ -284,11 +290,10 @@ export async function settleCalls(ctx: Ctx): Promise<SettleCallsReport> {
         break
       }
       case 'expired': {
-        if (isOwnCall(ctx, call)) {
-          await close(ctx, call.id, 'lookup_expired', { needsUser: 'lookup_expired' })
-          needsUser.push(call.id)
-          ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
-        } else open.push(call.id)
+        // Final whatever the device: no re-placement is decided here, so a foreign call closes too.
+        await close(ctx, call.id, 'lookup_expired', { needsUser: 'lookup_expired' })
+        needsUser.push(call.id)
+        ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
         break
       }
       default:
