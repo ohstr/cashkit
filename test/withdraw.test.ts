@@ -214,6 +214,21 @@ describe('wallet.withdraw', () => {
     hub.broadcast(hub.only())
     expect((await h.wallet.withdraw.refresh(r.id)).phase).toBe('broadcast')
   })
+  test('recover: a recovered call is never placed again, and nothing is written when asked to', async () => {
+    const { h, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    await h.storage.tx('rw', (x) => x.delete('pendingCalls', v.id))
+    const r = await h.wallet.withdraw.recover(id)
+    // As if a lookup had answered unknown and the call waited on a confirmation.
+    await h.storage.tx('rw', async (x) => {
+      const c = (await x.get('pendingCalls', r.id))!
+      await x.put('pendingCalls', { ...c, needsUser: 'confirm_replace', version: c.version + 1 }, c.version)
+    })
+    const before = await h.storage.tx('r', async (x) => ({ calls: (await x.list('pendingCalls')).length, derived: (await x.list('derivedIds')).length }))
+    expect(await failure(h.wallet.pendingCalls.confirmReplace(r.id))).toMatchObject({ code: 'usage', reason: 'recovered_call' })
+    expect(await h.storage.tx('r', async (x) => ({ calls: (await x.list('pendingCalls')).length, derived: (await x.list('derivedIds')).length }))).toEqual(before)
+    expect((await h.storage.tx('r', (x) => x.get('pendingCalls', r.id)))!.state).toBe('open_withdraw')
+  })
   test('recover: a bill no withdrawal ended is not_found', async () => {
     const { h, id } = await setup()
     expect(await failure(h.wallet.withdraw.recover(id))).toMatchObject({ code: 'not_found', reason: 'no_withdrawal' })

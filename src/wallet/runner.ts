@@ -310,7 +310,16 @@ export async function settleCalls(ctx: Ctx): Promise<SettleCallsReport> {
 }
 
 /** `unknown`: the call was not applied and never will be. */
+/** A call rebuilt from the Hub's records (a recovered withdrawal): it is only looked up, never placed again. */
+const isRecovered = (call: PendingCall) => call.params?.['recovered'] === '1'
+
 async function onUnknown(ctx: Ctx, call: PendingCall): Promise<'closed' | 'replaced' | 'needsUser' | 'open'> {
+  if (isRecovered(call)) {
+    await close(ctx, call.id, 'lookup_expired', { needsUser: 'lookup_expired' })
+    const closed = await ctx.read((t) => t.get('pendingCalls', call.id))
+    if (closed !== undefined) ctx.confirmations.notify({ type: 'lookupExpired', call: pendingCallView(closed, ctx.deviceId) })
+    return 'closed'
+  }
   if (!isOwnCall(ctx, call)) {
     await update(ctx, call.id, (x) => ({ ...x, needsUser: 'foreign_device', lookup: { ...(x.lookup ?? { omissions: 0 }), status: 'unknown' } }))
     return 'needsUser'
@@ -339,9 +348,11 @@ async function onUnknown(ctx: Ctx, call: PendingCall): Promise<'closed' | 'repla
  * Places a call again under its derived id (NIP-CASH §Looking Up a Call,
  * Finality): same target, amounts and written-ahead secrets, a new deadline
  * and fresh proofs. A derived id already recorded or placed only closes the
- * old call. The derived id is recorded before anything is sent.
+ * old call. The derived id is recorded before anything is sent. A recovered
+ * call is refused before anything is written.
  */
 export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall | undefined> {
+  if (isRecovered(call)) throw new CashkitError('usage', 'a recovered call is only looked up: it is never placed again', { input: call.id, reason: 'recovered_call' })
   const { created: _c, ...base } = call
   const derived = derivedRequestId(call.requestId)
   const seen = await ctx.read(async (t) => (await t.get('derivedIds', derived)) !== undefined || (await t.list('pendingCalls')).some((c) => c.requestId === derived))
