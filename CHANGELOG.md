@@ -230,6 +230,37 @@
   Unicode 15.0.0), `connectionKeyFromTyped` (x, discord, email, dns only)
   and `connectionKeyFromAttested`. They agree with nmilat on its 5000-domain
   corpus. ([#30](https://github.com/ohstr/cashkit/pull/30))
+- Breaking: `decodeEnvelope` is structural, as nmilat's: items sharing an
+  id refuse the envelope and only a malformed item is dropped;
+  `servableItems` applies the per-item serving checks. `decodeResponse` is
+  now the strict single-event reading; the lenient chunk reading the session
+  uses is `decodeResponseChunk`. Responses write `results` last (`[]` for a
+  reply of omissions) and pad under the 65535 ceiling.
+- `servingMethod` classifies a `cash_withdraw` cancel (served as
+  `cash_lookup`) and refuses a malformed one; `bearerShapeOK` judges the
+  served method.
+- A proof verifies only with an `expiration` equal to the envelope's
+  `not_after`, empty content and hex `d`, `h` and `ph`.
+- Breaking: an announced `max_bytes` above 65535 is kept as announced;
+  `effectiveLimits` reads it as 65535, and envelopes are sized against that.
+- Breaking: NIP-44 plaintexts are capped at 65535 bytes; the extended length
+  prefix is gone.
+- `parsePowRejection` reads the difficulty from any `pow:` refusal naming a
+  positive integer (`pow:20`).
+- `cashLookupParams` refuses a deadline of 0.
+- A prepared join builds one item only (`claimPreparedJoin`,
+  `preparedJoinUsed`).
+- `parseAttestation` is strict: repeated tags, non-empty content, non-hex
+  `d` or `p`, an invalid platform name, a malformed `expiration` and evidence
+  that is not version 1 with an `auth_type` (and, for `public_post`, its
+  proof fields) are refused.
+- Breaking: `connectionKeyTarget` (and `connection:` send targets) hash
+  typed input through `connectionKeyFromTyped`: x, discord, email and dns
+  only, in canonical form.
+- A `cash_transfer` or `cash_consolidate` reply carrying a secret is
+  refused.
+- Adds `ownRow` (the caller's row, taken from the credential, a widened
+  scope-mine answer refused) and `claimable` (claimed, withdrawn or expired).
 
 ## [0.1.0-rc.2]
 

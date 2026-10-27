@@ -51,7 +51,7 @@ const IA = attestation.event.pubkey
 
 // Kept: cashkit follows the NIP text here, and nmilat does not.
 const MISMATCH = new Set([
-  // nmilat sends amount 500000 with a 10u invoice. NIP-CASH §cash_redeem: "`amount` — OPTIONAL. Overrides the
+  // nmilat sends amount 500000 with a 10u invoice. NIP-CASH §Redeeming a Slice (`cash_redeem`): "`amount` — OPTIONAL. Overrides the
   // amount of an **amountless** invoice. It MUST NOT be used to alter an invoice that already carries one".
   'redeem with an amount',
   // nmilat sends the uppercase pubkey as given; cashkit refuses an identity_value that is not 64 lowercase hex
