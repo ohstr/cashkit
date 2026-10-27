@@ -30,8 +30,7 @@ const wire = (t: Tombstone): Json => ({ status: t.status, ...(t.reason !== undef
 // Parsed as cashkit reads each: a direct reply arrives over NIP-47 (JSON.parse), a lookup's
 // result over the private transport (parseJSONValue, integers as bigints).
 const parse = (c: Json): unknown => (c.lookup ? parseJSONValue(c.result) : JSON.parse(c.result))
-const MISMATCH = new Set([
-])
+const MISMATCH = new Set<string>()
 
 // Every result case answers a one-recipient request.
 const SENT = mintCashRequest({ recipients: [pubkey(21000)], requestId: '00112233445566778899aabbccddeeff' })
