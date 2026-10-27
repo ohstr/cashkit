@@ -2,11 +2,13 @@
 // Requests and replies are kind 24133, NIP-44 encrypted between a local
 // client key and the remote signer's key. Only replies authored by the
 // remote signer are read. An auth_url reply is handed to `onAuthUrl` and
-// the request keeps waiting for its real answer, as NIP-46 says.
+// the request keeps waiting for its real answer, as NIP-46 says. An error
+// answer is a SignerError: `denied: ` a refusal, `invalid: ` a malformed
+// request, anything else a failure.
 //
 // A phone bunker can take seconds per signature: the batch session sizes
 // envelopes to fit (design §3), so this adapter does not hurry anything.
-import { finalizeEvent, getPublicKey, nip44, toHex, verifyEvent, type EventTemplate, type NostrEvent, type Signer } from '../core/index.js'
+import { finalizeEvent, getPublicKey, nip44, signerErrorFrom, toHex, verifyEvent, type EventTemplate, type NostrEvent, type Signer } from '../core/index.js'
 import type { RelayPool } from '../client/index.js'
 import { checkSigned } from './signer-verify.js'
 
@@ -18,9 +20,18 @@ export interface BunkerPointer {
   readonly secret?: string
 }
 
-/** Parses bunker://<remote-signer-pubkey>?relay=…&relay=…&secret=… */
+/**
+ * Parses bunker://<remote-signer-pubkey>?relay=…&relay=…&secret=…. A local
+ * signer's address (`bunker+unix://`, `unix://`, an absolute path) is
+ * refused here: it needs a socket, which `./adapters/signer-unix` (Node
+ * only) opens; its `signerFromUri` takes both kinds.
+ */
 export function parseBunkerUri(uri: string): BunkerPointer {
-  const m = /^bunker:\/\/([0-9a-fA-F]{64})(?:\?(.*))?$/.exec(uri.trim())
+  const u = uri.trim()
+  if (/^(bunker\+unix|unix):/i.test(u) || u.startsWith('/')) {
+    throw new Error('signer-nip46: a local signer (unix socket) URI: use signerFromUri from ./adapters/signer-unix (Node)')
+  }
+  const m = /^bunker:\/\/([0-9a-fA-F]{64})(?:\?(.*))?$/.exec(u)
   if (m === null) throw new Error('signer-nip46: not a bunker:// URI with a hex pubkey')
   const q = new URLSearchParams(m[2] ?? '')
   const relays = q.getAll('relay').filter((r) => r.trim() !== '')
@@ -48,7 +59,6 @@ export interface Nip46Signer extends Signer {
   readonly remotePubkey: string
   /** Secret-bearing: this app's pairing key, to reuse next time. */
   readonly clientSecret: Uint8Array
-  nip44Encrypt(peer: string, plaintext: string): Promise<string>
   close(): void
 }
 
@@ -97,7 +107,7 @@ export async function nip46Signer(o: Nip46Options): Promise<Nip46Signer> {
       }
       pending.delete(msg.id)
       clearTimeout(p.timer)
-      if (typeof msg.error === 'string' && msg.error !== '') p.reject(new Error(`signer-nip46: ${msg.error}`))
+      if (typeof msg.error === 'string' && msg.error !== '') p.reject(signerErrorFrom('signer-nip46', msg.error))
       else if (typeof msg.result === 'string') p.resolve(msg.result)
       else p.reject(new Error('signer-nip46: the bunker answered without a result'))
     },
