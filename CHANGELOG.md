@@ -188,9 +188,11 @@
   needs the app's confirmation and runs as a pending call that stays open
   while the payout is followed; a cancelled payout comes back as a
   re-minted holding.
+  ([#24](https://github.com/ohstr/cashkit/pull/24))
 - Adds witness-address decoding and classification, the payout
   transaction check, the withdraw fee, and the quote, receipt and payout
   codecs with their checks.
+  ([#24](https://github.com/ohstr/cashkit/pull/24))
 
 ## [0.1.0-rc.2]
 
