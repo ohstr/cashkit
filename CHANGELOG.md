@@ -296,6 +296,14 @@
 - `connectionKeyFromAttested` refuses a user id that is not in canonical
   form on a platform that has one (x, discord, email, dns).
   ([#35](https://github.com/ohstr/cashkit/pull/35))
+- Circles: `circles.recover(hub, newConnectionSecret)` takes a wallet onto
+  the device that holds the key a rotation moved it to (`done`, `pending`
+  with `retryAt`, or `not_found`); `connections.add` stores a `circlehub1`
+  string (checked online, never joined), and a pending join whose own string
+  stays unanswered past its deadline plus 360 s is looked up once through
+  another held string of the same circle before it is shown as unanswered;
+  `connections.inspect` shows what a `cashhub1`, `cashorder1` or
+  `circlehub1` string is, with nothing stored.
 
 ## [0.1.0-rc.2]
 

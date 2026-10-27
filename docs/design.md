@@ -960,7 +960,8 @@ handoffs(o?: { status?: Handoff['status'][]; includeSecrets?: boolean }): Promis
 circles.join(hub: string /* circlehub1… */, terms: { maxAmount; maxReceive; expirySeconds?; budgetRenewal? },
              o?: { name?; makeDefault?; confirmUnverified?; confirmNoRecovery? }): Promise<JoinResult>
 circles.list(), circles.client(name), circles.memberRequest(name, action), circles.notify(name, n),
-circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin), circles.forgetJoin(id)
+circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin), circles.forgetJoin(id),
+circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name?; makeDefault?; confirmUnverified? }): Promise<RecoverResult>
 ```
 
 - `hub` is a `circlehub1` string only; a `cashhub1`, `cashorder1` or a URI is
@@ -980,6 +981,22 @@ circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin),
   waits, `unknown` asks the member (`needsUser: 'join_not_made'`), `expired`
   is shown and never rejoined with that key, `UNAUTHORIZED` is final for the
   lookup, and omissions past deadline + 360 s are `lookup_unanswered`.
+- A lookup goes through the string the join used. A circle may have several
+  `circlehub1` strings (one Hub pubkey, each its own secret) and the join's
+  may have been revoked: past deadline + 360 s, before `lookup_unanswered`,
+  one lookup goes through another held string of the same Hub pubkey (added
+  with `connections.add`), its bill proof signed with that string's secret.
+  A wallet found that way keeps that string as its circle's.
+- `circles.recover(hub, newConnectionSecret)` runs on the device that holds
+  the key a rotation moved a wallet to: a join lookup through `hub`, signed
+  by the member's identity, naming the new key, with a deadline a second in
+  the past (no rotation to that key then answers `unknown` at once, shown
+  as `not_found`). `pending` returns `retryAt` (the rotation's
+  `completes_at`). `done` is checked as a join reply (its
+  `connection_pubkey` must be the new key) and stores the wallet with the
+  new key's secret: in place of the moved connection when this device holds
+  one, else as a new `circle_wallet` connection. A closed circle still
+  answers it.
 - The wallet is stored as kind `circle_wallet`: `walletPubkey`, `relays`, the
   member's sealed `secret`, and the terms its details fixed. No URI is
   built. `lightning(name)` and redeem use it like any Lightning wallet; a
@@ -1169,14 +1186,21 @@ discover.order(address, input), discover.join(address, terms, options), discover
 - `wallet.lightning(name?)` returns the NIP-47 calls against a registered
   connection: `getInfo`, `getBalance`, `makeInvoice`, `payInvoice`,
   `listTransactions`, `signMessage`.
-- `wallet.connections`: `add`, `list`, `remove`, `setDefault`. `add` takes
-  a NIP-47 pairing URI (a Lightning wallet) or a Cash Hub's signed
-  `cashhub1` string. The string is decoded, verified and checked online
-  (`get_info` must name its node and chain) before it is stored, as given
-  and sealed; an unverified one only after `confirmUnverified(view)`
-  resolved true. A URI given as a Cash Hub is `connection_invalid`. A Cash
-  Hub connection is never the default Lightning wallet: `lightning(name)`,
-  `setDefault` and redeem refuse it (`usage`).
+- `wallet.connections`: `add`, `inspect`, `list`, `remove`, `setDefault`.
+  `add` takes a NIP-47 pairing URI (a Lightning wallet), a Cash Hub's signed
+  `cashhub1` string or a Circle Wallet Hub's `circlehub1` string. A string
+  is decoded, verified and checked online (`get_info` must name its node,
+  for a Circle Wallet Hub in `circle_wallet.identity`, and its chain) before
+  it is stored, as given and sealed; an unverified one only after
+  `confirmUnverified(view)` resolved true. A URI given as a Hub connection is
+  `connection_invalid`. A held `circlehub1` joins nothing (`circles.join`
+  does); it serves the join lookups of its circle. Neither kind is ever the
+  default Lightning wallet: `lightning(name)`, `setDefault` and redeem refuse
+  it (`usage`).
+- `connections.inspect(s, { online? })` returns the `HubView` of a
+  `cashhub1`, `cashorder1` or `circlehub1` with nothing stored: its signer
+  and whether the signature verified, and, with `online`, whether its Hub's
+  `get_info` matches it (`online: 'pass'` or `'fail'`).
 - `wallet.mint({ hub, amount, to? | recipients, expirySeconds? })` mints over
   a stored Cash Hub connection as one `mint` pending call: `to` is `cash`
   (default; the note comes back as `cashNote`, its secret written ahead),
