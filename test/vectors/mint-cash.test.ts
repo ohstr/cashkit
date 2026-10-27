@@ -31,7 +31,6 @@ const wire = (t: Tombstone): Json => ({ status: t.status, ...(t.reason !== undef
 // result over the private transport (parseJSONValue, integers as bigints).
 const parse = (c: Json): unknown => (c.lookup ? parseJSONValue(c.result) : JSON.parse(c.result))
 const MISMATCH = new Set([
-  'minted (lookup)', // nmilat reads expires_at 1722592000 from a lookup; cashkit's parseMintCashResult refuses it as a bigint (parseJSONValue), so wallet/mint.ts finish() would fail on a lookup carrying expires_at
 ])
 
 // Every result case answers a one-recipient request.

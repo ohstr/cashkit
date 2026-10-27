@@ -100,7 +100,9 @@ export function parseMintCashResult(result: unknown, sent: MintCashRequest): Min
   const wallet = o['wallet_pubkey']
   if (typeof wallet !== 'string' || !HEX64.test(wallet)) throw badResult('wallet_pubkey must be 64 lowercase hex')
   let expiresAt: number | undefined
-  const e = o['expires_at']
+  // A lookup's result is read with integers as bigints; a reply's as numbers.
+  const raw0 = o['expires_at']
+  const e = typeof raw0 === 'bigint' && raw0 >= 0n && raw0 <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(raw0) : raw0
   if (e !== undefined && e !== null) {
     if (typeof e !== 'number' || !Number.isSafeInteger(e) || e < 0) throw badResult('expires_at must be unix seconds')
     expiresAt = e === 0 ? undefined : e
