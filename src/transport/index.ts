@@ -69,6 +69,7 @@ export {
   KIND_HUB_ANNOUNCEMENT,
   MIN_REQUEST_AGE,
   normalizeNodeIdentity,
+  effectiveLimits,
   parseAnnouncement,
   validAddr,
   type Announcement,

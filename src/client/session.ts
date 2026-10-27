@@ -4,6 +4,7 @@
 import { nip44 } from '../core/index.js'
 import {
   decodeResponseChunk,
+  effectiveLimits,
   deriveReplyKey,
   hubUsableForBills,
   isPowRejection,
@@ -144,7 +145,7 @@ export class BatchSession {
   }
 
   get limits(): Limits {
-    return this.announcement!.limits
+    return effectiveLimits(this.announcement!)
   }
 
   /** The key envelopes are encrypted and p-tagged to. Not the Hub identity. */

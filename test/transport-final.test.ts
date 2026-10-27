@@ -16,6 +16,7 @@ import {
   conversationKeyFor,
   decodeResponse,
   decodeResponseChunk,
+  effectiveLimits,
   DEFAULT_LIMITS,
   encodeEnvelope,
   encodeResponse,
@@ -101,9 +102,11 @@ describe('T-302 the tag-form announcement', () => {
     const tags = [...nipExample().filter((t) => t[1] !== 'max_request_age'), ['limit', 'max_request_age', 'soon']]
     expect(() => parseAnnouncement(announce(tags), NODE)).toThrow()
   })
-  test('max_bytes 70000 reads as 65535, the NIP-44 ceiling', () => {
+  test('max_bytes 70000 is kept as announced and sized as 65535, the NIP-44 ceiling', () => {
     const tags = nipExample().map((t) => (t[1] === 'max_bytes' ? ['limit', 'max_bytes', '70000'] : t))
-    expect(parseAnnouncement(announce(tags), NODE).limits.maxEnvelopeBytes).toBe(65535)
+    const a = parseAnnouncement(announce(tags), NODE)
+    expect(a.limits.maxEnvelopeBytes).toBe(70000)
+    expect(effectiveLimits(a).maxEnvelopeBytes).toBe(65535)
   })
   test('addr forms: IPv4, bracketed IPv6, onion; a port out of range or a hostname is dropped', () => {
     for (const ok of ['192.0.2.1:9735', '[2001:db8::1]:9735', ONION]) expect(validAddr(ok)).toBe(true)
