@@ -15,3 +15,19 @@ export function redeemFeeQuote(amount: bigint, base: bigint, ppm: bigint): bigin
   const fee = base + (ppm * amount) / 1_000_000n
   return fee < amount ? fee : amount
 }
+
+/** The x-only part of a 64- or 66-hex key, lowercase; '' for anything else. */
+const xOnlyOf = (k: string): string => (/^[0-9a-fA-F]{64}$/.test(k) ? k.toLowerCase() : /^0[23][0-9a-fA-F]{64}$/.test(k) ? k.slice(2).toLowerCase() : '')
+
+/**
+ * The amount a redeem invoice should carry for a row (port of nmilat
+ * RedeemInvoiceMillis): the full amount when the invoice's payee is the
+ * bill's own minter (a same-node payment, fee-free), else the net
+ * redeemable amount. Keys compare by their x-only part. The Hub decides
+ * with its own payment path; a wrong guess is refused.
+ */
+export function redeemInvoiceMillis(row: { readonly amount_millis: bigint; readonly net_redeemable_millis: bigint }, payee: string | undefined, minter: string | undefined): { millis: bigint; sameNode: boolean } {
+  const m = xOnlyOf(minter ?? '')
+  if (m !== '' && m === xOnlyOf(payee ?? '')) return { millis: row.amount_millis, sameNode: true }
+  return { millis: row.net_redeemable_millis, sameNode: false }
+}

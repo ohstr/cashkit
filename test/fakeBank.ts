@@ -4,7 +4,7 @@
 // describe. Test support only; it trusts the transport layer's proof checks
 // (FakeHub) and adds the per-method identity checks on top.
 import { sha256 } from '@noble/hashes/sha2.js'
-import { decideLookup, encodeCashHubConnection, finalizeEvent, fromHex, getPublicKey, hubGroupFor, nip44, signCashHubConnection, toHex, verifyEvent, type NostrEvent } from '../src/core/index.js'
+import { decideLookup, decodeBolt11, encodeCashHubConnection, finalizeEvent, fromHex, getPublicKey, hubGroupFor, nip44, signCashHubConnection, toHex, verifyEvent, type NostrEvent } from '../src/core/index.js'
 import { FakeHub, type Answer, type MemoryRelayPool, type RequestInfo } from './fakeHub.js'
 
 export type Identity = { readonly type: 'pubkey' | 'connection_key'; readonly value: string } | { readonly type: 'cash'; readonly value: string }
@@ -63,6 +63,8 @@ export class FakeBank {
   cashHubInfo: { pubkey?: string; network?: string | null; chain?: string | null } = {}
   /** Mints but loses the reply. */
   loseMintReply = false
+  /** Refuse a redeem invoice not for exactly the required amount (off by default: older tests use placeholder amounts). */
+  strictInvoices = false
   /** The `withdraw` terms `cash_status` reports; undefined: withdrawals not offered. */
   withdrawTerms: Record<string, unknown> | undefined
 
@@ -426,7 +428,21 @@ export class FakeBank {
   private redeem(w: BankWallet, info: RequestInfo): Answer {
     const invoice = info.params['invoice']
     if (typeof invoice !== 'string') return { error: { code: 'BAD_REQUEST', message: 'invoice is required' } }
-    const fee = this.fee(w.amount)
+    let fee = this.fee(w.amount)
+    // §Redeeming a Slice step 3: a same-node invoice (payee = this node) is fee-free for the full amount; any other
+    // carries the net amount. An amount param only on an amountless invoice.
+    let inv
+    try {
+      inv = decodeBolt11(invoice)
+    } catch {
+      return { error: { code: 'BAD_REQUEST', message: 'the invoice does not decode' } }
+    }
+    const sameNode = inv.payee !== undefined && inv.payee.slice(2) === this.hub.node
+    if (sameNode) fee = 0n
+    const amountParam = info.params['amount']
+    if (inv.amountMillis > 0n && amountParam !== undefined) return { error: { code: 'BAD_REQUEST', message: 'amount with an invoice that carries one' } }
+    const resolved = inv.amountMillis > 0n ? inv.amountMillis : amountParam !== undefined ? BigInt(amountParam as number) : 0n
+    if (this.strictInvoices && resolved !== w.amount - fee) return { error: { code: 'BAD_REQUEST', message: `the invoice is for ${resolved}, ${w.amount - fee} required` } }
     w.spent = true
     this.redeemed.push({ walletPubkey: w.walletPubkey, invoice, amount: w.amount })
     return { result: { preimage: '00'.repeat(32), fees_paid: fee } }

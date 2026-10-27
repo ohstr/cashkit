@@ -6,7 +6,7 @@ import { decodeToken, getPublicKey, newCashTarget, nip49Decrypt, toHex } from '.
 import { CashkitError, toJSON, type OperationEvent, type WalletState } from '../src/wallet/index.js'
 import { commitment, FakeBank } from './fakeBank.js'
 import { FakeNwcWallet, harness, type Harness } from './walletHarness.js'
-import { invoice } from './helpers.js'
+import { fill, invoice, signedInvoice } from './helpers.js'
 import { BatchSession, ClientError } from '../src/client/index.js'
 
 let h: Harness
@@ -320,13 +320,34 @@ describe('redeem (cmd/cash_redeem_test.go, cash_redeem_amount_select_test.go)', 
     await receivePubkey(5000n)
     expect((await err(h.wallet.planRedeem({ invoice: invoice(100n), amount: 100n })))?.code).toBe('usage')
     expect((await err(h.wallet.planRedeem({ invoice: invoice() })))?.code).toBe('usage')
-    const p = await h.wallet.planRedeem({ invoice: invoice(), amount: 1000n })
-    expect(p.destination).toMatchObject({ kind: 'invoice', amount: 1000n })
-    const over = await h.wallet.planRedeem({ invoice: invoice(), amount: 9000n })
-    expect(over.items).toHaveLength(0)
-    expect(over.refused[0]!.error.code).toBe('invalid_input')
+    const p = await h.wallet.planRedeem({ invoice: invoice(), amount: 5000n })
+    expect(p.destination).toMatchObject({ kind: 'invoice', amount: 5000n })
+    expect(p.items).toHaveLength(1)
+    for (const amount of [1000n, 9000n]) {
+      const off = await h.wallet.planRedeem({ invoice: invoice(), amount })
+      expect(off.items).toHaveLength(0)
+      expect(off.refused[0]!.error).toMatchObject({ code: 'invalid_input', reason: 'invoice_amount' })
+    }
     await receivePubkey(1n)
     expect((await err(h.wallet.planRedeem({ invoice: invoice(5n), all: true })))?.code).toBe('usage')
+  })
+  test("an invoice's payee decides its amount: the bill's own node is paid the full amount fee-free, any other the net", async () => {
+    h.bank.fee = (a) => a / 100n
+    h.bank.strictInvoices = true
+    const own = await receivePubkey(5000n)
+    const other = fill(0x5a, 32)
+    // Another node: the net amount, else refused locally (nothing sent).
+    const wrong = await h.wallet.planRedeem({ holdings: [own.holding.id], invoice: signedInvoice({ amountMillis: 5000n, nodeKey: other, timestamp: 1 }) })
+    expect(wrong.refused[0]!.error).toMatchObject({ code: 'invalid_input', reason: 'invoice_amount' })
+    expect(h.bank.redeemed).toHaveLength(0)
+    const net = await h.wallet.redeem({ holdings: [own.holding.id], invoice: signedInvoice({ amountMillis: 4950n, nodeKey: other, timestamp: 1 }) })
+    expect(net.outcomes[0]).toMatchObject({ ok: true, feesPaid: 50n })
+    // The bill's own node: the full amount, fee-free.
+    const second = await receivePubkey(5000n)
+    const same = await h.wallet.planRedeem({ holdings: [second.holding.id], invoice: signedInvoice({ amountMillis: 4950n, nodeKey: h.bank.hub.nodeKey, timestamp: 1 }) })
+    expect(same.refused[0]!.error).toMatchObject({ reason: 'invoice_amount' })
+    const full = await h.wallet.redeem({ holdings: [second.holding.id], invoice: signedInvoice({ amountMillis: 5000n, nodeKey: h.bank.hub.nodeKey, timestamp: 1 }) })
+    expect(full.outcomes[0]).toMatchObject({ ok: true, feesPaid: 0n })
   })
   test('a spent bill is tombstoned during the quote, never redeemed', async () => {
     const { w } = await receivePubkey(5000n)

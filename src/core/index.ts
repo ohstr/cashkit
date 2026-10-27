@@ -292,7 +292,7 @@ export { formatAmount, formatMillis, MAX_AMOUNT_MILLIS, MILLIS_PER_UNIT, parseUn
 export { NCRYPTSEC_HRP, nip49Decrypt, nip49Encrypt, type KeySecurity, type Nip49EncryptOptions } from './nip49.js'
 export * as nip04 from './nip04.js'
 export { derivedRequestId, isRequestId, newRequestId, REQUEST_ID_RE, requiresRequestId } from './requestId.js'
-export { MAX_FEE_PPM, redeemFeeQuote } from './fees.js'
+export { MAX_FEE_PPM, redeemFeeQuote, redeemInvoiceMillis } from './fees.js'
 export { mintCashRequest, parseMintCashResult, type MintCashRequest, type MintCashResult, type MintRecipient } from './mint.js'
 export {
   cashLookupParams,
