@@ -10,6 +10,7 @@ import {
   finalizeEvent,
   getPublicKey,
   nearMatch,
+  nip44,
   normalizeAddressText,
   parsePayout,
   parseTx,
@@ -22,6 +23,7 @@ import {
   withdrawFee,
 } from '../src/core/index.js'
 import { CashkitError } from '../src/wallet/index.js'
+import { FakeBank } from './fakeBank.js'
 import { FakeWithdraw, PAYTO, payoutTx } from './fakeWithdraw.js'
 import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
@@ -221,5 +223,28 @@ describe('wallet.withdraw: checks against what was confirmed', () => {
     p.payout -= 1000n
     hub.broadcast(p, payoutTx(PAYTO, p.payout / 1000n))
     expect((await h.wallet.withdraw.refresh(v.id)).txCheck).toBeUndefined()
+  })
+  test('a cancelled payout whose re-minted bill names another wallet or another minter is not imported', async () => {
+    const { h, hub, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const p = hub.only()
+    hub.cancel(p)
+    const real = p.newWallet!
+    const me = { type: 'pubkey' as const, value: h.me }
+    const sealedFor = (from: { walletKey: Uint8Array }, token: string) => nip44.encrypt(token, nip44.getConversationKey(from.walletKey, h.me))
+    // Decrypts under the named wallet, but the token inside is another wallet's.
+    const named = h.bank.mint(p.amount, me)
+    p.newWallet = { pubkey: named.walletPubkey, token: sealedFor(named, h.bank.mint(p.amount, me).token) }
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('accepted')
+    // The named wallet's own token, minted by another Hub.
+    const elsewhere = new FakeBank(h.pool, ['wss://elsewhere.test'], { seed: 0x0b })
+    await elsewhere.start()
+    const foreign = elsewhere.mint(p.amount, me)
+    p.newWallet = { pubkey: foreign.walletPubkey, token: sealedFor(foreign, foreign.token) }
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('accepted')
+    expect(await h.wallet.holdings()).toEqual([])
+    p.newWallet = real
+    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('cancelled')
+    expect(await h.wallet.holdings()).toHaveLength(1)
   })
 })

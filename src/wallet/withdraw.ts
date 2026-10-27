@@ -19,6 +19,7 @@ import {
   classifyAddressAmong,
   CoreError,
   decodeLookupDone,
+  decodeToken,
   decryptDelivery,
   nearMatch,
   newCashTarget,
@@ -33,6 +34,7 @@ import {
   paysScriptType,
   quoteFeeMillis,
   verifyPayoutTx,
+  verifyProvenance,
   verifyQuoteAnswer,
   verifyWithdrawReceipt,
   withdrawHrps,
@@ -407,7 +409,8 @@ const confirmedOf = (call: PendingCall) => ({ address: call.params?.['address'] 
 /**
  * Checks a payout against the call as written ahead: its receipt, and its
  * own address, payout, send-by time and amount, which must be the ones the
- * user confirmed. Opens a re-minted bill's token.
+ * user confirmed. Opens a re-minted bill's token and checks it names the
+ * wallet the payout names and was minted by this Hub.
  */
 async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'reply' | 'lookup'): Promise<{ payout: Payout; remint?: { token: string } }> {
   const p = parsePayout(raw)
@@ -421,7 +424,16 @@ async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'rep
   let remint: { token: string } | undefined
   if (p.state === 'cancelled' && typeof p.newWalletToken === 'string' && p.newWalletPubkey !== undefined) {
     const { credential } = await credentialOfCall(ctx, call)
-    remint = { token: await decryptDelivery(credential, p.newWalletPubkey, p.newWalletToken) }
+    const token = await decryptDelivery(credential, p.newWalletPubkey, p.newWalletToken)
+    let tok
+    try {
+      tok = decodeToken(token)
+    } catch {
+      throw new CoreError('invalid_payload', 'the re-minted token does not decode')
+    }
+    if (tok.walletPubkey !== p.newWalletPubkey) throw new CoreError('invalid_payload', 'the re-minted token names another wallet')
+    if (verifyProvenance(tok)?.xonly !== call.node) throw new CoreError('invalid_payload', 'the re-minted bill was not minted by this Hub')
+    remint = { token }
   }
   return { payout: p, ...(remint !== undefined && { remint }) }
 }
