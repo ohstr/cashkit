@@ -9,6 +9,7 @@ import {
   decodeToken,
   isSpent,
   ownClaim,
+  ownScope,
   type NotClaimableReason,
   type CashConsolidateResult,
   type CashRedeemResult,
@@ -142,7 +143,7 @@ export class CashClient {
    */
   async state(credential: Credential): Promise<{ state: BillState; result?: CashStatusResult; error?: Error }> {
     try {
-      const result = await this.cashStatus(credential, 'mine')
+      const result = await this.cashStatus(credential, ownScope(credential))
       return { state: isSpent(result) ? 'spent' : 'available', result }
     } catch (err) {
       return { state: 'indeterminate', error: err as Error }
@@ -160,7 +161,7 @@ export class CashClient {
   async checkClaim(credential: Credential): Promise<CheckClaimResult> {
     let result: CashStatusResult
     try {
-      result = await this.cashStatus(credential, 'mine')
+      result = await this.cashStatus(credential, ownScope(credential))
     } catch (err) {
       if (err instanceof WalletError && err.walletCode === 'NOT_FOUND') throw new ClientError('claim_not_found', 'no matching, unclaimed recipient on this hub')
       throw err

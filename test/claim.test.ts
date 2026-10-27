@@ -25,6 +25,7 @@ import {
   KIND_CLAIM_PROOF,
   localSigner,
   ownClaim,
+  ownScope,
   type RosterRow,
   newCashTarget,
   connectionKeyFromAttested,
@@ -338,6 +339,13 @@ describe('ownClaim: the caller row, then whether it can be spent', () => {
     const c = ownClaim(rows, cred, AT)
     expect(c.row).toBe(rows[0])
     expect(c).toMatchObject({ claimable: ok, reason })
+  })
+  test('a connection-key holder reads scope all and picks its row by key and IA', () => {
+    const att = ATT
+    const rows = [row('pubkey', WALLET2, 1n), row('connection_key', att.connectionKey, 7n, { ia_pubkey: WALLET2 }), row('connection_key', att.connectionKey, 9n, { ia_pubkey: att.event.pubkey })]
+    expect(ownScope(ckCred)).toBe('all')
+    expect(ownScope(bySigning(signer))).toBe('mine')
+    expect(ownClaim(rows, ckCred, AT).row).toBe(rows[2])
   })
   test.each<[string, RosterRow[], Credential]>([
     ['another pubkey', [row('pubkey', WALLET2, 2000n)], bySigning(signer)],
