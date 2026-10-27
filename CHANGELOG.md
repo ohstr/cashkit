@@ -304,6 +304,7 @@
   another held string of the same circle before it is shown as unanswered;
   `connections.inspect` shows what a `cashhub1`, `cashorder1` or
   `circlehub1` string is, with nothing stored.
+  ([#38](https://github.com/ohstr/cashkit/pull/38))
 
 ## [0.1.0-rc.2]
 
