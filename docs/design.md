@@ -604,10 +604,14 @@ interface RelayPool {
 
 Adapters: `relay-ws` (built in, uses the global `WebSocket`, which Node ≥ 22
 has), `relay-nostr-tools` (`SimplePool`), `relay-ndk`. The last two are
-optional peer dependencies. `setAuth` turns on NIP-42: `relay-ws` answers a
-relay's AUTH challenge with a kind-22242 event signed by `sign` and sends a
-REQ or EVENT refused `auth-required:` once more; `relay-nostr-tools` passes
-it to SimplePool as `onauth`. `relay-ndk` does not authenticate.
+optional peer dependencies. `setAuth` turns on NIP-42: when a relay refuses
+a REQ or EVENT `auth-required:`, `relay-ws` answers that relay's AUTH
+challenge with a kind-22242 event signed by `sign` and sends it once more;
+`relay-nostr-tools` passes it to SimplePool as `onauth`, which does the
+same. A challenge alone is never answered, and a `sign` that throws
+declines. `relay-ndk` does not authenticate. `syncPocket({ auth })` limits
+`sign` to the pocket relays, so a Hub inbox, listing, order or zap relay on
+the same pool never learns the user's identity from an AUTH.
 
 **Lock.** `withLock(name, fn)` serialises money-moving operations per wallet
 (§5.4). `lock-weblocks` uses `navigator.locks`; `lock-memory` is per-process.

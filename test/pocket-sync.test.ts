@@ -226,6 +226,8 @@ describe('a missing expires_at filled from cash_status', () => {
   })
 })
 
+const authTemplate = (relay: string): EventTemplate => ({ kind: 22242, created_at: 1, tags: [['relay', relay], ['challenge', 'c']], content: '' })
+
 describe('the sync-pocket adapter: relays and AUTH', () => {
   const user = 'aa'.repeat(32)
   test('the newest 10050 first, else NIP-65 write relays, else nothing', () => {
@@ -246,11 +248,15 @@ describe('the sync-pocket adapter: relays and AUTH', () => {
     const wrap2 = finalizeEvent({ kind: 1059, created_at: 1, tags: [['p', user]], content: 'x' }, fill(0x42, 32))
     expect(await other.publish(wrap2)).toEqual(['wss://fallback.test'])
   })
-  test('auth is handed to a pool that can authenticate', () => {
-    const got: unknown[] = []
-    const pool = Object.assign(new MemoryRelayPool(), { setAuth: (s: unknown) => got.push(s) })
-    syncPocket({ pool, relays: R, auth: signAuth })
-    expect(got).toEqual([signAuth])
+  test('auth is handed to a pool that can authenticate, for the pocket relays only', async () => {
+    const got: ((t: EventTemplate) => Promise<NostrEvent>)[] = []
+    const pool = Object.assign(new MemoryRelayPool(), { setAuth: (s: (t: EventTemplate) => Promise<NostrEvent>) => got.push(s) })
+    syncPocket({ pool, relays: R, ownRelays: ['wss://mine.test/'], auth: signAuth })
+    expect(got).toHaveLength(1)
+    expect((await got[0]!(authTemplate('wss://inbox1.test'))).kind).toBe(22242)
+    expect((await got[0]!(authTemplate('wss://mine.test'))).kind).toBe(22242)
+    await expect(got[0]!(authTemplate('wss://hub-inbox.test'))).rejects.toThrow()
+    await expect(got[0]!({ kind: 22242, created_at: 1, tags: [['challenge', 'c']], content: '' })).rejects.toThrow()
   })
 })
 
@@ -260,7 +266,11 @@ class AuthRelaySocket implements WebSocketLike {
   readonly sent: unknown[][] = []
   authed = false
   private readonly listeners = new Map<string, ((ev?: { data: unknown }) => void)[]>()
-  constructor(readonly url: string) {
+  /** With `requireAuth` false, the relay challenges on connect but serves everyone. */
+  constructor(
+    readonly url: string,
+    readonly requireAuth = true,
+  ) {
     queueMicrotask(() => {
       this.readyState = 1
       this.emit('open')
@@ -287,11 +297,12 @@ class AuthRelaySocket implements WebSocketLike {
       this.authed = ev.kind === 22242 && ev.tags.some((t) => t[0] === 'challenge' && t[1] === 'challenge-1') && ev.tags.some((t) => t[0] === 'relay' && t[1] === this.url)
       this.reply(['OK', ev.id, this.authed, ''])
     } else if (type === 'REQ') {
-      if (!this.authed) this.reply(['CLOSED', a, 'auth-required: this relay serves gift wraps only to their recipient'])
+      if (!this.authed && this.requireAuth) this.reply(['CLOSED', a, 'auth-required: this relay serves gift wraps only to their recipient'])
       else this.reply(['EOSE', a])
     } else if (type === 'EVENT') {
       const ev = a as NostrEvent
-      this.reply(['OK', ev.id, this.authed, this.authed ? '' : 'auth-required: sign in first'])
+      const ok = this.authed || !this.requireAuth
+      this.reply(['OK', ev.id, ok, ok ? '' : 'auth-required: sign in first'])
     }
   }
   close(): void {
@@ -311,6 +322,29 @@ describe('NIP-42 AUTH in the relay adapters', () => {
     const ev = finalizeEvent({ kind: 1, created_at: 1, tags: [], content: 'x' }, sk)
     expect(await pool.publish('wss://auth.test', ev)).toMatchObject({ ok: true })
     expect(sockets[0]!.sent.filter((m) => m[0] === 'AUTH')).toHaveLength(1)
+  })
+  test('relay-ws never answers a challenge alone: a relay that does not refuse learns no identity', async () => {
+    const sockets: AuthRelaySocket[] = []
+    const pool = new RelayWs({ connect: (url) => (sockets.push(new AuthRelaySocket(url, false)), sockets.at(-1)!) })
+    pool.setAuth(sign)
+    const eose = new Promise<string>((res, rej) => pool.subscribe(['wss://open.test'], { kinds: [1059] }, { onEvent: () => {}, onEose: res, onClose: (_r, why) => rej(new Error(why)) }))
+    expect(await eose).toBe('wss://open.test')
+    expect(await pool.publish('wss://open.test', finalizeEvent({ kind: 1, created_at: 1, tags: [], content: 'x' }, sk))).toMatchObject({ ok: true })
+    expect(sockets[0]!.sent.filter((m) => m[0] === 'AUTH')).toHaveLength(0)
+  })
+  test('with a pocket on the pool, only a pocket relay is signed in to; another relay that refuses keeps its refusal', async () => {
+    const sockets = new Map<string, AuthRelaySocket>()
+    const pool = new RelayWs({ connect: (url) => (sockets.set(url, new AuthRelaySocket(url)), sockets.get(url)!) })
+    const pocket = syncPocket({ pool, relays: ['wss://pocket.test'], auth: sign, minRelays: 1, readTimeoutMs: 500 })
+    const wrap = finalizeEvent({ kind: 1059, created_at: 1, tags: [['p', 'bb'.repeat(32)]], content: 'x' }, sk)
+    expect(await pocket.publish(wrap)).toEqual(['wss://pocket.test'])
+    expect(sockets.get('wss://pocket.test')!.sent.filter((m) => m[0] === 'AUTH')).toHaveLength(1)
+    // A Hub inbox (or listing, order, zap relay) on the same pool.
+    const ev = finalizeEvent({ kind: 1, created_at: 1, tags: [], content: 'x' }, sk)
+    expect(await pool.publish('wss://hub-inbox.test', ev)).toMatchObject({ ok: false, message: 'auth-required: sign in first' })
+    const closed = new Promise<string>((res) => pool.subscribe(['wss://hub-inbox.test'], { kinds: [23195] }, { onEvent: () => {}, onEose: () => res('eose'), onClose: (_r, why) => res(why) }))
+    expect(await closed).toMatch(/^auth-required:/)
+    expect(sockets.get('wss://hub-inbox.test')!.sent.filter((m) => m[0] === 'AUTH')).toHaveLength(0)
   })
   test('relay-ws without a signer passes the refusal on', async () => {
     const pool = new RelayWs({ connect: (url) => new AuthRelaySocket(url) })

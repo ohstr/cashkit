@@ -1,7 +1,9 @@
 // RelayPool over the global WebSocket (browsers, Node >= 22, Bun): one
 // connection per relay, opened on demand and shared by every subscription.
-// With `setAuth`, it answers a relay's NIP-42 AUTH challenge, and a REQ or
-// EVENT refused `auth-required:` is sent once more after authenticating.
+// With `setAuth`, a REQ or EVENT that a relay refuses `auth-required:` is
+// sent once more after answering that relay's NIP-42 AUTH challenge. A
+// challenge alone is never answered: a relay that does not ask learns no
+// identity.
 import { authEventTemplate, isAuthRequired, type NostrEvent } from '../core/index.js'
 import { fetchRelayInfo, type AuthSigner, type Filter, type RelayPool, type SubscriptionHandlers } from '../client/index.js'
 
@@ -104,8 +106,9 @@ export class RelayWs implements RelayPool {
     if (type === 'EVENT' && typeof a === 'string') c.subs.get(a)?.onEvent(b as NostrEvent, url)
     else if (type === 'EOSE' && typeof a === 'string') c.subs.get(a)?.onEose(url)
     else if (type === 'AUTH' && typeof a === 'string') {
+      // Kept for when the relay refuses something `auth-required:`; not answered now.
       c.challenge = a
-      c.authed = this.signer !== undefined ? this.authenticate(url, c, a) : undefined
+      c.authed = undefined
     } else if (type === 'CLOSED' && typeof a === 'string') {
       const reason = typeof b === 'string' ? b : 'closed'
       if (isAuthRequired(reason) && this.signer !== undefined && c.subs.has(a)) {
@@ -132,7 +135,11 @@ export class RelayWs implements RelayPool {
     }
   }
 
-  /** NIP-42: answer AUTH challenges with `sign` (undefined stops answering). */
+  /**
+   * NIP-42: answer a relay's AUTH challenge with `sign`, only once that relay
+   * refuses a REQ or EVENT `auth-required:` (undefined stops answering). A
+   * `sign` that throws declines, and the refusal stands.
+   */
   setAuth(sign: AuthSigner | undefined): void {
     this.signer = sign
   }

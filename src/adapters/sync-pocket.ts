@@ -3,10 +3,13 @@
 // (kind 10002), else the relays configured here, plus any relay of the
 // user's own; they are read back by id, and a sync reads every wrap
 // addressed to the user (incrementally, from two days before the last).
-// With `auth`, the pool answers the relays' NIP-42 AUTH challenges, so a
-// relay that serves a 1059 only to its `p` serves the user's wraps.
+// With `auth`, the pool answers a pocket relay's NIP-42 AUTH challenge when
+// that relay refuses `auth-required:`, so a relay that serves a 1059 only to
+// its `p` serves the user's wraps. Only the pocket relays (configured, own
+// and those found in the user's lists) are answered: a Hub inbox, listing,
+// order or zap relay on the same pool is never signed in to as the user.
 import { readEvents, type AuthSigner, type RelayPool } from '../client/index.js'
-import type { NostrEvent } from '../core/index.js'
+import type { EventTemplate, NostrEvent } from '../core/index.js'
 import type { Pocket } from '../wallet/ports.js'
 
 export interface SyncPocketOptions {
@@ -18,14 +21,18 @@ export interface SyncPocketOptions {
   /** A relay the user runs or controls, always written to and read from. */
   readonly ownRelays?: readonly string[]
   /**
-   * Signs the NIP-42 answer to a relay's AUTH challenge as the user; passed
-   * to the pool's `setAuth` when the adapter supports it.
+   * Signs the NIP-42 answer to a pocket relay's AUTH challenge as the user;
+   * passed to the pool's `setAuth` when the adapter supports it, limited to
+   * the pocket relays.
    */
   readonly auth?: AuthSigner
   /** Default 2, capped at the relays in use. */
   readonly minRelays?: number
   readonly readTimeoutMs?: number
 }
+
+const relayKey = (u: string) => u.trim().replace(/\/+$/, '').toLowerCase()
+const relayOf = (t: EventTemplate) => t.tags.find((x) => x[0] === 'relay')?.[1]
 
 const recipientOf = (e: NostrEvent) => e.tags.find((t) => t[0] === 'p')?.[1] ?? ''
 const isRelayUrl = (u: unknown): u is string => typeof u === 'string' && /^wss?:\/\/\S+$/.test(u)
@@ -55,9 +62,18 @@ export function syncPocket(o: SyncPocketOptions): Pocket {
   const wait = o.readTimeoutMs ?? 2500
   const configured = o.relays ?? []
   const own = o.ownRelays ?? []
-  if (o.auth !== undefined) o.pool.setAuth?.(o.auth)
   const resolved = new Map<string, Promise<string[]>>()
   let last: string[] = [...new Set([...configured, ...own])]
+  // The relays this pocket writes to or reads from; AUTH goes to these only.
+  const pocketRelays = new Set(last.map(relayKey))
+  const auth = o.auth
+  if (auth !== undefined) {
+    o.pool.setAuth?.(async (t) => {
+      const relay = relayOf(t)
+      if (relay === undefined || !pocketRelays.has(relayKey(relay))) throw new Error('not a pocket relay')
+      return auth(t)
+    })
+  }
 
   const relaysFor = (pubkey: string): Promise<string[]> => {
     let p = resolved.get(pubkey)
@@ -68,7 +84,9 @@ export function syncPocket(o: SyncPocketOptions): Pocket {
           const lists = await readEvents(o.pool, o.discovery, { kinds: [10050, 10002], authors: [pubkey] }, wait).catch(() => [] as NostrEvent[])
           found = pocketRelaysFrom(lists, pubkey)
         }
-        return [...new Set([...(found.length > 0 ? found : configured), ...own])]
+        const relays = [...new Set([...(found.length > 0 ? found : configured), ...own])]
+        for (const r of relays) pocketRelays.add(relayKey(r))
+        return relays
       })()
       resolved.set(pubkey, p)
     }

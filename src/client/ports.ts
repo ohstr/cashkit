@@ -45,9 +45,12 @@ export interface RelayPool {
   /** The relay's NIP-11 document, when the adapter can read it. */
   relayInfo?(relay: string): Promise<unknown>
   /**
-   * NIP-42: from now on, answer a relay's AUTH challenge with the event
-   * `sign` returns for the kind-22242 template (undefined stops answering).
-   * Adapters that cannot authenticate leave this out.
+   * NIP-42: from now on, when a relay refuses a REQ or EVENT
+   * `auth-required:`, answer its AUTH challenge with the event `sign`
+   * returns for the kind-22242 template, then try once more (undefined
+   * stops answering). A challenge alone is never answered, and a `sign`
+   * that throws declines that relay. Adapters that cannot authenticate
+   * leave this out.
    */
   setAuth?(sign: AuthSigner | undefined): void
 }
