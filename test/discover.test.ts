@@ -14,6 +14,7 @@ import {
   parseRecommendation,
   parseReport,
   recommendAllowed,
+  sanitizeText,
   VersionBook,
   type NostrEvent,
 } from '../src/core/index.js'
@@ -149,5 +150,19 @@ describe('wallet.discover', () => {
     const placed = await h.wallet.discover.order(card.address, { amountMillis: 5_000_000n, payment: 'lightning' })
     expect(placed.invoice).toMatch(/^ln/)
     expect((await h.wallet.discover.recommendPreview(card.address)).reasonIfNot).toBe('not_used')
+  })
+})
+
+describe('untrusted text', () => {
+  test('C0 and C1 controls, DEL and directional marks are removed; breaks are one space', () => {
+    expect(sanitizeText('a\u001b[31mred\u0007\u007f\u0090b', 0)).toBe('a[31mredb')
+    expect(sanitizeText('x‎y‏z؜w', 0)).toBe('xyzw')
+    expect(sanitizeText('one\ttwo\r\nthree\u0085four', 0)).toBe('one two three four')
+  })
+  test('a language that is not two lowercase letters and a geohash outside its alphabet are dropped', async () => {
+    const { bank, order } = await shop()
+    const l = parseListing(listingEvent(bank.hub.nodeKey, { d: order.pubkey, connection: order.string, tags: [['l', 'en', 'ISO-639-1'], ['l', 'EN\u001b', 'ISO-639-1'], ['l', 'eng', 'ISO-639-1'], ['g', 'u4pr'], ['g', 'u4pa'], ['g', 'u4\u001b']] }), { chains: ['bitcoin'] })
+    expect(l.languages).toEqual(['en'])
+    expect(l.geohashes).toEqual(['eyc', 'u4pr'])
   })
 })

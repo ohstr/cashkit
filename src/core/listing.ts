@@ -85,6 +85,9 @@ const SUMMARY: Readonly<Record<ListingType, readonly string[]>> = { cash_order: 
 
 export const listingAddress = (l: Pick<Listing, 'nodeIdentity' | 'd'>): string => `${KIND_LISTING}:${l.nodeIdentity}:${l.d}`
 /** `min(expiration, created_at + 30 days)`, whatever the listing says. */
+/** A geohash: its base-32 alphabet only (no a, i, l, o). */
+const GEOHASH = /^[0-9b-hjkmnp-z]+$/
+
 export const listingExpiresAt = (l: Pick<Listing, 'expiration' | 'event'>): number => Math.min(l.expiration, l.event.created_at + MAX_EXPIRY_SECS)
 
 /**
@@ -92,8 +95,9 @@ export const listingExpiresAt = (l: Pick<Listing, 'expiration' | 'event'>): numb
  * wins): the signature and every count; the type and the connection's HRP
  * (no other string is decoded); the string signed by TLV 4 = `pubkey`, TLV 0
  * = `d`, TLV 6 = `n`; a held chain on mainnet (unless test networks are on).
- * Tags a type does not take, unknown hint kinds, non-https images and long
- * geohashes are dropped, not refused.
+ * Tags a type does not take, unknown hint kinds, non-https images, long or
+ * malformed geohashes and languages that are not two lowercase letters are
+ * dropped, not refused.
  */
 export function parseListing(ev: NostrEvent, o: { chains: readonly string[]; testNetworks?: boolean }): Listing {
   if (ev.kind !== KIND_LISTING || getEventHash(ev) !== ev.id || !verifyEvent(ev)) throw new ListingError(1, 'kind, id or signature')
@@ -178,8 +182,8 @@ export function parseListing(ev: NostrEvent, o: { chains: readonly string[]; tes
     expiration: Number(expirationRaw),
     hints,
     ...(followSet !== undefined && { followSet }),
-    languages: ev.tags.filter((t) => t[0] === 'l' && t[2] === 'ISO-639-1' && typeof t[1] === 'string').map((t) => t[1]!),
-    geohashes: all('g').flatMap((g) => (typeof g[1] === 'string' && g[1].length > 0 && g[1].length <= MAX_GEOHASH ? [g[1]] : [])),
+    languages: ev.tags.filter((t) => t[0] === 'l' && t[2] === 'ISO-639-1' && typeof t[1] === 'string' && /^[a-z]{2}$/.test(t[1])).map((t) => t[1]!),
+    geohashes: all('g').flatMap((g) => (typeof g[1] === 'string' && g[1].length > 0 && g[1].length <= MAX_GEOHASH && GEOHASH.test(g[1]) ? [g[1]] : [])),
     ...(location !== undefined && { location }),
     ...(alt !== undefined && { alt }),
   }
