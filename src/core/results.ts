@@ -4,7 +4,7 @@
 // bigints from a precision-preserving parser, and are returned as bigint.
 import type { ConsolidateSource } from './claim.js'
 import { isRequestId } from './requestId.js'
-import { validateWithdrawTerms, type WithdrawTerms } from './withdraw.js'
+import { validateWithdrawTerms, type WithdrawTerms } from './withdrawTerms.js'
 import { CoreError } from './errors.js'
 import { decryptDelivery, type Credential, type Target } from './identity.js'
 

@@ -16,6 +16,18 @@ export type CoreErrorCode =
   | 'buyer_key_unusable'
   /** Not a segwit address of the expected chain and network. */
   | 'invalid_address'
+  /** Withdrawal addresses (NIP-CASH §Quoting a Withdrawal). */
+  | 'address_malformed'
+  | 'address_network'
+  | 'address_no_witness'
+  | 'script_type_not_paid'
+  /** A withdraw quote, answer or receipt that does not check out. */
+  | 'quote_malformed'
+  | 'quote_mismatch'
+  | 'receipt_invalid'
+  | 'withdraw_fee_invalid'
+  /** A payout transaction that does not pay what the receipt says. */
+  | 'tx_mismatch'
 
 /**
  * The error every `core` function throws for bad input. Messages name the

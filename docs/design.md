@@ -943,6 +943,48 @@ orders.refresh(id), orders.list(), orders.get(id), orders.watch(id, { signal?, p
   and carry the warnings `pay_before`, `amount_mints_bill` and, on-chain,
   `late_payment_kept`, `per_output_fee` and `fee_floor`.
 
+### 6.7b On-chain withdrawals
+
+```ts
+withdraw.terms(holdingId), withdraw.quote(holdingId, address, { sendBefore? }),
+withdraw.send(quoteView, { confirm }), withdraw.refresh(id), withdraw.cancel(id),
+withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), withdraw.watch(id, o)
+```
+
+- `terms` reads the Hub's `withdraw` terms and the bill's row in one
+  `cash_status`; nothing is written.
+- `quote` refuses locally before asking: a malformed, mixed-case or legacy
+  address (`address_invalid`, with `malformed`, `mixed_case`,
+  `no_witness`, `network` or `script_type_not_paid`), one of this wallet's
+  own order addresses (`own_order_address`), a bill an open call holds, a
+  cash note still shared (`protect_first`). The answer is checked against
+  what was asked (signed by the Hub identity, its tags equal to its fields,
+  the bill, slice and address asked about, `sent_by` within `send_before`,
+  fee = amount − payout, whole base units, the committed amount, at least
+  the redeem fee: `quote_mismatch` otherwise). The view is held in memory
+  only: exact payout, fee split, `sentBy`, `holdsUntil`, the Lightning net
+  for comparison, `highFee`, `expiringSoon`, privacy warnings
+  (`known_amount` with `splitFirst`, `address_reuse`, `near_match`) and
+  `unrecoverable` for a cash note.
+- `send` needs `confirm(view)` to resolve true, refuses a bill expiring
+  within 120 s, and runs `cash_withdraw` as a pending call written ahead
+  with the quote, request id, `notify` and, for a cash note, a fresh remint
+  secret. A receipt that checks out against the written-ahead call ends the
+  bill and keeps the call `open_withdraw`.
+- `refresh` reads the payout (its receipt re-checked on every `done`); a
+  `tx` is checked against the address and payout (`txCheck`; a mismatch is
+  a warning, never a payout failure); `final` closes the call and drops the
+  address, receipt and transaction; `cancelled` imports the re-minted bill
+  (the whole amount, `origin: 'reminted'`, under the remint secret for a
+  cash note) and closes it.
+- `cancel` is offered only for a payout still `broadcast` 7 days after
+  `sent_by` (`cancel_not_due` before, nothing sent). `signedTx` is offered
+  only when the payout is late, signed and its transaction checked; the SDK
+  never broadcasts.
+- A refusal's `detail` becomes the error's `reason`, with fixed public
+  wording; payout states are results, never errors. Views never carry the
+  request id, `notify`, the quote, the receipt or secrets.
+
 ### 6.8 Lightning, connections, identity
 
 - `wallet.lightning(name?)` returns the NIP-47 calls against a registered

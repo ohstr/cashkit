@@ -182,6 +182,15 @@
   `pay_millis`, an address of the Hub's chain and network), the buyer key,
   order notices, and `connectOrder`.
   ([#23](https://github.com/ohstr/cashkit/pull/23))
+- Adds on-chain withdrawals: `wallet.withdraw.terms`, `quote`, `send`,
+  `refresh`, `cancel`, `list`, `get`, `receipt`, `signedTx` and `watch`.
+  A quote is checked against what was asked and held in memory; sending
+  needs the app's confirmation and runs as a pending call that stays open
+  while the payout is followed; a cancelled payout comes back as a
+  re-minted holding.
+- Adds witness-address decoding and classification, the payout
+  transaction check, the withdraw fee, and the quote, receipt and payout
+  codecs with their checks.
 
 ## [0.1.0-rc.2]
 

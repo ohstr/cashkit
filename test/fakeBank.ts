@@ -61,6 +61,8 @@ export class FakeBank {
   cashHubInfo: { pubkey?: string; network?: string | null; chain?: string | null } = {}
   /** Mints but loses the reply. */
   loseMintReply = false
+  /** The `withdraw` terms `cash_status` reports; undefined: withdrawals not offered. */
+  withdrawTerms: Record<string, unknown> | undefined
 
   constructor(
     pool: MemoryRelayPool,
@@ -150,7 +152,7 @@ export class FakeBank {
     }
     switch (method) {
       case 'cash_status':
-        return { result: { recipients: [this.row(w)] } }
+        return { result: { recipients: [this.row(w)], ...(this.withdrawTerms !== undefined && { withdraw: this.withdrawTerms }) } }
       case 'cash_transfer':
         return record(this.transfer(w, info))
       case 'cash_consolidate':

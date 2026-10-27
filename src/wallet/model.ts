@@ -81,6 +81,7 @@ export type ActivityDetail =
     }
   | { readonly action: 'consolidate'; readonly amount: bigint; readonly from: readonly string[]; readonly into?: string }
   | { readonly action: 'spent'; readonly holdingId: string }
+  | { readonly action: 'withdraw'; readonly amount: bigint; readonly holdingId: string }
   | { readonly action: 'mint'; readonly amount: bigint; readonly to: TargetDisplay; readonly holdingId?: string; readonly handoffId?: string }
   | { readonly action: 'join'; readonly circle: string; readonly connection: string }
 
@@ -275,6 +276,28 @@ export interface OrderRecord {
   readonly checkedAt: number
 }
 
+/** A payout as the wallet last read it (NIP-CASH §Response). */
+export interface WithdrawalRecord {
+  readonly address?: string
+  readonly receipt?: string
+  readonly amountMillis: bigint
+  readonly feeMillis: bigint
+  readonly payoutMillis: bigint
+  readonly sentBy: number
+  readonly finalDepth: number
+  readonly state: 'queued' | 'broadcast' | 'confirmed' | 'final' | 'cancelled'
+  readonly signed: boolean
+  readonly depth?: number
+  readonly tx?: string
+  readonly txid?: string
+  readonly vout?: number
+  /** Ever seen `confirmed` or `final`: a later `broadcast` is a reorganisation, shown neutrally. */
+  readonly sawConfirmed: boolean
+  readonly txCheck?: 'ok' | 'mismatch'
+  readonly remintHoldingId?: string
+  readonly checkedAt: number
+}
+
 export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
 export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced'
 export type CallNeedsUser = 'confirm_replace' | 'replace_cap' | 'lookup_expired' | 'lookup_unanswered' | 'foreign_device' | 'refused' | 'receipt_invalid'
@@ -324,6 +347,8 @@ export interface PendingCall {
   readonly created?: CallCreated
   /** A `cash_order` call: the order as last read (no secret, no `notify`, no request id). */
   readonly order?: OrderRecord
+  /** A `cash_withdraw` call: the payout as last read; the address, receipt and transaction only until it ends. */
+  readonly withdrawal?: WithdrawalRecord
   /** ms epoch. */
   readonly createdAt: number
   readonly version: number

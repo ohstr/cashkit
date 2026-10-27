@@ -3,6 +3,7 @@
 import { decodeCashHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
 import type { CircleWalletClient, HubView } from '../client/index.js'
 import { mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
+import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
 import { type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
 import { exportBackup, importBackup, valueFingerprint, type ImportSummary } from './backup.js'
@@ -499,6 +500,29 @@ export class Wallet {
   }
 
   // ---- circles, lightning, connections, identity, settings (§6.7–§6.9)
+
+  /**
+   * On-chain withdrawals (NIP-CASH §Redeeming On-chain): quote a bill's
+   * payout to an address, confirm, send, then follow the payout. Views never
+   * carry the request id, `notify`, the quote, the receipt or secrets.
+   */
+  readonly withdraw = {
+    terms: (holdingId: string): Promise<WithdrawTermsView> => withdrawTerms(this.ctx, holdingId),
+    quote: (holdingId: string, address: string, o: { sendBefore?: number } = {}): Promise<WithdrawQuoteView> => quoteWithdrawal(this.ctx, holdingId, address, o),
+    /** `confirm(view)` must resolve true: no confirmation, no withdrawal. */
+    send: (quote: WithdrawQuoteView, o: { confirm?: (v: WithdrawQuoteView) => Promise<boolean> } = {}): Promise<WithdrawalView> => this.ctx.spend(() => sendWithdrawal(this.ctx, quote, o)),
+    refresh: (id: string): Promise<WithdrawalView> => this.ctx.spend(() => refreshWithdrawal(this.ctx, id)),
+    cancel: (id: string): Promise<WithdrawalView> => this.ctx.spend(() => cancelWithdrawal(this.ctx, id)),
+    list: (): Promise<WithdrawalView[]> => listWithdrawals(this.ctx),
+    get: async (id: string): Promise<WithdrawalView> => {
+      const c = await this.ctx.read((t) => t.get('pendingCalls', id))
+      if (c === undefined || c.kind !== 'withdraw') throw new CashkitError('not_found', `no withdrawal ${id}`, { input: id })
+      return withdrawalView(c)
+    },
+    receipt: (id: string): Promise<string> => withdrawalReceipt(this.ctx, id),
+    signedTx: (id: string): Promise<{ tx: string; txid: string; vout: number }> => signedTx(this.ctx, id),
+    watch: (id: string, o: { signal?: AbortSignal; onUpdate?: (v: WithdrawalView) => void } = {}): Promise<() => void> => watchWithdrawal(this.ctx, id, o),
+  }
 
   /**
    * Orders (NIP-CO): buy a bill from a Cash Hub through its `cashorder1`

@@ -157,7 +157,7 @@ export class MemoryRelayPool implements RelayPool {
 
 // ---- hub
 
-export type Answer = { result: unknown } | { error: { code: string; message?: string } } | 'omit'
+export type Answer = { result: unknown } | { error: { code: string; message?: string; detail?: string } } | 'omit'
 
 export interface RequestInfo {
   readonly item: Item

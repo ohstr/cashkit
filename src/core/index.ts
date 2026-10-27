@@ -224,7 +224,41 @@ export {
   type CashStatusResult,
   type CashTransferResult,
 } from './results.js'
-export { validateWithdrawTerms, type WithdrawTerms } from './withdraw.js'
+export {
+  CANCEL_GRACE,
+  CANCEL_REQUEST_AFTER,
+  cashWithdrawCancelRequest,
+  cashWithdrawQuoteRequest,
+  cashWithdrawRequest,
+  DETAILS,
+  KIND_WITHDRAW_QUOTE,
+  KIND_WITHDRAW_RECEIPT,
+  METHOD_CASH_WITHDRAW,
+  METHOD_CASH_WITHDRAW_QUOTE,
+  parseCashWithdrawQuoteResult,
+  parseDetail,
+  parsePayout,
+  parseWithdrawQuote,
+  PAYOUT_STATES,
+  payoutFinished,
+  quoteFeeMillis,
+  quoteValidAt,
+  receiptQuoteId,
+  requestHash,
+  validateWithdrawTerms,
+  verifyQuoteAnswer,
+  verifyWithdrawQuote,
+  verifyWithdrawReceipt,
+  withdrawFee,
+  type CashWithdrawQuoteResult,
+  type Detail,
+  type Payout,
+  type PayoutState,
+  type WithdrawQuote,
+  type WithdrawTerms,
+} from './withdraw.js'
+export { addressGroups, classifyAddress, classifyAddressAmong, decodeWitnessAddress, nearMatch, normalizeAddressText, paysScriptType, witnessScript, withdrawHrps, type ScriptType } from './address.js'
+export { parseTx, txid, verifyPayoutTx, type Tx } from './tx.js'
 export * as nip44 from './nip44.js'
 export {
   finalizeEvent,
