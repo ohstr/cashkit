@@ -3,6 +3,7 @@
 // impossible. Port of nmilat nipcash/request_id.go.
 import { sha256 } from '@noble/hashes/sha2.js'
 import { toHex, utf8 } from './bytes.js'
+import { CoreError } from './errors.js'
 import { randomBytes } from './identity.js'
 
 /** 16 to 32 bytes as lowercase hex. */
@@ -15,7 +16,13 @@ export function newRequestId(random: (n: number) => Uint8Array = randomBytes): s
   return toHex(random(32))
 }
 
-/** The id a re-placed call uses: hex(sha256(utf8(`retry:<id>`))). */
+/** The id a re-placed call uses: hex(sha256(utf8(`retry:<id>`))). Refuses an `id` that is not a request_id. */
 export function derivedRequestId(id: string): string {
+  if (!isRequestId(id)) throw new CoreError('invalid_field', `${JSON.stringify(id)} is not a request_id`)
   return toHex(sha256(utf8(`retry:${id}`)))
 }
+
+const REQUEST_ID_METHODS = new Set(['cash_transfer', 'cash_consolidate', 'cash_withdraw', 'cash_order'])
+
+/** The methods that carry a request_id: those that create a bill or move value. */
+export const requiresRequestId = (method: string): boolean => REQUEST_ID_METHODS.has(method)

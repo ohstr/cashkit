@@ -1,7 +1,7 @@
 // One Hub's private transport: its announcement, packing, sending and reply
 // collection. Port of nmilat nipcash/client/{batch_session,batch_pack,
 // batch_send}.go.
-import { nip44 } from '../core/index.js'
+import { nip44, requiresRequestId } from '../core/index.js'
 import {
   decodeResponse,
   deriveReplyKey,
@@ -41,8 +41,6 @@ export function deadlineFor(h: number | undefined, now: number): number {
 }
 /** A call is not published with less than this left before its deadline (after its write-ahead). */
 export const MIN_PUBLISH_MARGIN = 20
-/** The methods that create a bill or move value under a request_id: never sent to a Hub without a usable H. */
-const BILL_CREATING = new Set(['cash_transfer', 'cash_consolidate', 'cash_withdraw', 'cash_order'])
 /** How long a send waits for a relay to acknowledge the reply subscription. */
 export const SUBSCRIPTION_ACK_WAIT_MS = 2000
 
@@ -222,7 +220,7 @@ export class BatchSession {
    */
   async send(builders: readonly ItemBuilder[], o: SendOptions = {}): Promise<SendResult> {
     if (builders.length === 0) return { outcomes: [] }
-    if (!this.usableForBills && builders.some((b) => b.method !== undefined && BILL_CREATING.has(b.method))) {
+    if (!this.usableForBills && builders.some((b) => b.method !== undefined && requiresRequestId(b.method))) {
       throw new ClientError('hub_unusable', 'this hub announces no usable max_request_age, so no call that creates a bill may go to it')
     }
     const outcomes: ItemOutcome[] = []

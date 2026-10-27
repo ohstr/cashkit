@@ -1,14 +1,12 @@
 // request-id.json: request ids and the derived id of a re-placed call.
-// `requiresRequestId` has no exported cashkit function (the bill-creating
-// set lives unexported in client/session.ts) and is not covered here.
 import { describe, expect, test } from 'vitest'
-import { derivedRequestId, isRequestId } from '../../src/core/index.js'
+import { derivedRequestId, isRequestId, requiresRequestId } from '../../src/core/index.js'
 import { load, named, type Json } from './helpers.js'
 
 const v = load('request-id.json')
 
 // cashkit's derivedRequestId hashes any input; nmilat refuses one that is not a request_id.
-const MISMATCH = new Set(['XYZ'])
+const MISMATCH = new Set<string>()
 
 describe('request-id.json', () => {
   test.each(named(v.valid, (c) => c.id ?? JSON.stringify(c.input)))('valid: %s', (_: string, c: Json) => {
@@ -21,5 +19,8 @@ describe('request-id.json', () => {
   })
   test.skip.each(derived.filter(([n]) => MISMATCH.has(n)))('derived (mismatch): %s', (_: string, c: Json) => {
     expect(() => derivedRequestId(c.replaced)).toThrow()
+  })
+  test.each(named(v.requiresRequestId, (c) => c.method))('requiresRequestId: %s', (_: string, c: Json) => {
+    expect(requiresRequestId(c.method)).toBe(c.value)
   })
 })
