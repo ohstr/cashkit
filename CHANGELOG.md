@@ -302,6 +302,14 @@
   claim with it, reading the holder's row with `scope: all` (`ownScope`).
   A split's remainder and a cancelled withdrawal's re-mint stay bound to the
   same account. ([#37](https://github.com/ohstr/cashkit/pull/37))
+- Reads a Hub's `NOT_FOUND` to a connection-key holder's `cash_status`, which
+  NIP-CASH §Scoping the Roster requires, as "status not readable": the bill
+  is received unverified at its attested amount (`statusUnreadable`),
+  `status` reports it `unreadable`, `BillState` gains `unreadable` and
+  `checkClaim` throws `status_unreadable`; a redeem or withdrawal is refused
+  before anything is sent (`usage`/`status_unreadable`), a send still works,
+  and `settle()` never settles a redeeming bill on that answer. Adds
+  `statusUnreadable`.
 
 ## [0.1.0-rc.2]
 

@@ -398,9 +398,12 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
     `detail`); `tombstone`; `not_sent` for a local refusal; `open` for any
     other code, an omission, a conflict or an undecodable success, which is
     looked up and never resent.
-- **`BillState`** is `indeterminate` (the zero value), `available` or
-  `spent`. Only an explicit `"spent"` answer produces `spent`; a timeout
-  never does.
+- **`BillState`** is `indeterminate` (the zero value), `available`,
+  `spent` or `unreadable`. Only an explicit `"spent"` answer produces
+  `spent`; a timeout never does. `unreadable` is a connection-key holder
+  answered `NOT_FOUND` (`statusUnreadable`), which a spec Hub always does
+  (NIP-CASH §Scoping the Roster); `checkClaim` throws `status_unreadable`
+  for it instead of `claim_not_found`.
 - **No composite flows.** A send from several bills or a protect that
   merges is a wallet operation whose every step is its own call; the client
   only places single calls. `cashTransfer`, `cashConsolidate` and every
@@ -804,7 +807,7 @@ prompts.
 ```ts
 receive(input: string, o?: { protect?: boolean /* default settings.autoProtect */; attestation?: NostrEvent | string }): Promise<ReceiveResult>
 type ReceiveResult =
-  | { received: true; holding: HoldingView; secured: { status: 'not_applicable' | 'declined' | 'failed' | 'rekeyed'; unresolved?: boolean; likelyWrongSecret?: boolean } }
+  | { received: true; holding: HoldingView; secured: { status: 'not_applicable' | 'declined' | 'failed' | 'rekeyed'; unresolved?: boolean; likelyWrongSecret?: boolean }; statusUnreadable?: true }
   | { received: false; reason: 'no_embedded_secret'; report: TokenReport }
 ```
 
@@ -836,7 +839,22 @@ and `evidence.user_id` (canonical on a canonical platform), its `p` this
 wallet's pubkey, and it must carry an unpassed `expiration`
 (`auth`/`attestation_invalid` otherwise). A Hub answers `mine` for the
 item-proof signer, never a ConnectionKey, so the holder reads `scope: all`
-and takes the row with its key and IA. The holding keeps the attestation:
+and takes the row with its key and IA. A spec Hub answers that read
+`NOT_FOUND` too (§Scoping the Roster, SG-1 (a)), which cashkit reads as
+"status not readable", never as spent or not this holder's:
+
+- receive holds the bill `verified: false` at the amount its verified mint
+  signature attests, and returns `statusUnreadable: true`;
+- `status` reports it `state: 'unreadable'` and changes nothing;
+- a redeem, a withdrawal quote and `withdraw.terms` are refused before
+  anything is sent (`usage`/`status_unreadable`), since each needs the row;
+- a send works from the attested amount (a wrong figure or account is the
+  Hub's refusal, never a loss), and sending the whole bill to the wallet's
+  own pubkey gives a bill whose status reads;
+- `settle()` never marks a `redeeming` holding redeemed, released or spent
+  on an unreadable status.
+
+The holding keeps the attestation:
 every claim on the slice (send, redeem, withdraw) names it, a split's
 remainder and a cancelled withdrawal's re-mint stay bound to the same
 account, and a holding without it cannot be spent
