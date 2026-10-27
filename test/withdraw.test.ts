@@ -207,4 +207,19 @@ describe('wallet.withdraw: checks against what was confirmed', () => {
     })
     expect(await failure(h.wallet.withdraw.quote(id, PAYTO))).toMatchObject({ code: 'conflict', reason: 'mid_merge' })
   })
+  test('a payout naming another address or payout than the quote is not applied, even with a tx that pays it', async () => {
+    const { h, hub, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const p = hub.only() as { address: string; payout: bigint } & ReturnType<typeof hub.only>
+    const other = 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3'
+    p.address = other
+    hub.broadcast(p, payoutTx(other, p.payout / 1000n))
+    const after = await h.wallet.withdraw.refresh(v.id)
+    expect(after).toMatchObject({ phase: 'accepted', state: 'queued', address: PAYTO })
+    expect(after.txCheck).toBeUndefined()
+    p.address = PAYTO
+    p.payout -= 1000n
+    hub.broadcast(p, payoutTx(PAYTO, p.payout / 1000n))
+    expect((await h.wallet.withdraw.refresh(v.id)).txCheck).toBeUndefined()
+  })
 })

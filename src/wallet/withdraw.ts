@@ -347,7 +347,8 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
   let txCheck = prev.txCheck
   if (p.tx !== undefined && p.txid !== undefined && p.vout !== undefined) {
     try {
-      verifyPayoutTx(p.tx, p.txid, p.vout, p.address, '', p.payoutMillis)
+      const want = confirmedOf(call)
+      verifyPayoutTx(p.tx, p.txid, p.vout, want.address, '', want.payoutMillis)
       txCheck = 'ok'
     } catch {
       txCheck = 'mismatch'
@@ -400,12 +401,23 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
   return remintId !== undefined ? { holdingIds: [remintId] } : {}
 }
 
-/** Checks a payout's receipt against the call as written ahead; opens a re-minted bill's token. */
+/** The address, payout and send-by time the user confirmed, as written ahead. */
+const confirmedOf = (call: PendingCall) => ({ address: call.params?.['address'] ?? '', payoutMillis: BigInt(call.params?.['payout'] ?? '0'), sentBy: Number(call.params?.['sentBy'] ?? '0') })
+
+/**
+ * Checks a payout against the call as written ahead: its receipt, and its
+ * own address, payout, send-by time and amount, which must be the ones the
+ * user confirmed. Opens a re-minted bill's token.
+ */
 async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'reply' | 'lookup'): Promise<{ payout: Payout; remint?: { token: string } }> {
   const p = parsePayout(raw)
   if (from === 'reply' && p.state !== 'queued') throw new CoreError('invalid_payload', 'a new payout is queued')
   const q = parseWithdrawQuote(call.params?.['quote'] ?? '')
-  verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: q.id, requestId: call.requestId, address: call.params?.['address'] ?? '', payoutMillis: BigInt(call.params?.['payout'] ?? '0'), sentBy: Number(call.params?.['sentBy'] ?? '0') })
+  const want = confirmedOf(call)
+  verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: q.id, requestId: call.requestId, ...want })
+  if (p.address !== want.address || p.payoutMillis !== want.payoutMillis || p.sentBy !== want.sentBy || p.amountMillis !== call.amount) {
+    throw new CoreError('receipt_invalid', 'the payout does not match the quote the user confirmed')
+  }
   let remint: { token: string } | undefined
   if (p.state === 'cancelled' && typeof p.newWalletToken === 'string' && p.newWalletPubkey !== undefined) {
     const { credential } = await credentialOfCall(ctx, call)
