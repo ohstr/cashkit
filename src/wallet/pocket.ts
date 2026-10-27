@@ -279,7 +279,8 @@ const isFinalState = (s: string) => (FINAL_STATES as readonly string[]).includes
  * on-chain order (how another device reads late payments), a withdrawal's
  * `done` entry not yet rewritten without its address, quote and receipt,
  * any `done` entry with a `notify` this device cannot place, and the source
- * of a call still open.
+ * of a call still open: a local call's sources, and the `target` of every
+ * pending entry, whichever device placed it.
  */
 function keptPastPrune(e: PocketEntry, calls: readonly PendingCall[], openSources: ReadonlySet<string>): boolean {
   if (openSources.has(e.w)) return true
@@ -387,7 +388,7 @@ async function fillExpiry(ctx: Ctx, entries: ReadonlyMap<string, PocketEntry>, w
   return filled
 }
 
-/** Deletes the wraps of final entries checked more than 30 days ago (NIP-CP §Writing, Remove), with the exceptions of `keptPastPrune`. */
+/** Deletes the wraps of final entries checked more than 30 days ago (NIP-CP §Writing, Remove), with the exceptions of `keptPastPrune`; never a bill a pending entry names. */
 async function prune(ctx: Ctx, entries: ReadonlyMap<string, PocketEntry>, wraps: ReadonlyMap<string, StoredWrap[]>): Promise<string[]> {
   const now = ctx.nowSeconds()
   const calls = await ctx.read((t) => t.list('pendingCalls'))
@@ -399,6 +400,8 @@ async function prune(ctx: Ctx, entries: ReadonlyMap<string, PocketEntry>, wraps:
       if (h !== undefined) openSources.add(h.walletPubkey)
     }
   }
+  // A call another device placed (and may have lost its own store for) still needs its source's secret.
+  for (const e of entries.values()) if (e.state === 'pending' && e.target !== undefined) openSources.add(e.target)
   const pruned: string[] = []
   for (const e of entries.values()) {
     if (!isFinalState(e.state) || now - e.checkedAt <= POCKET_FINAL_KEEP_SECONDS) continue

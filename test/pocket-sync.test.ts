@@ -204,6 +204,16 @@ describe('removing final entries after 30 days', () => {
     const rep = await h.wallet.pocket.sync()
     expect(rep.pruned).toEqual(['b3'.repeat(16)])
   })
+  test("the source of a call another device placed and has not closed is kept, its secret included", async () => {
+    const ctx = ctxOf(h.wallet)
+    const identity = { type: 'cash' as const }
+    await writeEntry(ctx, { ...base, w: 'c1'.repeat(32), state: 'spent', cash: 'x', identity, secrets: [{ secret: '5e'.repeat(32), role: '' }], checkedAt: oldCheck() })
+    await writeEntry(ctx, { ...base, w: 'c2'.repeat(32), state: 'spent', cash: 'x', identity, checkedAt: oldCheck() })
+    await writeEntry(ctx, { ...base, w: 'c3'.repeat(16), requestId: 'c3'.repeat(16), state: 'pending', deadline: 1, target: 'c1'.repeat(32), device: '0f'.repeat(16) })
+    const rep = await h.wallet.pocket.sync()
+    expect(rep.pruned).toEqual(['c2'.repeat(32)])
+    expect((await h.wallet.pocket.entries()).map((e) => e.w)).toContain('c1'.repeat(32))
+  })
 })
 
 describe('a missing expires_at filled from cash_status', () => {
