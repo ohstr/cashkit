@@ -3,6 +3,7 @@
 import { decodeCashHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
 import type { CircleWalletClient, HubView } from '../client/index.js'
 import { mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
+import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
 import { type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
@@ -500,6 +501,18 @@ export class Wallet {
   }
 
   // ---- circles, lightning, connections, identity, settings (§6.7–§6.9)
+
+  /**
+   * Cash Zaps (NIP-CZ): send a zap as a zap transfer whose 9522 is published
+   * once its bill exists; list incoming zaps through rules 1–8 (shown as
+   * issued, never received); claim one after rule 9; approve a minter.
+   */
+  readonly zaps = {
+    send: (o: ZapInput): Promise<ZapSent> => this.ctx.spend(() => sendZap(this.ctx, o)),
+    list: (o: { relays: readonly string[]; connectionKeys?: readonly string[] }): Promise<ZapView[]> => listZaps(this.ctx, o),
+    claim: (event: NostrEvent): Promise<HoldingView> => this.ctx.spend(async () => holdingView(await claimZap(this.ctx, event), this.ctx.nowSeconds())),
+    approveMinter: (minter: string, chain: string): Promise<{ readonly networkUnverifiable: true }> => approveMinter(this.ctx, minter, chain),
+  }
 
   /**
    * On-chain withdrawals (NIP-CASH §Redeeming On-chain): quote a bill's

@@ -51,6 +51,8 @@ export interface CallKind {
    * when the transaction applying it fails (the call stays written ahead).
    */
   recovery?(ctx: Ctx, call: PendingCall, result: unknown): Promise<readonly string[]>
+  /** Runs once the result is saved (e.g. publishing a zap's 9522); failures are left for the next settle. */
+  afterApply?(ctx: Ctx, callId: string): Promise<void>
   /** Whether `unknown` re-places it automatically (`cash_transfer`, `cash_consolidate`) or asks the user first. */
   readonly autoReplace: boolean
 }
@@ -95,20 +97,21 @@ async function close(ctx: Ctx, id: string, outcome: Parameters<typeof finishCall
 async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: 'reply' | 'lookup'): Promise<CallCreated> {
   const kind = kindOf(call)
   const writes = await kind.finish(ctx, call, result, from)
+  let created: CallCreated
   try {
-    return await ctx.commit(async (t) => {
+    created = await ctx.commit(async (t) => {
       const cur = await t.get('pendingCalls', call.id)
       if (cur === undefined || cur.state === 'done') return cur?.created ?? {}
-      const created = (await writes(t)) ?? {}
+      const made = (await writes(t)) ?? {}
       // A kind may keep its call open past the reply (an order until it is finished): its writes set that state.
       const after = await t.get('pendingCalls', call.id)
       if (after?.state === 'open_order' || after?.state === 'open_withdraw') {
-        await t.put('pendingCalls', { ...after, created, version: after.version + 1 }, after.version)
-        return created
+        await t.put('pendingCalls', { ...after, created: made, version: after.version + 1 }, after.version)
+        return made
       }
       const done = await finishCall(t, call.id, 'applied')
-      await t.put('pendingCalls', { ...done, created, version: done.version + 1 }, done.version)
-      return created
+      await t.put('pendingCalls', { ...done, created: made, version: done.version + 1 }, done.version)
+      return made
     })
   } catch (err) {
     if (from !== 'reply' || err instanceof CashkitError) throw err
@@ -119,6 +122,8 @@ async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: '
       ...(notes.length > 0 && { recovery: `Save these cash notes until settle() has run:\n${notes.join('\n')}`, recoveryHandoffs: notes }),
     })
   }
+  await kind.afterApply?.(ctx, call.id).catch(() => undefined)
+  return created
 }
 
 /** A tombstone for the call's source: the bill is gone, so the call never ran. */

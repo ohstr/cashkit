@@ -2,7 +2,7 @@
 // nmilat's encodeTLVs build them, so malformed inputs can be produced.
 import { bech32Encode, toWords } from '../src/core/bech32.js'
 import { concatBytes, utf8 } from '../src/core/bytes.js'
-import { encodeCashHubConnection, encodeCircleHubConnection, encodeOrderConnection, getPublicKey, signCashHubConnection, signCircleHubConnection, signOrderConnection, encodeToken, mintPayloadV1, relayHashOf, signCompact, signedMessageDigest, type TokenFields } from '../src/core/index.js'
+import { zapPayloadV1, zapTargetHash, encodeCashHubConnection, encodeCircleHubConnection, encodeOrderConnection, getPublicKey, signCashHubConnection, signCircleHubConnection, signOrderConnection, encodeToken, mintPayloadV1, relayHashOf, signCompact, signedMessageDigest, type TokenFields } from '../src/core/index.js'
 
 export type RawTLV = [type: number, value: Uint8Array | string]
 
@@ -54,6 +54,18 @@ export function signedToken(f: Omit<TokenFields, 'scheme' | 'mintSignature' | 'a
   const payload = mintPayloadV1({ hrp: f.hrp, walletPubkey: f.walletPubkey, amountMillis: amount, relayHash: relayHashOf(f.relays.map(utf8), f.secret) })
   const mintSignature = signCompact(signedMessageDigest(f.hrp, payload)!, key)
   return encodeToken({ ...rest, scheme: 'mint_v1', mintSignature, attestedAmountMillis: amount })
+}
+
+/** A scheme-2 (zap) token signed by `key` over its `cash-zap:v1` payload. */
+export function zapSignedToken(
+  f: Omit<TokenFields, 'scheme' | 'mintSignature' | 'attestedAmountMillis'> & { readonly amount: bigint },
+  zap: { recipient: string; sender: string; zapTarget: string; issuedAt: number; expiresAt: number },
+  key: Uint8Array,
+): string {
+  const { amount, ...rest } = f
+  const payload = zapPayloadV1({ hrp: f.hrp, walletPubkey: f.walletPubkey, amountMillis: amount, relayHash: relayHashOf(f.relays.map(utf8), f.secret), ...zap, targetHash: zapTargetHash(zap.zapTarget) })
+  const mintSignature = signCompact(signedMessageDigest(f.hrp, payload)!, key)
+  return encodeToken({ ...rest, scheme: 'zap_v1', mintSignature, attestedAmountMillis: amount })
 }
 
 /** The fixture Hub identity key for connection strings (private key 1, as the NIP examples). */

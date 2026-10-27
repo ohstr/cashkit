@@ -28,6 +28,8 @@ export type CoreErrorCode =
   | 'withdraw_fee_invalid'
   /** A payout transaction that does not pay what the receipt says. */
   | 'tx_mismatch'
+  /** A Cash Zap that fails a verification rule (NIP-CZ). */
+  | 'zap_invalid'
 
 /**
  * The error every `core` function throws for bad input. Messages name the

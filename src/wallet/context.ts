@@ -1,7 +1,7 @@
 // What every wallet operation shares: sealing, credentials, clients, commits
 // and events. Internal to the wallet layer.
 import { bySecret, bySigning, decodeToken, fromUtf8, localSigner, fromHex, utf8, verifyProvenance, toHex, type Credential, type Signer, type Token } from '../core/index.js'
-import { CashClient, type ClientDeps } from '../client/index.js'
+import { billFor, CashClient, type Bill, type ClientDeps } from '../client/index.js'
 import { CashkitError } from './errors.js'
 import { conflict } from './ledger.js'
 import type { Holding, Sealed, Settings } from './model.js'
@@ -99,7 +99,7 @@ export class Ctx {
     const row = await this.read((t) => t.get('settings', 'settings'))
     if (row === undefined) return DEFAULT_SETTINGS
     const { id: _id, version: _v, ...s } = row
-    return s
+    return { ...DEFAULT_SETTINGS, ...s }
   }
 
   // ---- secrets
@@ -169,6 +169,11 @@ export class Ctx {
     return new CashClient(this.clientDeps, token)
   }
 
+  /** The client for a holding: a zap bill's provenance needs its Cash Zap fields. */
+  clientFor(h: Pick<Holding, 'token' | 'zap'>): CashClient {
+    return new CashClient(this.clientDeps, h.token, h.zap)
+  }
+
   // ---- events
 
   newOpId(op: string): string {
@@ -204,6 +209,9 @@ export class Ctx {
 }
 
 /** Token facts every holding row carries. */
+/** A holding's bill, its zap fields included. */
+export const billOf = (h: Pick<Holding, 'token' | 'zap'>): Bill => billFor(decodeToken(h.token), h.zap)
+
 export function tokenFacts(token: string): { tok: Token; minterPubkey?: string; hubGroup: string } {
   const tok = decodeToken(token)
   const minter = verifyProvenance(tok)?.minter

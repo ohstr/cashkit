@@ -48,7 +48,7 @@ export async function quoteHolding(ctx: Ctx, h: Holding): Promise<{ holding: Hol
   const asPubkey = await ctx.claimPubkeyFor(h)
   let r
   try {
-    r = await ctx.client(h.token).checkClaim(cred, asPubkey)
+    r = await ctx.clientFor(h).checkClaim(cred, asPubkey)
   } catch (err) {
     if (err instanceof ClientError && err.code === 'spent') {
       await markSpent(ctx, h.id)

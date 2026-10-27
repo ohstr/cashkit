@@ -985,6 +985,37 @@ withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), 
   wording; payout states are results, never errors. Views never carry the
   request id, `notify`, the quote, the receipt or secrets.
 
+### 6.7c Cash Zaps
+
+```ts
+zaps.send({ to, amountMillis, target?: { e?, a?, k? }, content?, relays }): Promise<ZapSent>
+zaps.list({ relays, connectionKeys? }): Promise<ZapView[]>
+zaps.claim(event): Promise<HoldingView>
+zaps.approveMinter(minter, chain)
+```
+
+- `send` reads the recipient's 10522 (a pubkey `p`) and picks a pubkey bill
+  on an accepted chain covering the amount, a listed minter first, then the
+  longest life. It runs a zap transfer: `zap_target` is the `a` coordinate,
+  else the `e` id, and only for a pubkey `p` on an event. Once the bill
+  exists (from the reply, or from a lookup after a lost reply) its 9522 is
+  built from the bill's signed `issued_at`/`expires_at`, stored with the
+  call and published once, to the recipient's 10522 relays and the given
+  ones. A Hub that ignored `zap_target`, or a zap on no event, is valid and
+  never counted (`countable: false`).
+- `verifyCashZap` runs rules 1–8 in order and reports each; `countCashZaps`
+  totals only countable zaps (zap-signed, trusted minter, life at least
+  `settings.zapMinLifeSeconds` or never ending), once per token `w`, without
+  deleted ones.
+- `list` shows incoming zaps as `issued`, never received. `claim` needs
+  rules 1–6 and 8 (an unlisted minter only once approved), then rule 9: the
+  bill's own `cash_status` shows this wallet's slice unclaimed at the zap's
+  amount. The bill is kept with its zap fields (its provenance needs them:
+  every client for a holding is built with them) and the expiry its status
+  reports.
+- `approveMinter` trusts a minter for one chain; its network cannot be
+  verified from the token.
+
 ### 6.8 Lightning, connections, identity
 
 - `wallet.lightning(name?)` returns the NIP-47 calls against a registered

@@ -3,10 +3,10 @@
 // recordQuote. Bills batch by `nodeKey` (the verified minter, whose
 // announcement names the inbox), never by hubGroup (design §6.3).
 import { cashCommitment, decodeToken, isCashSecret, matchClaimAuto, isSpent, type CashStatusResult } from '../core/index.js'
-import { billFor, NotServedError, WalletError, type BatchStatus } from '../client/index.js'
+import { NotServedError, WalletError, type BatchStatus } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import { getHeld } from './bills.js'
-import type { Ctx } from './context.js'
+import { billOf, type Ctx } from './context.js'
 import { CashkitError, classifyReadError } from './errors.js'
 import { appendActivity, heldHoldings, updateHolding } from './ledger.js'
 import type { Holding } from './model.js'
@@ -47,7 +47,7 @@ export async function statusByNode(ctx: Ctx, hs: readonly Holding[]): Promise<Ma
     const items: BatchStatus[] = []
     for (const h of g) {
       try {
-        items.push({ id: h.id, bill: billFor(decodeToken(h.token)), credential: await ctx.credentialFor(h), scope: 'mine' })
+        items.push({ id: h.id, bill: billOf(h), credential: await ctx.credentialFor(h), scope: 'mine' })
       } catch (err) {
         out.set(h.id, { error: err instanceof CashkitError ? err : classifyReadError(err, h.id) })
       }
@@ -55,7 +55,7 @@ export async function statusByNode(ctx: Ctx, hs: readonly Holding[]): Promise<Ma
     if (items.length === 0) continue
     let r
     try {
-      r = await ctx.client(g[0]!.token).statusMany(items)
+      r = await ctx.clientFor(g[0]!).statusMany(items)
     } catch (err) {
       for (const it of items) out.set(it.id!, { error: classifyReadError(err, it.id) })
       continue

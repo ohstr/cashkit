@@ -19,7 +19,6 @@ import {
   classifyAddressAmong,
   CoreError,
   decodeLookupDone,
-  decodeToken,
   decryptDelivery,
   nearMatch,
   newCashTarget,
@@ -43,10 +42,10 @@ import {
   type WithdrawQuote,
   type WithdrawTerms,
 } from '../core/index.js'
-import { billFor, cancelWithdraw, deadlineFor, lookupWithdraw, placeWithdraw, quoteWithdraw, watchPayout, WalletError, type LookupAuthorizer } from '../client/index.js'
+import { cancelWithdraw, deadlineFor, lookupWithdraw, placeWithdraw, quoteWithdraw, watchPayout, WalletError, type LookupAuthorizer } from '../client/index.js'
 import { getHeld, lockedHoldings } from './bills.js'
 import { prepareCall, finishCall, type PlainOutput } from './calls.js'
-import { tokenFacts, type Ctx } from './context.js'
+import { billOf, tokenFacts, type Ctx } from './context.js'
 import { CashkitError, codeForNwc, fromWalletError } from './errors.js'
 import { addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { CallCreated, Holding, PendingCall, WithdrawalRecord } from './model.js'
@@ -153,7 +152,7 @@ async function sliceIdentity(ctx: Ctx, h: Holding): Promise<{ identityValue: str
 
 async function statusRow(ctx: Ctx, h: Holding) {
   const credential = await ctx.credentialFor(h)
-  const r = await ctx.client(h.token).statusMany([{ id: '1', bill: billFor(decodeToken(h.token)), credential, scope: 'mine' }])
+  const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope: 'mine' }])
   const o = r.outcomes[0]
   if (o?.state !== 'result' || o.value === undefined) throw new CashkitError('network', "the bill's Hub did not answer its status; try again", { input: h.id })
   const row = o.value.recipients[0]
@@ -215,8 +214,8 @@ export async function quoteWithdrawal(ctx: Ctx, holdingId: string, rawAddress: s
     throw new CashkitError('invalid_input', (err as Error).message, { reason: 'address_invalid', input: 'script_type_not_paid' })
   }
   const slice = await sliceIdentity(ctx, h)
-  const session = await ctx.client(h.token).session()
-  const out = await quoteWithdraw(session, ctx.clientDeps, { bill: billFor(decodeToken(h.token)), credential: slice.credential, params: cashWithdrawQuoteRequest({ address, ...(o.sendBefore !== undefined && { sendBefore: o.sendBefore }) }) })
+  const session = await ctx.clientFor(h).session()
+  const out = await quoteWithdraw(session, ctx.clientDeps, { bill: billOf(h), credential: slice.credential, params: cashWithdrawQuoteRequest({ address, ...(o.sendBefore !== undefined && { sendBefore: o.sendBefore }) }) })
   if (out?.state === 'error' && out.error !== undefined) throw refusal(out.error.code, out.error.message, (out.error as { detail?: unknown }).detail, 'quote')
   if (out?.state !== 'result') throw new CashkitError('network', 'the Hub did not answer the quote; nothing moved, ask again', { input: h.id })
   let r
@@ -272,7 +271,7 @@ export async function sendWithdrawal(ctx: Ctx, view: WithdrawQuoteView, o: { con
   const h = await getHeld(ctx, q.holding.id)
   if (h.expiresAt !== undefined && h.expiresAt - ctx.nowSeconds() <= 120) throw new CashkitError('invalid_input', 'this bill expires within two minutes: redeem it over Lightning', { reason: 'expiring' })
   if ((await lockedHoldings(ctx)).has(h.id)) throw new CashkitError('conflict', 'this bill is in a call that has not finished; settle() resolves it', { input: h.id })
-  const session = await ctx.client(h.token).session()
+  const session = await ctx.clientFor(h).session()
   if (!session.usableForBills) throw new CashkitError('internal', "this bill's Hub announces no usable max_request_age; nothing was sent", { reason: 'hub_unusable' })
   const slice = await sliceIdentity(ctx, h)
   const remint = slice.credential.kind === 'secret' ? newCashTarget(ctx.random) : undefined
@@ -419,7 +418,7 @@ const withdrawKind: CallKind = {
       ...(credential.kind === 'secret' && { sliceCommitment: cashCommitment(credential.secret) }),
       now: ctx.nowSeconds(),
     })
-    const outcome = await placeWithdraw(await ctx.client(holding.token).session(), ctx.clientDeps, { bill: billFor(decodeToken(holding.token)), credential, params, send: { notAfter: call.deadline, beforePublish } })
+    const outcome = await placeWithdraw(await ctx.clientFor(holding).session(), ctx.clientDeps, { bill: billOf(holding), credential, params, send: { notAfter: call.deadline, beforePublish } })
     return { outcome }
   },
   async finish(ctx, call, result, from) {
@@ -429,7 +428,7 @@ const withdrawKind: CallKind = {
   },
   async lookupTarget(ctx, call) {
     const { holding } = await credentialOfCall(ctx, call)
-    return { bill: billFor(decodeToken(holding.token)), authorizer: await lookupAuth(ctx, call, holding) }
+    return { bill: billOf(holding), authorizer: await lookupAuth(ctx, call, holding) }
   },
 }
 
@@ -446,7 +445,7 @@ export async function refreshWithdrawal(ctx: Ctx, id: string): Promise<Withdrawa
   const call = await withdrawalCall(ctx, id)
   if (call.state !== 'open_withdraw') return withdrawalView(call)
   const { holding } = await credentialOfCall(ctx, call)
-  const o = await lookupWithdraw(await ctx.client(holding.token).session(), ctx.clientDeps, { bill: billFor(decodeToken(holding.token)), requestId: call.requestId, deadline: call.deadline, authorizer: await lookupAuth(ctx, call, holding) }).catch(() => undefined)
+  const o = await lookupWithdraw(await ctx.clientFor(holding).session(), ctx.clientDeps, { bill: billOf(holding), requestId: call.requestId, deadline: call.deadline, authorizer: await lookupAuth(ctx, call, holding) }).catch(() => undefined)
   const v = o?.state === 'result' ? o.value : undefined
   if (v?.status === 'done') {
     const checked = await checkPayout(ctx, call, decodeLookupDone(v.result).result, 'lookup').catch(() => undefined)
@@ -467,8 +466,8 @@ export async function cancelWithdrawal(ctx: Ctx, id: string): Promise<Withdrawal
   const { holding } = await credentialOfCall(ctx, call)
   const auth = await lookupAuth(ctx, call, holding)
   const credential: Credential = auth.kind === 'signer' ? bySigning(auth.signer) : bySecret((auth as { cashSecret: string }).cashSecret)
-  const out = await cancelWithdraw(await ctx.client(holding.token).session(), ctx.clientDeps, {
-    bill: billFor(decodeToken(holding.token)),
+  const out = await cancelWithdraw(await ctx.clientFor(holding).session(), ctx.clientDeps, {
+    bill: billOf(holding),
     credential,
     params: cashWithdrawCancelRequest({ requestId: call.requestId, ...(credential.kind === 'secret' && { cashSecret: credential.secret }) }),
   }).catch((err: unknown) => {

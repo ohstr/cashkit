@@ -21,9 +21,9 @@ import {
   type Target,
   decodeToken,
 } from '../core/index.js'
-import { billFor, consolidateMany, deadlineFor, transferMany, type LookupAuthorizer } from '../client/index.js'
+import { consolidateMany, deadlineFor, transferMany, type LookupAuthorizer } from '../client/index.js'
 import { prepareCall, type PlainAuthorizer, type PlainOutput } from './calls.js'
-import { tokenFacts, type Ctx } from './context.js'
+import { billOf, tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
 import { addHandoff, addHolding, appendActivity, updateHolding } from './ledger.js'
 import type { CallCreated, CallOutput, Holding, PendingCall, Sealed } from './model.js'
@@ -148,6 +148,8 @@ export interface TransferInput {
   readonly zapTarget?: string
   /** The recipient as shown in activity and handoffs. */
   readonly display?: string
+  /** A Cash Zap: what its 9522 needs once the bill exists (published by `afterApply`). */
+  readonly zap?: string
 }
 
 /** A remainder kept by this wallet, under a fresh secret for a cash source, else the source's own key. */
@@ -168,7 +170,7 @@ async function remainderOf(ctx: Ctx, h: Holding): Promise<PlainOutput['destinati
 export async function runTransfer(ctx: Ctx, x: TransferInput): Promise<CallCreated> {
   const h = x.source
   if (h.amount === undefined) throw new CashkitError('invalid_input', 'this holding has no known amount to move', { input: h.id })
-  const session = await ctx.client(h.token).session()
+  const session = await ctx.clientFor(h).session()
   if (!session.usableForBills) throw new CashkitError('internal', "this bill's Hub announces no usable max_request_age, so no call that creates a bill may go to it; nothing was sent", { input: h.id })
   const partial = x.split !== undefined && x.split < h.amount
   const outputs: PlainOutput[] = [{ role: 'new', destination: x.destination }]
@@ -195,19 +197,29 @@ export async function runTransfer(ctx: Ctx, x: TransferInput): Promise<CallCreat
       ...(partial && { split: x.split!.toString() }),
       ...(x.zapTarget !== undefined && { zapTarget: x.zapTarget }),
       ...(x.display !== undefined && { display: x.display }),
+      ...(x.zap !== undefined && { zap: x.zap }),
     },
   })
   return executeCall(ctx, call)
 }
 
+/** Publishes a zap's 9522 once its bill exists; set by the zap module. */
+let zapPublisher: ((ctx: Ctx, callId: string) => Promise<void>) | undefined
+export const setZapPublisher = (f: (ctx: Ctx, callId: string) => Promise<void>): void => {
+  zapPublisher = f
+}
+
 const transferKind: CallKind = {
+  async afterApply(ctx, callId) {
+    if (zapPublisher !== undefined) await zapPublisher(ctx, callId)
+  },
   autoReplace: true,
   async place(ctx, call, beforePublish) {
     const h = await holding(ctx, call.sources[0]!)
     const p = call.params ?? {}
     const rem = output(call, 'remainder')
     const remainderCommitment = rem?.destination.kind === 'cash' && h.mode === 'cash' && call.authorizer.kind === 'cash' ? cashCommitment(await ctx.open(rem.destination.secret)) : undefined
-    const c = ctx.client(h.token)
+    const c = ctx.clientFor(h)
     const r = await transferMany(
       await c.session(),
       [
@@ -245,7 +257,7 @@ const transferKind: CallKind = {
   },
   async lookupTarget(ctx, call) {
     const h = await holding(ctx, call.sources[0]!)
-    return { bill: billFor(decodeToken(h.token)), authorizer: await lookupAuthorizerOf(ctx, call, h) }
+    return { bill: billOf(h), authorizer: await lookupAuthorizerOf(ctx, call, h) }
   },
 }
 
@@ -270,7 +282,7 @@ async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashT
     return { movedHoldingId: moved.id }
   }
   await updateHolding(t, src.id, (h) => ({ ...h, status: 'transferred' }))
-  const created: { holdingIds: string[]; handoffId?: string } = { holdingIds: [] }
+  const created: { holdingIds: string[]; handoffId?: string; zap?: { issuedAt: number; expiresAt: number } } = { holdingIds: [], ...(r.issuedAt !== undefined && { zap: { issuedAt: r.issuedAt, expiresAt: r.zapExpiresAt ?? 0 } }) }
   if (keep === 'handoff' && ho !== undefined) {
     const row = await addHandoff(t, { kind: ho.isCash ? 'cash_note' : 'gift', handoff: ho.sealed, amount: call.amount, target: p['display'] ?? '', walletPubkey: ho.wallet }, { now, random: ctx.random })
     created.handoffId = row.id
@@ -322,7 +334,7 @@ export interface ConsolidateInput {
 /** Runs one `cash_consolidate` (target `sources[0]`) as a pending call. */
 export async function runConsolidate(ctx: Ctx, x: ConsolidateInput): Promise<CallCreated> {
   const first = x.sources[0]!
-  const session = await ctx.client(first.token).session()
+  const session = await ctx.clientFor(first).session()
   if (!session.usableForBills) throw new CashkitError('internal', "this bill's Hub announces no usable max_request_age, so no call that creates a bill may go to it; nothing was sent", { input: first.id })
   let amount = 0n
   for (const h of x.sources) amount += h.amount ?? 0n
@@ -362,8 +374,8 @@ const consolidateKind: CallKind = {
     const { holdings, sources } = await consolidateSources(ctx, call)
     const first = holdings[0]!
     const r = await consolidateMany(
-      await ctx.client(first.token).session(),
-      [{ id: '1', bill: billFor(decodeToken(first.token)), credential: sources[0]!.credential, sources, to: targetOf(call), requestId: call.requestId }],
+      await ctx.clientFor(first).session(),
+      [{ id: '1', bill: billOf(first), credential: sources[0]!.credential, sources, to: targetOf(call), requestId: call.requestId }],
       () => ctx.nowSeconds(),
       { notAfter: call.deadline, beforePublish },
     )
@@ -383,7 +395,7 @@ const consolidateKind: CallKind = {
   recovery: (ctx, call, result) => cashNotes(ctx, call, [['new', (result as CashConsolidateResult).newWalletToken]]),
   async lookupTarget(ctx, call) {
     const h = await holding(ctx, call.sources[0]!)
-    return { bill: billFor(decodeToken(h.token)), authorizer: await lookupAuthorizerOf(ctx, call, h) }
+    return { bill: billOf(h), authorizer: await lookupAuthorizerOf(ctx, call, h) }
   },
 }
 

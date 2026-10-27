@@ -1,7 +1,7 @@
 // An in-memory relay pool and a Hub that serves the private transport over
 // it, with failure injection (design §11.2). Test support only.
 import { finalizeEvent, getPublicKey, powDifficulty, toHex, type NostrEvent } from '../src/core/index.js'
-import { signedToken } from './helpers.js'
+import { signedToken, zapSignedToken } from './helpers.js'
 import type { Filter, RelayPool, SubscriptionHandlers } from '../src/client/index.js'
 import {
   checkFreshness,
@@ -317,9 +317,14 @@ export class FakeHub {
     relays?: readonly string[]
     hubGroup?: Uint8Array
     identityRequired?: boolean
+    /** Signs a zap bill (`cash-zap:v1`) instead of a mint one. */
+    zap?: { recipient: string; sender: string; zapTarget: string; issuedAt: number; expiresAt: number }
   }): string {
     const wallet = getPublicKey(p.walletKey)
     this.bills.set(wallet, getPublicKey(p.connSecret))
+    if (p.zap !== undefined) {
+      return zapSignedToken({ hrp: 'lokicash', walletPubkey: wallet, secret: toHex(p.connSecret), relays: p.relays ?? this.relayUrls, amount: p.amount, ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }), identityRequired: true }, p.zap, this.nodeKey)
+    }
     return signedToken(
       {
         hrp: 'lokicash',

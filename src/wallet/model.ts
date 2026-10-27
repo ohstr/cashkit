@@ -51,6 +51,8 @@ export interface Holding {
   readonly origin?: HoldingOrigin
   /** Minted for this wallet's orders, or made only from such bills (local; never from the wire). */
   readonly ordered?: boolean
+  /** A zap bill's Cash Zap fields (NIP-CZ): its provenance, and so its Hub, is recovered only with them. */
+  readonly zap?: { readonly recipient: string; readonly sender: string; readonly zapTarget: string; readonly issuedAt: number; readonly expiresAt: number }
   /** Kept out of every merge the wallet plans (local; set by the user). */
   readonly excludeFromMerge?: boolean
   /** `min_transfer_millis` as `cash_status` last reported it: bills merge only with bills of the same figure. */
@@ -197,11 +199,17 @@ export interface PendingJoin {
 export interface Settings {
   readonly autoProtect: boolean
   readonly allowAutoConsolidate: boolean
+  /** Minters the user approved, each for one chain (NIP-CZ rule 8). */
+  readonly trustedMinters: readonly { readonly minter: string; readonly chain: string }[]
+  /** The least life a Cash Zap needs to be totalled (NIP-CZ §Counting). */
+  readonly zapMinLifeSeconds: number
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   autoProtect: true,
   allowAutoConsolidate: true,
+  trustedMinters: [],
+  zapMinLifeSeconds: 2_592_000,
 }
 
 export interface SettingsRow extends Settings {
@@ -251,6 +259,8 @@ export interface CallCreated {
   readonly handoffId?: string
   /** The holding a call moved in place (protect, a move onto a merge key). */
   readonly movedHoldingId?: string
+  /** A zap transfer's bill: its signed `issued_at` and `expires_at` (absent when the Hub ignored `zap_target`). */
+  readonly zap?: { readonly issuedAt: number; readonly expiresAt: number }
 }
 
 /** An order as the wallet last read it (NIP-CO §Response), and what the wallet learned about it. */
@@ -347,6 +357,8 @@ export interface PendingCall {
   readonly created?: CallCreated
   /** A `cash_order` call: the order as last read (no secret, no `notify`, no request id). */
   readonly order?: OrderRecord
+  /** A zap transfer: the signed kind-9522 event, once built and published. */
+  readonly zapEvent?: string
   /** A `cash_withdraw` call: the payout as last read; the address, receipt and transaction only until it ends. */
   readonly withdrawal?: WithdrawalRecord
   /** ms epoch. */

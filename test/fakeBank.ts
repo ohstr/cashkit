@@ -218,6 +218,35 @@ export class FakeBank {
     const split = p['amount_millis'] === undefined ? undefined : BigInt(p['amount_millis'] as number)
     if (split !== undefined && (split <= 0n || split > w.amount)) return { error: { code: 'BAD_REQUEST', message: 'amount_millis out of range' } }
     const partial = split !== undefined && split < w.amount
+    const zt = p['zap_target']
+    if (zt !== undefined) {
+      // A zap: only from a pubkey slice to a pubkey; always a new bill with a zap signature.
+      if (typeof zt !== 'string' || zt === '' || caller.type !== 'pubkey' || to.type !== 'pubkey') return { error: { code: 'BAD_REQUEST', message: 'zap_target needs a pubkey slice and a pubkey recipient' } }
+      const amt = split ?? w.amount
+      const issuedAt = this.now()
+      const expiresAt = w.expiresAt ?? 0
+      w.spent = true
+      const walletKey = nextKey()
+      const connSecret = nextKey()
+      const token = this.hub.mintBill({ walletKey, connSecret, amount: amt, hubGroup: this.hubGroup, zap: { recipient: to.value, sender: caller.value, zapTarget: zt, issuedAt, expiresAt } })
+      const zw: BankWallet = { walletKey, walletPubkey: getPublicKey(walletKey), connSecret, token, identity: to, amount: amt, history: 1, spent: false, ...(w.expiresAt !== undefined && { expiresAt: w.expiresAt }) }
+      this.wallets.set(zw.walletPubkey, zw)
+      const rest = partial ? this.spinOff(w.amount - amt, caller, w.expiresAt) : undefined
+      return {
+        result: {
+          amount_millis: amt,
+          identity_type: to.type,
+          identity_value: to.value,
+          ...(rest !== undefined && { remaining_amount_millis: w.amount - amt }),
+          new_wallet_pubkey: zw.walletPubkey,
+          new_wallet_token: this.deliver(zw, caller),
+          remainder_wallet_pubkey: rest?.walletPubkey ?? '',
+          remainder_wallet_token: rest !== undefined ? this.deliver(rest, caller) : '',
+          issued_at: issuedAt,
+          expires_at: expiresAt,
+        },
+      }
+    }
     const rc = p['remainder_commitment']
     if (partial && caller.type === 'cash') {
       if (typeof rc !== 'string' || !/^[0-9a-f]{64}$/.test(rc) || rc === caller.value) return { error: { code: 'BAD_REQUEST', message: 'a split of a cash slice needs a fresh remainder_commitment' } }

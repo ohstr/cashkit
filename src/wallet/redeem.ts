@@ -2,12 +2,12 @@
 // runCashRedeem, resolveHeldTokensForRedeem, selectHeldTokensForRedeemAmount,
 // invoiceAmountOverride and makeRedeemInvoices, and cmd/redeem_private.go
 // redeemHubGroup, retryWithPendingSecrets and applyRedeemResults.
-import { decodeBolt11, decodeToken, type CashRedeemResult } from '../core/index.js'
-import { billFor, NotServedError, NwcClient, WalletError, type BatchRedeem } from '../client/index.js'
+import { decodeBolt11, type CashRedeemResult } from '../core/index.js'
+import { NotServedError, NwcClient, WalletError, type BatchRedeem } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import { getHeld, getHolding } from './bills.js'
 import { isLightning, nwcFor } from './circle.js'
-import type { Ctx } from './context.js'
+import { billOf, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, classifySpendError, fromWalletError } from './errors.js'
 import { appendActivity, heldHoldings, updateHolding } from './ledger.js'
 import type { Connection, Holding } from './model.js'
@@ -219,11 +219,11 @@ type Placed = { readonly kind: 'done'; readonly r: Ready; readonly value: CashRe
 async function placeRedeems(ctx: Ctx, group: readonly Ready[], invoiceAmount: bigint | undefined): Promise<Placed[]> {
   const items: BatchRedeem[] = []
   for (const r of group) {
-    items.push({ id: r.holding.id, bill: billFor(decodeToken(r.holding.token)), invoice: r.invoice, credential: await ctx.credentialFor(r.holding), ...(invoiceAmount !== undefined && { amount: invoiceAmount }) })
+    items.push({ id: r.holding.id, bill: billOf(r.holding), invoice: r.invoice, credential: await ctx.credentialFor(r.holding), ...(invoiceAmount !== undefined && { amount: invoiceAmount }) })
   }
   let res
   try {
-    res = await ctx.client(group[0]!.holding.token).redeemMany(items)
+    res = await ctx.clientFor(group[0]!.holding).redeemMany(items)
   } catch (err) {
     return group.map((r) => {
       const e = classifySpendError(err, 'redeem', [r.holding.id])

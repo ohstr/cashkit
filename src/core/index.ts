@@ -319,3 +319,4 @@ export {
   type Payment,
   type Tier,
 } from './nipco.js'
+export { cashZapTags, checkCashZapTags, countCashZaps, incomingZapFilter, isTrustedMinter, KIND_CASH_ZAP, KIND_CASH_ZAP_INFO, parseCashZapInfo, parseIdentityTag, sentZapFilters, verifyCashZap, zapFieldsFromEvent, type CashZapInfo, type CashZapTags, type CashZapVerdict } from './nipcz.js'
