@@ -51,6 +51,10 @@ export interface Holding {
   readonly origin?: HoldingOrigin
   /** Minted for this wallet's orders, or made only from such bills (local; never from the wire). */
   readonly ordered?: boolean
+  /** Kept out of every merge the wallet plans (local; set by the user). */
+  readonly excludeFromMerge?: boolean
+  /** `min_transfer_millis` as `cash_status` last reported it: bills merge only with bills of the same figure. */
+  readonly minTransfer?: bigint
   /** While `redeeming`: the invoice the Hub was asked to pay, where it was made, and when it expires. */
   readonly redeem?: { readonly invoice: string; readonly into: string; readonly invoiceExpiresAt?: number; readonly since: number }
   /** ms epoch. */

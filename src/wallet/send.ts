@@ -47,6 +47,8 @@ export interface SendPlan {
   readonly sources: readonly PlannedSource[]
   /** Several bills merge first; their Hub learns they share an owner. */
   readonly consolidateFirst: boolean
+  /** Set with `consolidateFirst`: the Hub learns that `sources` share an owner (NIP-CASH §Privacy Considerations). */
+  readonly disclosesCommonOwnership?: true
   /** The (merged) bill is split, and change comes back. */
   readonly split: boolean
   readonly earliestExpiry?: number
@@ -68,6 +70,16 @@ export interface SendResult {
 }
 
 export const selectable = (h: Holding): Selectable & Holding => ({ ...h, hasCashSecret: h.cashSecret !== undefined })
+
+/** Whether the amount could be covered if the bills kept out of merges were merged too. */
+function coverableWithExcluded(held: readonly Holding[], amount: bigint): boolean {
+  try {
+    selectForAmount(held.map((h) => ({ ...selectable(h), excludeFromMerge: false })), amount)
+    return true
+  } catch {
+    return false
+  }
+}
 
 /** Build a plan; reads only, and never moves value. */
 export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
@@ -98,6 +110,9 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
       try {
         plan = selectForAmount(held.map(selectable), o.amount)
       } catch (err) {
+        if ((err instanceof InsufficientFundsError || err instanceof FundsFragmentedError) && held.some((h) => h.excludeFromMerge === true) && coverableWithExcluded(held, o.amount)) {
+          throw new CashkitError('invalid_input', 'covering this amount would merge a bill you keep out of merges; nothing was changed', { reason: 'excluded_from_merge' })
+        }
         if (err instanceof InsufficientFundsError) throw new CashkitError('invalid_input', `not enough funds: you hold ${err.totalHeld} millis, need ${err.target} millis`)
         if (err instanceof FundsFragmentedError) throw new CashkitError('usage', err.message)
         throw err
@@ -136,6 +151,7 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
     amount,
     sources: group.map((h) => ({ holdingId: h.id, version: h.version, amount: h.amount! })),
     consolidateFirst: true,
+    disclosesCommonOwnership: true,
     split: amount < sum,
     ...(expiries.length > 0 && { earliestExpiry: Math.min(...expiries) }),
   }

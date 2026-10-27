@@ -1,8 +1,8 @@
 // Balance, activity and handoffs (design §6.5, §6.6). Port of cashctl
 // cmd/wallet_balance.go and cmd/handoffs.go (refreshHandoffs, checkHandoff,
 // maskedHandoff, outstandingCashNotes).
-import { bySecret, splitCashString } from '../core/index.js'
-import { ClientError, NwcClient, WalletError } from '../client/index.js'
+import { bySecret, cashCommitment, decodeToken, splitCashString } from '../core/index.js'
+import { billFor, NwcClient, WalletError } from '../client/index.js'
 import type { Ctx } from './context.js'
 import { CashkitError, classifyReadError, codeForNwc, fromWalletError } from './errors.js'
 import { heldHoldings } from './ledger.js'
@@ -116,14 +116,25 @@ export async function handoffView(ctx: Ctx, h: Handoff, includeSecrets: boolean)
 
 /** `checkHandoff`: what the note's Hub says now, or undefined when it can't tell. */
 async function checkNote(ctx: Ctx, note: string): Promise<HandoffStatus | undefined> {
+  // A cash note is read with its bearer credential, the secret never sent: the row alone says whether it was claimed.
   const { token, cashSecret } = splitCashString(note)
   if (cashSecret === '') return undefined
   try {
-    await ctx.client(token).checkClaim(bySecret(cashSecret), '')
-    return 'unclaimed'
-  } catch (err) {
-    if (err instanceof ClientError && (err.code === 'spent' || err.code === 'claim_not_found')) return 'claimed'
-    if (err instanceof WalletError && err.walletCode === 'EXPIRED') return 'expired'
+    const r = await ctx.client(token).statusMany([{ id: '1', bill: billFor(decodeToken(token)), credential: bySecret(cashSecret), scope: 'mine' }])
+    const o = r.outcomes[0]
+    if (o?.state === 'tombstone' || (o?.state === 'result' && o.tombstone !== undefined)) return 'claimed'
+    if (o?.state === 'result' && o.value !== undefined) {
+      if (o.value.tombstone !== undefined) return 'claimed'
+      const row = o.value.recipients[0]
+      if (row === undefined) return undefined
+      // Claimed, or moved to another identity: the note no longer pays its holder.
+      if (row.claimed || row.identity_type !== 'cash' || row.identity_value !== cashCommitment(cashSecret)) return 'claimed'
+      if (row.expires_at !== undefined && row.expires_at <= ctx.nowSeconds()) return 'expired'
+      return 'unclaimed'
+    }
+    if (o?.state === 'error' && o.error?.code === 'EXPIRED') return 'expired'
+    return undefined
+  } catch {
     return undefined
   }
 }

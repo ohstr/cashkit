@@ -20,6 +20,8 @@ export interface ConsolidateOutcome {
   readonly amount: bigint
   /** The merged holding, when it stays in this wallet. */
   readonly holding?: HoldingView
+  /** Always: the Hub learned that `from` share an owner (NIP-CASH §Privacy Considerations). */
+  readonly disclosesCommonOwnership: true
   readonly expiresAt?: number
   readonly targetResolved: string
 }
@@ -44,6 +46,10 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
   if (group.length < 2) throw new CashkitError('usage', `consolidate needs at least 2 sources, got ${group.length}`)
   // Bills of different Cash Hubs never merge; known only from their hub groups, so checked locally.
   if (new Set(group.map((h) => h.hubGroup).filter((g) => g !== '')).size > 1) throw crossHub(ids)
+  // Ordered bills never merge with others: the Hub refuses the mix, so it is refused here first.
+  if (new Set(group.map((h) => h.ordered === true)).size > 1) {
+    throw new CashkitError('invalid_input', 'bills minted for your orders never merge with other bills; nothing was changed', { reason: 'mixed_ordered', input: ids.join(',') })
+  }
   const now = ctx.nowSeconds()
   const expired = group.filter((h) => h.expiresAt !== undefined && h.expiresAt <= now)
   if (expired.length > 0 && expired.length < group.length) {
@@ -80,6 +86,7 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
       hubGroup: group[0]!.hubGroup,
       from: [...ids],
       amount: r.amount,
+      disclosesCommonOwnership: true,
       ...(r.holding !== undefined && { holding: holdingView(r.holding, ctx.nowSeconds()) }),
       ...(r.expiresAt !== undefined && { expiresAt: r.expiresAt }),
       targetResolved,
@@ -98,7 +105,7 @@ export async function consolidate(ctx: Ctx, o: { holdings?: readonly string[]; t
   return ctx.spend(async () => {
     const locked = await lockedHoldings(ctx)
     const held = (await ctx.read(heldHoldings)).filter((h) => !locked.has(h.id))
-    const groups = groupByHub(groupableForConsolidation(held.map(selectable)))
+    const groups = groupByHub(groupableForConsolidation(held.map(selectable), ctx.nowSeconds()))
     // oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy
     const alone = [...groups.values()].filter((g) => g.length === 1).map((g) => g[0]!.id).sort()
     if (o.holdings !== undefined) {

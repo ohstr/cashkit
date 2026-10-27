@@ -87,7 +87,7 @@ export async function quoteMany(ctx: Ctx, hs: readonly Holding[]): Promise<Map<s
   const st = await statusByNode(ctx, hs)
   const out = new Map<string, QuotedHolding | { error: CashkitError }>()
   const spent: string[] = []
-  const updates: { id: string; quote: Quote }[] = []
+  const updates: { id: string; quote: Quote; minTransfer: bigint }[] = []
   for (const h of hs) {
     const s = st.get(h.id)!
     if ('error' in s) {
@@ -112,7 +112,7 @@ export async function quoteMany(ctx: Ctx, hs: readonly Holding[]): Promise<Map<s
       out.set(h.id, { error: err as CashkitError })
       continue
     }
-    updates.push({ id: h.id, quote })
+    updates.push({ id: h.id, quote, minTransfer: full.min_transfer_millis })
   }
   const saved = await ctx.commit(async (t) => {
     const rows = new Map<string, Holding>()
@@ -125,7 +125,7 @@ export async function quoteMany(ctx: Ctx, hs: readonly Holding[]): Promise<Map<s
         u.id,
         await updateHolding(t, u.id, (x) => {
           const { expiresAt: _e, ...rest } = x
-          return { ...rest, amount: u.quote.amount, verified: true, ...(u.quote.expiresAt !== undefined && { expiresAt: u.quote.expiresAt }) }
+          return { ...rest, amount: u.quote.amount, verified: true, minTransfer: u.minTransfer, ...(u.quote.expiresAt !== undefined && { expiresAt: u.quote.expiresAt }) }
         }),
       )
     }

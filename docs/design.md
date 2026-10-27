@@ -800,9 +800,23 @@ protect(o?: { holdings?: string[] }): Promise<Report<ProtectOutcome>>
 status(o?: { holdings?: string[]; scope?: 'mine' | 'all' }): Promise<Report<StatusOutcome>>
 ```
 
-- **Consolidate with nothing named** auto-groups holdings by hub group and
-  merges every group of two or more. Holdings alone on their hub are
-  reported in `aloneOnTheirHub`.
+- **Consolidate with nothing named** auto-groups holdings by hub group
+  (never by minter) and, within it, keeps ordered bills apart from the rest
+  and groups by the `min_transfer_millis` last read from `cash_status`; it
+  merges every group of two or more. A bill past its expiry or kept out of
+  merges (`holdings.setExcludeFromMerge(id, on)`) is never auto-merged.
+  Holdings alone in their group are reported in `aloneOnTheirHub`.
+- **Naming** ordered and other bills together is `invalid_input` with
+  reason `mixed_ordered`, before anything is written.
+- **Common ownership.** Every consolidate outcome, and a send plan that
+  merges first, carries `disclosesCommonOwnership: true`: the Hub learns
+  that the merged bills share an owner. A send that could be covered only
+  by merging a bill kept out of merges is `invalid_input` with reason
+  `excluded_from_merge`.
+- **Handed-out cash notes** are re-checked with `cash_status` over their
+  bearer credential, the secret never sent: a claimed row, a row that moved
+  to another identity, or a tombstone ⇒ `claimed`; a row past its expiry or
+  `EXPIRED` ⇒ `expired`.
 - **Cash notes in a consolidate** move to a throwaway key first. The merged
   result is a fresh cash note, or a pubkey holding when the target is self.
 - **Protect** re-keys every `shared` holding when nothing is named.

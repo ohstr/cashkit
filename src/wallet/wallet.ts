@@ -10,8 +10,8 @@ import { consolidate, type ConsolidateReport } from './consolidate.js'
 import { Ctx, type OperationEvent } from './context.js'
 import { CashkitError } from './errors.js'
 import { activity, balance, listHandoffs, type ActivityItem, type Balance, type HandoffView } from './feed.js'
-import { newId } from './ledger.js'
-import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Connection, type ConnectionKind, type HandoffStatus, type Meta, type Settings } from './model.js'
+import { newId, updateHolding } from './ledger.js'
+import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Connection, type ConnectionKind, type HandoffStatus, type Holding, type Meta, type Settings } from './model.js'
 import type { WalletDeps } from './ports.js'
 import { executeRedeem, planRedeem, settleRedeeming, type RedeemingReport, type RedeemInput, type RedeemOutcome, type RedeemPlan } from './redeem.js'
 import { protectMany, receive, type ReceiveResult, type Secured } from './receive.js'
@@ -260,12 +260,31 @@ export class Wallet {
 
   // ---- holdings
 
-  async holdings(o: { includeSpent?: boolean } = {}): Promise<HoldingView[]> {
-    const now = this.ctx.nowSeconds()
-    const rows = await this.ctx.read((t) => t.list('holdings'))
-    const locked = await lockedHoldings(this.ctx)
-    return rows.filter((h) => o.includeSpent === true || h.status === 'held').map((h) => holdingView(h, now, locked.has(h.id)))
-  }
+  /**
+   * The held bills (`includeSpent` for every row). `holdings.setExcludeFromMerge(id, on)`
+   * keeps a bill out of every merge the wallet plans: merging tells the Hub
+   * that the bills share an owner.
+   */
+  readonly holdings: ((o?: { includeSpent?: boolean }) => Promise<HoldingView[]>) & { setExcludeFromMerge(id: string, on: boolean): Promise<HoldingView> } = Object.assign(
+    async (o: { includeSpent?: boolean } = {}): Promise<HoldingView[]> => {
+      const now = this.ctx.nowSeconds()
+      const rows = await this.ctx.read((t) => t.list('holdings'))
+      const locked = await lockedHoldings(this.ctx)
+      return rows.filter((h) => o.includeSpent === true || h.status === 'held').map((h) => holdingView(h, now, locked.has(h.id)))
+    },
+    {
+      setExcludeFromMerge: async (id: string, on: boolean): Promise<HoldingView> => {
+        const row = await this.ctx.commit(async (t) => {
+          if ((await t.get('holdings', id)) === undefined) throw new CashkitError('not_found', `no holding ${id}`, { input: id })
+          return updateHolding(t, id, (x) => {
+            const { excludeFromMerge: _x, ...rest } = x
+            return (on ? { ...rest, excludeFromMerge: true } : rest) as Holding
+          })
+        })
+        return holdingView(row, this.ctx.nowSeconds())
+      },
+    },
+  )
 
   /**
    * A holding's recovery string, `<token>` or `<token>#<secret>`

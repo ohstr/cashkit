@@ -23,6 +23,10 @@ export interface HoldingView {
   readonly midMerge: boolean
   /** An open pending call holds this bill (§5.1); `settle()` resolves it. */
   readonly unsettled: boolean
+  /** Kept out of every merge the wallet plans (`holdings.setExcludeFromMerge`). */
+  readonly excludeFromMerge: boolean
+  /** Minted for this wallet's orders: merges only with such bills, and never warns about expiry. */
+  readonly ordered: boolean
 }
 
 /** `locked`: an open call holds this bill (it is excluded from every plan until the call closes). */
@@ -43,6 +47,8 @@ export function holdingView(h: Holding, nowSeconds: number, locked = false): Hol
     addedAt: h.addedAt,
     midMerge: h.throwawayKey !== undefined,
     unsettled: locked,
+    excludeFromMerge: h.excludeFromMerge === true,
+    ordered: h.ordered === true,
   }
 }
 

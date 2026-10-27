@@ -11,6 +11,13 @@ export interface Selectable {
   readonly mode: 'pubkey' | 'cash' | 'connection_key'
   /** Cash mode: whether the secret is known. */
   readonly hasCashSecret: boolean
+  /** Minted for this wallet's orders (or made only from such bills): never merged with other bills. */
+  readonly ordered?: boolean
+  /** The user keeps this bill out of every merge. */
+  readonly excludeFromMerge?: boolean
+  /** `min_transfer_millis` last read: bills merge only with bills of the same figure. */
+  readonly minTransfer?: bigint
+  readonly expiresAt?: number
 }
 
 export type SelectionPlan<H extends Selectable> =
@@ -48,21 +55,31 @@ export function sumAmounts(hs: readonly Pick<Selectable, 'amount'>[]): bigint {
  * a connection key, and either pubkey mode or a cash note whose secret is
  * known (a merge first moves it onto a throwaway key).
  */
-export function groupableForConsolidation<H extends Selectable>(held: readonly H[]): H[] {
+export function groupableForConsolidation<H extends Selectable>(held: readonly H[], nowSeconds?: number): H[] {
   return held.filter((h) => {
     if (h.amount === undefined || h.hubGroup === '') return false
+    if (h.excludeFromMerge === true) return false
+    if (nowSeconds !== undefined && h.expiresAt !== undefined && h.expiresAt <= nowSeconds) return false
     if (h.mode === 'connection_key') return false
     if (h.mode === 'cash' && !h.hasCashSecret) return false
     return true
   })
 }
 
-/** Bills by hub-group key, skipping those without one. */
+/**
+ * The key bills merge under: the hub group, never the minter; within it,
+ * ordered bills apart from the rest, and by the `min_transfer_millis` last
+ * read (the Hub refuses a set whose terms differ).
+ */
+export const mergeKey = (h: Selectable): string => `${h.hubGroup}|${h.ordered === true ? 'ordered' : ''}|${h.minTransfer ?? ''}`
+
+/** Bills by merge key (`mergeKey`), skipping those without a hub group. */
 export function groupByHub<H extends Selectable>(hs: readonly H[]): Map<string, H[]> {
   const groups = new Map<string, H[]>()
   for (const h of hs) {
     if (h.hubGroup === '') continue
-    groups.set(h.hubGroup, [...(groups.get(h.hubGroup) ?? []), h])
+    const k = mergeKey(h)
+    groups.set(k, [...(groups.get(k) ?? []), h])
   }
   return groups
 }
