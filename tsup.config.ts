@@ -16,6 +16,7 @@ export default defineConfig({
     'adapters/relay-nostr-tools': 'src/adapters/relay-nostr-tools.ts',
     'adapters/signer-nip46': 'src/adapters/signer-nip46.ts',
     'adapters/signer-nip07': 'src/adapters/signer-nip07.ts',
+    'adapters/signer-unix': 'src/adapters/signer-unix.ts',
     'adapters/sync-broadcast': 'src/adapters/sync-broadcast.ts',
     'adapters/lock-weblocks': 'src/adapters/lock-weblocks.ts',
     'adapters/vault-device': 'src/adapters/vault-device.ts',
