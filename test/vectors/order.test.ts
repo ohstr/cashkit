@@ -38,9 +38,6 @@ const MISMATCH = new Set([
   'fee lightning 18446744073709551615',
   // cashkit's orderFee takes any payment string as Lightning; nmilat refuses "card".
   'fee card 1000',
-  // The vector's invoice "lnbc210220n1..." is a placeholder: cashkit's parseOrder decodes the invoice and requires it to be for exactly pay_millis.
-  'Lightning, open (reply)',
-  'Lightning, open (lookup)',
   // cashkit's parseOrder reads replies and lookups alike: it does not refuse a direct reply whose order is not open.
   'on-chain, minted (a lookup\'s done result) (reply)',
   'a minted bill already destroyed (reply)',
@@ -152,6 +149,11 @@ describe('order.json replies', () => {
     const run = () => parseOrder(raw, { request: { payment: c.payment, amount_millis: BigInt(raw.amount_millis ?? 0) }, hubIdentity, chain: 'bitcoin', network: 'mainnet' })
     if (c.error !== undefined) {
       expect(run).toThrow()
+      return
+    }
+    // The reply parses but its invoice is not for exactly pay_millis: cashkit's parseOrder refuses it outright.
+    if (c.invoiceCheck !== undefined) {
+      expect(run).toThrow(/invoice/)
       return
     }
     const o = run()

@@ -7,14 +7,14 @@ import { load, named, type Json } from './helpers.js'
 
 const file = load('nip44.json')
 const v = file.v2
-// The extended prefix lets cashkit encrypt these lengths, which the file lists
-// as invalid (and records as a divergence of nmilat from cashkit).
-const MISMATCH = new Set([65536, 100000, 10000000])
+// Upstream invalid rows the current NIP text overrides (the extended length
+// prefix makes them valid), by length.
+const superseded = new Set((file.superseded as string[]).map((s) => Number(/: (\d+) /.exec(s)![1])))
 
 describe('nip44.json', () => {
-  test('records what nmilat checks and where it diverges', () => {
+  test('records what nmilat checks and which upstream rows are superseded', () => {
     expect(file.checkedAgainstNmilat.length).toBeGreaterThan(0)
-    expect(file.nmilatDivergences).toHaveLength(3)
+    expect([...superseded]).toEqual([65536, 100000, 10000000])
   })
   test.each(named(v.valid.get_conversation_key, (_c, i) => String(i)))('conversation key %s', (_: string, c: Json) => {
     expect(toHex(nip44.getConversationKey(fromHex(c.sec1), c.pub2))).toBe(c.conversation_key)
@@ -35,8 +35,20 @@ describe('nip44.json', () => {
     expect(toHex(sha256(new TextEncoder().encode(payload)))).toBe(c.payload_sha256)
     expect(nip44.decrypt(payload, fromHex(c.conversation_key))).toBe(plaintext)
   })
-  test.each((v.invalid.encrypt_msg_lengths as number[]).filter((n) => !MISMATCH.has(n)))('refuses to encrypt %i bytes', (len: number) => {
+  test.each((v.invalid.encrypt_msg_lengths as number[]).filter((n) => !superseded.has(n)))('refuses to encrypt %i bytes', (len: number) => {
     expect(() => nip44.encrypt('a'.repeat(len), new Uint8Array(32).fill(1))).toThrow()
+  })
+  test.each([...superseded])('superseded: encrypts and decrypts %i bytes', (len: number) => {
+    const key = new Uint8Array(32).fill(1)
+    const plaintext = 'a'.repeat(len)
+    expect(nip44.decrypt(nip44.encrypt(plaintext, key), key)).toBe(plaintext)
+  })
+  test.each(named(file.extendedLengthPrefix, (c) => `${c.repeat} bytes`))('extended length prefix: %s', (_: string, c: Json) => {
+    const plaintext = c.pattern.repeat(c.repeat)
+    expect(toHex(sha256(new TextEncoder().encode(plaintext)))).toBe(c.plaintextSha256)
+    const payload = nip44.encrypt(plaintext, fromHex(c.conversationKey), fromHex(c.nonce))
+    expect(toHex(sha256(new TextEncoder().encode(payload)))).toBe(c.payloadSha256)
+    expect(nip44.decrypt(payload, fromHex(c.conversationKey))).toBe(plaintext)
   })
   test.each(named(v.invalid.decrypt, (c) => c.note))('refuses to decrypt: %s', (_: string, c: Json) => {
     expect(() => nip44.decrypt(c.payload, fromHex(c.conversation_key))).toThrow()
