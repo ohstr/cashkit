@@ -135,6 +135,8 @@ export function parseListing(ev: NostrEvent, o: { chains: readonly string[]; tes
   const type = types[0]!
   const hrps = all('hint').map((h) => h[1])
   if (new Set(hrps).size !== hrps.length) throw new ListingError(1, 'at most one hint per payment kind')
+  // A bech32 string is all lowercase or all uppercase; one that mixes the two is refused (BIP-173).
+  if (connectionRaw !== connectionRaw.toLowerCase() && connectionRaw !== connectionRaw.toUpperCase()) throw new ListingError(2, 'the connection string mixes upper and lower case')
   const connection = connectionRaw.toLowerCase()
   const want = type === 'cash_order' ? 'cashorder1' : 'circlehub1'
   if (!connection.startsWith(want)) throw new ListingError(2, `the connection is not a ${want} string`)

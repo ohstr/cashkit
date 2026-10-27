@@ -153,6 +153,15 @@ describe('wallet.discover', () => {
   })
 })
 
+describe('the listing’s connection string', () => {
+  test('all uppercase is read; mixed case is step 2', async () => {
+    const { bank, order } = await shop()
+    expect(parseListing(listingEvent(bank.hub.nodeKey, { d: order.pubkey, connection: order.string.toUpperCase() }), { chains: ['bitcoin'] }).type).toBe('cash_order')
+    const mixed = `C${order.string.slice(1)}`
+    expect(() => parseListing(listingEvent(bank.hub.nodeKey, { d: order.pubkey, connection: mixed }), { chains: ['bitcoin'] })).toThrow(expect.objectContaining({ step: 2 }))
+  })
+})
+
 describe('untrusted text', () => {
   test('C0 and C1 controls, DEL and directional marks are removed; breaks are one space', () => {
     expect(sanitizeText('a\u001b[31mred\u0007\u007f\u0090b', 0)).toBe('a[31mredb')
