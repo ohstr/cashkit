@@ -321,7 +321,7 @@ export interface SettleJoinsReport {
 }
 
 /**
- * Looks every pending join of this device up, by its connection key and
+ * Looks every sent pending join up, whichever device wrote it, by its connection key and
  * exact deadline, signed by the join's `pubkey`: `done` adds the wallet;
  * `pending` waits; `unknown` asks the member (they may join again, with a new
  * proof and key); `expired` is shown and never rejoined with that key; an
@@ -329,7 +329,8 @@ export interface SettleJoinsReport {
  * past the deadline plus 360 s, shown as unanswered.
  */
 export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
-  const joins = (await ctx.read((t) => t.list('pendingJoins'))).filter((j) => j.needsUser === undefined && j.device === ctx.deviceId)
+  // A lookup moves nothing, so joins written on another device (a restored backup) are looked up too.
+  const joins = (await ctx.read((t) => t.list('pendingJoins'))).filter((j) => j.needsUser === undefined)
   const joined: string[] = []
   const pending: string[] = []
   const needsUser: string[] = []
@@ -338,7 +339,8 @@ export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
   for (const pj of joins) {
     const now = ctx.nowSeconds()
     if (!pj.sent) {
-      await ctx.commit((t) => t.delete('pendingJoins', pj.id)).catch(() => undefined)
+      // Never sent: dropped, but only by the device that wrote it.
+      if (pj.device === ctx.deviceId) await ctx.commit((t) => t.delete('pendingJoins', pj.id)).catch(() => undefined)
       continue
     }
     if (signer === undefined || signer.pubkey !== pj.signerPubkey || (pj.lookup?.retryAfter !== undefined && now < pj.lookup.retryAfter)) {
@@ -365,9 +367,18 @@ export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
       o = undefined
     }
     const v = o?.state === 'result' ? o.value : undefined
+    let added = false
     if (v?.status === 'done') {
-      const d = await parseCreateCircleWalletResult(decodeLookupDone(v.result).result, { signer, hubPubkey: pj.hubPubkey, connectionPubkey: pj.id })
-      await addCircleWallet(ctx, pj, d, hub.connection.hubIdentity)
+      // One join's malformed or mismatching answer, or a failed save, never stops the others: it counts as an omission.
+      try {
+        const d = await parseCreateCircleWalletResult(decodeLookupDone(v.result).result, { signer, hubPubkey: pj.hubPubkey, connectionPubkey: pj.id })
+        await addCircleWallet(ctx, pj, d, hub.connection.hubIdentity)
+        added = true
+      } catch {
+        added = false
+      }
+    }
+    if (added) {
       joined.push(pj.id)
     } else if (v?.status === 'pending') {
       await set((x) => ({ ...x, lookup: { omissions: x.lookup?.omissions ?? 0, retryAfter: v.retryAfter } }))

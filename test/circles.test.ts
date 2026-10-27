@@ -114,6 +114,35 @@ describe('circles.join', () => {
   }, 20_000)
 })
 
+describe('settling joins', () => {
+  test('a join written on another device (a restored backup) is still looked up and added', async () => {
+    const { h, circle } = await setup()
+    circle.loseJoinReply = true
+    const x = await harness({ pool: h.pool, bank: h.bank, deps: { replyWaitMs: 300, nwcTimeoutMs: 2000 } })
+    await failure(x.wallet.circles.join(circle.string, terms))
+    circle.loseJoinReply = false
+    const pj = (await x.storage.tx('r', (t) => t.list('pendingJoins')))[0]!
+    await x.storage.tx('rw', (t) => t.put('pendingJoins', { ...pj, device: 'ff'.repeat(16), version: pj.version + 1 }, pj.version))
+    expect((await x.wallet.settle()).joins.joined).toEqual([pj.id])
+    expect((await x.wallet.circles.list()).map((c) => c.connectionPubkey)).toEqual([pj.id])
+  }, 20_000)
+  test('one join whose answer does not parse never stops the others', async () => {
+    const { h, circle: a } = await setup()
+    const b = new FakeCircle(h.bank, { rotationDelaySecs: 432000, label: 'Bea’s Circle' })
+    const x = await harness({ pool: h.pool, bank: h.bank, deps: { replyWaitMs: 300, nwcTimeoutMs: 2000 } })
+    a.loseJoinReply = true
+    b.loseJoinReply = true
+    await failure(x.wallet.circles.join(a.string, terms))
+    await failure(x.wallet.circles.join(b.string, terms))
+    for (const [k, r] of a.records) a.records.set(k, { ...r, result: { encrypted_details: 'not sealed' } })
+    const [pa, pb] = await x.storage.tx('r', (t) => t.list('pendingJoins'))
+    const rep = await x.wallet.settle()
+    expect(rep.joins.joined).toEqual([pb!.id])
+    expect(rep.joins.pending).toEqual([pa!.id])
+    expect((await x.storage.tx('r', (t) => t.get('pendingJoins', pa!.id)))?.lookup?.omissions).toBe(1)
+  }, 20_000)
+})
+
 describe('member requests, notifications, deletion', () => {
   test('a rotate stores the new key first and returns the signed request; rotation_completed switches to it', async () => {
     const { h, circle } = await setup()
