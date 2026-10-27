@@ -25,7 +25,19 @@ import type {
   ActivityItem,
   Balance,
   CashkitError,
+  CircleView,
+  ConfirmRequest,
   ConnectionView,
+  DiscoverOptions,
+  DiscoverView,
+  OrderView,
+  PendingCallView,
+  PocketSyncReport,
+  TapView,
+  WithdrawalView,
+  WithdrawQuoteView,
+  WithdrawTermsView,
+  ZapView,
   HandoffView,
   HoldingView,
   IdentityView,
@@ -269,3 +281,187 @@ export const useHandoffs = (o: { includeSecrets?: boolean } = {}): Query<Handoff
 export const useConnections = (): Query<ConnectionView[]> => useQuery((w) => w.connections.list())
 
 export const useIdentity = (): Query<IdentityView | undefined> => useQuery((w) => w.identity.get())
+
+// ---- confirmations
+
+/** One request the wallet raised, waiting for the user. */
+export interface PendingConfirmation {
+  /** Stable while the request is pending; for React keys. */
+  readonly key: number
+  readonly request: ConfirmRequest
+  /** Answers it: `true` goes ahead (questions); any answer dismisses a notice. */
+  readonly answer: (yes: boolean) => void
+}
+
+let confirmSeq = 0
+
+/**
+ * The wallet's confirmation requests as a queue the app renders and answers
+ * (it registers as the wallet's `confirm` handler while mounted). Questions
+ * left unanswered when the component unmounts are answered no.
+ */
+export function useConfirmations(): readonly PendingConfirmation[] {
+  const wallet = useWallet()
+  const [queue, setQueue] = useState<readonly PendingConfirmation[]>([])
+  useEffect(() => {
+    const open = new Map<number, (yes: boolean) => void>()
+    const off = wallet.on(
+      'confirm',
+      (request) =>
+        new Promise<boolean>((resolve) => {
+          const key = ++confirmSeq
+          const answer = (yes: boolean) => {
+            if (!open.delete(key)) return
+            setQueue((q) => q.filter((x) => x.key !== key))
+            resolve(yes)
+          }
+          open.set(key, answer)
+          setQueue((q) => [...q, { key, request, answer }])
+        }),
+    )
+    return () => {
+      off()
+      for (const a of open.values()) a(false)
+    }
+  }, [wallet])
+  return queue
+}
+
+// ---- calls in flight
+
+/** Calls in flight or waiting for the user, with the two answers a user can give. */
+export function usePendingCalls(): { calls: readonly PendingCallView[]; close: Action<[id: string], void>; confirmReplace: Action<[id: string], void> } {
+  return {
+    calls: useWalletState(selectPendingCalls),
+    close: useAction((w, id: string) => w.pendingCalls.close(id)),
+    confirmReplace: useAction((w, id: string) => w.pendingCalls.confirmReplace(id)),
+  }
+}
+const selectPendingCalls = (s: { pendingCalls: readonly PendingCallView[] }) => s.pendingCalls
+
+/**
+ * Calls whose outcome can no longer be learned. `secrets` lists their
+ * written-ahead roles; the secrets themselves only with `includeSecrets`.
+ */
+export function useUnreconciled(o: { includeSecrets?: boolean } = {}): { count: number; secrets: Query<{ pendingCallId: string; role: string; cashSecret?: string }[]> } {
+  return {
+    count: useWalletState(selectUnreconciled),
+    secrets: useQuery((w) => w.unreconciledSecrets(o), [o.includeSecrets]),
+  }
+}
+const selectUnreconciled = (s: { unreconciled: number }) => s.unreconciled
+
+// ---- circles, zaps, pocket
+
+/** A stored Circle Wallet: budget, rotation and frozen flags; undefined if none has that name. */
+export const useCircleWallet = (name: string): Query<CircleView | undefined> => useQuery(async (w) => (await w.circles.list()).find((c) => c.name === name), [name])
+
+export const useCircles = (): Query<CircleView[]> => useQuery((w) => w.circles.list())
+
+/** Cash Zaps to (and linked to) the user, read from `relays`. */
+export const useCashZaps = (o: { relays: readonly string[]; connectionKeys?: readonly string[] }): Query<ZapView[]> =>
+  useQuery((w) => w.zaps.list(o), [o.relays.join(' '), (o.connectionKeys ?? []).join(' ')])
+
+/** The Cash Pocket: sync it, with the last report (`pending`, `conflicts`). */
+export function usePocket(): { sync: Action<[], PocketSyncReport>; lastSync: PocketSyncReport | undefined } {
+  const sync = useAction((w) => w.pocket.sync())
+  return { sync, lastSync: sync.result }
+}
+
+// ---- orders
+
+export const useOrders = (): Query<OrderView[]> => useQuery((w) => w.orders.list())
+
+/** One order: state, invoice or address, `payBy` and bills; never its keys. */
+export const useOrder = (id: string): Query<OrderView> => useQuery((w) => w.orders.get(id), [id])
+
+// ---- withdrawals
+
+export const useWithdrawTerms = (holdingId: string): Query<WithdrawTermsView> => useQuery((w) => w.withdraw.terms(holdingId), [holdingId])
+
+/** What changed between two quotes for the same bill and address. */
+export interface QuoteChange {
+  readonly field: 'amountMillis' | 'feeMillis' | 'networkFeeMillis' | 'hubFeeMillis' | 'payoutMillis' | 'sentBy'
+  readonly before: bigint | number
+  readonly after: bigint | number
+}
+
+const QUOTE_FIELDS: readonly QuoteChange['field'][] = ['amountMillis', 'feeMillis', 'networkFeeMillis', 'hubFeeMillis', 'payoutMillis', 'sentBy']
+
+/** The figures that differ between two quotes. */
+export function quoteChanges(before: WithdrawQuoteView, after: WithdrawQuoteView): QuoteChange[] {
+  return QUOTE_FIELDS.flatMap((field) => (before[field] !== after[field] ? [{ field, before: before[field], after: after[field] }] : []))
+}
+
+/**
+ * Quote and re-quote a withdrawal. A re-quote for the same bill and address
+ * carries `quoteChanged`, the figures that moved; the user confirms the new
+ * figures before `withdraw.send`.
+ */
+export function useWithdrawQuote(): Action<[holdingId: string, address: string, o?: { sendBefore?: number }], WithdrawQuoteView> & { quoteChanged: readonly QuoteChange[] | undefined } {
+  const last = useRef<WithdrawQuoteView | undefined>(undefined)
+  const [changed, setChanged] = useState<readonly QuoteChange[] | undefined>(undefined)
+  const action = useAction(async (w, holdingId: string, address: string, o?: { sendBefore?: number }) => {
+    const q = await w.withdraw.quote(holdingId, address, o)
+    const prev = last.current
+    setChanged(prev !== undefined && prev.holdingId === q.holdingId && prev.address === q.address ? quoteChanges(prev, q) : undefined)
+    last.current = q
+    return q
+  })
+  return { ...action, quoteChanged: changed }
+}
+
+export const useWithdrawals = (): Query<WithdrawalView[]> => useQuery((w) => w.withdraw.list())
+
+/** One withdrawal: phase, payout, fee, depth, `sentBy`; the address only while it is open. */
+export const useWithdrawal = (id: string): Query<WithdrawalView> => useQuery((w) => w.withdraw.get(id), [id])
+
+// ---- discover
+
+/** The Discover sections as the wallet ranks them; `refresh` fetches listings (never contacting a Hub). */
+export function useDiscover(): { view: DiscoverView | undefined; refresh: Action<[o: DiscoverOptions], void> } {
+  const refresh = useAction((w, o: DiscoverOptions) => w.discover.refresh(o))
+  const q = useQuery((w) => Promise.resolve(w.discover.list()), [refresh.result, refresh.pending])
+  return { view: q.data, refresh }
+}
+
+/** How a tap is going: `slow` once it has taken 5 s. */
+export type TapState = 'idle' | 'checking' | 'slow' | 'available' | 'unavailable_for_now' | 'hidden'
+
+/** Taps one offer (an anonymous `get_info`), with its state for the card. */
+export function useTap(address: string): { tapState: TapState; view: TapView | undefined; error: CashkitError | Error | undefined; tap: () => Promise<TapView> } {
+  const wallet = useWallet()
+  const [s, setS] = useState<{ tapState: TapState; view: TapView | undefined; error: CashkitError | Error | undefined }>({ tapState: 'idle', view: undefined, error: undefined })
+  const seq = useRef(0)
+  useEffect(() => () => void seq.current++, [address])
+  const tap = useCallback(async () => {
+    const mine = ++seq.current
+    setS({ tapState: 'checking', view: undefined, error: undefined })
+    const slow = setTimeout(() => {
+      if (mine === seq.current) setS((x) => (x.tapState === 'checking' ? { ...x, tapState: 'slow' } : x))
+    }, 5000)
+    try {
+      const view = await wallet.discover.tap(address)
+      if (mine === seq.current) setS({ tapState: tapStateOf(view), view, error: undefined })
+      return view
+    } catch (err) {
+      if (mine === seq.current) setS({ tapState: 'unavailable_for_now', view: undefined, error: err as Error })
+      throw err
+    } finally {
+      clearTimeout(slow)
+    }
+  }, [wallet, address])
+  return { ...s, tap }
+}
+
+function tapStateOf(v: TapView): TapState {
+  if (v.outcome === 'show') return 'available'
+  if (v.outcome === 'unavailable') return 'unavailable_for_now'
+  return 'hidden'
+}
+
+/** The test-network banner for a Hub or offer, or undefined on mainnet. */
+export function useTestNetworkBanner(view: { readonly testNetwork: boolean; readonly network?: string } | undefined): string | undefined {
+  if (view === undefined || !view.testNetwork) return undefined
+  return view.network === undefined || view.network === '' ? 'This Hub does not say which network it runs on: treat its money as test money.' : `This Hub runs on ${view.network}, a test network: its money is not real.`
+}

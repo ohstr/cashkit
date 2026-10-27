@@ -51,21 +51,28 @@ describe('Confirmations', () => {
   })
 })
 
+async function withdrawSetup() {
+  const h = await harness()
+  const hub = new FakeWithdraw(h.bank)
+  const r = await h.wallet.receive(h.bank.mintToPubkey(21_000_000n, h.me).token)
+  return { h, hub, id: r.received ? r.holding.id : '' }
+}
+
+const terms = { maxAmount: 50_000n, maxReceive: 80_000n, budgetRenewal: 'monthly' as const }
+async function circleSetup(o: ConstructorParameters<typeof FakeCircle>[1] = { rotationDelaySecs: 432000 }) {
+  const h = await harness({ deps: { nwcTimeoutMs: 2000 } })
+  return { h, circle: new FakeCircle(h.bank, o) }
+}
+
 describe('withdrawals', () => {
-  async function setup() {
-    const h = await harness()
-    const hub = new FakeWithdraw(h.bank)
-    const r = await h.wallet.receive(h.bank.mintToPubkey(21_000_000n, h.me).token)
-    return { h, hub, id: r.received ? r.holding.id : '' }
-  }
   test('no handler: nothing is sent', async () => {
-    const { h, id } = await setup()
+    const { h, id } = await withdrawSetup()
     const q = await h.wallet.withdraw.quote(id, PAYTO)
     expect(await failure(h.wallet.withdraw.send(q))).toMatchObject({ reason: 'not_confirmed' })
     expect(await h.storage.tx('r', (t) => t.list('pendingCalls'))).toEqual([])
   })
   test('a handler saying no sends nothing; confirmWithdraw carries every figure, deliberate and irreversible', async () => {
-    const { h, id } = await setup()
+    const { h, id } = await withdrawSetup()
     const seen = recorder(h, false)
     const q = await h.wallet.withdraw.quote(id, PAYTO)
     expect(await failure(h.wallet.withdraw.send(q))).toMatchObject({ reason: 'not_confirmed' })
@@ -80,7 +87,7 @@ describe('withdrawals', () => {
     expect(typeof d.sentBy).toBe('number')
   })
   test('a handler saying yes sends it; a cancelled payout raises withdrawCancelled once', async () => {
-    const { h, hub, id } = await setup()
+    const { h, hub, id } = await withdrawSetup()
     const seen = recorder(h, true)
     const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO))
     expect(v.phase).toBe('accepted')
@@ -93,13 +100,8 @@ describe('withdrawals', () => {
 })
 
 describe('circles', () => {
-  const terms = { maxAmount: 50_000n, maxReceive: 80_000n, budgetRenewal: 'monthly' as const }
-  async function setup(o: ConstructorParameters<typeof FakeCircle>[1] = { rotationDelaySecs: 432000 }) {
-    const h = await harness({ deps: { nwcTimeoutMs: 2000 } })
-    return { h, circle: new FakeCircle(h.bank, o) }
-  }
   test('a Hub that cannot rotate: confirmNoRecovery with the Hub view; no handler refuses, yes joins', async () => {
-    const { h, circle } = await setup({})
+    const { h, circle } = await circleSetup({})
     expect(await failure(h.wallet.circles.join(circle.string, terms))).toMatchObject({ reason: 'no_recovery_unconfirmed' })
     const seen = recorder(h, true)
     const r = await h.wallet.circles.join(circle.string, terms)
@@ -107,7 +109,7 @@ describe('circles', () => {
     expect(seen[0]).toMatchObject({ type: 'confirmNoRecovery', view: { kind: 'circlehub', online: 'pass' } })
   })
   test('notices: an unexpected rotation and a freeze; delete asks with the dust', async () => {
-    const { h, circle } = await setup()
+    const { h, circle } = await circleSetup()
     const r = await h.wallet.circles.join(circle.string, terms)
     const seen = recorder(h, false)
     await h.wallet.circles.notify(r.name, { notification_type: 'rotation_pending', notification: { connection_pubkey: 'ab'.repeat(32), completes_at: 99 } })
