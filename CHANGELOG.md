@@ -261,6 +261,7 @@
   refused.
 - Adds `ownRow` (the caller's row, taken from the credential, a widened
   scope-mine answer refused) and `claimable` (claimed, withdrawn or expired).
+  ([#33](https://github.com/ohstr/cashkit/pull/33))
 
 ## [0.1.0-rc.2]
 
