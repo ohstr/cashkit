@@ -219,6 +219,10 @@
   answers, the client checks in the NIP's order, newest-only tracking with
   no fallback, and the live check against the node's LSPS answers.
   ([#28](https://github.com/ohstr/cashkit/pull/28))
+- The conformance vectors now come from nmilat's own vectors package (37
+  files), and every file has a suite; the cases where cashkit still differs
+  are listed and skipped.
+- Fixes reading `expires_at` from a mint's lookup result.
 
 ## [0.1.0-rc.2]
 
