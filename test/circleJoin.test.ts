@@ -10,6 +10,7 @@ import {
   connectionKeyFromSecret,
   CoreError,
   createCircleWalletRequest,
+  preparedJoinUsed,
   currentPeriod,
   getPublicKey,
   KIND_CIRCLE_IDENTITY_PROOF,
@@ -190,6 +191,13 @@ describe('the join item (private_join_test.go)', () => {
     const want = { target: HUB, hub: node, method: 'create_circle_wallet', paramsHash: paramsHash(item.params!), nonce: binding.nonce, notAfter: binding.notAfter }
     expect(verifyItemProof(item.proof!, want, now())).toBe(member.pubkey)
     expect(verifyBillProof(item.billProof!, want, now())).toBe(getPublicKey(hubSecret))
+  })
+  test('a prepared join builds one item only', async () => {
+    const j = await createCircleWalletRequest({ signer: member, connectionPubkey: key(0x31).pubkey, hubPubkey: HUB, terms, now: now() })
+    expect(preparedJoinUsed(j)).toBe(false)
+    await createCircleWalletItem('join', hubConn(), member, j, binding, now())
+    expect(preparedJoinUsed(j)).toBe(true)
+    await expect(createCircleWalletItem('again', hubConn(), member, j, binding, now())).rejects.toThrow(/already used/)
   })
   test('details sealed by the inbox key are undecodable', async () => {
     const pool = new MemoryRelayPool()

@@ -156,6 +156,8 @@ export {
   type JoinTerms,
   type MemberAction,
   type PreparedJoin,
+  claimPreparedJoin,
+  preparedJoinUsed,
   type Renewal,
 } from './nipcw.js'
 export {

@@ -1,6 +1,6 @@
 // create_circle_wallet over NIP-CASH's private transport, the only transport
 // a join takes (NIP-CW §Private Join). Port of nmilat nipcw/private_join.go.
-import { bySigning, METHOD_CREATE_CIRCLE_WALLET, parseCreateCircleWalletResult, type CircleWalletDetails, type JoinTerms, type PreparedJoin, type Signer } from '../core/index.js'
+import { bySigning, claimPreparedJoin, METHOD_CREATE_CIRCLE_WALLET, parseCreateCircleWalletResult, type CircleWalletDetails, type JoinTerms, type PreparedJoin, type Signer } from '../core/index.js'
 import type { Item } from '../transport/index.js'
 import { checkBill, type Bill } from './bill.js'
 import { buildItem, run, type BatchResult, type TypedOutcome } from './methods.js'
@@ -10,9 +10,11 @@ import type { BatchSession, ItemBinding, ItemBuilder, SendOptions } from './sess
  * A prepared join as a private-transport item: it targets the Hub (`hub` =
  * `billFromParts(hubPubkey, hubSecret)`), its bill proof is signed with the
  * Hub connection's secret, and its item proof by the requester, the same
- * key that signed the kind-23199 proof.
+ * key that signed the kind-23199 proof. Single use: a second item from the
+ * same join is refused, so one proof is never sent twice.
  */
-export function createCircleWalletItem(id: string, hub: Bill, signer: Signer, join: PreparedJoin, b: ItemBinding, now: number): Promise<Item> {
+export async function createCircleWalletItem(id: string, hub: Bill, signer: Signer, join: PreparedJoin, b: ItemBinding, now: number): Promise<Item> {
+  claimPreparedJoin(join)
   return buildItem(id, hub, METHOD_CREATE_CIRCLE_WALLET, join.request, bySigning(signer), b, now)
 }
 
@@ -40,11 +42,17 @@ export function createCircleWalletMany(session: BatchSession, items: readonly Ba
   const builders = items.map((it, i): ItemBuilder => {
     const id = it.id !== undefined && it.id !== '' ? it.id : `#${i}`
     byId.set(id, it)
+    let claimed = false
     return {
       id,
+      // Claimed on the first build only: an item that did not fit one envelope is rebuilt for the next.
       build: (itemId, b) => {
         checkBill(it.hub, itemId, session.hub)
-        return createCircleWalletItem(itemId, it.hub, it.signer, it.join, b, now())
+        if (!claimed) {
+          claimPreparedJoin(it.join)
+          claimed = true
+        }
+        return buildItem(itemId, it.hub, METHOD_CREATE_CIRCLE_WALLET, it.join.request, bySigning(it.signer), b, now())
       },
     }
   })

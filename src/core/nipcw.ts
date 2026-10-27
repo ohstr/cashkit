@@ -83,6 +83,20 @@ export interface PreparedJoin {
   readonly deadline: number
 }
 
+const usedJoins = new WeakSet<PreparedJoin>()
+
+/**
+ * Marks a prepared join as built into an item, refusing a second use: one
+ * proof is never sent twice, and a retry needs a new join.
+ */
+export function claimPreparedJoin(join: PreparedJoin): void {
+  if (usedJoins.has(join)) throw new CoreError('invalid_request', 'nipcw: this prepared join was already used; prepare a new one')
+  usedJoins.add(join)
+}
+
+/** Whether a prepared join was already built into an item. */
+export const preparedJoinUsed = (join: PreparedJoin): boolean => usedJoins.has(join)
+
 /**
  * Signs a join bound to `hubPubkey` (the `circlehub1`'s TLV 0): the proof's
  * `d`, `connection` and `terms` tags, never `action`. The connection key is
