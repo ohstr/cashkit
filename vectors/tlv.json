@@ -906,19 +906,7 @@
       "name": "framing: bech32m checksum",
       "kind": "token",
       "input": "lokicash1qqszyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsppamhxue69uhhytn90psk6urvv5pzqvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxveneq798u",
-      "want": {
-        "hrp": "lokicash",
-        "walletPubkey": "2222222222222222222222222222222222222222222222222222222222222222",
-        "secret": "3333333333333333333333333333333333333333333333333333333333333333",
-        "relays": [
-          "wss://r.example"
-        ],
-        "identityRequired": null,
-        "mintSignature": null,
-        "attestedAmountMillis": null,
-        "hubGroup": null,
-        "scheme": 0
-      }
+      "error": "nipcash: bech32m checksum where a bech32 checksum is required"
     },
     {
       "name": "framing: bad checksum",

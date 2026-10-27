@@ -529,7 +529,7 @@
     },
     {
       "input": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-      "error": "nipcash: malformed withdrawal address: mixed case"
+      "error": "nipcash: the address has no witness program"
     }
   ],
   "classifyAddressAmong": [
@@ -2195,15 +2195,7 @@
     {
       "name": "no script type",
       "input": "{\"withdraw_fee_base\":0,\"withdraw_fee_ppm\":0,\"script_types\":[],\"final_depth\":1}",
-      "want": {
-        "scriptTypes": [],
-        "terms": {
-          "withdraw_fee_base": 0,
-          "withdraw_fee_ppm": 0,
-          "script_types": [],
-          "final_depth": 1
-        }
-      }
+      "error": "nipcash: script_types lists no script type"
     },
     {
       "name": "an invalid script type",
