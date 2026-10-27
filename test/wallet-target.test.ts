@@ -33,10 +33,13 @@ describe('parseTarget', () => {
     expect(await code(parseTarget('pubkey:'))).toBe('invalid_input')
   })
   test('connection:<platform>:<id>:<ia> (TestParseTarget_Connection)', async () => {
-    const t = await parseTarget(`connection:discord:alice:${IA}`)
-    expect(t.target).toEqual({ identityType: 'connection_key', identityValue: newConnectionKey('discord', 'alice'), iaPubkey: IA })
+    const t = await parseTarget(`connection:discord:123456789:${IA}`)
+    expect(t.target).toEqual({ identityType: 'connection_key', identityValue: newConnectionKey('discord', '123456789'), iaPubkey: IA })
     expect(t.display).toBe('discord connection')
-    expect(await code(parseTarget('connection:discord:alice'))).toBe('invalid_input')
+    expect(await code(parseTarget('connection:discord:123456789'))).toBe('invalid_input')
+    // Typed input is hashed only in a canonical platform's canonical form.
+    expect(await code(parseTarget(`connection:discord:alice:${IA}`))).toBe('invalid_input')
+    expect(await code(parseTarget(`connection:github:12345:${IA}`))).toBe('invalid_input')
   })
   test('cash makes a fresh secret each time, and never shows it (TestParseTarget_CashTarget_GeneratesFreshSecretEachTime)', async () => {
     const a = await parseTarget('cash')

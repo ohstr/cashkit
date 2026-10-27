@@ -64,7 +64,7 @@ function attestation(over: { tags?: readonly (readonly string[])[]; kind?: numbe
     ['d', newConnectionKey('github', '12345')],
     ['p', signer.pubkey],
     ['platform', 'github'],
-    ['evidence', '{"version":1,"platform":"github","auth_type":"public_post","user_id":"12345","username":"alice","verified_at":1759999000}'],
+    ['evidence', '{"version":1,"platform":"github","auth_type":"public_post","user_id":"12345","username":"alice","verified_at":1759999000,"evidence_url":"https://gist.github.com/alice/1","challenge":"npv1x","pre_auth_code":"abcd"}'],
     ['expiration', String(NOW + 86400)],
   ]
   return finalizeEvent({ kind: over.kind ?? 35522, created_at: NOW, tags, content: '' }, iaKey)
@@ -85,14 +85,17 @@ const row = (identity_type: string, identity_value: string, amount: bigint, clai
 describe('targets (identity_test.go)', () => {
   test('identity types', () => {
     expect(pubkeyTarget(signer.pubkey).identityType).toBe('pubkey')
-    expect(connectionKeyTarget('github', '12345', iaPub)).toEqual({ identityType: 'connection_key', identityValue: newConnectionKey('github', '12345'), iaPubkey: iaPub })
+    expect(connectionKeyTarget('x', '12345', iaPub)).toEqual({ identityType: 'connection_key', identityValue: newConnectionKey('x', '12345'), iaPubkey: iaPub })
     expect(newCashTarget().identityType).toBe('cash')
   })
   test('a resolved connection key matches the hashed one (TestResolvedConnectionKey_MatchesConnectionKeyWithoutRehashing)', () => {
-    expect(resolvedConnectionKeyTarget(newConnectionKey('github', '12345'), 'github', iaPub)).toEqual(connectionKeyTarget('github', '12345', iaPub))
+    expect(resolvedConnectionKeyTarget(newConnectionKey('x', '12345'), 'x', iaPub)).toEqual(connectionKeyTarget('x', '12345', iaPub))
   })
-  test('an empty platform makes a pubkey-typed identity, as nmilat does', () => {
-    expect(connectionKeyTarget('', '12345', iaPub).identityType).toBe('pubkey')
+  test('typed input is hashed only for a canonical platform, in its canonical form', () => {
+    expect(() => connectionKeyTarget('', '12345', iaPub)).toThrow(CoreError)
+    expect(() => connectionKeyTarget('github', '12345', iaPub)).toThrow(/no canonical form/)
+    expect(() => connectionKeyTarget('x', '012345', iaPub)).toThrow(/not in canonical form/)
+    expect(connectionKeyTarget('dns', 'Example.COM', iaPub).identityValue).toBe(newConnectionKey('dns', 'example.com'))
   })
   test('a cash target commits to sha256 of the secret bytes, and they differ (TestNewCashTarget_*)', () => {
     const t = newCashTarget()
@@ -108,7 +111,7 @@ describe('targets (identity_test.go)', () => {
     expect(() => cashTargetFromSecret('ab')).toThrow(CoreError)
   })
   test('new_identity_hash is deterministic and sha256(type:value:ia) (TestNewIdentityHash_*)', () => {
-    const t = connectionKeyTarget('github', '12345', iaPub)
+    const t = connectionKeyTarget('x', '12345', iaPub)
     expect(newIdentityHash(t)).toBe(newIdentityHash(t))
     expect(newIdentityHash(t)).toBe(toHex(sha256(new TextEncoder().encode(`connection_key:${t.identityValue}:${iaPub}`))))
     const c = newCashTarget()
@@ -149,13 +152,23 @@ describe('attestation (nipIC attestation_test.go)', () => {
   ])('refuses %s', (_, make) => {
     expect(() => parseAttestation(make())).toThrow(CoreError)
   })
-  test('evidence keys match case-insensitively; null evidence and unknown keys are fine', () => {
-    const a = parseAttestation(attestation({ tags: [['d', 'x'], ['p', 'x'], ['platform', 'g'], ['evidence', '{"USER_ID":"u","extra":[1.5]}']] }))
+  const D = newConnectionKey('github', '12345')
+  test('evidence keys match case-insensitively and unknown keys are ignored', () => {
+    const a = parseAttestation(attestation({ tags: [['d', D], ['p', signer.pubkey], ['platform', 'g'], ['evidence', '{"VERSION":1,"auth_type":"oauth","USER_ID":"u","extra":[1.5]}']] }))
     expect(a.evidence.userId).toBe('u')
-    expect(parseAttestation(attestation({ tags: [['d', 'x'], ['p', 'x'], ['platform', 'g'], ['evidence', 'null']] })).evidence.userId).toBe('')
   })
-  test('an unparseable expiration means no expiry', () => {
-    expect(parseAttestation(attestation({ tags: [['d', 'x'], ['p', 'x'], ['platform', 'g'], ['evidence', '{}'], ['expiration', 'soon']] })).expiresAt).toBeUndefined()
+  test.each<[string, string[][]]>([
+    ['null evidence', [['evidence', 'null']]],
+    ['evidence without version 1', [['evidence', '{"auth_type":"oauth"}']]],
+    ['evidence without auth_type', [['evidence', '{"version":1}']]],
+    ['public_post evidence without its proof fields', [['evidence', '{"version":1,"auth_type":"public_post"}']]],
+    ['an unparseable expiration', [['evidence', '{"version":1,"auth_type":"oauth"}'], ['expiration', 'soon']]],
+    ['a repeated tag', [['evidence', '{"version":1,"auth_type":"oauth"}'], ['platform', 'x']]],
+    ['an uppercase d', [['evidence', '{"version":1,"auth_type":"oauth"}'], ['d', D.toUpperCase()]]],
+  ])('refuses %s', (_, extra) => {
+    const tags = [['p', signer.pubkey], ['platform', 'g'], ...extra]
+    if (!extra.some((t) => t[0] === 'd')) tags.unshift(['d', D])
+    expect(() => parseAttestation(attestation({ tags }))).toThrow(CoreError)
   })
 })
 
@@ -205,7 +218,7 @@ describe('claim proofs (proof_binding_test.go)', () => {
     expect(req).toEqual({ cash_secret: '5e'.repeat(32), new_identity: { identity_type: 'pubkey', identity_value: WALLET2 }, request_id: RID })
   })
   test('a connection-key target needs an IA pubkey', async () => {
-    await expect(cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to: connectionKeyTarget('github', '1', ''), currentAmount: 1n, requestId: RID })).rejects.toThrow(/ia_pubkey/)
+    await expect(cashTransferRequest({ walletPubkey: WALLET, credential: bySigning(signer), to: connectionKeyTarget('x', '1', ''), currentAmount: 1n, requestId: RID })).rejects.toThrow(/ia_pubkey/)
   })
   test('redeem refuses an invalid invoice (TestCashRedeemParams_Request_InvalidInvoice)', async () => {
     await expect(cashRedeemRequest({ walletPubkey: WALLET, invoice: 'lnfc1nope', credential: bySigning(signer) })).rejects.toThrow(CoreError)
@@ -230,13 +243,13 @@ describe('cash_consolidate (cash_consolidate_test.go)', () => {
   })
   test('cash and connection-key targets are accepted', async () => {
     await expect(cashConsolidateRequest({ sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: newCashTarget(), requestId: RID })).resolves.toBeDefined()
-    await expect(cashConsolidateRequest({ sources: [src(WALLET, 1n), src(WALLET2, 1n, ckCred)], to: connectionKeyTarget('github', '1', iaPub), requestId: RID, now: NOW })).resolves.toBeDefined()
+    await expect(cashConsolidateRequest({ sources: [src(WALLET, 1n), src(WALLET2, 1n, ckCred)], to: connectionKeyTarget('x', '1', iaPub), requestId: RID, now: NOW })).resolves.toBeDefined()
   })
   test.each<[string, Parameters<typeof cashConsolidateRequest>[0]]>([
     ['too few sources', { sources: [src(WALLET, 1n)], to: pubkeyTarget(WALLET), requestId: RID }],
     ['a cash-mode source', { sources: [src(WALLET, 1n), src(WALLET2, 1n, bySecret('s'))], to: pubkeyTarget(WALLET), requestId: RID }],
     ['the same source twice', { sources: [src(WALLET, 1n), src(WALLET, 1n)], to: pubkeyTarget(WALLET), requestId: RID }],
-    ['a connection-key target without IA', { sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: connectionKeyTarget('g', '1', ''), requestId: RID }],
+    ['a connection-key target without IA', { sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: connectionKeyTarget('x', '1', ''), requestId: RID }],
     ['no request_id', { sources: [src(WALLET, 1n), src(WALLET2, 1n)], to: pubkeyTarget(WALLET), requestId: '' }],
   ])('refuses %s', async (_, p) => {
     await expect(cashConsolidateRequest(p)).rejects.toThrow(CoreError)
@@ -279,7 +292,7 @@ describe('results', () => {
     const sources = [{ walletPubkey: WALLET, amount: 1n, credential: bySigning(signer) }]
     const plain = { amount_millis: 1, new_wallet_pubkey: walletPub, new_wallet_token: 'lokicash1plain' }
     expect((await parseCashConsolidateResult(plain, { sources, to: newCashTarget() })).newWalletToken).toBe('lokicash1plain')
-    expect((await parseCashConsolidateResult(plain, { sources, to: connectionKeyTarget('g', '1', iaPub) })).newWalletToken).toBe('lokicash1plain')
+    expect((await parseCashConsolidateResult(plain, { sources, to: connectionKeyTarget('x', '1', iaPub) })).newWalletToken).toBe('lokicash1plain')
     await expect(parseCashConsolidateResult(plain, { sources, to: pubkeyTarget(WALLET2) })).rejects.toThrow(CoreError)
   })
   test('redeem and status results', () => {

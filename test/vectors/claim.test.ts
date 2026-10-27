@@ -50,14 +50,9 @@ const IA = attestation.event.pubkey
 
 const MISMATCH = new Set([
   // attestation
-  'unparseable expiration is ignored', // nmilat refuses expiration "soon"; cashkit ignores it
-  'a repeated tag: the last one wins', // nmilat refuses a repeated platform tag; cashkit takes the last
-  'evidence null', // nmilat refuses evidence without version 1; cashkit accepts null evidence
-  'evidence with unknown fields', // nmilat refuses evidence without version 1; cashkit accepts it
   // requests
   'redeem with an amount', // nmilat sends amount with an invoice that has one (10u); cashkit refuses amount unless the invoice is amountless
   'transfer to pubkey uppercase', // nmilat sends the uppercase pubkey as given; cashkit refuses a pubkey identity that is not lowercase hex
-  'transfer to connection_key typed github', // nmilat refuses github (no canonical form); cashkit hashes "github:12345" and builds the request
   // results
   'a Hub returned a secret', // nmilat refuses a reply with a `secret` field; cashkit ignores the field
   // ownRow (cashkit: matchClaim)

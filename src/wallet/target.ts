@@ -172,7 +172,13 @@ export async function parseTarget(input: string, o: ParseTargetOptions = {}): Pr
       const parts = rest.split(':')
       if (parts.length !== 3) throw invalid(s, `connection: target needs platform:external-id:ia-pubkey, got ${parts.length} field(s)`)
       const [platform, externalId, ia] = parts as [string, string, string]
-      return { target: connectionKeyTarget(platform, externalId, ia), kind: 'connection', display: `${platform || 'unspecified-platform'} connection`, resolved: '' }
+      let target: Target
+      try {
+        target = connectionKeyTarget(platform, externalId, ia)
+      } catch (err) {
+        throw invalid(s, `${(err as Error).message}; for this account, paste its nconnection1 string`)
+      }
+      return { target, kind: 'connection', display: `${platform || 'unspecified-platform'} connection`, resolved: '' }
     }
     default:
       throw invalid(s, `unknown target kind "${prefix}" (want pubkey, connection, or cash)`)

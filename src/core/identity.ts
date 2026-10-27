@@ -2,7 +2,7 @@
 // it (credentials). Port of nmilat nipcash/identity.go and proof.go.
 import { sha256 } from '@noble/hashes/sha2.js'
 import { fromHex, toHex, utf8 } from './bytes.js'
-import { newConnectionKey } from './connectionKey.js'
+import { connectionKeyFromTyped } from './idna.js'
 import { CoreError } from './errors.js'
 import { finalizeEvent, getPublicKey, type EventTemplate, type NostrEvent } from './nip01.js'
 import { decrypt, encrypt, getConversationKey } from './nip44.js'
@@ -31,11 +31,14 @@ export function pubkeyTarget(pubkeyHex: string): Target {
 }
 
 /**
- * A connection-key target for an account on a platform, attested by an IA.
- * As in nmilat, an empty platform makes it a plain pubkey-typed identity.
+ * A connection-key target from typed input: the key is hashed from the
+ * canonical user id (`connectionKeyFromTyped`), so only a canonical platform
+ * (x, discord, email, dns) is accepted; any other platform's key is taken
+ * from the recipient's attestation or `nconnection` instead
+ * (`resolvedConnectionKeyTarget`).
  */
 export function connectionKeyTarget(platform: string, externalId: string, iaPubkey: string): Target {
-  return resolvedConnectionKeyTarget(newConnectionKey(platform, externalId), platform, iaPubkey)
+  return resolvedConnectionKeyTarget(connectionKeyFromTyped(platform, externalId), platform, iaPubkey)
 }
 
 /** A connection-key target from an already-computed key. */
