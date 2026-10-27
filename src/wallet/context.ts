@@ -1,10 +1,30 @@
 // What every wallet operation shares: sealing, credentials, clients, commits
 // and events. Internal to the wallet layer.
-import { bySecret, bySigning, decodeToken, fromUtf8, localSigner, fromHex, utf8, verifyProvenance, toHex, type Credential, type Signer, type Token } from '../core/index.js'
+import {
+  bySecret,
+  bySigning,
+  bySigningConnectionKey,
+  checkAttestationForClaim,
+  connectionKeyFromAttestation,
+  CoreError,
+  decodeToken,
+  eventJSON,
+  fromUtf8,
+  localSigner,
+  fromHex,
+  parseAttestation,
+  utf8,
+  verifyProvenance,
+  toHex,
+  type Credential,
+  type NostrEvent,
+  type Signer,
+  type Token,
+} from '../core/index.js'
 import { billFor, CashClient, type Bill, type ClientDeps } from '../client/index.js'
 import { CashkitError } from './errors.js'
 import { conflict } from './ledger.js'
-import type { Holding, Sealed, Settings } from './model.js'
+import type { ConnectionKeyBinding, Holding, Sealed, Settings } from './model.js'
 import { DEFAULT_SETTINGS } from './model.js'
 import { ConcurrentUpdateError, type Lock, type Logger, type StorageTx, type WalletDeps } from './ports.js'
 
@@ -20,6 +40,38 @@ export interface OperationEvent {
   readonly id: string
   /** The pending call the event is about, when there is one. */
   readonly pendingCallId?: string
+}
+
+/**
+ * The credential for a connection-key slice, from the account's attestation
+ * (kind 35522): its `d` must be the ConnectionKey of its `platform` and
+ * `evidence.user_id` (canonical on a platform that has a canonical form),
+ * its `p` this wallet's identity, and it must carry an unpassed
+ * `expiration`, as every claim proof on the slice requires. With `slice`,
+ * the key and IA must be the slice's.
+ */
+export function connectionKeyCredential(
+  signer: Signer,
+  event: NostrEvent,
+  now: number,
+  slice?: { readonly key?: string | undefined; readonly ia: string },
+  input?: string,
+): { credential: Credential; binding: ConnectionKeyBinding } {
+  try {
+    const att = parseAttestation(event)
+    const ref = connectionKeyFromAttestation(att)
+    if (slice !== undefined && ((slice.key !== undefined && slice.key !== ref.key) || slice.ia !== ref.ia)) {
+      throw new CoreError('invalid_payload', "attestation: it names another account or IA than the slice's")
+    }
+    checkAttestationForClaim(event, { identityValue: ref.key, iaPubkey: ref.ia, signer: signer.pubkey, now })
+    return {
+      credential: bySigningConnectionKey(signer, att.platform, att.evidence.userId, att),
+      binding: { platform: att.platform, externalId: att.evidence.userId, attestationId: event.id, iaPubkey: ref.ia, key: ref.key, attestation: eventJSON(event) },
+    }
+  } catch (err) {
+    if (!(err instanceof CoreError)) throw err
+    throw new CashkitError('auth', `this connection-key attestation cannot authorize a claim: ${err.message}`, { ...(input !== undefined && { input }), reason: 'attestation_invalid', cause: err })
+  }
 }
 
 /** A per-process lock, used when the app passes none. */
@@ -154,7 +206,11 @@ export class Ctx {
       return bySecret(await this.open(h.cashSecret))
     }
     if (h.mode === 'connection_key') {
-      throw new CashkitError('usage', 'this holding is bound to a connection key; spending it needs that connection-key credential, which this wallet does not hold', { input: h.id })
+      const b = h.connectionKey
+      if (b?.attestation === undefined) {
+        throw new CashkitError('usage', "this holding is bound to a connection key, but the wallet does not have the account's attestation: receive the bill again with it", { input: h.id, reason: 'attestation_missing' })
+      }
+      return connectionKeyCredential(await this.requireSigner(), JSON.parse(b.attestation) as NostrEvent, this.nowSeconds(), { key: b.key, ia: b.iaPubkey }, h.id).credential
     }
     return bySigning(await this.requireSigner())
   }

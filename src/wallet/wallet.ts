@@ -37,7 +37,7 @@ import { newId, updateHolding } from './ledger.js'
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Connection, type ConnectionKind, type HandoffStatus, type Holding, type PendingJoin, type Meta, type Settings } from './model.js'
 import type { WalletDeps } from './ports.js'
 import { executeRedeem, planRedeem, settleRedeeming, type RedeemingReport, type RedeemInput, type RedeemOutcome, type RedeemPlan } from './redeem.js'
-import { protectMany, receive, type ReceiveResult, type Secured } from './receive.js'
+import { protectMany, receive, type ReceiveOptions, type ReceiveResult, type Secured } from './receive.js'
 import { report, type Report } from './report.js'
 import { executeSend, planSend, type SendInput, type SendPlan, type SendResult } from './send.js'
 import { lockedHoldings } from './bills.js'
@@ -403,7 +403,7 @@ export class Wallet {
     }
   }
 
-  receive(input: string, o: { protect?: boolean } = {}): Promise<ReceiveResult> {
+  receive(input: string, o: ReceiveOptions = {}): Promise<ReceiveResult> {
     return this.ctx.spend(() => receive(this.ctx, input, o))
   }
 

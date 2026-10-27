@@ -86,7 +86,19 @@ export class FakeWithdraw {
     if (method === 'cash_withdraw' && p['cancel'] === true) return this.cancelRequest(info, w)
     if (w.spent) return { error: { code: 'RESTRICTED', message: 'claimed' } }
     // Who asks: the slice's signer, or for a cash slice the bill proof alone (quote) or its secret (call).
-    if (w.identity.type !== 'cash' && info.signer !== w.identity.value) return { error: { code: 'NOT_FOUND', message: 'no slice for this signer' } }
+    if (w.identity.type === 'connection_key') {
+      // A connection-key slice: the attestation by the recorded IA names the signer.
+      let att: NostrEvent | undefined
+      try {
+        att = JSON.parse(p['attestation_event'] as string) as NostrEvent
+      } catch {
+        att = undefined
+      }
+      const tag = (n: string) => att?.tags.find((t) => t[0] === n)?.[1]
+      if (att === undefined || !verifyEvent(att) || att.pubkey !== w.identity.ia || tag('d') !== w.identity.value || tag('p') !== info.signer || p['identity_value'] !== w.identity.value) {
+        return { error: { code: 'NOT_FOUND', message: 'no slice for this signer' } }
+      }
+    } else if (w.identity.type !== 'cash' && info.signer !== w.identity.value) return { error: { code: 'NOT_FOUND', message: 'no slice for this signer' } }
     if (method === 'cash_withdraw_quote') return this.quote(w, p)
     return this.withdraw(info, w, p)
   }
@@ -100,7 +112,8 @@ export class FakeWithdraw {
     const sendBefore = p['send_before']
     if (typeof sendBefore === 'number' && sendBefore < sentBy) return { error: { code: 'RESTRICTED', message: 'too slow', detail: 'too_slow' } }
     const fields = { amount_millis: w.amount, network_fee_millis: this.networkFee, hub_fee_millis: hubFee, payout_millis: payout, sent_by: sentBy, holds_until: 870413 }
-    const quote = this.sign(23187, [['d', w.walletPubkey], ['i', w.identity.value], ['address', address], ...Object.entries(fields).map(([k, v]) => [k, String(v)])])
+    const i = w.identity.type === 'connection_key' ? ['i', w.identity.value, w.identity.ia] : ['i', w.identity.value]
+    const quote = this.sign(23187, [['d', w.walletPubkey], i, ['address', address], ...Object.entries(fields).map(([k, v]) => [k, String(v)])])
     return { result: { quote, address, ...fields, fee_millis: fee } }
   }
 
@@ -115,6 +128,7 @@ export class FakeWithdraw {
       if (typeof p['remint_commitment'] !== 'string' || p['remint_commitment'] === w.identity.value) return { error: { code: 'BAD_REQUEST', message: 'remint_commitment' } }
       authorizer = w.identity.value
     } else if ('remint_commitment' in p) return { error: { code: 'BAD_REQUEST', message: 'remint_commitment' } }
+    else if (w.identity.type === 'connection_key') authorizer = info.signer ?? ''
     this.bank.usedIds.add(rid)
     let q: NostrEvent
     try {
@@ -206,7 +220,8 @@ export class FakeWithdraw {
   /** Cancels and re-mints the whole amount for the slice's identity or the remint commitment. */
   cancel(o: FakePayout): void {
     const nw = this.bank.mint(o.amount, o.remintTo)
-    const token = o.remintTo.type === 'cash' ? nw.token : nip44.encrypt(nw.token, nip44.getConversationKey(nw.walletKey, o.remintTo.value))
+    const to = o.remintTo.type === 'connection_key' ? o.authorizer : o.remintTo.value
+    const token = o.remintTo.type === 'cash' ? nw.token : nip44.encrypt(nw.token, nip44.getConversationKey(nw.walletKey, to))
     o.newWallet = { pubkey: nw.walletPubkey, token }
     o.state = 'cancelled'
     delete o.tx

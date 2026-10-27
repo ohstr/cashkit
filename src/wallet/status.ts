@@ -2,7 +2,7 @@
 // Port of cashctl cmd/redeem_private.go groupEntriesByHub/quoteHubGroup and
 // recordQuote. Bills batch by `nodeKey` (the verified minter, whose
 // announcement names the inbox), never by hubGroup (design §6.3).
-import { cashCommitment, decodeToken, isCashSecret, isSpent, ownClaim, type CashStatusResult, type NotClaimableReason, type OwnClaim, type RecipientStatus } from '../core/index.js'
+import { cashCommitment, decodeToken, isCashSecret, isSpent, ownClaim, ownScope, type CashStatusResult, type NotClaimableReason, type OwnClaim, type RecipientStatus } from '../core/index.js'
 import { NotServedError, WalletError, type BatchStatus } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import { getHeld } from './bills.js'
@@ -47,7 +47,8 @@ export async function statusByNode(ctx: Ctx, hs: readonly Holding[]): Promise<Ma
     const items: BatchStatus[] = []
     for (const h of g) {
       try {
-        items.push({ id: h.id, bill: billOf(h), credential: await ctx.credentialFor(h), scope: 'mine' })
+        const credential = await ctx.credentialFor(h)
+        items.push({ id: h.id, bill: billOf(h), credential, scope: ownScope(credential) })
       } catch (err) {
         out.set(h.id, { error: err instanceof CashkitError ? err : classifyReadError(err, h.id) })
       }

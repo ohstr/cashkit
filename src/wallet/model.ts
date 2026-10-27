@@ -13,11 +13,19 @@ export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 
 export type HoldingMode = 'pubkey' | 'cash' | 'connection_key'
 export type Protection = 'none' | 'shared' | 'protected'
 
+/**
+ * A connection-key slice's identity: the account the IA attested, and the
+ * attestation (kind 35522, public) every claim proof on it names.
+ */
 export interface ConnectionKeyBinding {
   readonly platform: string
   readonly externalId: string
   readonly attestationId: string
   readonly iaPubkey: string
+  /** The ConnectionKey (the slice's `identity_value`). */
+  readonly key?: string
+  /** The attestation event as JSON text; without it the bill cannot be spent. */
+  readonly attestation?: string
 }
 
 /** One bill the wallet knows about (cashctl `ledger.Entry`). */
