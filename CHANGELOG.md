@@ -139,8 +139,10 @@
   decides it, and a bill the Hub has claimed waits as `redeeming` (in no
   balance or plan) until `settle()` sees it released, gone, or paid.
   `settle()` reports these under `redeems`.
+  ([#20](https://github.com/ohstr/cashkit/pull/20))
 - Redeem invoices ask for a one-hour expiry, and `PAYMENT_FAILED` is retried
   once with a fresh invoice.
+  ([#20](https://github.com/ohstr/cashkit/pull/20))
 
 ## [0.1.0-rc.2]
 
