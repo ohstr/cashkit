@@ -13,9 +13,7 @@ export interface Nip07 {
   }
 }
 
-export interface Nip07Signer extends Signer {
-  nip44Encrypt(peer: string, plaintext: string): Promise<string>
-}
+export type Nip07Signer = Signer
 
 export async function nip07Signer(nostr?: Nip07): Promise<Nip07Signer> {
   const ext = nostr ?? (globalThis as { nostr?: Nip07 }).nostr

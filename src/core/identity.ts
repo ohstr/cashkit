@@ -82,8 +82,8 @@ export interface Signer {
   signEvent(t: EventTemplate): Promise<NostrEvent>
   /** NIP-44 v2 decrypt of a payload from `senderPubkey`. */
   nip44Decrypt(senderPubkey: string, ciphertext: string): Promise<string>
-  /** NIP-44 v2 encrypt to `recipientPubkey`; needed for a Cash Pocket's seals. */
-  nip44Encrypt?(recipientPubkey: string, plaintext: string): Promise<string>
+  /** NIP-44 v2 encrypt to `recipientPubkey` (a Cash Pocket's seals, among others). */
+  nip44Encrypt(recipientPubkey: string, plaintext: string): Promise<string>
 }
 
 /** A Signer over a 32-byte secret key held in memory. */

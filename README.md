@@ -61,7 +61,8 @@ One package, in layers; each subpath imports only from the ones before it:
     `vault-none` (plaintext; choose it explicitly)
   - relays: `relay-ws` (the global `WebSocket`), `relay-nostr-tools` and
     `relay-ndk` (bring your own SimplePool or NDK)
-  - signers: `signer-nip07` (browser extensions), `signer-nip46` (bunkers)
+  - signers: `signer-nip07` (browser extensions), `signer-nip46` (bunkers),
+    `signer-unix` (a local signer on a unix socket, Node only)
   - tabs: `lock-weblocks` and `sync-broadcast` (one tab moves money at a
     time, every tab sees the changes); `lock-memory` per process
 
@@ -115,10 +116,10 @@ const wallet = await Wallet.open({
 While the vault is locked (`vault.lock()`), the wallet reads but won't move
 money.
 
-### Sign with an extension or a bunker
+### Sign with an extension, a bunker or a local signer
 
-Both adapters check every event they get back: signer, content and
-signature:
+Every adapter checks each event it gets back: signer, content and
+signature. A signer's refusal is a `SignerError` with code `denied`.
 
 ```ts
 import { nip07Signer } from '@ohstr/cashkit/adapters/signer-nip07'
@@ -132,6 +133,15 @@ const fromBunker = await nip46Signer({
 })
 
 const w = await openWallet({ vault: await DeviceVault.open(), signer: fromBunker })
+```
+
+On a server, a signer process on the same host answers over a unix socket
+(NIP-LS). `signerFromUri` takes that address or a `bunker://` one:
+
+```ts
+import { signerFromUri } from '@ohstr/cashkit/adapters/signer-unix' // Node only
+
+const local = await signerFromUri('bunker+unix:///run/signer/signer.sock')
 ```
 
 A slow signer, such as a phone bunker, just gets smaller batches.

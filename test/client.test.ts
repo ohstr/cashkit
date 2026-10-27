@@ -63,6 +63,7 @@ function slowSetup(stepMs: number, fail?: number) {
       return holder.signEvent(t)
     },
     nip44Decrypt: holder.nip44Decrypt,
+    nip44Encrypt: holder.nip44Encrypt,
   }
   const d = { relays: pool, clock: () => clock.t }
   return { signer, d, requests: () => pool.published.filter((x) => x.event.kind === 23190).length }

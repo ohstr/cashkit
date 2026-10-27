@@ -24,6 +24,9 @@ describe('nip07Signer', () => {
     const s = await nip07Signer(ext())
     expect(s.pubkey).toBe(user.pubkey)
     expect((await s.signEvent(tpl)).pubkey).toBe(user.pubkey)
+    const peer = fill(0x55, 32)
+    const ct = await s.nip44Encrypt(getPublicKey(peer), 'to peer')
+    expect(nip44.decrypt(ct, nip44.getConversationKey(peer, user.pubkey))).toBe('to peer')
   })
   test('refuses an event other than the one asked for, or from another identity', async () => {
     const other = localSigner(fill(0x32, 32))
@@ -68,7 +71,12 @@ function startBunker(pool: MemoryRelayPool, o: { secret?: string; authUrlFirst?:
             return reply({ result: JSON.stringify(signed) })
           }
           case 'nip44_decrypt':
+            if (req.params[0] === 'denied') return reply({ error: 'denied: policy says no' })
+            if (req.params[0] === 'invalid') return reply({ error: 'invalid: bad params' })
+            if (req.params[0] === 'other') return reply({ error: 'decrypt failed' })
             return reply({ result: await user.nip44Decrypt(req.params[0]!, req.params[1]!) })
+          case 'nip44_encrypt':
+            return reply({ result: await user.nip44Encrypt(req.params[0]!, req.params[1]!) })
           default:
             return reply({ error: `unsupported ${req.method}` })
         }
@@ -86,6 +94,22 @@ describe('nip46Signer', () => {
     expect(parseBunkerUri(`bunker://${REMOTE.toUpperCase()}?relay=wss://a&relay=wss://b&secret=s3`)).toEqual({ remotePubkey: REMOTE, relays: ['wss://a', 'wss://b'], secret: 's3' })
     expect(() => parseBunkerUri('bunker://nothex?relay=wss://a')).toThrow()
     expect(() => parseBunkerUri(`bunker://${REMOTE}`)).toThrow(/no relay/)
+  })
+  test('a local signer address is refused here, naming the unix adapter', () => {
+    for (const u of ['bunker+unix:///tmp/s.sock', 'unix:///tmp/s.sock', '/tmp/s.sock']) expect(() => parseBunkerUri(u)).toThrow(/\.\/adapters\/signer-unix/)
+  })
+  test('encrypts through the bunker, and sorts its errors by prefix', async () => {
+    const pool = new MemoryRelayPool()
+    startBunker(pool)
+    const s = await nip46Signer({ bunker: uri(), relays: pool })
+    const peer = fill(0x55, 32)
+    const ct = await s.nip44Encrypt(getPublicKey(peer), 'to peer')
+    expect(nip44.decrypt(ct, nip44.getConversationKey(peer, user.pubkey))).toBe('to peer')
+    for (const code of ['denied', 'invalid'] as const) {
+      await expect(s.nip44Decrypt(code, 'x')).rejects.toMatchObject({ name: 'SignerError', code })
+    }
+    await expect(s.nip44Decrypt('other', 'x')).rejects.toMatchObject({ name: 'SignerError', code: 'failed', message: 'signer-nip46: decrypt failed' })
+    s.close()
   })
   test('connects with the secret, learns the user pubkey (not the bunker key), signs and decrypts', async () => {
     const pool = new MemoryRelayPool()

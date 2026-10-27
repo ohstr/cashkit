@@ -89,6 +89,10 @@
       "types": "./dist/adapters/signer-nip46.d.ts",
       "import": "./dist/adapters/signer-nip46.js"
     },
+    "./adapters/signer-unix": {
+      "types": "./dist/adapters/signer-unix.d.ts",
+      "import": "./dist/adapters/signer-unix.js"
+    },
     "./adapters/relay-nostr-tools": {
       "types": "./dist/adapters/relay-nostr-tools.d.ts",
       "import": "./dist/adapters/relay-nostr-tools.js"
