@@ -606,7 +606,8 @@ export async function recoverWithdrawal(ctx: Ctx, holdingId: string): Promise<Wi
   }
   const rid = o.value.tombstone?.withdrawRequestId ?? row?.withdraw_request_id
   if (rid === undefined || rid === '') throw new CashkitError('not_found', 'the Hub names no on-chain withdrawal of this bill for this wallet', { input: h.id, reason: 'no_withdrawal' })
-  const known = (await ctx.read((t) => t.list('pendingCalls'))).find((c) => c.requestId === rid)
+  // A recovery that never got past its write-ahead (closed not_sent) is no record of the withdrawal: recover again.
+  const known = (await ctx.read((t) => t.list('pendingCalls'))).find((c) => c.requestId === rid && !(c.state === 'done' && c.outcome === 'not_sent'))
   if (known !== undefined) return withdrawalView(known)
   const session = await ctx.clientFor(h).session()
   const now = ctx.nowSeconds()

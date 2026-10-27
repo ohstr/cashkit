@@ -214,6 +214,18 @@ describe('wallet.withdraw', () => {
     hub.broadcast(hub.only())
     expect((await h.wallet.withdraw.refresh(r.id)).phase).toBe('broadcast')
   })
+  test('recover: an earlier recovery that closed not_sent does not hide the withdrawal', async () => {
+    const { h, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const lost = (await h.storage.tx('r', (x) => x.get('pendingCalls', v.id)))!
+    await h.storage.tx('rw', async (x) => {
+      await x.delete('pendingCalls', v.id)
+      await x.put('pendingCalls', { ...lost, id: 'pc-dead', state: 'done', outcome: 'not_sent', params: { recovered: '1' }, version: 1 }, 0)
+    })
+    const r = await h.wallet.withdraw.recover(id)
+    expect(r.id).not.toBe('pc-dead')
+    expect(r).toMatchObject({ phase: 'accepted', state: 'queued' })
+  })
   test('recover: a recovered call is never placed again, and nothing is written when asked to', async () => {
     const { h, id } = await setup()
     const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
