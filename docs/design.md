@@ -315,6 +315,15 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
     deadline are final (the caller's write-ahead), and with less than 20 s
     then left nothing is sent (`deadline_too_close`); `singleEnvelope`
     refuses a batch that would split.
+- **Proof of work.** Before the first publish the session reads each
+  publish relay's NIP-11 minimum (`relayInfo` port, the pool's, else an
+  HTTP fetch; cached, re-read after a refusal) and mines the request to the
+  highest one (plain when all are 0). Order: write-ahead, mine, the 20 s
+  check, publish. Over `powBudget` nothing is sent (`pow_too_hard`). A
+  relay's `pow: …` refusal re-mines the same event (same key, content,
+  `created_at`, so the same envelope and ids) and publishes it to that relay
+  again, until the deadline. NIP-47 calls are never mined. Relay adapters
+  return the relay's own OK message verbatim, or none.
 - **Send.**
   - Per relay: subscribe to `{kinds:[23191], #p:[reply_to]}`, wait up to 2 s
     for EOSE, then publish. The first relay to accept wins

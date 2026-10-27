@@ -1,11 +1,16 @@
 // One Hub's private transport: its announcement, packing, sending and reply
 // collection. Port of nmilat nipcash/client/{batch_session,batch_pack,
 // batch_send}.go.
-import { nip44, type NostrEvent } from '../core/index.js'
+import { nip44 } from '../core/index.js'
 import {
   decodeResponse,
   deriveReplyKey,
   hubUsableForBills,
+  isPowRejection,
+  parsePowRejection,
+  relayPowMinimum,
+  wrapRequestPow,
+  type PowRequest,
   encodeEnvelope,
   KIND_HUB_ANNOUNCEMENT,
   KIND_PRIVATE_RESPONSE,
@@ -14,7 +19,6 @@ import {
   parseAnnouncement,
   TransportError,
   validateLimits,
-  wrapRequest,
   type Announcement,
   type Envelope,
   type Item,
@@ -25,7 +29,7 @@ import {
 import { ClientError } from './errors.js'
 import { joinOutcomes, notServedOutcomes, type ItemOutcome } from './outcome.js'
 import { nowMs, nowSeconds, randomOf, type ClientDeps } from './ports.js'
-import { EventQueue, readEvents } from './relayIO.js'
+import { EventQueue, fetchRelayInfo, readEvents } from './relayIO.js'
 
 /**
  * A call's deadline (its envelope's `not_after`): well inside the Hub's
@@ -238,28 +242,26 @@ export class BatchSession {
         break
       }
       const p = packed.packed
-      if (o.beforePublish !== undefined) {
-        try {
-          await o.beforePublish({ notAfter: p.envelope.notAfter, ids: p.ids, envelope: i })
-        } catch (err) {
-          if (i === 0) throw err
-          for (const b of rest) outcomes.push({ id: b.id, state: 'error', error: { code: NOT_SENT, message: (err as Error).message }, undecodable: false, envelope: i })
-          errors.push(err as Error)
-          break
+      // Order: write-ahead, then mine, then the 20 s check, then publish.
+      let pow: PowRequest | undefined
+      try {
+        if (o.beforePublish !== undefined) await o.beforePublish({ notAfter: p.envelope.notAfter, ids: p.ids, envelope: i })
+        pow = await this.prepare(p)
+        if (o.beforePublish !== undefined && p.envelope.notAfter - nowSeconds(this.deps) < MIN_PUBLISH_MARGIN) {
+          pow.dispose()
+          throw new ClientError('deadline_too_close', `less than ${MIN_PUBLISH_MARGIN} s were left before the deadline, so nothing was sent`)
         }
-        if (p.envelope.notAfter - nowSeconds(this.deps) < MIN_PUBLISH_MARGIN) {
-          const err = new ClientError('deadline_too_close', `less than ${MIN_PUBLISH_MARGIN} s were left before the deadline, so nothing was sent`)
-          if (i === 0) throw err
-          for (const b of rest) outcomes.push({ id: b.id, state: 'error', error: { code: NOT_SENT, message: err.message }, undecodable: false, envelope: i })
-          errors.push(err)
-          break
-        }
+      } catch (err) {
+        if (i === 0) throw err
+        for (const b of rest) outcomes.push({ id: b.id, state: 'error', error: { code: NOT_SENT, message: (err as Error).message }, undecodable: false, envelope: i })
+        errors.push(err as Error)
+        break
       }
-      let r = await this.sendOne(p, i)
+      let r = await this.sendOne(p, i, pow)
       if (r.error && isStalePolicy(r.error) && o.beforePublish === undefined) {
         try {
           await this.refresh()
-          r = await this.sendOne(p, i)
+          r = await this.sendOne(p, i, await this.prepare(p))
         } catch {
           // keep the first failure
         }
@@ -280,22 +282,54 @@ export class BatchSession {
     return { outcomes, acceptedRelays }
   }
 
-  private async sendOne(p: Packed, index: number): Promise<SendResult> {
-    let plaintext: string
+  private readonly powMinimums = new Map<string, number>()
+
+  /** A relay's proof-of-work minimum for kind 23190 (NIP-11), cached; unreadable ⇒ 0 (re-mined on a `pow:` refusal). */
+  private async powMinimum(relay: string, fresh = false): Promise<number> {
+    if (!fresh && this.powMinimums.has(relay)) return this.powMinimums.get(relay)!
+    const read = this.deps.relayInfo ?? this.deps.relays.relayInfo?.bind(this.deps.relays) ?? ((u: string) => fetchRelayInfo(u))
+    let n = 0
     try {
-      plaintext = encodeEnvelope(p.envelope, this.limits)
-    } catch (err) {
-      return { outcomes: [], error: err as Error }
+      n = relayPowMinimum(await read(relay))
+    } catch {
+      n = 0
     }
-    const { event, conversationKey } = wrapRequest(plaintext, this.inbox, { now: nowSeconds(this.deps), random: randomOf(this.deps) })
-    const replyKey = deriveReplyKey(conversationKey, p.envelope.replyTo)
+    this.powMinimums.set(relay, n)
+    return n
+  }
+
+  /**
+   * Encodes and wraps the envelope, mined to the highest minimum of the
+   * relays it will be published to (plain when all are 0). Over the mining
+   * budget nothing is sent (`pow_too_hard`).
+   */
+  private async prepare(p: Packed): Promise<PowRequest> {
+    const plaintext = encodeEnvelope(p.envelope, this.limits)
+    let difficulty = 0
+    for (const r of this.relays) difficulty = Math.max(difficulty, await this.powMinimum(r))
+    const budget = this.deps.powBudget ?? {}
+    if (budget.maxDifficulty !== undefined && difficulty > budget.maxDifficulty) throw new ClientError('pow_too_hard', `the relays ask for proof of work of difficulty ${difficulty}, above the budget`)
+    const maxMs = budget.maxMs ?? Math.max((p.envelope.notAfter - MIN_PUBLISH_MARGIN) * 1000 - nowMs(this.deps), 0)
+    const signal = AbortSignal.timeout(Math.max(maxMs, 1))
+    try {
+      return await wrapRequestPow(plaintext, this.inbox, { notAfter: p.envelope.notAfter, difficulty, now: nowSeconds(this.deps), random: randomOf(this.deps), signal })
+    } catch (err) {
+      if (err instanceof TransportError && err.code === 'pow_aborted') throw new ClientError('pow_too_hard', 'mining the proof of work did not finish within the budget', { cause: err })
+      throw err
+    }
+  }
+
+  private async sendOne(p: Packed, index: number, pow: PowRequest): Promise<SendResult> {
+    const replyKey = deriveReplyKey(pow.conversationKey, p.envelope.replyTo)
     const queue = new EventQueue()
     let sub: { stop: () => void; accepted: string[] }
     try {
-      sub = await this.subscribeAndPublish(p.envelope.replyTo, event, queue)
+      sub = await this.subscribeAndPublish(p.envelope.replyTo, pow, queue, p.envelope.notAfter)
     } catch (err) {
+      pow.dispose()
       return { outcomes: [], error: err as Error }
     }
+    pow.dispose()
     try {
       return { ...(await this.collect(queue, replyKey, p, index)), acceptedRelays: sub.accepted }
     } finally {
@@ -309,7 +343,8 @@ export class BatchSession {
    * subscription opened is kept until the reply is collected, since a relay
    * whose publish failed may still have delivered the request.
    */
-  private async subscribeAndPublish(replyTo: string, request: NostrEvent, queue: EventQueue): Promise<{ stop: () => void; accepted: string[] }> {
+  private async subscribeAndPublish(replyTo: string, initial: PowRequest, queue: EventQueue, notAfter: number): Promise<{ stop: () => void; accepted: string[] }> {
+    let current = initial
     const stops: (() => void)[] = []
     const stopAll = () => stops.forEach((s) => s())
     const failures: string[] = []
@@ -333,9 +368,18 @@ export class BatchSession {
       )
       await Promise.race([acked, new Promise((r) => setTimeout(r, SUBSCRIPTION_ACK_WAIT_MS))])
       try {
-        const res = await this.deps.relays.publish(relay, request)
-        if (res.ok) return { stop: stopAll, accepted: [relay] }
-        failures.push(`${relay}: refused${res.message ? `: ${res.message}` : ''}`)
+        // A `pow:` refusal re-mines the same event (same envelope, same ids) and publishes it to that relay again.
+        for (let attempt = 0; ; attempt++) {
+          const res = await this.deps.relays.publish(relay, current.event)
+          if (res.ok) return { stop: stopAll, accepted: [relay] }
+          if (!isPowRejection(res.message) || attempt >= 3 || nowSeconds(this.deps) >= notAfter) {
+            failures.push(`${relay}: refused${res.message ? `: ${res.message}` : ''}`)
+            break
+          }
+          const stated = parsePowRejection(res.message) ?? (await this.powMinimum(relay, true))
+          const target = Math.max(stated, current.difficulty + 1)
+          current = await current.remine(target, { signal: AbortSignal.timeout(Math.max(notAfter * 1000 - nowMs(this.deps), 1)) })
+        }
       } catch (err) {
         failures.push(`${relay}: ${(err as Error).message}`)
       }

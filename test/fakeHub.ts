@@ -1,6 +1,6 @@
 // An in-memory relay pool and a Hub that serves the private transport over
 // it, with failure injection (design §11.2). Test support only.
-import { finalizeEvent, getPublicKey, toHex, type NostrEvent } from '../src/core/index.js'
+import { finalizeEvent, getPublicKey, powDifficulty, toHex, type NostrEvent } from '../src/core/index.js'
 import { signedToken } from './helpers.js'
 import type { Filter, RelayPool, SubscriptionHandlers } from '../src/client/index.js'
 import {
@@ -39,6 +39,14 @@ interface RelayState {
   down: boolean
   refuse: boolean
   eose: boolean
+  /** NIP-13 minimum for kind 23190, advertised in NIP-11 and enforced with `OK false "pow: …"`; 0 = off. */
+  powMinimum: number
+  /** Refuse with this difficulty even when NIP-11 says less (a stale or missing document). */
+  powRequired?: number
+  /** NIP-11 unreadable. */
+  noInfo?: boolean
+  /** Accepted 23190 ids, dropped as repeats until their expiration. */
+  seen: Map<string, number>
 }
 
 export function matches(f: Filter, e: NostrEvent): boolean {
@@ -56,6 +64,25 @@ export function matches(f: Filter, e: NostrEvent): boolean {
 
 const isEphemeral = (k: number) => k >= 20000 && k < 30000
 
+/**
+ * The PoW relay rule (NIP-CASH §Proof of Work) for kind 23190: below the
+ * minimum ⇒ `pow: difficulty <n> required`; no `expiration`, a past one, or
+ * one more than a day ahead ⇒ refused; a repeat of an accepted id is
+ * dropped until its expiration.
+ */
+function powCheck(r: RelayState, e: NostrEvent, nowMs: number): { ok: boolean; message?: string } | undefined {
+  const required = Math.max(r.powMinimum, r.powRequired ?? 0)
+  if (e.kind !== 23190 || required === 0) return undefined
+  const now = Math.floor(nowMs / 1000)
+  for (const [id, exp] of r.seen) if (exp < now) r.seen.delete(id)
+  if (r.seen.has(e.id)) return { ok: true, message: 'duplicate: already have this event' }
+  if (powDifficulty(e.id) < required) return { ok: false, message: `pow: difficulty ${required} required` }
+  const exp = Number(e.tags.find((t) => t[0] === 'expiration')?.[1] ?? NaN)
+  if (!Number.isInteger(exp) || exp < now || exp > now + 86400) return { ok: false, message: 'invalid: expiration missing or out of range' }
+  r.seen.set(e.id, exp)
+  return undefined
+}
+
 export class MemoryRelayPool implements RelayPool {
   readonly relays = new Map<string, RelayState>()
   readonly published: { relay: string; event: NostrEvent }[] = []
@@ -63,7 +90,7 @@ export class MemoryRelayPool implements RelayPool {
   relay(url: string): RelayState {
     let r = this.relays.get(url)
     if (!r) {
-      r = { stored: [], subs: new Set(), down: false, refuse: false, eose: true }
+      r = { stored: [], subs: new Set(), down: false, refuse: false, eose: true, powMinimum: 0, seen: new Map() }
       this.relays.set(url, r)
     }
     return r
@@ -90,9 +117,17 @@ export class MemoryRelayPool implements RelayPool {
   }
 
   async publish(url: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
+    const res = await this.publishInner(url, e)
+    this.attempts.push({ relay: url, event: e, ...res })
+    return res
+  }
+
+  private async publishInner(url: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
     const r = this.relay(url)
     if (r.down) throw new Error('connection refused')
     if (r.refuse) return { ok: false, message: 'blocked: test' }
+    const pow = powCheck(r, e, this.clock())
+    if (pow !== undefined) return pow
     this.published.push({ relay: url, event: e })
     if (!isEphemeral(e.kind)) {
       // Replaceable kinds keep only the newest per author.
@@ -101,6 +136,17 @@ export class MemoryRelayPool implements RelayPool {
     }
     for (const s of Array.from(r.subs)) if (matches(s.filter, e)) queueMicrotask(() => s.h.onEvent(e, url))
     return { ok: true }
+  }
+
+  /** Unix ms, for the PoW relay's expiration rule. */
+  clock: () => number = () => Date.now()
+  /** Every publish attempt and its answer, accepted or not. */
+  readonly attempts: { relay: string; event: NostrEvent; ok: boolean; message?: string }[] = []
+
+  async relayInfo(url: string): Promise<unknown> {
+    const r = this.relay(url)
+    if (r.noInfo === true) throw new Error('NIP-11 unreachable')
+    return { name: url, supported_nips: [1, 11, 13, 40], limitation: { min_pow_difficulty: r.powMinimum } }
   }
 
   /** Puts an event on a relay without anything noticing (a stale replay, say). */

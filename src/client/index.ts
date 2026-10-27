@@ -40,7 +40,7 @@ export {
 export { NWC_CALL_TIMEOUT_MS, NwcClient, type GetInfoResult, type MakeInvoiceParams } from './nwcClient.js'
 export { CircleClient, type CircleJoinResult, type JoinOptions, type JoinTransport } from './circleClient.js'
 export { createCircleWalletItem, createCircleWalletMany, type BatchCircleJoin, type CircleJoinOutcome, type CreateCircleWalletParams } from './circleJoin.js'
-export { EventQueue, readEvents } from './relayIO.js'
+export { EventQueue, fetchRelayInfo, readEvents } from './relayIO.js'
 export { lookupMany, lookupOne, type BatchLookup, type LookupAuthorizer } from './lookup.js'
 export { hubView, type HubView } from './hubView.js'
 export { CashHubClient, type CashHubClientOptions } from './cashHubClient.js'

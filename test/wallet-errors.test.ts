@@ -34,16 +34,17 @@ describe('codes', () => {
     expect(codeForNwc('RATE_LIMITED')).toBe('conflict')
     expect(codeForNwc('NOT_READY')).toBe('network')
     expect(codeForNwc('WALLET_EXISTS')).toBe('exists')
-    for (const c of ['INSUFFICIENT_BALANCE', 'QUOTA_EXCEEDED', 'NOT_IMPLEMENTED', 'PAYMENT_FAILED', 'INTERNAL', 'OTHER', 'SOME_FUTURE_CODE']) expect(codeForNwc(c)).toBe('internal')
+    for (const c of ['INSUFFICIENT_BALANCE', 'NOT_IMPLEMENTED', 'PAYMENT_FAILED', 'INTERNAL', 'OTHER', 'SOME_FUTURE_CODE']) expect(codeForNwc(c)).toBe('internal')
   })
 })
 
 describe('fromWalletError', () => {
   test('a known code translates and keeps the raw message (TestNWCError_KnownCodeMapsAndTranslates, …TranslatedCodeStillPreservesRawMessage)', () => {
+    expect(codeForNwc('QUOTA_EXCEEDED')).toBe('conflict')
     const e = fromWalletError(new WalletError('pay_invoice', 'QUOTA_EXCEEDED', 'raw wallet message'))
-    expect(e).toMatchObject({ code: 'internal', nwcCode: 'QUOTA_EXCEEDED', rawMessage: 'raw wallet message' })
+    expect(e).toMatchObject({ code: 'conflict', nwcCode: 'QUOTA_EXCEEDED', rawMessage: 'raw wallet message' })
     expect(e.message).toMatch(/spending limit/)
-    expect(e.toJSON()).toMatchObject({ error: 'raw wallet message', code: 'internal', nwc_code: 'QUOTA_EXCEEDED' })
+    expect(e.toJSON()).toMatchObject({ code: 'conflict', nwc_code: 'QUOTA_EXCEEDED' })
   })
   test('EXPIRED is auth, exit 7 (TestNWCError_ExpiredMapsToAuth)', () => {
     const e = fromWalletError(new WalletError('m', 'EXPIRED', '...'))

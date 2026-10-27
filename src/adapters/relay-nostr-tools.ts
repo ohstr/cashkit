@@ -9,7 +9,7 @@
 // relay, as the batch session needs (it publishes to a relay only after that
 // relay's EOSE, SD-34).
 import type { NostrEvent } from '../core/index.js'
-import type { Filter, RelayPool, SubscriptionHandlers } from '../client/index.js'
+import { fetchRelayInfo, type Filter, type RelayPool, type SubscriptionHandlers } from '../client/index.js'
 
 /** The slice of nostr-tools' SimplePool this needs (2.x). */
 export interface SimplePoolLike {
@@ -42,12 +42,19 @@ export class NostrToolsPool implements RelayPool {
     return () => subs.forEach((s) => s.close())
   }
 
+  /** The relay's NIP-11 document over HTTP(S), or undefined. */
+  relayInfo(relay: string): Promise<unknown> {
+    return fetchRelayInfo(relay)
+  }
+
+  /** A refusal keeps the relay's own OK message verbatim (nostr-tools rejects with it as the error's message). */
   async publish(relay: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
     try {
       const reason = await this.pool.publish([relay], e)[0]
       return { ok: true, ...(reason !== undefined && reason !== '' && { message: reason }) }
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : String(err) }
+      const m = err instanceof Error ? err.message : typeof err === 'string' ? err : undefined
+      return { ok: false, ...(m !== undefined && m !== '' && { message: m }) }
     }
   }
 }

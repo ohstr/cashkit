@@ -93,3 +93,21 @@ export class EventQueue {
 }
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, Math.max(ms, 0)))
+
+/** A relay's NIP-11 document, read over HTTP(S) with `Accept: application/nostr+json`; undefined when it cannot be read in time. */
+export async function fetchRelayInfo(url: string, o: { readonly fetch?: typeof globalThis.fetch; readonly timeoutMs?: number } = {}): Promise<unknown> {
+  const f = o.fetch ?? globalThis.fetch
+  if (typeof f !== 'function') return undefined
+  const http = url.replace(/^ws(s?):\/\//i, 'http$1://')
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), o.timeoutMs ?? 3000)
+  try {
+    const res = await f(http, { headers: { Accept: 'application/nostr+json' }, signal: ctrl.signal })
+    if (!res.ok) return undefined
+    return (await res.json()) as unknown
+  } catch {
+    return undefined
+  } finally {
+    clearTimeout(timer)
+  }
+}

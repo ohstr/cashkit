@@ -107,3 +107,24 @@ describe('a wallet over each adapter, against a Hub on the real relay', () => {
     }, 30_000)
   }
 })
+
+// T-1809: a relay's `pow:` refusal reaches the caller verbatim (or as no
+// message), never as a library's own wording; NIP-11 is read over HTTP.
+for (const a of adapters) {
+  describe(`proof of work through ${a.name}`, () => {
+    test('a pow: refusal keeps the relay text; relayInfo reads the minimum', async () => {
+      relay.powMinimum = 20
+      try {
+        const pool = a.make()
+        const r = await pool.publish(relay.url, ev(Math.floor(Math.random() * 1e6), 23190))
+        expect(r.ok).toBe(false)
+        if (r.message !== undefined) expect(r.message).toBe('pow: difficulty 20 required')
+        else expect(a.name).toBe('NDK')
+        expect(await pool.relayInfo?.(relay.url)).toMatchObject({ limitation: { min_pow_difficulty: 20 } })
+        a.close?.(pool)
+      } finally {
+        relay.powMinimum = 0
+      }
+    })
+  })
+}

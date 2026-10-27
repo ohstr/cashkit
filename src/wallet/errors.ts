@@ -129,6 +129,7 @@ export function codeForNwc(nwcCode: string): ErrorCode {
     case 'EXPIRED':
       return 'auth'
     case 'RATE_LIMITED':
+    case 'QUOTA_EXCEEDED': // a size or count limit: retry smaller or later
       return 'conflict'
     case 'NOT_SENT': // the client never sent it (design §3): retrying is safe
     case 'NOT_READY':

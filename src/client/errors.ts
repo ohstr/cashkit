@@ -31,6 +31,8 @@ export type ClientErrorCode =
   /** The items do not fit the one envelope the caller required. Nothing was sent. */
   | 'single_envelope_required'
   /** Not a connection string of the expected kind, or a malformed one. Nothing was dialled. */
+  /** Proof of work the relays ask for exceeds the mining budget. Nothing was sent. */
+  | 'pow_too_hard'
   | 'connection_invalid'
   /** `get_info` names another Hub identity or chain than the connection string. */
   | 'connection_mismatch'

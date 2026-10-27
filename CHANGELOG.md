@@ -69,6 +69,12 @@
 - NWC calls wait for every relay's subscription before publishing, and
   `get_info` types `pubkey`, `network` and `chain`.
   ([#13](https://github.com/ohstr/cashkit/pull/13))
+- Mines private requests to the relays' NIP-11 proof-of-work minimum and
+  re-mines the same request after a `pow:` refusal; adds the `relayInfo` and
+  `powBudget` options and the `pow_too_hard` error.
+- Relay adapters return a relay's refusal message verbatim and read its
+  NIP-11 document.
+- Maps `QUOTA_EXCEEDED` to `conflict`.
 
 ## [0.1.0-rc.2]
 

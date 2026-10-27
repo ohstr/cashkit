@@ -1,7 +1,7 @@
 // RelayPool over the global WebSocket (browsers, Node >= 22, Bun): one
 // connection per relay, opened on demand and shared by every subscription.
 import type { NostrEvent } from '../core/index.js'
-import type { Filter, RelayPool, SubscriptionHandlers } from '../client/index.js'
+import { fetchRelayInfo, type Filter, type RelayPool, type SubscriptionHandlers } from '../client/index.js'
 
 /** The slice of the WebSocket API this adapter uses. */
 export interface WebSocketLike {
@@ -131,6 +131,11 @@ export class RelayWs implements RelayPool {
         if (!c.closed && c.ws.readyState === OPEN) c.ws.send(JSON.stringify(['CLOSE', id]))
       }
     }
+  }
+
+  /** The relay's NIP-11 document over HTTP(S), or undefined. */
+  relayInfo(url: string): Promise<unknown> {
+    return fetchRelayInfo(url)
   }
 
   async publish(url: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
