@@ -224,9 +224,9 @@ A port of the protocol-only parts of `nmilat/nipcash` and `nmilat/nipcw`:
     dialled.
 - **NIP-47 messages and pairing URI**, and **NIP-CW** `create_circle_wallet`
   request/response, including decrypting `encrypted_details`.
-- **NIP-44 plaintext length.** 1 to 2^32−1 bytes, with the extended length
-  prefix from 65536, as current NIP-44 and nmilat; an empty plaintext is
-  refused (`nip44.json`).
+- **NIP-44 plaintext length.** 1 to 65535 bytes behind the u16 length
+  prefix, the same ceiling as the cash transport's; an empty plaintext and
+  anything longer are refused (`nip44.json`).
 - **Units.** Amounts are `bigint` millis everywhere, never `number`. The
   display unit comes from the token's HRP (`lokicash` → loki, `satscash` →
   sat, with 1 unit = 1000 millis).
