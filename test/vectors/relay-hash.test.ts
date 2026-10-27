@@ -7,7 +7,7 @@ const v = load('relay-hash.json')
 const hash = (relays: string[]) => relayHashOf(relays.map((r) => utf8(r)), v.secret)
 
 // cashkit's relayHashOf does not refuse a hint over 255 bytes (its 1-byte length wraps to 0); nmilat refuses it.
-const MISMATCH = new Set(['256-byte hint is refused'])
+const MISMATCH = new Set<string>()
 
 describe('relay-hash.json', () => {
   const cases = named(v.hash)

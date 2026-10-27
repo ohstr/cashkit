@@ -1,6 +1,6 @@
 // provenance.json: the cash-mint:v1 and cash-zap:v1 payloads, the per-HRP
 // signed-message prefix, and minter recovery from the compact signature.
-// reservedSignText is not covered: cashkit has no sign-text label check.
+// reservedSignText is not covered: refusing those labels is a Hub's sign-message rule, not a client's.
 import { describe, expect, test } from 'vitest'
 import {
   CHAIN_TABLE,
@@ -23,16 +23,7 @@ import { load, named, type Json } from './helpers.js'
 
 const v = load('provenance.json')
 
-const MISMATCH = new Set([
-  // zapPayload: nmilat refuses an empty zap_target; cashkit builds the payload.
-  'empty target',
-  // zapPayload: nmilat refuses a recipient that is not 64 lowercase hex; cashkit lowercases it.
-  'uppercase recipient',
-  // zapPayload: nmilat refuses a sender that is not 64 hex; cashkit builds the payload.
-  'short sender',
-  // signedMessagePrefix: nmilat maps SATSCASH to chain bitcoin; cashkit's chainForHrp has no row for it.
-  'SATSCASH',
-])
+const MISMATCH = new Set<string>()
 
 const enc = new TextEncoder()
 const SCHEME: Record<number, TokenScheme> = { 0: 'none', 1: 'mint_v1', 2: 'zap_v1', 255: 'malformed' }
@@ -46,7 +37,7 @@ const zapPayloadOf = (c: Json) =>
     relayHash: c.relayHash,
     recipient: c.zap.recipient,
     sender: c.zap.sender,
-    targetHash: zapTargetHash(c.zap.zapTarget),
+    zapTarget: c.zap.zapTarget,
     issuedAt: c.zap.issuedAt,
     expiresAt: c.zap.expiresAt,
   })

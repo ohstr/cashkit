@@ -15,7 +15,6 @@ import {
   signedMessageDigest,
   toHex,
   zapPayloadV1,
-  zapTargetHash,
   type NostrEvent,
   type ZapFields,
 } from '../src/core/index.js'
@@ -87,7 +86,7 @@ function zapToken(z: ZapFields) {
   const connSecret = fill(0x65, 32)
   hub.mintBill({ walletKey, connSecret, amount: 5000n })
   const wallet = getPublicKey(walletKey)
-  const payload = zapPayloadV1({ hrp: 'lokicash', walletPubkey: wallet, amountMillis: 5000n, relayHash: relayHashOf([utf8(R1)], connSecret), ...z, targetHash: zapTargetHash(z.zapTarget) })
+  const payload = zapPayloadV1({ hrp: 'lokicash', walletPubkey: wallet, amountMillis: 5000n, relayHash: relayHashOf([utf8(R1)], connSecret), ...z })
   return encodeToken({ hrp: 'lokicash', walletPubkey: wallet, secret: toHex(connSecret), relays: [R1], scheme: 'zap_v1', mintSignature: signCompact(signedMessageDigest('lokicash', payload)!, hub.nodeKey), attestedAmountMillis: 5000n })
 }
 

@@ -5,6 +5,7 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { concatBytes, fromHex, toHex, utf8 } from './bytes.js'
+import { CoreError } from './errors.js'
 import { MINT_SIGNATURE_LEN, type Token } from './token.js'
 
 /** The scheme labels: fixed ASCII, the same for every HRP. */
@@ -24,12 +25,12 @@ export const CHAIN_TABLE: Readonly<Record<string, { readonly chain: string; read
   lokicash: { chain: 'flokicoin', prefix: 'Flokicoin Lightning Signed Message:' },
 }
 
-// Keyed by the lowercase HRP a decoder returns; other spellings have no row.
+// Keyed by the lowercase HRP a decoder returns; `signedMessagePrefix` matches it exactly.
 const row = (hrp: string) => (Object.hasOwn(CHAIN_TABLE, hrp) ? CHAIN_TABLE[hrp] : undefined)
 
-/** The chain a token HRP names, or undefined for an HRP this build has no row for. */
+/** The chain a token HRP names (matched in lowercase), or undefined for an HRP this build has no row for. */
 export function chainForHrp(hrp: string): string | undefined {
-  return row(hrp)?.chain
+  return row(hrp.toLowerCase())?.chain
 }
 
 /**
@@ -41,12 +42,15 @@ export function signedMessagePrefix(hrp: string): string | undefined {
   return row(hrp)?.prefix
 }
 
-const lenPrefixed = (b: Uint8Array) => concatBytes(Uint8Array.of(b.length), b)
+function lenPrefixed(b: Uint8Array): Uint8Array {
+  if (b.length > 255) throw new CoreError('invalid_field', 'relay_hash: a relay hint exceeds 255 bytes')
+  return concatBytes(Uint8Array.of(b.length), b)
+}
 
 /**
  * `relay_hash`: lowercase hex sha256 of every relay hint exactly as encoded,
  * each after its 1-byte length, then the 32-byte secret. Shared with the
- * signed connection strings.
+ * signed connection strings. A hint over 255 bytes is refused.
  */
 export function relayHashOf(relayBytes: readonly Uint8Array[], secret: Uint8Array | string): string {
   const s = typeof secret === 'string' ? fromHex(secret, 'secret') : secret
@@ -92,19 +96,35 @@ export interface ZapFields {
 /** `<target_hash>`: lowercase hex sha256 of the UTF-8 `zap_target`. */
 export const zapTargetHash = (zapTarget: string) => toHex(sha256(utf8(zapTarget)))
 
-/** Scheme 2: `cash-zap:v1:<hrp>:<wallet>:<amount>:<relay_hash>:pubkey/<recipient>:pubkey/<sender>:<target_hash>:<issued_at>:<expires_at>`. */
-export function zapPayloadV1(f: MintPayloadFields & Omit<ZapFields, 'zapTarget'> & { readonly targetHash: string }): string {
-  return `${ZAP_LABEL_V1}:${f.hrp.toLowerCase()}:${f.walletPubkey.toLowerCase()}:${dec(f.amountMillis)}:${f.relayHash.toLowerCase()}:pubkey/${f.recipient.toLowerCase()}:pubkey/${f.sender.toLowerCase()}:${f.targetHash.toLowerCase()}:${dec(f.issuedAt)}:${dec(f.expiresAt)}`
+const HEX64 = /^[0-9a-f]{64}$/
+
+/**
+ * Scheme 2: `cash-zap:v1:<hrp>:<wallet>:<amount>:<relay_hash>:pubkey/<recipient>:pubkey/<sender>:<target_hash>:<issued_at>:<expires_at>`.
+ * Refuses a recipient or sender that is not 64 lowercase hex and an empty
+ * `zap_target`; the target is hashed exactly as given.
+ */
+export function zapPayloadV1(f: MintPayloadFields & ZapFields): string {
+  if (!HEX64.test(f.recipient) || !HEX64.test(f.sender)) {
+    throw new CoreError('invalid_field', 'payload field is malformed: recipient and sender are 64 lowercase hex characters')
+  }
+  if (f.zapTarget === '') throw new CoreError('invalid_field', 'payload field is malformed: zap_target is empty')
+  return `${ZAP_LABEL_V1}:${f.hrp.toLowerCase()}:${f.walletPubkey.toLowerCase()}:${dec(f.amountMillis)}:${f.relayHash.toLowerCase()}:pubkey/${f.recipient}:pubkey/${f.sender}:${zapTargetHash(f.zapTarget)}:${dec(f.issuedAt)}:${dec(f.expiresAt)}`
 }
 
 type ProvenanceInput = Pick<Token, 'hrp' | 'walletPubkey' | 'secret' | 'relays' | 'relayBytes' | 'scheme' | 'mintSignature' | 'attestedAmountMillis'>
 
-/** The payload a token's signature covers, or undefined when it has none to verify (no pair, unknown scheme, zap fields missing). */
+/** The payload a token's signature covers, or undefined when it has none to verify (no pair, unknown scheme, zap fields missing or malformed). */
 export function provenancePayload(t: ProvenanceInput, zap?: ZapFields): string | undefined {
   if (t.attestedAmountMillis === undefined) return undefined
   const base = { hrp: t.hrp, walletPubkey: t.walletPubkey, amountMillis: t.attestedAmountMillis, relayHash: relayHash(t) }
   if (t.scheme === 'mint_v1') return mintPayloadV1(base)
-  if (t.scheme === 'zap_v1' && zap !== undefined) return zapPayloadV1({ ...base, ...zap, targetHash: zapTargetHash(zap.zapTarget) })
+  if (t.scheme === 'zap_v1' && zap !== undefined) {
+    try {
+      return zapPayloadV1({ ...base, ...zap })
+    } catch {
+      return undefined
+    }
+  }
   return undefined
 }
 

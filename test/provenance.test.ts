@@ -91,7 +91,7 @@ describe('T-002 payloads (K-PAY-1, K-PAY-2, K-ZAP-1)', () => {
     expect(zapTargetHash(target)).toBe('79c69fd2170904248edc898066fce02a7fefa36235f4fb863f4329c99f891b8f')
     expect(xonly(5)).toBe('2f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4')
     expect(xonly(6)).toBe('fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556')
-    const p = zapPayloadV1({ hrp: 'satscash', walletPubkey: WALLET, amountMillis: 5000n, relayHash: KRH1, recipient: xonly(5), sender: xonly(6), targetHash: zapTargetHash(target), issuedAt: 1720000000, expiresAt: 0 })
+    const p = zapPayloadV1({ hrp: 'satscash', walletPubkey: WALLET, amountMillis: 5000n, relayHash: KRH1, recipient: xonly(5), sender: xonly(6), zapTarget: target, issuedAt: 1720000000, expiresAt: 0 })
     expect(p).toBe(
       'cash-zap:v1:satscash:c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5:5000:' +
         '487f70e79899e5f04dabdeaa62db4654d0d005db40496df0930c5e12e8d2775c:' +
@@ -140,7 +140,7 @@ describe('T-003 verify', () => {
     const key = fill(0x11, 32)
     const zap = { recipient: xonly(5), sender: xonly(6), zapTarget: 'note1x', issuedAt: 1720000000, expiresAt: 0 }
     const base = { hrp: 'satscash', walletPubkey: WALLET, secret: SECRET_HEX, relays: [R1], relayBytes: [utf8(R1)], attestedAmountMillis: 5000n }
-    const digest = signedMessageDigest('satscash', zapPayloadV1({ hrp: 'satscash', walletPubkey: WALLET, amountMillis: 5000n, relayHash: relayHashOf([utf8(R1)], SECRET), ...zap, targetHash: zapTargetHash(zap.zapTarget) }))!
+    const digest = signedMessageDigest('satscash', zapPayloadV1({ hrp: 'satscash', walletPubkey: WALLET, amountMillis: 5000n, relayHash: relayHashOf([utf8(R1)], SECRET), ...zap }))!
     const t: Token = { ...base, scheme: 'zap_v1', mintSignature: signCompact(digest, key) }
     expect(needsZapEvent(t)).toBe(true)
     expect(verifyProvenance(t)).toBeUndefined()
