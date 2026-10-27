@@ -271,6 +271,26 @@ describe('circles.recover', () => {
     expect(c!.rotation).toBeUndefined()
     expect(await h.wallet.circles.list()).toHaveLength(1)
   }, 30_000)
+  test('a device holding another wallet of the same circle keeps it and adds the recovered one', async () => {
+    const id = localSigner(fill(11, 32))
+    const h = await harness({ identity: false, deps: { nwcTimeoutMs: 2000 } })
+    const circle = new FakeCircle(h.bank, { rotationDelaySecs: 432000 })
+    await h.wallet.identity.useSigner(id)
+    const r = await h.wallet.circles.join(circle.string, terms)
+    // As if this device held an older wallet of the circle, not the one being recovered.
+    await h.storage.tx('rw', async (t) => {
+      const c = (await t.get('connections', r.name))!
+      await t.put('connections', { ...c, walletPubkey: 'ab'.repeat(32), version: c.version + 1 }, c.version)
+    })
+    const w = circle.wallets.get(r.walletPubkey)!
+    const fresh = toHex(fill(12, 32))
+    circle.rotate(w, getPublicKey(fill(12, 32)))
+    const done = await h.wallet.circles.recover(circle.string, fresh, { name: 'ada-recovered' })
+    expect(done).toMatchObject({ state: 'done', wallet: { name: 'ada-recovered', walletPubkey: r.walletPubkey } })
+    const names = (await h.wallet.circles.list()).map((c) => c.name)
+    expect(names).toHaveLength(2)
+    expect(names).toEqual(expect.arrayContaining(['ada-recovered', r.name]))
+  }, 30_000)
   test('a string that is no circlehub1, or a bad key, is refused before anything is sent', async () => {
     const { h, circle } = await setup()
     expect(await failure(h.wallet.circles.recover(h.bank.openCashHub(), toHex(fill(9, 32))))).toMatchObject({ code: 'invalid_input', reason: 'connection_invalid' })

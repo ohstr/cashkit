@@ -476,9 +476,9 @@ export async function recoverCircle(ctx: Ctx, hubString: string, newConnectionSe
   const hubConnection = await ctx.seal(hubString.trim())
   const row = await ctx.commit(async (t) => {
     const conns = await t.list('connections')
-    const held = conns.find((c) => c.kind === 'circle_wallet' && c.circle?.hubPubkey === hubPubkey)
+    // The same wallet held here takes the new key; another wallet of this circle (another identity's, or an older one) stays as it is.
+    const held = conns.find((c) => c.kind === 'circle_wallet' && c.circle?.hubPubkey === hubPubkey && c.walletPubkey === d.walletPubkey)
     if (held !== undefined) {
-      if (held.walletPubkey !== d.walletPubkey) throw new CashkitError('conflict', `this device holds another wallet of this circle ("${held.id}"), not the one the new key controls`, { input: held.id })
       const { rotation: _r, frozen: _f, moved: _m, ...rest } = held
       const next: Connection = { ...rest, secret, relays: d.relays, circle: { ...held.circle!, connectionPubkey: key.pubkey }, version: held.version + 1 }
       await t.put('connections', next, held.version)
