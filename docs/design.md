@@ -558,12 +558,7 @@ interface Holding {
   protection: 'none' | 'shared' | 'protected'   // cash mode only
   cashSecret?: Sealed<CashSecret>
   connectionKey?: { platform: string; externalId: string; attestationId: string; iaPubkey: string }
-  // write-ahead slots (§5)
-  pendingCashSecret?: Sealed<CashSecret>
-  pendingDestinationCashSecret?: Sealed<CashSecret>
-  pendingRemainderCashSecret?: Sealed<CashSecret>
-  pendingThrowawayKey?: Sealed<PrivKey>
-  throwawayKey?: Sealed<PrivKey>
+  throwawayKey?: Sealed<PrivKey>    // a merge key this bill sits on (§6.2)
   version: number
 }
 ```
@@ -604,30 +599,39 @@ This is the invariant everything else hangs on.
 > call MUST be committed to storage before that call is made. If the commit
 > fails, the call MUST NOT be made.
 
-### 5.1 Write-ahead slots
+### 5.1 Pending calls
 
-| Slot | Written before | Cleared on definite refusal | Kept on ambiguous result | Promoted on success | cashctl source |
-|---|---|---|---|---|---|
-| `pendingCashSecret` | rekey of the same bill (protect, back-to-cash) | yes | yes, then reported `unresolved` | becomes `cashSecret`, `protection = protected` | `receive_secure.go` `protectRekeyOnly`, `cash_merge.go` `toCashNotes` |
-| `pendingDestinationCashSecret` | any spend whose target is a new cash note | yes (`forgetIfNothingCreated`) | yes, surfaced as an unfinished cash send | written into the handoff / new holding | `cash_writeahead.go` `parkDestinationCashSecret` |
-| `pendingRemainderCashSecret` | a partial split of a cash note (its `remainder_commitment`), in the same commit as the destination's | yes | yes | becomes the remainder holding's `cashSecret` | — |
-| `pendingThrowawayKey` | moving a cash note onto a merge key | yes, and earlier moves are undone | yes | becomes `throwawayKey`; the holding switches to signing | `cash_merge.go` `moveCashNotesToKey` |
-| `pendingJoin` row | `create_circle_wallet` | deleted | kept (`pendingJoins` in state) | deleted in the same tx that adds the connection | `circle.go`, `config/pending_join.go` |
+Every call that carries a `request_id` (`cash_transfer`, `cash_consolidate`,
+and later `mint_cash`, `cash_order`, `cash_withdraw`) is written ahead as a
+`pendingCalls` row before its first byte is sent: its request id, exact
+deadline, target, sources, authorizer, and every secret it creates.
 
-Redeem has no slot because it creates no locally generated secret. It
-commits once, after the result arrives.
+| What the call creates | Written ahead as | On success |
+|---|---|---|
+| a new cash note (a send to cash, a consolidate to cash, protect, back-to-cash) | `outputs[role=new]`, `{ kind: 'cash', secret }` | the handoff `<token>#<secret>`, or the holding's `cashSecret` |
+| the remainder of a partial split | `outputs[role=remainder]`: a fresh cash secret for a cash note (its `remainder_commitment`), the source's merge key or the wallet's pubkey otherwise | the remainder holding |
+| a bill on a merge key | `outputs[role=new]`, `{ kind: 'throwaway', pubkey, key }` | the holding's `throwawayKey`; it switches to signing |
+| a call signed by a merge key | `authorizer`, `{ kind: 'throwaway', authorizerKey }` | — |
+| `pendingJoin` row (`create_circle_wallet`) | its own row | deleted in the same tx that adds the connection |
+
+A holding named by an open call (as a source, or as the cash note that
+authorizes it) is **locked**: no plan picks it, and naming it is a
+`conflict` until the call closes. `holdings()` and `state.holdings` show it
+as `unsettled`. Redeem creates no locally generated secret; it commits once,
+after the result arrives.
 
 ### 5.2 State machine
 
 Each money-moving call follows the same machine:
 
 ```
-prepare ─► parked ─► sent ─┬─► applied ──► committed
-   │          │            ├─► refused ──► cleared              (definite: decodable error / not sent)
-   │          │            └─► unknown ──► indeterminate        (timeout, not_served, incomplete, undecodable)
-   │          └─ park commit failed ─► aborted (nothing sent)
+prepare ─► written ahead ─► sent ─┬─► applied ──► result applied + call closed (one tx)
+   │            │                 ├─► BAD_REQUEST, tombstone ──► closed, not applied
+   │            │                 └─► anything else ──► open (sources locked) ──► settle() looks it up
+   │            └─ write-ahead failed ─► aborted (nothing sent)
    └─ validation failed ─► aborted
-committed but final commit failed ─► RecoveryError (recovery text carries the handoffs)
+applied but the result commit failed ─► internal error; the call stays written ahead
+  (and the error's recovery text carries any cash notes it created)
 ```
 
 How Hub answers are classified (cashctl `classifyCashSpendErr`):
@@ -663,26 +667,10 @@ deadline, signed by its authorizer (a cash one without its secret first):
 ones waiting for the user, without request ids or secrets;
 `pendingCalls.close(id)` closes one; `autoSettle()` runs `settle()` at
 `nextSettleAt`. Each operation kind registers how it places, finishes and
-looks up its calls (`registerCallKind`).
+looks up its calls (`registerCallKind`); sends, splits, protect, moves onto and off a merge key, and consolidations run as `transfer` and `consolidate` calls (`wallet/kinds.ts`).
 
-**Write-ahead slots.**
-
-`wallet.settle()` reconciles leftover slots. The engine MUST run it on
-`open`, before every spend, and on demand:
-
-- **`pendingThrowawayKey`.** Probe `checkClaim(bySigning(key))`. On a match,
-  promote. Otherwise probe `bySecret(cashSecret)`; on a match, clear. Then
-  return any leftover throwaway-key holdings to cash notes (`toCashNotes`).
-- **`pendingCashSecret`.** Probe `bySecret(pending)`; on a match, promote it
-  (`protection = protected`). Otherwise probe the current secret; on a
-  match, clear. Separately, a spend that comes back `NOT_FOUND` is retried
-  once with the pending secret, as `pending_secret_fallback.go` and
-  `redeem_private.go` `retryWithPendingSecrets` do.
-- **`pendingDestinationCashSecret`** and **`pendingRemainderCashSecret`.** Cleared when the source is still held
-  and its Hub still answers for it at the recorded amount; otherwise shown
-  in `state.unfinishedCashSends`.
-
-A probe that errors is inconclusive and leaves its slot alone.
+`wallet.settle()` MUST run on `open`, before every spend plan, and on
+demand. `protect()` settles first too.
 
 ### 5.4 Concurrency
 
@@ -743,7 +731,7 @@ Flow, from `cash_receive.go`:
    - no match → `invalid_input`
 5. Validate the amount against `MaxInt64` and the attested amount.
 6. Commit.
-7. Protect: rekey through `pendingCashSecret`.
+7. Protect: rekey to a fresh secret, written ahead as a pending call.
 
 Receive never merges.
 
@@ -866,7 +854,7 @@ joinCircle(o: { hub: string /* circlehub1… or NWC URI */; maxAmount: bigint; n
     transports, never from the inbox or node key.
   - No identity means the standard transport and no `fallbackReason`. A
     `get_info` that fails, refused or unanswered, fails the join before
-    anything is parked or sent.
+    anything is written ahead or sent.
   - An announcement that can't be found or verified, or a private item that
     fails before it is sent, falls back to the standard transport and sets
     `fallbackReason`. With `requirePrivate` it is a `not_found` error
@@ -916,7 +904,7 @@ report, and make no network call. They match cashctl `decode` without
 ### 6.11 State and events
 
 ```ts
-wallet.state: WalletState    // snapshot: balance summary, holdings, pendingJoins, unfinishedCashSends,
+wallet.state: WalletState    // snapshot: balance summary, holdings, pendingJoins, pendingCalls,
                              // pendingMerge, storagePersisted, locked
 wallet.subscribe(fn: (s: WalletState) => void): () => void
 wallet.on('operation', (e: { op: string; phase: 'planned' | 'sent' | 'committed' | 'failed'; id: string }) => void)
@@ -1085,12 +1073,11 @@ This lets cashkit and cashctl share fixtures.
   - The key is scrypt over the NFKC passphrase (NIP-49's parameters); each
     secret is XChaCha20-Poly1305 under a fresh 24-byte nonce, with associated
     data `cashkit/backup/v1`.
-  - The secret-bearing fields are exactly: holdings `cashSecret`,
-    `pendingCashSecret`, `pendingDestinationCashSecret`, `pendingRemainderCashSecret`,
-    `pendingThrowawayKey`, `throwawayKey`; handoffs `handoff`; connections
-    `uri`; identity `priv`; pendingJoins `connectionSecret`; pendingCalls
-    `authorizer.authorizerKey`, `authorizer.buyerKey` and
-    `outputs[].destination.secret`. Each is `{ "sealed": … }` in the file and
+  - The secret-bearing fields are exactly: holdings `cashSecret` and
+    `throwawayKey`; handoffs `handoff`; connections `uri`; identity `priv`;
+    pendingJoins `connectionSecret`; pendingCalls `authorizer.authorizerKey`,
+    `authorizer.buyerKey`, `outputs[].destination.secret` and
+    `outputs[].destination.key`. Each is `{ "sealed": … }` in the file and
     nothing else is secret. A version-1 backup is refused.
   - `importBackup` restores into an empty wallet only (merging two ledgers is
     not a restore), re-seals every secret under the new wallet's vault,
@@ -1152,9 +1139,10 @@ port cashctl's audit tests:
 
 - **kill window**: every step boundary of every operation, followed by
   `settle()` (`auditD_cli_killwindow`)
-- **write-ahead ordering**: park before the wire call, refuse when the park
-  can't be recorded, release without committing, a concurrent re-park
-  survives (`auditD_cli_writeahead`)
+- **write-ahead ordering**: every created secret is in a pending call
+  before the wire call; a call that can't be written ahead is not placed; a
+  lost reply or a failed result commit leaves the call open, its sources
+  locked, until `settle()` applies it (`auditD_cli_writeahead`)
 - **recovery text**: intact and paired, never truncated
   (`auditD_cli_recovery_handoff`)
 - **no secrets in activity** (`auditD_cli_history_secrets`)

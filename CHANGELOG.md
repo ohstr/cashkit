@@ -106,6 +106,19 @@
   `pending`, `recovered` and `needs_user` operation events; an error that
   leaves a call open carries its `pendingCallId`.
   ([#17](https://github.com/ohstr/cashkit/pull/17))
+- Runs every send, split, protect, merge-key move and consolidate as
+  pending calls written ahead with their deadline, request id and every
+  secret they create; a lost reply is settled by lookup instead of a probe.
+- A bill in an open call is locked: plans skip it, naming it is a
+  `conflict`, and `holdings()` shows it `unsettled`. A coded refusal keeps
+  the call open until a lookup confirms nothing was applied.
+- Removes the per-holding write-ahead fields (`pendingCashSecret`,
+  `pendingDestinationCashSecret`, `pendingRemainderCashSecret`,
+  `pendingThrowawayKey`) and `unfinishedCashSends`; `settle()` returns the
+  pending-call report. Their secrets now live in the pending call.
+- A result that the Hub applied but that could not be saved leaves its call
+  open for `settle()`, and the error's recovery text carries the cash notes
+  it created.
 
 ## [0.1.0-rc.2]
 

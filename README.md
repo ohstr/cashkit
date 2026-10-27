@@ -271,7 +271,7 @@ await restored.importBackup(text, backupPassphrase)
 ### Watch state
 
 ```ts
-const stop = wallet.subscribe((s) => render(s.holdings, s.balance, s.unfinishedCashSends))
+const stop = wallet.subscribe((s) => render(s.holdings, s.balance, s.pendingCalls))
 wallet.on('operation', (e) => console.log(e.op, e.phase)) // planned, sent, committed, failed
 ```
 
