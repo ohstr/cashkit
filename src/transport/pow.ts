@@ -29,12 +29,20 @@ export function relayPowMinimum(info: unknown): number {
 /** Whether a relay's `OK false` message is a proof-of-work refusal. */
 export const isPowRejection = (message: string | undefined): boolean => message !== undefined && message.startsWith('pow:')
 
-/** The difficulty a `pow: difficulty <n> required` refusal states, or undefined (then re-read NIP-11). */
+/**
+ * The difficulty a `pow:` refusal names: its first whitespace-separated word
+ * after `pow:` that is a positive integer (`pow: difficulty 20 required`,
+ * `pow:20`). Undefined when it names none, or one above 256 bits (then
+ * re-read NIP-11).
+ */
 export function parsePowRejection(message: string | undefined): number | undefined {
   if (!isPowRejection(message)) return undefined
-  const m = /^pow:\s*difficulty\s+([0-9]{1,3})\s+required/.exec(message!)
-  const n = m === null ? undefined : Number(m[1])
-  return n !== undefined && n > 0 && n <= 256 ? n : undefined
+  for (const word of message!.slice(4).split(/\s+/)) {
+    if (!/^[+-]?[0-9]+$/.test(word)) continue
+    const n = Number(word)
+    if (n > 0) return n <= 256 ? n : undefined
+  }
+  return undefined
 }
 
 /** Mines a NIP-13 nonce: increments it until the id has `difficulty` leading zero bits. Aborts with `signal`. */
