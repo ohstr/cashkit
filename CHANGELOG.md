@@ -147,11 +147,14 @@
   groups by the last-read `min_transfer_millis`; it never auto-merges an
   expired bill or one kept out of merges (`holdings.setExcludeFromMerge`).
   Naming ordered and other bills together is refused (`mixed_ordered`).
+  ([#21](https://github.com/ohstr/cashkit/pull/21))
 - Consolidate outcomes and merging send plans carry
   `disclosesCommonOwnership`; a send coverable only by merging an excluded
   bill is refused (`excluded_from_merge`).
+  ([#21](https://github.com/ohstr/cashkit/pull/21))
 - Handed-out cash notes are re-checked by `cash_status` without sending the
   secret.
+  ([#21](https://github.com/ohstr/cashkit/pull/21))
 
 ## [0.1.0-rc.2]
 
