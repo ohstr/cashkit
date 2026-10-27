@@ -2,7 +2,7 @@
 // it (credentials). Port of nmilat nipcash/identity.go and proof.go.
 import { sha256 } from '@noble/hashes/sha2.js'
 import { fromHex, toHex, utf8 } from './bytes.js'
-import { newConnectionKey } from './connectionKey.js'
+import type { ConnectionKeyRef } from './connectionKey.js'
 import { CoreError } from './errors.js'
 import { finalizeEvent, getPublicKey, type EventTemplate, type NostrEvent } from './nip01.js'
 import { decrypt, encrypt, getConversationKey } from './nip44.js'
@@ -31,18 +31,12 @@ export function pubkeyTarget(pubkeyHex: string): Target {
 }
 
 /**
- * A connection-key target for an account on a platform, attested by an IA.
- * As in nmilat, an empty platform makes it a plain pubkey-typed identity.
+ * A connection-key target: the key with the IA it rests on. Build the ref
+ * with `connectionKeyRefFromTyped` (canonical platforms only),
+ * `connectionKeyFromAttestation` or `connectionKeyFromNConnection`.
  */
-export function connectionKeyTarget(platform: string, externalId: string, iaPubkey: string): Target {
-  return resolvedConnectionKeyTarget(newConnectionKey(platform, externalId), platform, iaPubkey)
-}
-
-/** A connection-key target from an already-computed key. */
-export function resolvedConnectionKeyTarget(connectionKey: string, platform: string, iaPubkey: string): Target {
-  return platform === ''
-    ? { identityType: 'pubkey', identityValue: connectionKey, iaPubkey }
-    : { identityType: 'connection_key', identityValue: connectionKey, iaPubkey }
+export function connectionTarget(ref: ConnectionKeyRef): Target {
+  return { identityType: 'connection_key', identityValue: ref.key, iaPubkey: ref.ia }
 }
 
 /** A cash secret: 64 lowercase hex (32 bytes). */
@@ -117,6 +111,7 @@ export type Credential =
       readonly kind: 'connection_key'
       readonly signer: Signer
       readonly platform: string
+      /** The user id exactly as the attestation states it (`evidence.user_id`). */
       readonly externalId: string
       readonly attestation: Attestation | undefined
     }

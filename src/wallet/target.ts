@@ -9,8 +9,11 @@ import {
   newCashTarget,
   NCONNECTION_HRP,
   pubkeyTarget,
-  resolvedConnectionKeyTarget,
-  connectionKeyTarget,
+  connectionKeyFromNConnection,
+  connectionKeyRefFromTyped,
+  connectionTarget,
+  hasCanonicalForm,
+  validPlatformName,
   type CashTarget,
   type Target,
 } from '../core/index.js'
@@ -121,7 +124,11 @@ export interface ParseTargetOptions {
 /**
  * `ParseTarget`, plus `ResolveConnectionTarget` when `ia` is given. An
  * nconnection without an IA is a `usage` error naming it, as cashctl's
- * `--json`/`--yes` path is.
+ * `--json`/`--yes` path is. A ConnectionKey comes only from the NIP-IC
+ * builders: `connection:<platform>:<id>:<ia>` from typed input on a platform
+ * with a canonical form (x, discord, email, dns; any other is refused with a
+ * hint to paste the account's nconnection1), and `nconnection1…` byte for
+ * byte, refused without a platform.
  */
 export async function parseTarget(input: string, o: ParseTargetOptions = {}): Promise<ResolvedTarget> {
   const s = input.trim()
@@ -140,22 +147,29 @@ export async function parseTarget(input: string, o: ParseTargetOptions = {}): Pr
     } catch (err) {
       throw invalid(s, `not a valid nconnection: ${(err as Error).message}`)
     }
-    const platform = nc.platform === '' ? 'this connection' : nc.platform
+    if (nc.platform === '') {
+      throw invalid(s, "this nconnection names no platform, so the account it stands for can't be shown before sending; ask the recipient for an nconnection that includes its platform")
+    }
     if (o.ia === undefined || o.ia.trim() === '') {
       throw new CashkitError(
         'usage',
-        `this nconnection doesn't specify who to trust as Identity Authority for ${platform}: pass ia (hex pubkey or NIP-05), or use the connection:<platform>:<external-id>:<ia-pubkey> form`,
+        `this nconnection doesn't specify who to trust as Identity Authority for ${nc.platform}: pass ia (hex pubkey or NIP-05)`,
         { input: s, hint: 'planSend({ ..., ia })' },
       )
     }
     const ia = await resolveIdentity(o.ia.trim(), o.fetch)
     const iaDisplay = ia.viaNip05 ? `${o.ia.trim()} (${ia.hex})` : ia.hex
-    const label = nc.platform === '' ? 'unspecified-platform' : nc.platform
+    let ref
+    try {
+      ref = connectionKeyFromNConnection(nc, ia.hex)
+    } catch (err) {
+      throw invalid(s, `not a usable nconnection: ${(err as Error).message}`)
+    }
     return {
-      target: resolvedConnectionKeyTarget(nc.connectionKey, nc.platform, ia.hex),
+      target: connectionTarget(ref),
       kind: 'connection',
-      display: `${label} connection`,
-      resolved: `${label} connection; Identity Authority: ${iaDisplay}`,
+      display: `${nc.platform} connection`,
+      resolved: `${nc.platform} connection; Identity Authority: ${iaDisplay}`,
     }
   }
   const colon = s.indexOf(':')
@@ -172,7 +186,23 @@ export async function parseTarget(input: string, o: ParseTargetOptions = {}): Pr
       const parts = rest.split(':')
       if (parts.length !== 3) throw invalid(s, `connection: target needs platform:external-id:ia-pubkey, got ${parts.length} field(s)`)
       const [platform, externalId, ia] = parts as [string, string, string]
-      return { target: connectionKeyTarget(platform, externalId, ia), kind: 'connection', display: `${platform || 'unspecified-platform'} connection`, resolved: '' }
+      if (!validPlatformName(platform)) throw invalid(s, 'connection: the platform name must match [a-z0-9._-]+')
+      if (!hasCanonicalForm(platform)) {
+        throw new CashkitError('invalid_input', `a ${platform} account's key can't be computed from what is typed: paste the recipient's nconnection1… instead`, { input: s, hint: 'nconnection1…' })
+      }
+      let ref
+      try {
+        ref = connectionKeyRefFromTyped(platform, externalId, '')
+      } catch (err) {
+        throw invalid(s, `connection: ${(err as Error).message}`)
+      }
+      const iaId = await resolveIdentity(ia, o.fetch)
+      return {
+        target: connectionTarget({ ...ref, ia: iaId.hex }),
+        kind: 'connection',
+        display: `${platform} connection`,
+        resolved: iaId.viaNip05 ? `${platform} connection; Identity Authority: ${ia} (${iaId.hex})` : '',
+      }
     }
     default:
       throw invalid(s, `unknown target kind "${prefix}" (want pubkey, connection, or cash)`)

@@ -14,13 +14,15 @@ import {
   cashTargetFromSecret,
   cashTransferRequest,
   claimProofTags,
-  connectionKeyTarget,
+  connectionKeyRef,
+  connectionKeyRefFromTyped,
+  connectionTarget,
   decodeLookupDone,
   fromHex,
   getEventHash,
   localSigner,
   matchClaim,
-  newConnectionKey,
+  connectionKeyFromAttested,
   newIdentityHash,
   parseAttestation,
   parseCashConsolidateResult,
@@ -28,7 +30,6 @@ import {
   parseCashTransferResult,
   parseTombstone,
   pubkeyTarget,
-  resolvedConnectionKeyTarget,
   sourcesHash,
   verifyEvent,
   type ClaimMethod,
@@ -79,11 +80,11 @@ const credentials: Record<string, Credential> = {
 const targets: Record<string, () => Target> = {
   pubkey: () => pubkeyTarget(signer.pubkey),
   'pubkey uppercase': () => pubkeyTarget(signer.pubkey.toUpperCase()),
-  connection_key: () => resolvedConnectionKeyTarget(attestation.connectionKey, 'github', IA),
-  'connection_key no ia': () => resolvedConnectionKeyTarget(attestation.connectionKey, 'github', ''),
-  'connection_key no platform': () => connectionKeyTarget('', '12345', IA),
-  'connection_key typed github': () => connectionKeyTarget('github', '12345', IA),
-  'connection_key typed x': () => connectionKeyTarget('x', '12345', IA),
+  connection_key: () => connectionTarget(connectionKeyRef(attestation.connectionKey, 'github', IA)),
+  'connection_key no ia': () => connectionTarget(connectionKeyRef(attestation.connectionKey, 'github', '')),
+  'connection_key no platform': () => connectionTarget(connectionKeyRef(attestation.connectionKey, '', IA)),
+  'connection_key typed github': () => connectionTarget(connectionKeyRefFromTyped('github', '12345', IA)),
+  'connection_key typed x': () => connectionTarget(connectionKeyRefFromTyped('x', '12345', IA)),
   cash: () => cashTargetFromSecret(v.cashTarget[0].secret),
 }
 
@@ -270,5 +271,5 @@ describe('claim.json', () => {
 })
 
 test('connection keys the targets use', () => {
-  expect(newConnectionKey('github', '12345')).toBe(attestation.connectionKey)
+  expect(connectionKeyFromAttested('github', '12345')).toBe(attestation.connectionKey)
 })

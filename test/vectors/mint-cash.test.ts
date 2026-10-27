@@ -1,7 +1,7 @@
 // mint-cash.json: the cash commitment, the mint_cash request and its result
 // (a lookup may answer a tombstone where the token was).
 import { describe, expect, test } from 'vitest'
-import { cashCommitment, decodeLookupDone, mintCashRequest, newConnectionKey, parseMintCashResult, type MintRecipient, type Tombstone } from '../../src/core/index.js'
+import { cashCommitment, decodeLookupDone, mintCashRequest, connectionKeyFromAttested, parseMintCashResult, type MintRecipient, type Tombstone } from '../../src/core/index.js'
 import { parseJSONValue } from '../../src/transport/index.js'
 import { load, named, type Json } from './helpers.js'
 
@@ -21,7 +21,7 @@ function recipient(r: Json): MintRecipient {
   if (r.pubkey !== undefined) return { identityType: 'pubkey', identityValue: r.pubkey, amountMillis }
   if (r.cashSecret !== undefined) return { identityType: 'cash', identityValue: cashCommitment(r.cashSecret), amountMillis }
   const [platform] = Object.keys(r).filter((k) => k !== 'amount' && k !== 'ia')
-  return { identityType: 'connection_key', identityValue: newConnectionKey(platform!, r[platform!]), iaPubkey: r.ia, amountMillis }
+  return { identityType: 'connection_key', identityValue: connectionKeyFromAttested(platform!, r[platform!]), iaPubkey: r.ia, amountMillis }
 }
 const recipients = (x: Json): MintRecipient[] => (x === undefined ? [] : typeof x === 'string' ? SHORTHAND[x]! : x.map(recipient))
 const plainRequest = (r: Json): Json => JSON.parse(JSON.stringify(r, (_k, y) => (typeof y === 'bigint' ? Number(y) : y)))

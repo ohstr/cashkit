@@ -83,7 +83,19 @@ export {
   type MintPayloadFields,
   type ZapFields,
 } from './provenance.js'
-export { connectionKeyFromSecret, newConnectionKey, type ConnectionKeyPair } from './connectionKey.js'
+export {
+  attestationKeyMatchesD,
+  BAD_CONNECTION_KEY,
+  connectionKeyFromAttestation,
+  connectionKeyFromNConnection,
+  connectionKeyFromSecret,
+  connectionKeyRef,
+  connectionKeyRefFromTyped,
+  MISSING_IA_PUBKEY,
+  PLATFORM_NAME,
+  type ConnectionKeyPair,
+  type ConnectionKeyRef,
+} from './connectionKey.js'
 export { decodeBolt11, type Bolt11Invoice } from './bolt11.js'
 export {
   decodeNaddr,
@@ -164,7 +176,7 @@ export {
   bySigningConnectionKey,
   cashCommitment,
   cashTargetFromSecret,
-  connectionKeyTarget,
+  connectionTarget,
   decryptDelivery,
   isCashSecret,
   isCommitment,
@@ -172,7 +184,6 @@ export {
   newCashTarget,
   newIdentityHash,
   pubkeyTarget,
-  resolvedConnectionKeyTarget,
   type CashTarget,
   type Credential,
   type IdentityType,

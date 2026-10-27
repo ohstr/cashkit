@@ -9,7 +9,7 @@ import { base64 } from '@scure/base'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, test } from 'vitest'
 import { concatBytes, utf8 } from '../src/core/bytes.js'
-import { connectionKeyFromSecret, CoreError, fromHex, newConnectionKey, nip44, toHex } from '../src/core/index.js'
+import { connectionKeyFromSecret, CoreError, fromHex, connectionKeyFromAttested, nip44, toHex } from '../src/core/index.js'
 import { fill } from './helpers.js'
 
 const pub = (s: Uint8Array) => toHex(secp256k1.getPublicKey(s, true).subarray(1))
@@ -17,7 +17,7 @@ const pub = (s: Uint8Array) => toHex(secp256k1.getPublicKey(s, true).subarray(1)
 
 describe('connection keys', () => {
   test('NIP-IC key is sha256(platform:id) (TestKAT_ConnectionKey)', () => {
-    expect(newConnectionKey('github', '12345')).toBe('2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf')
+    expect(connectionKeyFromAttested('github', '12345')).toBe('2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf')
   })
   test('NIP-CW key pair KAT (TestConnectionKey_KnownAnswer)', () => {
     const k = connectionKeyFromSecret('11'.repeat(32))

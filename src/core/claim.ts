@@ -6,7 +6,7 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { decodeBolt11 } from './bolt11.js'
 import { toHex, utf8 } from './bytes.js'
-import { newConnectionKey } from './connectionKey.js'
+import { connectionKeyFromAttested } from './idna.js'
 import { CoreError } from './errors.js'
 import { toJSONText } from './json.js'
 import { cashCommitment, isCommitment, newIdentityHash, type Credential, type IdentityType, type Target } from './identity.js'
@@ -142,7 +142,7 @@ export async function buildProof(c: Credential, binding: ProofBinding, now = now
       if (att === undefined || att.expiresAt === undefined || now > att.expiresAt) {
         throw new CoreError('invalid_request', 'attestation has no expiration, or has already expired')
       }
-      const connectionKey = newConnectionKey(c.platform, c.externalId)
+      const connectionKey = connectionKeyFromAttested(c.platform, c.externalId)
       const tags = claimProofTags({ ...binding, connectionKey, attestationId: att.event.id })
       const ev = await c.signer.signEvent({ kind: KIND_CLAIM_PROOF, created_at: now, tags, content: '' })
       return {
