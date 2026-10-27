@@ -43,3 +43,28 @@ export { EventQueue, fetchRelayInfo, readEvents } from './relayIO.js'
 export { lookupMany, lookupOne, type BatchLookup, type LookupAuthorizer } from './lookup.js'
 export { hubView, type HubView } from './hubView.js'
 export { CashHubClient, type CashHubClientOptions } from './cashHubClient.js'
+export {
+  AnnouncementError,
+  checkLive,
+  fromLspsInfo,
+  fromLspsName,
+  KIND_LSP_ANNOUNCEMENT,
+  LspSeen,
+  newAnnouncement,
+  newestAnnouncements,
+  nodeIds,
+  parseAnnouncement,
+  parseListProtocols,
+  parseLsps1Info,
+  parseLsps2Menu,
+  parseLsps5,
+  signingPayload,
+  toLspsName,
+  type FeeRow,
+  type FieldDiff,
+  type LiveDiff,
+  type LspAnnouncement,
+  type LspFields,
+  type LspOption,
+  type LspStatus,
+} from './lsp.js'

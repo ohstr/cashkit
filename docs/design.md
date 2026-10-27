@@ -398,6 +398,15 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   `payInvoice`, `payKeysend`, `lookupInvoice`, `listTransactions`,
   `deleteWallet`, and the advisory `previewPayment`.
 
+- **`client/lsp.ts`** (NIP-LSP): `newAnnouncement` builds the unsigned
+  kind-10735 event from an LSP's fields (tags in the NIP's order; the
+  example is reproduced byte for byte) and `fromLspsInfo` builds the fields
+  from its own live LSPS answers in either unit dialect; `signingPayload`
+  refuses any kind but 10735. `parseAnnouncement` runs §Client Behavior
+  steps 1–5 and reports the first failure as `AnnouncementError`; `LspSeen`
+  keeps the newest per node with no fallback to an older one; `checkLive`
+  compares with the live LSPS answers, which decide.
+
 The client layer is stateless about the wallet. It never persists anything,
 and it returns enough for the engine to journal before and after each call.
 
