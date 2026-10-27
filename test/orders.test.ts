@@ -145,6 +145,25 @@ describe('wallet.orders', () => {
     await h.wallet.orders.refresh(v.id)
     expect(await h.wallet.holdings()).toHaveLength(1)
   })
+  test('a bill not stamped as ordered: another recipient’s is never kept; one with an expiry is kept unmarked', async () => {
+    const { h, shop } = await setup()
+    const v = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning', to: 'self' })
+    shop.mintTo = { type: 'pubkey', value: 'ab'.repeat(32) }
+    await shop.pay(shop.only(), 5_005_000n)
+    const wrong = await h.wallet.orders.refresh(v.id)
+    expect(wrong.bills[0]).toMatchObject({ problem: 'not_ours' })
+    expect(wrong.bills[0]!.holdingId).toBeUndefined()
+    expect(await h.wallet.holdings()).toEqual([])
+    const w = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning', to: 'self' })
+    shop.mintTo = undefined
+    shop.mintExpiry = 4_000_000_000
+    await shop.pay([...shop.orders.values()].at(-1)!, 5_005_000n)
+    const exp = await h.wallet.orders.refresh(w.id)
+    expect(exp.bills[0]).toMatchObject({ problem: 'expires' })
+    const [held] = await h.wallet.holdings()
+    expect(held).toMatchObject({ amount: 4_999_000n, expiresAt: 4_000_000_000 })
+    expect(held!.ordered).toBeFalsy()
+  })
   test('a gift: the bill goes to its recipient; no holding is made', async () => {
     const { h, shop } = await setup()
     const bob = await harness({ pool: h.pool, bank: h.bank })

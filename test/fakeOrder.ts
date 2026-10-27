@@ -161,10 +161,14 @@ export class FakeOrder {
   }
 
   /** A payment of `received` millis arrives and is minted (§Minting), then a notice goes out. */
+  /** A misbehaving Hub: bills minted to another recipient, or with an expiry. */
+  mintTo?: Identity
+  mintExpiry?: number
+
   async pay(o: FakeOrderRow, received: bigint): Promise<void> {
     const max = BigInt(((this.terms as Record<string, Record<string, unknown>>)[o.payment]!['max_millis'] as number) ?? 0)
     for (const amt of mintSplit(received, o.fee, max)) {
-      const w = this.bank.mint(amt, o.recipient)
+      const w = this.bank.mint(amt, this.mintTo ?? o.recipient, { ...(this.mintExpiry !== undefined && { expiresAt: this.mintExpiry }) })
       o.bills.push({ wallet_pubkey: w.walletPubkey, cash_token: w.token, amount_millis: amt, paid_millis: received, ...(o.payment === 'onchain' && { outpoint: `${'ab'.repeat(32)}:${o.bills.length}` }) })
     }
     o.state = 'minted'
