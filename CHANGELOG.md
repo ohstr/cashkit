@@ -336,15 +336,18 @@
   expiry; a rewrite after a sync takes the pocket's `rev` and deletes every
   wrap it read for that entry. `PocketSyncReport` gains `pruned` and
   `expiryFilled`.
+  ([#41](https://github.com/ohstr/cashkit/pull/41))
 - Before a call is placed again under its derived id, the wallet reads its
   Cash Pocket: an entry with the derived id, in any state, only closes the
   old call; an old entry already final closes it without placing; an entry
   the pocket does not show stops the re-placement.
+  ([#41](https://github.com/ohstr/cashkit/pull/41))
 - `adapters/sync-pocket` finds the user's relays (kind 10050, else NIP-65
   write relays, else the configured ones, plus `ownRelays`) and takes an
   `auth` signer for NIP-42. `RelayPool.setAuth` is new: `relay-ws` answers
   AUTH challenges and retries a request refused `auth-required:` once;
   `relay-nostr-tools` passes it on as `onauth`.
+  ([#41](https://github.com/ohstr/cashkit/pull/41))
 
 ## [0.1.0-rc.2]
 
