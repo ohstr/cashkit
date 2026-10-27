@@ -26,7 +26,6 @@ const randomPast = (now: number, random: (n: number) => Uint8Array) => {
 
 /** Seals a rumor to its own author: NIP-44 to the signer's own pubkey, signed by the signer. */
 export async function createSeal(rumor: Rumor, signer: Signer, o: { now: number; random: (n: number) => Uint8Array }): Promise<NostrEvent> {
-  if (signer.nip44Encrypt === undefined) throw new CoreError('invalid_key', 'this signer cannot encrypt (NIP-44), which a Cash Pocket needs')
   if (rumor.pubkey !== signer.pubkey) throw new CoreError('invalid_request', 'a seal is signed by the rumor’s author')
   const content = await signer.nip44Encrypt(signer.pubkey, JSON.stringify(rumor))
   return signer.signEvent({ kind: KIND_SEAL, created_at: randomPast(o.now, o.random), tags: [], content })

@@ -44,3 +44,26 @@ export class CoreError extends Error {
     this.code = code
   }
 }
+
+/**
+ * How an external signer (NIP-07, NIP-46, NIP-LS) failed, from the error
+ * string's prefix: `denied: ` is a refusal by the signer's policy (do not
+ * retry the same request), `invalid: ` a malformed request or unknown
+ * method, anything else a failure while carrying out an allowed request.
+ */
+export type SignerErrorCode = 'denied' | 'invalid' | 'failed'
+
+export class SignerError extends Error {
+  override readonly name = 'SignerError'
+  readonly code: SignerErrorCode
+  constructor(code: SignerErrorCode, message: string, options?: { cause?: unknown }) {
+    super(message, options)
+    this.code = code
+  }
+}
+
+/** A signer's error string as a `SignerError`, prefixed with `who` (e.g. `signer-nip46`). */
+export function signerErrorFrom(who: string, text: string): SignerError {
+  const code: SignerErrorCode = text.startsWith('denied: ') ? 'denied' : text.startsWith('invalid: ') ? 'invalid' : 'failed'
+  return new SignerError(code, `${who}: ${text}`)
+}
