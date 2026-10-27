@@ -40,6 +40,7 @@ import {
   type ReportReason,
   type TapResult,
   type Trust,
+  verifyEvent,
 } from '../core/index.js'
 import { NwcClient, readEvents } from '../client/index.js'
 import type { Ctx } from './context.js'
@@ -423,10 +424,19 @@ async function saveTaps(ctx: Ctx): Promise<void> {
 
 // ---- the user's relays
 
-/** The write relays of `pubkey`'s newest kind 10002 (unmarked or `write`), read from `relays`. */
+/**
+ * The newest of `events` signed by `pubkey`: one whose id or signature does
+ * not check is ignored, so a relay cannot stand in for the user.
+ */
+function newestSignedBy(events: readonly NostrEvent[], pubkey: string): NostrEvent | undefined {
+  return events
+    .filter((e) => e.pubkey === pubkey && verifyEvent(e, { checkPow: false }))
+    .reduce<NostrEvent | undefined>((m, e) => (m === undefined || e.created_at > m.created_at || (e.created_at === m.created_at && e.id < m.id) ? e : m), undefined)
+}
+
+/** The write relays of `pubkey`'s newest signed kind 10002 (unmarked or `write`), read from `relays`. */
 async function writeRelaysOf(ctx: Ctx, pubkey: string, relays: readonly string[]): Promise<string[]> {
-  const evs = await read(ctx, relays, { kinds: [10002], authors: [pubkey] })
-  const newest = evs.reduce<NostrEvent | undefined>((m, e) => (m === undefined || e.created_at > m.created_at || (e.created_at === m.created_at && e.id < m.id) ? e : m), undefined)
+  const newest = newestSignedBy(await read(ctx, relays, { kinds: [10002], authors: [pubkey] }), pubkey)
   return newest?.tags.filter((t) => t[0] === 'r' && typeof t[1] === 'string' && (t[2] === undefined || t[2] === 'write')).map((t) => t[1]!) ?? []
 }
 
@@ -504,13 +514,15 @@ export async function publishCurators(ctx: Ctx, o: { relays?: readonly string[] 
   return { eventId: ev.id, relays: await publishTo(ctx, relays, ev) }
 }
 
-/** Reads the newest copy of the user's set from their write relays and `relays`, and makes it the list. */
+/**
+ * Reads the newest copy of the user's set from their write relays and
+ * `relays`, and makes it the list. Only a copy signed by the user counts.
+ */
 export async function syncCurators(ctx: Ctx, o: { relays?: readonly string[] } = {}): Promise<CuratorsView> {
   const signer = await requireIdentity(ctx)
   const base = o.relays ?? stateOf(ctx).relays
   const relays = [...new Set([...(await writeRelaysOf(ctx, signer.pubkey, base)), ...base])]
-  const evs = (await read(ctx, relays, { kinds: [CURATOR_SET_KIND], authors: [signer.pubkey], '#d': [CURATOR_SET_D] })).filter((e) => e.pubkey === signer.pubkey)
-  const newest = evs.reduce<NostrEvent | undefined>((m, e) => (m === undefined || e.created_at > m.created_at || (e.created_at === m.created_at && e.id < m.id) ? e : m), undefined)
+  const newest = newestSignedBy(await read(ctx, relays, { kinds: [CURATOR_SET_KIND], authors: [signer.pubkey], '#d': [CURATOR_SET_D] }), signer.pubkey)
   if (newest === undefined) return listCurators(ctx)
   const set = await parseCuratorSet(newest, (ct) => signer.nip44Decrypt(signer.pubkey, ct))
   return writeCurators(ctx, { curators: set.curators, curatorSource: 'user', curatorsPrivate: set.private || newest.content !== '' })

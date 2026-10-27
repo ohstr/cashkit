@@ -106,6 +106,21 @@ describe('curators', () => {
     await h.wallet.discover.refresh({ relays: [R], follows: [] })
     expect(h.wallet.discover.list().coldStart).toBe('curators_no_signals')
   })
+  test('a curator set or a 10002 forged under the user\'s pubkey is ignored', async () => {
+    const h = await harness()
+    const mine = 'cc'.repeat(32)
+    await h.wallet.discover.curators.add(mine)
+    await h.wallet.discover.curators.publish({ relays: [R] })
+    const real = h.pool.published.find((p) => p.event.kind === 30000)!.event
+    const evil = fill(0x66, 32)
+    const forged: NostrEvent = { ...finalizeEvent({ kind: 30000, created_at: real.created_at + 100, tags: [['d', 'cash-discover'], ['p', 'dd'.repeat(32)]], content: '' }, evil), pubkey: h.me }
+    const tampered: NostrEvent = { ...real, created_at: real.created_at + 200, tags: [['d', 'cash-discover'], ['p', 'dd'.repeat(32)]], content: '' }
+    const relays: NostrEvent = { ...finalizeEvent({ kind: 10002, created_at: real.created_at + 100, tags: [['r', 'wss://evil.test']], content: '' }, evil), pubkey: h.me }
+    for (const e of [forged, tampered, relays]) await h.pool.publish(R, e)
+    expect(await h.wallet.discover.curators.sync({ relays: [R] })).toEqual({ pubkeys: [mine], source: 'user' })
+    await h.wallet.discover.curators.publish({ relays: [R] })
+    expect(h.pool.published.some((p) => p.relay === 'wss://evil.test')).toBe(false)
+  })
   test('without an identity there is nothing to sign with', async () => {
     const h = await harness({ identity: false })
     await expect(h.wallet.discover.curators.publish({ relays: [R] })).rejects.toMatchObject({ code: 'usage', reason: 'identity_required' })
