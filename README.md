@@ -287,7 +287,7 @@ commit in any tab, and action hooks track `pending`, `result` and `error`:
 ```tsx
 import { openWallet } from '@ohstr/cashkit'
 import { DeviceVault } from '@ohstr/cashkit/adapters/vault-device'
-import { WalletProvider, useActivity, useSend, useWalletState } from '@ohstr/cashkit/react'
+import { WalletProvider, useActivity, useConfirmations, useSend, useWalletState } from '@ohstr/cashkit/react'
 
 export function App() {
   return (
@@ -324,6 +324,25 @@ function History() {
   return <ul>{data?.map((a) => <li key={a.id}>{a.type === 'activity' ? a.action : a.kind}</li>)}</ul>
 }
 ```
+
+When the wallet needs the user (an unverified Hub, an on-chain withdrawal,
+placing a lost call again), it raises a request; `useConfirmations` queues
+them for your UI. With no handler every request is answered no:
+
+```tsx
+function Confirmations() {
+  const queue = useConfirmations()
+  return queue.map(({ key, request, answer }) => (
+    <dialog key={key} open>
+      {request.type}
+      <button onClick={() => answer(true)}>Yes</button>
+      <button onClick={() => answer(false)}>No</button>
+    </dialog>
+  ))
+}
+```
+
+Outside React: `wallet.on('confirm', async (request) => askTheUser(request))`.
 
 ### Decode offline
 

@@ -296,6 +296,20 @@
 - `connectionKeyFromAttested` refuses a user id that is not in canonical
   form on a platform that has one (x, discord, email, dns).
   ([#35](https://github.com/ohstr/cashkit/pull/35))
+- Adds confirmation requests: the wallet raises typed questions
+  (`confirmUnverified`, `confirmMintReplace`, `confirmOrderReplace`,
+  `confirmWithdrawReplace`, `confirmNoRecovery`, `confirmDelete`,
+  `approveMinter`, `confirmWithdraw`, `confirmRecommend`, `confirmReport`)
+  and notices (`rotationAlert`, `walletFrozen`, `lookupExpired`,
+  `expiringSoon`, `withdrawLate`, `withdrawCancelled`) through
+  `wallet.on('confirm', …)`; with no handler every question is answered
+  no. `circles.delete` takes its confirmation optionally, and a zap from an
+  untrusted minter can be approved from the claim.
+- Adds React hooks: `useConfirmations`, `usePendingCalls`,
+  `useUnreconciled`, `useCircles`, `useCircleWallet`, `useCashZaps`,
+  `usePocket`, `useOrders`, `useOrder`, `useWithdrawTerms`,
+  `useWithdrawQuote`, `useWithdrawals`, `useWithdrawal`, `useDiscover`,
+  `useTap` and `useTestNetworkBanner`.
 
 ## [0.1.0-rc.2]
 

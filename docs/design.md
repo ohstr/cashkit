@@ -1213,13 +1213,41 @@ wallet.state: WalletState    // snapshot: balance summary, holdings, pendingJoin
                              // pendingMerge, storagePersisted, locked
 wallet.subscribe(fn: (s: WalletState) => void): () => void
 wallet.on('operation', (e: { op: string; phase: 'planned' | 'sent' | 'committed' | 'failed'; id: string }) => void)
+wallet.on('confirm', (r: ConfirmRequest) => Promise<boolean> | boolean)
 ```
+
+**Confirmations.** Where the wallet needs the user it raises a typed
+request through `wallet.on('confirm', …)`; the handler added last answers.
+Questions act only on `true`, and with no handler every question is
+answered no (nothing is signed, written, sent or published):
+`confirmUnverified` (a connection string whose signature does not verify,
+with its `HubView`, after the online check passed), `confirmMintReplace`,
+`confirmOrderReplace` and `confirmWithdrawReplace` (a call not applied that
+may be placed again; each call kind names its own), `confirmNoRecovery` (a
+circle whose Hub cannot rotate the wallet), `confirmDelete` (a circle
+wallet's dust goes to the host), `approveMinter` (a zap's minter, its
+network unverifiable), `confirmWithdraw` (every figure of the quote,
+`irreversible` and `deliberate`: no default action), `confirmRecommend` and
+`confirmReport` (the audience, membership, identity link and delay range).
+Notices are only shown: `rotationAlert` (an unexpected rotation),
+`walletFrozen`, `lookupExpired`, `expiringSoon`, `withdrawLate` and
+`withdrawCancelled`. A per-call callback (`confirmUnverified`,
+`confirmNoRecovery`, `confirm`, `confirmDelete`) still takes precedence.
 
 The events don't depend on any framework. React, Svelte and zustand
 bindings wrap `subscribe`. `@ohstr/cashkit/react` is the React one:
 `WalletProvider`, `useWalletState(select?)` on `useSyncExternalStore`,
 action hooks that track one call's pending/result/error, and query hooks
-that re-run on every commit. It sits above `wallet` and never imports an
+that re-run on every commit. `useConfirmations()` registers as the
+`confirm` handler while mounted and returns the queue of requests, each
+with `answer(yes)`; questions still open when it unmounts are answered no.
+Data hooks: `usePendingCalls`, `useUnreconciled`, `useCircles`,
+`useCircleWallet`, `useCashZaps`, `usePocket`, `useOrders`, `useOrder`,
+`useWithdrawTerms`, `useWithdrawQuote` (with `quoteChanged` on a re-quote),
+`useWithdrawals`, `useWithdrawal`, `useDiscover`, `useTap` (`checking`,
+`slow` after 5 s, then `available`, `unavailable_for_now` or `hidden`) and
+`useTestNetworkBanner`. Hooks return data only, never a secret unless
+asked (`includeSecrets`). It sits above `wallet` and never imports an
 adapter (lint-enforced), and React is an optional peer.
 
 ## 7. Algorithms
