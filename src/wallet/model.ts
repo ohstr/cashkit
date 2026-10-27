@@ -107,22 +107,22 @@ export interface Handoff {
   readonly version: number
 }
 
-export type ConnectionKind = 'nwc' | 'circle_wallet' | 'cashhub'
+export type ConnectionKind = 'nwc' | 'circle_wallet' | 'cashhub' | 'circlehub'
 
 export interface Connection {
   /** The connection's name; the key. */
   readonly id: string
   /** A NIP-47 pairing URI (`nwc`, `circle`). */
   readonly uri?: Sealed
-  /** A signed connection string (`cashhub`): it carries the connection secret, so it is sealed. Never a URI built from it. */
+  /** A signed connection string (`cashhub`, `circlehub`): it carries the connection secret, so it is sealed. Never a URI built from it. */
   readonly connection?: Sealed
-  /** `cashhub`: the Hub identity (TLV 4), the chain (TLV 6), whether the signature verified, when an unverified one was confirmed, the network `get_info` last reported. */
+  /** `cashhub`, `circlehub`: the Hub identity (TLV 4), the chain (TLV 6), whether the signature verified, when an unverified one was confirmed, the network `get_info` last reported. */
   readonly hubIdentity?: string
   readonly chain?: string
   readonly verified?: boolean
   readonly confirmedUnverifiedAt?: number
   readonly network?: string
-  /** `circle_wallet`: the wallet's fields (never a URI) and the member's own secret, sealed. */
+  /** `circle_wallet`: the wallet's fields (never a URI) and the member's own secret, sealed. `circlehub`: the Hub pubkey (TLV 0) the string names. */
   readonly walletPubkey?: string
   readonly relays?: readonly string[]
   readonly secret?: Sealed
@@ -190,7 +190,11 @@ export interface PendingJoin {
   readonly terms: { readonly maxAmount: bigint; readonly maxReceive: bigint; readonly expiry: number; readonly budgetRenewal: string }
   readonly device: string
   readonly sent: boolean
-  readonly lookup?: { readonly retryAfter?: number; readonly omissions: number }
+  /**
+   * `omissions` counts lookups that went unanswered; `viaOther` is set once a
+   * lookup went through another held `circlehub1` of the same Hub pubkey.
+   */
+  readonly lookup?: { readonly retryAfter?: number; readonly omissions: number; readonly viaOther?: boolean }
   readonly needsUser?: PendingJoinNeedsUser
   readonly at: number
   readonly version: number
