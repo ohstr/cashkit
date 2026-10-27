@@ -6,7 +6,7 @@ import { mint, verifyCashHubString, type MintInput, type MintResult } from './mi
 import { listDiscover, listedConnection, recommendPreview, refreshDiscover, tapDiscover, type DiscoverOptions, type DiscoverView, type TapView } from './discover.js'
 import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
-import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
+import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, recoverWithdrawal, requoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
 import { type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
 import { exportBackup, importBackup, valueFingerprint, type ImportSummary } from './backup.js'
@@ -560,6 +560,10 @@ export class Wallet {
   readonly withdraw = {
     terms: (holdingId: string): Promise<WithdrawTermsView> => withdrawTerms(this.ctx, holdingId),
     quote: (holdingId: string, address: string, o: { sendBefore?: number } = {}): Promise<WithdrawQuoteView> => quoteWithdrawal(this.ctx, holdingId, address, o),
+    /** The same withdrawal quoted again: `quoteChanged` lists what differs, for the app to highlight before confirming. */
+    requote: (quote: WithdrawQuoteView): Promise<WithdrawQuoteView> => requoteWithdrawal(this.ctx, quote),
+    /** A withdrawal this wallet lost its record of, found from the bill's own row and looked up; never placed again. */
+    recover: (holdingId: string): Promise<WithdrawalView> => this.ctx.spend(() => recoverWithdrawal(this.ctx, holdingId)),
     /** `confirm(view)` must resolve true: no confirmation, no withdrawal. */
     send: (quote: WithdrawQuoteView, o: { confirm?: (v: WithdrawQuoteView) => Promise<boolean> } = {}): Promise<WithdrawalView> => this.ctx.spend(() => sendWithdrawal(this.ctx, quote, o)),
     refresh: (id: string): Promise<WithdrawalView> => this.ctx.spend(() => refreshWithdrawal(this.ctx, id)),

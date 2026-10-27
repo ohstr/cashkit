@@ -181,6 +181,41 @@ describe('wallet.withdraw', () => {
     const row = (await h.storage.tx('r', (x) => x.get('holdings', held!.id)))!
     expect(row.origin).toBe('reminted')
   })
+  test('requote: a new handle listing what changed; the old one can no longer be sent', async () => {
+    const { h, hub, id } = await setup()
+    const q = await h.wallet.withdraw.quote(id, PAYTO)
+    const same = await h.wallet.withdraw.requote(q)
+    expect(same.quoteChanged).toEqual([])
+    expect(same.handle).not.toBe(q.handle)
+    expect(await failure(h.wallet.withdraw.send(q, { confirm: yes }))).toMatchObject({ reason: 'quote_used' })
+    hub.networkFee = 1_500_000n
+    const moved = await h.wallet.withdraw.requote(same)
+    expect(moved.quoteChanged).toEqual(['networkFeeMillis', 'feeMillis', 'payoutMillis'])
+    let shown: readonly string[] | undefined
+    const v = await h.wallet.withdraw.send(moved, { confirm: (x) => ((shown = x.quoteChanged), Promise.resolve(true)) })
+    expect(shown).toEqual(['networkFeeMillis', 'feeMillis', 'payoutMillis'])
+    expect(v.payoutMillis).toBe(moved.payoutMillis)
+  })
+  test('recover: a withdrawal whose record was lost is found from the bill’s tombstone and followed, never placed again', async () => {
+    const { h, hub, id } = await setup()
+    const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
+    const lost = (await h.storage.tx('r', (x) => x.get('pendingCalls', v.id)))!
+    await h.storage.tx('rw', (x) => x.delete('pendingCalls', v.id))
+    const placed = h.bank.hub.requests.filter((r) => r.item.method === 'cash_withdraw').length
+    const r = await h.wallet.withdraw.recover(id)
+    expect(r).toMatchObject({ phase: 'accepted', state: 'queued', payoutMillis: 19_258_000n, holdingId: id })
+    const call = (await h.storage.tx('r', (x) => x.get('pendingCalls', r.id)))!
+    expect(call).toMatchObject({ requestId: lost.requestId, state: 'open_withdraw', params: { recovered: '1' } })
+    expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_withdraw')).toHaveLength(placed)
+    // Known now: recovering again returns it.
+    expect((await h.wallet.withdraw.recover(id)).id).toBe(r.id)
+    hub.broadcast(hub.only())
+    expect((await h.wallet.withdraw.refresh(r.id)).phase).toBe('broadcast')
+  })
+  test('recover: a bill no withdrawal ended is not_found', async () => {
+    const { h, id } = await setup()
+    expect(await failure(h.wallet.withdraw.recover(id))).toMatchObject({ code: 'not_found', reason: 'no_withdrawal' })
+  })
   test('a cash note withdraws with a fresh remint secret, and its re-mint comes back under it', async () => {
     const h = await harness()
     const hub = new FakeWithdraw(h.bank)

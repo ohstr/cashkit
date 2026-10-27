@@ -137,7 +137,7 @@ export class FakeBank {
     if (method === 'cash_lookup') return this.lookup(info)
     const w = this.wallets.get(info.item.target)
     if (w === undefined) return 'omit'
-    if (w.spent && method === 'cash_status') return { result: { status: 'spent', reason: 'transferred' } }
+    if (w.spent && method === 'cash_status') return { result: { status: 'spent', reason: 'transferred', ...(w.withdrawRequestId !== undefined && { withdraw_request_id: w.withdrawRequestId }) } }
     if (w.spent) return { error: { code: 'NOT_FOUND', message: 'this slice has already been claimed' } }
     if (w.expiresAt !== undefined && w.expiresAt <= this.now()) return { error: { code: 'EXPIRED', message: 'this cash wallet has expired' } }
     const idBearing = method === 'cash_transfer' || method === 'cash_consolidate'
