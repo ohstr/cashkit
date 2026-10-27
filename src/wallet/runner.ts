@@ -89,7 +89,12 @@ async function update(ctx: Ctx, id: string, change: (c: PendingCall) => PendingC
  * the write-ahead pending entry, read back before the call is sent, and the
  * entries a call's outcome makes once it is saved.
  */
-export const pocketHooks: { writeAhead?: (ctx: Ctx, call: PendingCall) => Promise<void>; after?: (ctx: Ctx, callId: string) => Promise<void> } = {}
+export const pocketHooks: {
+  writeAhead?: (ctx: Ctx, call: PendingCall) => Promise<void>
+  after?: (ctx: Ctx, callId: string) => Promise<void>
+  /** Before placing a call again: the pocket's derived-id check (`derived` or `closed` stop it). */
+  beforeReplace?: (ctx: Ctx, call: PendingCall) => Promise<'place' | 'derived' | 'closed'>
+} = {}
 
 async function close(ctx: Ctx, id: string, outcome: Parameters<typeof finishCall>[2], o: { code?: string; detail?: string; needsUser?: CallNeedsUser } = {}): Promise<void> {
   await closeRow(ctx, id, outcome, o)
@@ -335,6 +340,18 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
   if (seen) {
     await close(ctx, call.id, 'replaced')
     return undefined
+  }
+  // With a Cash Pocket: the old entry must still be open and no entry may carry the derived id (NIP-CP §Writing).
+  if (ctx.deps.pocket !== undefined && pocketHooks.beforeReplace !== undefined) {
+    const check = await pocketHooks.beforeReplace(ctx, call)
+    if (check === 'derived') {
+      await close(ctx, call.id, 'replaced')
+      return undefined
+    }
+    if (check === 'closed') {
+      await close(ctx, call.id, 'not_applied', { detail: 'closed in the Cash Pocket' })
+      return undefined
+    }
   }
   const session = await BatchSession.open(ctx.clientDeps, call.node, call.relays)
   const h = session.maxRequestAge ?? call.hAtSend
