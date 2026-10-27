@@ -491,6 +491,37 @@ describe('a rekey whose reply was lost', () => {
   })
 })
 
+describe('a second protect never overwrites an open call\'s secret (pending_secret_batch_test)', () => {
+  test('while the first protect is unresolved, a second one sends nothing and the open secret keeps control', async () => {
+    const h = await harness()
+    const t = newCashTarget()
+    const w = h.bank.mintToCash(5000n, t.secret)
+    const r = await h.wallet.receive(`${w.token}#${t.secret}`, { protect: false })
+    if (!r.received) throw new Error('not received')
+    const id = r.holding.id
+    h.bank.loseReplyFor.add('cash_transfer') // the Hub applies the rekey; the reply is lost
+    h.bank.loseReplyFor.add('cash_lookup') // and lookups go unanswered, so the call stays open
+    expect((await h.wallet.protect({ holdings: [id] })).outcomes[0]).toMatchObject({ ok: false, error: { code: 'indeterminate' } })
+    const [call] = await openCalls(h)
+    const fresh = unseal((call!.outputs[0]!.destination as { secret: Sealed }).secret)!
+    expect(w.identity).toEqual({ type: 'cash', value: commitment(fresh) })
+    const before = h.bank.hub.requests.filter((x) => x.item.method === 'cash_transfer').length
+    const rowBefore = await h.storage.tx('r', (t2) => t2.get('holdings', id))
+    for (const again of [() => h.wallet.protect({ holdings: [id] }), () => h.wallet.protect()]) {
+      const p = await again()
+      expect(p.outcomes.map((o) => o.ok)).toEqual([false])
+    }
+    expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_transfer').length).toBe(before)
+    const calls = await h.storage.tx('r', (t2) => t2.list('pendingCalls'))
+    expect(calls).toHaveLength(1)
+    expect(unseal((calls[0]!.outputs[0]!.destination as { secret: Sealed }).secret)).toBe(fresh)
+    expect((await h.storage.tx('r', (t2) => t2.get('holdings', id)))?.cashSecret).toEqual(rowBefore?.cashSecret)
+    h.bank.loseReplyFor.clear()
+    expect((await h.wallet.settle()).applied).toEqual([call!.id])
+    expect(await h.wallet.exportHolding(id)).toContain(fresh)
+  })
+})
+
 describe('OCC (auditD_cli_occ_crossprocess)', () => {
   test('two wallets on one store: a stale plan conflicts; different rows both succeed', async () => {
     const h = await harness()
