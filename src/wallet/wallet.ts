@@ -47,8 +47,10 @@ import {
   memberRequest,
   nwcFor,
   recoverCircle,
+  refreshCircle,
   settleJoins,
   verifyCircleHubString,
+  watchCircle,
   type CircleAlert,
   type CircleNotification,
   type CircleView,
@@ -57,6 +59,8 @@ import {
   type JoinTermsInput,
   type RecoverOptions,
   type RecoverResult,
+  type RefreshCircleOptions,
+  type WatchCircleOptions,
   type SettleJoinsReport,
 } from './circle.js'
 import { consolidate, type ConsolidateReport } from './consolidate.js'
@@ -703,6 +707,14 @@ export class Wallet {
     memberRequest: (name: string, action: MemberAction): Promise<NostrEvent> => memberRequest(this.ctx, name, action),
     /** Applies a NIP-47 notification the wallet's key received; returns what it means for the member. */
     notify: (name: string, n: CircleNotification): Promise<CircleAlert> => applyCircleNotification(this.ctx, name, n),
+    /**
+     * Listens for the wallet's NIP-CW notifications (current key, and the new
+     * key while this device's rotation is pending) and applies each, as
+     * `notify` does. Sends the Hub nothing. Returns the stop.
+     */
+    watch: (name: string, o: WatchCircleOptions = {}): Promise<() => void> => watchCircle(this.ctx, name, o),
+    /** Asks the Hub, over the current key, whether the wallet is frozen; refused while this device's rotation is pending unless `cancelRotation`. */
+    refresh: (name: string, o: RefreshCircleOptions = {}): Promise<CircleView> => refreshCircle(this.ctx, name, o),
     /** Deletes a wallet holding at most dust, after `confirmDelete({dust})` (else the `confirmDelete` request); the dust goes to the host. */
     delete: (name: string, confirmDelete?: (x: { dust: bigint }) => Promise<boolean>): Promise<void> => this.ctx.spend(() => deleteCircleWallet(this.ctx, name, confirmDelete)),
     /** The member's connection secret (of a stored wallet by name, or a pending join by its connection key), for a backup. */

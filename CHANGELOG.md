@@ -424,6 +424,15 @@
   before anything is sent (`usage`/`status_unreadable`), a send still works,
   and `settle()` never settles a redeeming bill on that answer. Adds
   `statusUnreadable`.
+- Circles: `circles.watch(name)` listens for the wallet's NIP-CW
+  notifications and applies each, on the current key and, while a rotation
+  this device asked for is pending, on the new key, which alone receives
+  `rotation_completed`; it sends the Hub nothing, so it never cancels the
+  rotation, and marks a connection moved once a rotation it did not ask for
+  passes its `completes_at`. `circles.refresh(name)` asks the Hub over the
+  current key whether the wallet is frozen and lifts the local mark after an
+  unfreeze, which has no notification; it is refused while this device's
+  rotation is pending unless `cancelRotation` is set.
 
 ## [0.1.0-rc.2]
 

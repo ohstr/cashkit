@@ -1033,6 +1033,7 @@ handoffs(o?: { status?: Handoff['status'][]; includeSecrets?: boolean }): Promis
 circles.join(hub: string /* circlehub1… */, terms: { maxAmount; maxReceive; expirySeconds?; budgetRenewal? },
              o?: { name?; makeDefault?; confirmUnverified?; confirmNoRecovery? }): Promise<JoinResult>
 circles.list(), circles.client(name), circles.memberRequest(name, action), circles.notify(name, n),
+circles.watch(name, o?: { onAlert? }): Promise<() => void>, circles.refresh(name, o?: { cancelRotation? }),
 circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin), circles.forgetJoin(id),
 circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name?; makeDefault?; confirmUnverified? }): Promise<RecoverResult>
 ```
@@ -1081,6 +1082,20 @@ circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name
 - `circles.notify(name, n)` applies a notification: `rotation_pending`
   (`rotation_alert` event), `rotation_cancelled`, `rotation_completed`
   (switches to the stored new key), `wallet_frozen` (`frozen_alert`).
+- The host submits member requests through its own administration of the
+  Hub (NIP-CW leaves that undefined), so cashkit never sends one. What
+  follows is on the wallet's own keys: `circles.watch(name)` subscribes to
+  the NIP-47 notifications of the current key and, while this device's
+  rotation is pending, of the new key (`rotation_completed` goes to the new
+  key only), applies each NIP-CW one as `notify` does and ignores the rest.
+  A subscription sends the Hub nothing, so it never cancels a rotation. A
+  `rotation_pending` this device did not ask for marks the connection
+  `moved` at its `completes_at` unless `rotation_cancelled` comes first.
+- `circles.refresh(name)` sends one `get_balance` over the current key past
+  the local frozen gate: `FROZEN` marks the wallet frozen, an answer lifts
+  the mark (an `unfreeze` has no notification). Any request by the old key
+  cancels a pending rotation, so it is refused (`rotation_pending`) while
+  one this device asked for is pending, unless `cancelRotation` is set.
 - `circles.delete` refuses above the wallet's dust threshold and asks
   `confirmDelete({ dust })` first.
 

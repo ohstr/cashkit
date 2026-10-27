@@ -699,6 +699,137 @@ export async function markMovedIfDue(ctx: Ctx, name: string, completesAt: number
   return true
 }
 
+/** Reads a NIP-47 notification as one of NIP-CW's, or undefined for any other (a payment notice, a malformed one). */
+export function circleNotification(n: { readonly type: string; readonly notification: Readonly<Record<string, unknown>> }): CircleNotification | undefined {
+  const key = n.notification['connection_pubkey']
+  const okKey = typeof key === 'string' && /^[0-9a-f]{64}$/.test(key)
+  switch (n.type) {
+    case 'rotation_pending': {
+      const at = n.notification['completes_at']
+      return okKey && typeof at === 'number' && Number.isSafeInteger(at) ? { notification_type: 'rotation_pending', notification: { connection_pubkey: key, completes_at: at } } : undefined
+    }
+    case 'rotation_cancelled':
+    case 'rotation_completed':
+      return okKey ? { notification_type: n.type, notification: { connection_pubkey: key } } : undefined
+    case 'wallet_frozen':
+      return { notification_type: 'wallet_frozen', notification: {} }
+    default:
+      return undefined
+  }
+}
+
+export interface WatchCircleOptions {
+  /** Called after each NIP-CW notification is applied. */
+  readonly onAlert?: (alert: CircleAlert, n: CircleNotification) => void
+}
+
+/**
+ * Listens for a Circle Wallet's NIP-CW notifications and applies each
+ * (NIP-CW §Recovering a Lost Connection): on the current key, and, while a
+ * rotation this device asked for is pending, on the new key too, since
+ * `rotation_completed` goes to the new key only. Subscribing sends the Hub
+ * nothing, so it never cancels a pending rotation. A rotation this device
+ * did not ask for marks the connection moved once its `completes_at` passes
+ * with no cancellation seen. Returns the stop.
+ */
+export async function watchCircle(ctx: Ctx, name: string, o: WatchCircleOptions = {}): Promise<() => void> {
+  let stopped = false
+  // One subscription per key, kept across rearms: a relay that stores
+  // notifications would otherwise replay them to a fresh one.
+  const subs = new Map<string, () => void>()
+  let foreignTimer: ReturnType<typeof setTimeout> | undefined
+  const unsubscribe = (keep: ReadonlySet<string> = new Set()) => {
+    for (const [k, s] of subs) {
+      if (keep.has(k)) continue
+      s()
+      subs.delete(k)
+    }
+  }
+  let queue: Promise<void> = Promise.resolve()
+  const arm = async (): Promise<void> => {
+    if (stopped) return unsubscribe()
+    const c = await circleRow(ctx, name).catch(() => undefined)
+    if (c === undefined) return unsubscribe() // deleted meanwhile
+    const keys = [await ctx.open(c.secret)]
+    if (c.rotation !== undefined) keys.push(await ctx.open(c.rotation.newSecret))
+    unsubscribe(new Set(keys))
+    for (const secret of keys) {
+      if (subs.has(secret)) continue
+      const client = new NwcClient(ctx.clientDeps, { walletPubkey: c.walletPubkey, relays: c.relays, secret, extra: {} })
+      subs.set(
+        secret,
+        client.notifications((raw) => (queue = queue.then(() => handle(raw)).catch(() => undefined))),
+      )
+    }
+  }
+  const handle = async (raw: { readonly type: string; readonly notification: Readonly<Record<string, unknown>> }): Promise<void> => {
+    if (stopped) return
+    const n = circleNotification(raw)
+    if (n === undefined) return
+    const before = await circleRow(ctx, name).catch(() => undefined)
+    if (before === undefined) return
+    const alert = await applyCircleNotification(ctx, name, n)
+    if (n.notification_type === 'rotation_pending' && before.rotation?.newConnectionPubkey !== n.notification.connection_pubkey) {
+      if (foreignTimer !== undefined) clearTimeout(foreignTimer)
+      const at = n.notification.completes_at
+      foreignTimer = setTimeout(() => void markMovedIfDue(ctx, name, at).catch(() => undefined), Math.max(0, at * 1000 - ctx.nowSeconds() * 1000 + 1000))
+    }
+    if (n.notification_type === 'rotation_cancelled' && foreignTimer !== undefined) {
+      clearTimeout(foreignTimer)
+      foreignTimer = undefined
+    }
+    // The keys to listen on change with a rotation (one asked for after the watch began included): rearm.
+    await arm()
+    o.onAlert?.(alert, n)
+  }
+  await circleRow(ctx, name)
+  await arm()
+  return () => {
+    stopped = true
+    if (foreignTimer !== undefined) clearTimeout(foreignTimer)
+    unsubscribe()
+  }
+}
+
+export interface RefreshCircleOptions {
+  /** Sends even while a rotation this device asked for is pending, which cancels it (any request by the old key does). */
+  readonly cancelRotation?: boolean
+}
+
+/**
+ * Asks the Hub whether the wallet is frozen (NIP-CW §Recovering a Lost
+ * Connection, Freezing): one `get_balance` over the current key, past the
+ * local frozen gate. `FROZEN` keeps or marks it frozen; an answer lifts the
+ * local mark (an `unfreeze` has no notification). A frozen key's request
+ * cancels nothing, but an unfrozen one's cancels a pending rotation: while
+ * one this device asked for is pending it is refused (`rotation_pending`)
+ * unless `cancelRotation` is set.
+ */
+export async function refreshCircle(ctx: Ctx, name: string, o: RefreshCircleOptions = {}): Promise<CircleView> {
+  const c = await circleRow(ctx, name)
+  if (c.rotation !== undefined && o.cancelRotation !== true) {
+    throw new CashkitError('usage', 'a rotation this device asked for is pending: any request by the old key would cancel it', { reason: 'rotation_pending', input: name })
+  }
+  const client = await circleWalletClient(ctx, name)
+  let frozen: boolean
+  try {
+    await client.getBalance()
+    frozen = false
+  } catch (err) {
+    if (err instanceof WalletError && err.walletCode === 'FROZEN') frozen = true
+    else throw connectError(err)
+  }
+  const row = await ctx.commit(async (t) => {
+    const cur = (await t.get('connections', name))!
+    if ((cur.frozen === true) === frozen) return cur
+    const { frozen: _f, ...rest } = cur
+    const next = { ...rest, ...(frozen && { frozen: true }), version: cur.version + 1 } as Connection
+    await t.put('connections', next, cur.version)
+    return next
+  })
+  return circleView(row as Parameters<typeof circleView>[0])
+}
+
 /**
  * Deletes the member's Circle Wallet: refused locally while it holds more
  * than its dust threshold; `confirmDelete({dust})` must resolve true (the

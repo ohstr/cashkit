@@ -124,6 +124,69 @@ export class FakeCircle {
     this.records.set(`${w.member}:${newConnectionPubkey}`, { member: w.member, result })
   }
 
+  /** Sends a NIP-47 notification (kind 23197, NIP-44) from `w` to `to` (default its current key). */
+  notify(w: IssuedWallet, type: string, notification: Record<string, unknown>, to = w.connectionPubkey): void {
+    const content = nip44.encrypt(JSON.stringify({ notification_type: type, notification }), nip44.getConversationKey(w.walletKey, to))
+    const e = finalizeEvent({ kind: 23197, created_at: this.now, tags: [['p', to], ['encryption', 'nip44_v2']], content }, w.walletKey)
+    for (const r of this.bank.hub.relayUrls) void this.bank.hub.pool.publish(r, e).catch(() => undefined)
+  }
+
+  /** Pending rotations by wallet pubkey, as the host's submission applied them. */
+  readonly pendingRotations = new Map<string, { newConnectionPubkey: string; completesAt: number }>()
+
+  /**
+   * The host's submission of a member request the member signed (NIP-CW
+   * §Recovering a Lost Connection), in the spec's order; returns the code it
+   * was refused with, or undefined when applied, and sends the notifications.
+   */
+  submit(ev: NostrEvent): string | undefined {
+    if (this.o.rotationDelaySecs === undefined) return 'NOT_IMPLEMENTED'
+    const tag = (k: string) => ev.tags.filter((t) => t[0] === k)
+    const one = (k: string) => (tag(k).length === 1 ? tag(k)[0]![1] : undefined)
+    const action = one('action')
+    if (!verifyEvent(ev) || ev.kind !== 23199 || one('d') !== this.hubPubkey || one('wallet') === undefined || !['rotate', 'freeze', 'unfreeze'].includes(action ?? '') || (action === 'rotate') !== (tag('connection').length === 1) || tag('terms').length > 0) return 'UNAUTHORIZED'
+    if (this.usedProofs.has(ev.id)) return 'REQUEST_REUSED'
+    this.usedProofs.add(ev.id)
+    const w = this.wallets.get(one('wallet')!)
+    if (w === undefined || w.deleted) return 'NOT_FOUND'
+    if (w.member !== ev.pubkey) return 'UNAUTHORIZED'
+    if (action === 'freeze') {
+      if (!w.frozen) this.notify(w, 'wallet_frozen', {})
+      w.frozen = true
+      return undefined
+    }
+    if (action === 'unfreeze') {
+      w.frozen = false
+      return undefined
+    }
+    if (this.pendingRotations.has(w.walletPubkey)) return 'ROTATION_PENDING'
+    const r = { newConnectionPubkey: one('connection')!, completesAt: this.now + this.o.rotationDelaySecs }
+    this.pendingRotations.set(w.walletPubkey, r)
+    this.rotations.set(`${w.member}:${r.newConnectionPubkey}`, r.completesAt)
+    this.notify(w, 'rotation_pending', { connection_pubkey: r.newConnectionPubkey, completes_at: r.completesAt })
+    return undefined
+  }
+
+  /** Completes `w`'s pending rotation now (as the Hub's job does at `completes_at`) and notifies the new key. */
+  completeRotation(w: IssuedWallet): void {
+    const r = this.pendingRotations.get(w.walletPubkey)
+    if (r === undefined) throw new Error('no pending rotation')
+    this.pendingRotations.delete(w.walletPubkey)
+    this.rotations.delete(`${w.member}:${r.newConnectionPubkey}`)
+    w.frozen = false
+    this.rotate(w, r.newConnectionPubkey)
+    this.notify(w, 'rotation_completed', { connection_pubkey: r.newConnectionPubkey })
+  }
+
+  /** Cancels `w`'s pending rotation (a request by the old key) and notifies the old key. */
+  cancelRotation(w: IssuedWallet): void {
+    const r = this.pendingRotations.get(w.walletPubkey)
+    if (r === undefined) return
+    this.pendingRotations.delete(w.walletPubkey)
+    this.rotations.delete(`${w.member}:${r.newConnectionPubkey}`)
+    this.notify(w, 'rotation_cancelled', { connection_pubkey: r.newConnectionPubkey })
+  }
+
   private get now(): number {
     return Math.floor(this.bank.hub.clock() / 1000)
   }
@@ -241,6 +304,7 @@ export class FakeCircle {
     w.seen.push({ method, params })
     if (w.deleted) return { error: { code: 'UNAUTHORIZED', message: 'deleted' } }
     if (w.frozen) return { error: { code: 'FROZEN', message: 'frozen' } }
+    this.cancelRotation(w)
     switch (method) {
       case 'get_info':
         return { result: { alias: 'circle wallet', network: 'mainnet', chain: 'bitcoin', methods: ['pay_invoice', 'pay_keysend', 'make_invoice', 'lookup_invoice', 'list_transactions', 'get_balance', 'get_budget', 'get_info', 'delete_circle_wallet'] } }

@@ -274,6 +274,114 @@ describe('a join lookup through another string of the same circle', () => {
   }, 30_000)
 })
 
+async function eventually(cond: () => Promise<boolean> | boolean, what: string): Promise<void> {
+  for (let i = 0; i < 200; i++) {
+    if (await cond()) return
+    await new Promise((r) => setTimeout(r, 10))
+  }
+  throw new Error(`not reached: ${what}`)
+}
+
+describe('member requests end to end: watch and refresh', () => {
+  test('a rotate the host submits: watch applies rotation_pending, then rotation_completed on the new key, and the wallet answers on it', async () => {
+    const { h, circle } = await setup()
+    const r = await h.wallet.circles.join(circle.string, terms)
+    const w = circle.wallets.get(r.walletPubkey)!
+    w.balance = 4321n
+    const alerts: string[] = []
+    const stop = await h.wallet.circles.watch(r.name, { onAlert: (a) => alerts.push(a) })
+    try {
+      const ev = await h.wallet.circles.memberRequest(r.name, 'rotate')
+      const newKey = ev.tags.find((t) => t[0] === 'connection')![1]!
+      expect(circle.submit(ev)).toBeUndefined()
+      await eventually(() => alerts.includes('rotation_alert'), 'rotation_pending applied')
+      expect((await h.wallet.circles.list())[0]!.rotation).toEqual({ newConnectionPubkey: newKey, completesAt: circle.pendingRotations.get(r.walletPubkey)!.completesAt })
+      // Watching sent the Hub nothing: the pending rotation stands.
+      expect(w.seen).toEqual([])
+      circle.completeRotation(w)
+      await eventually(() => alerts.includes('rotation_completed'), 'rotation_completed applied')
+      const [c] = await h.wallet.circles.list()
+      expect(c).toMatchObject({ connectionPubkey: newKey, frozen: false })
+      expect(c!.rotation).toBeUndefined()
+      expect((await (await h.wallet.lightning(r.name)).getBalance()).balance).toBe(4321)
+      // The same request again is spent.
+      expect(circle.submit(ev)).toBe('REQUEST_REUSED')
+    } finally {
+      stop()
+    }
+  }, 30_000)
+
+  test('freeze: wallet_frozen stops payments; refresh reads FROZEN, then lifts the mark once the unfreeze is applied', async () => {
+    const { h, circle } = await setup()
+    const r = await h.wallet.circles.join(circle.string, terms)
+    const alerts: string[] = []
+    const stop = await h.wallet.circles.watch(r.name, { onAlert: (a) => alerts.push(a) })
+    try {
+      expect(circle.submit(await h.wallet.circles.memberRequest(r.name, 'freeze'))).toBeUndefined()
+      await eventually(() => alerts.includes('frozen_alert'), 'wallet_frozen applied')
+      expect(await failure(h.wallet.lightning(r.name))).toMatchObject({ code: 'auth', nwcCode: 'FROZEN' })
+      expect(await h.wallet.circles.refresh(r.name)).toMatchObject({ frozen: true })
+      expect(circle.submit(await h.wallet.circles.memberRequest(r.name, 'unfreeze'))).toBeUndefined()
+      // An unfreeze has no notification: refresh asks.
+      expect((await h.wallet.circles.list())[0]!.frozen).toBe(true)
+      expect(await h.wallet.circles.refresh(r.name)).toMatchObject({ frozen: false })
+      expect((await (await h.wallet.lightning(r.name)).getBalance()).balance).toBe(0)
+    } finally {
+      stop()
+    }
+  }, 30_000)
+
+  test('refresh is refused while this device\'s rotation is pending; with cancelRotation it cancels it, and watch drops it', async () => {
+    const { h, circle } = await setup()
+    const r = await h.wallet.circles.join(circle.string, terms)
+    const w = circle.wallets.get(r.walletPubkey)!
+    const alerts: string[] = []
+    const stop = await h.wallet.circles.watch(r.name, { onAlert: (a) => alerts.push(a) })
+    try {
+      expect(circle.submit(await h.wallet.circles.memberRequest(r.name, 'rotate'))).toBeUndefined()
+      expect(await failure(h.wallet.circles.refresh(r.name))).toMatchObject({ code: 'usage', reason: 'rotation_pending' })
+      expect(w.seen).toEqual([])
+      expect(await h.wallet.circles.refresh(r.name, { cancelRotation: true })).toMatchObject({ frozen: false })
+      await eventually(() => alerts.includes('rotation_cancelled'), 'rotation_cancelled applied')
+      expect((await h.wallet.circles.list())[0]!.rotation).toBeUndefined()
+      expect(circle.pendingRotations.size).toBe(0)
+    } finally {
+      stop()
+    }
+  }, 30_000)
+
+  test('a rotation this device did not ask for: alert, then the connection is marked moved once completes_at passes', async () => {
+    const { h, circle } = await setup()
+    const r = await h.wallet.circles.join(circle.string, terms)
+    const w = circle.wallets.get(r.walletPubkey)!
+    const alerts: string[] = []
+    const stop = await h.wallet.circles.watch(r.name, { onAlert: (a) => alerts.push(a) })
+    try {
+      circle.notify(w, 'rotation_pending', { connection_pubkey: 'cd'.repeat(32), completes_at: Math.floor(Date.now() / 1000) - 1 })
+      await eventually(() => alerts.includes('rotation_alert'), 'foreign rotation_pending applied')
+      await eventually(async () => (await h.wallet.circles.list())[0]!.moved, 'marked moved')
+      // Anything else on the key is not NIP-CW's and is left alone.
+      circle.notify(w, 'payment_received', { amount: 1 })
+      circle.notify(w, 'rotation_completed', { connection_pubkey: 'nothex' })
+      await new Promise((res) => setTimeout(res, 50))
+      expect(alerts).toEqual(['rotation_alert'])
+    } finally {
+      stop()
+    }
+  }, 30_000)
+
+  test('a request by the wrong member or for a wallet the Hub does not hold is refused by the Hub', async () => {
+    const { h, circle } = await setup()
+    const r = await h.wallet.circles.join(circle.string, terms)
+    const ev = await h.wallet.circles.memberRequest(r.name, 'freeze')
+    circle.wallets.get(r.walletPubkey)!.member = 'ef'.repeat(32)
+    expect(circle.submit(ev)).toBe('UNAUTHORIZED')
+    const { h: h2, circle: noRotation } = await setup({})
+    const r2 = await h2.wallet.circles.join(noRotation.string, terms, { confirmNoRecovery: yes })
+    expect(await failure(h2.wallet.circles.memberRequest(r2.name, 'freeze'))).toMatchObject({ code: 'usage', reason: 'rotation_not_served' })
+  }, 30_000)
+})
+
 describe('circles.recover', () => {
   test('on a new device holding the rotated key: pending until completes_at, then the wallet with the new key', async () => {
     const id = localSigner(fill(7, 32))
