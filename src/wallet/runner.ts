@@ -100,6 +100,12 @@ async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: '
       const cur = await t.get('pendingCalls', call.id)
       if (cur === undefined || cur.state === 'done') return cur?.created ?? {}
       const created = (await writes(t)) ?? {}
+      // A kind may keep its call open past the reply (an order until it is finished): its writes set that state.
+      const after = await t.get('pendingCalls', call.id)
+      if (after?.state === 'open_order' || after?.state === 'open_withdraw') {
+        await t.put('pendingCalls', { ...after, created, version: after.version + 1 }, after.version)
+        return created
+      }
       const done = await finishCall(t, call.id, 'applied')
       await t.put('pendingCalls', { ...done, created, version: done.version + 1 }, done.version)
       return created

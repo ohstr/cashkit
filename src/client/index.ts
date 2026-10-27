@@ -35,6 +35,7 @@ export {
 } from './cashClient.js'
 export { NWC_CALL_TIMEOUT_MS, NwcClient, type GetInfoResult, type MakeInvoiceParams } from './nwcClient.js'
 export { connectCircle, type CircleHub, type ConnectCircleOptions } from './circleClient.js'
+export { connectOrder, type ConnectOrderOptions, type OrderClient } from './order.js'
 export { CircleWalletClient, type CircleBudget, type PaymentPreview } from './circleWalletClient.js'
 export { createCircleWalletItem, createCircleWalletMany, type BatchCircleJoin, type CircleJoinOutcome } from './circleJoin.js'
 export { EventQueue, fetchRelayInfo, readEvents } from './relayIO.js'

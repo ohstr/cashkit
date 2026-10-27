@@ -12,6 +12,10 @@ export type CoreErrorCode =
   | 'hub_identity_mismatch'
   /** The online check: `get_info`'s `chain` is not the string's TLV 6, or is missing. */
   | 'chain_mismatch'
+  /** A cash secret whose order buyer key is zero or not below the group order (NIP-CO §The Buyer Key). */
+  | 'buyer_key_unusable'
+  /** Not a segwit address of the expected chain and network. */
+  | 'invalid_address'
 
 /**
  * The error every `core` function throws for bad input. Messages name the

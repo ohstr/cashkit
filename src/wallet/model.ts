@@ -252,6 +252,29 @@ export interface CallCreated {
   readonly movedHoldingId?: string
 }
 
+/** An order as the wallet last read it (NIP-CO §Response), and what the wallet learned about it. */
+export interface OrderRecord {
+  readonly state: 'open' | 'paid' | 'minted' | 'expired' | 'closed'
+  readonly payment: 'lightning' | 'onchain'
+  readonly amountMillis: bigint
+  readonly feeMillis: bigint
+  readonly payMillis: bigint
+  readonly invoice?: string
+  readonly address?: string
+  readonly confirmations?: number
+  readonly payBy: number
+  readonly bills: readonly { readonly walletPubkey: string; readonly amountMillis: bigint; readonly paidMillis: bigint; readonly outpoint?: string; readonly holdingId?: string; readonly spent: boolean }[]
+  /** Ever seen `paid`, `minted` or `closed`. */
+  readonly sawProgress: boolean
+  /** The reply's fee or confirmations differ from the terms read before placing. */
+  readonly termsChanged?: boolean
+  /** The Hub committed a reply this wallet refuses to show for payment (an invoice for another amount, an address of another chain). */
+  readonly invalidReply?: string
+  readonly endedUnpaid?: boolean
+  readonly finished: boolean
+  readonly checkedAt: number
+}
+
 export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
 export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced'
 export type CallNeedsUser = 'confirm_replace' | 'replace_cap' | 'lookup_expired' | 'lookup_unanswered' | 'foreign_device' | 'refused' | 'receipt_invalid'
@@ -299,6 +322,8 @@ export interface PendingCall {
   readonly needsUser?: CallNeedsUser
   /** What the call created once applied. */
   readonly created?: CallCreated
+  /** A `cash_order` call: the order as last read (no secret, no `notify`, no request id). */
+  readonly order?: OrderRecord
   /** ms epoch. */
   readonly createdAt: number
   readonly version: number

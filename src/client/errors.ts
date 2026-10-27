@@ -21,6 +21,10 @@ export type ClientErrorCode =
   | 'join_unavailable'
   /** The Circle Wallet Hub is not taking joins (`accepting` false). Nothing was signed. */
   | 'not_accepting'
+  /** The Order connection sells nothing (a retired one answers `{}`). Nothing was written or sent. */
+  | 'order_not_sold'
+  /** The Order connection does not list `cash_order` on the private transport. Nothing was written or sent. */
+  | 'order_unavailable'
   /** A zap bill's provenance needs its Cash Zap's fields, which were not given. Nothing was sent. */
   | 'no_zap_event'
   /** The token carries no mint signature that verifies, so its Hub cannot be identified. Nothing was sent. */

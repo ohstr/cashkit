@@ -1,8 +1,9 @@
 // The wallet engine's public face (design §6). Every money-moving operation
 // is plan, then execute; the one-call forms are execute(await plan(...)).
-import { decodeCashHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Signer } from '../core/index.js'
+import { decodeCashHubConnection, encodeNpub, fromHex, localSigner, nip49Encrypt, parsePairingURI, sniff, toHex, type MemberAction, type NostrEvent, type Payment, type Signer } from '../core/index.js'
 import type { CircleWalletClient, HubView } from '../client/index.js'
 import { mint, verifyCashHubString, type MintInput, type MintResult } from './mint.js'
+import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
 import { type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
 import { exportBackup, importBackup, valueFingerprint, type ImportSummary } from './backup.js'
 import {
@@ -498,6 +499,28 @@ export class Wallet {
   }
 
   // ---- circles, lightning, connections, identity, settings (§6.7–§6.9)
+
+  /**
+   * Orders (NIP-CO): buy a bill from a Cash Hub through its `cashorder1`
+   * Order connection, paid over Lightning or on-chain. Views never carry the
+   * buyer key, a secret, `notify` or the request id.
+   */
+  readonly orders = {
+    /** The terms, the fee, what to pay and the bill's redeem fee; nothing is written. */
+    quote: (connection: string, o: { amountMillis: bigint; payment: Payment; confirmUnverified?: (v: HubView) => Promise<boolean> }): Promise<OrderQuote> => quoteOrder(this.ctx, connection, o),
+    /** Places an order as one pending call; the view shows the invoice or address to pay. */
+    place: (o: PlaceOrderInput): Promise<OrderView> => this.ctx.spend(() => placeOrder(this.ctx, o)),
+    /** Reads an order with `cash_lookup`; new bills become holdings. */
+    refresh: (id: string): Promise<OrderView> => this.ctx.spend(() => refreshOrder(this.ctx, id)),
+    list: (): Promise<OrderView[]> => listOrders(this.ctx),
+    get: async (id: string): Promise<OrderView> => {
+      const c = await this.ctx.read((t) => t.get('pendingCalls', id))
+      if (c === undefined || c.kind !== 'order') throw new CashkitError('not_found', `no order ${id}`, { input: id })
+      return orderView(c)
+    },
+    /** Reads the order on each notice and, for Lightning, every 5 s until `pay_by`, while the app watches. Returns the stop. */
+    watch: (id: string, o: { signal?: AbortSignal; pollMs?: number; onUpdate?: (v: OrderView) => void } = {}): Promise<() => void> => watchOrder(this.ctx, id, o),
+  }
 
   /** Circles (NIP-CW): join over the private transport, list, member requests, notifications, delete. */
   readonly circles = {

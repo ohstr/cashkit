@@ -904,6 +904,45 @@ circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin),
 - `circles.delete` refuses above the wallet's dust threshold and asks
   `confirmDelete({ dust })` first.
 
+### 6.7a Orders
+
+```ts
+orders.quote(cashorder1, { amountMillis, payment }): Promise<OrderQuote>
+orders.place({ connection, amountMillis, payment, to?, ia?, confirmUnverified? }): Promise<OrderView>
+orders.refresh(id), orders.list(), orders.get(id), orders.watch(id, { signal?, pollMs?, onUpdate? })
+```
+
+- `connectOrder` decodes and verifies the `cashorder1`, checks `get_info`'s
+  `pubkey` and `chain` against TLV 4 and 6 on every terms read, asks
+  `confirmUnverified` for an unverified string, refuses a connection that
+  sells nothing (`not_selling`) or does not list `cash_order` privately, and
+  opens the private transport from the announcement of TLV 4.
+- `quote` shows the order fee, what to pay, the on-chain confirmations and
+  the bill's redeem fee; nothing is written. `place` reads the terms again
+  and checks the amount locally (`amount_out_of_range`).
+- `to` is `cash` (default: a cash holding; the buyer key is derived from
+  the secret), `self` (the wallet identity), or a send target (a gift: no
+  holding is made). The request id, a fresh `notify` and the secret or a
+  fresh buyer key are written ahead with the `cash_order` call.
+- The reply opens the order: the call stays `open_order` and keeps the
+  order as last read until it is finished (Lightning `minted` or `expired`;
+  on-chain `expired` or `closed`, which may still gain bills). A reply the
+  Hub committed but this wallet refuses (an invoice for another amount, an
+  address of another chain or network) keeps the order open, flagged
+  `invalidReply`, its invoice or address never shown.
+- `refresh` reads the order with `cash_lookup` (signed by the buyer key);
+  each new bill this wallet keeps becomes a holding marked ordered (once,
+  by wallet pubkey), and a tombstoned one marks its holding spent. An order
+  past `pay_by` that never progressed and shows no bill ended unpaid, once
+  a lookup after `pay_by` was answered.
+- `watch` reads the order on each order notice (kind 23189 on `notify`)
+  and, for Lightning, every 5 s until `pay_by`, while the app watches.
+- A lost reply is settled by lookup; an `unknown` one waits for
+  `pendingCalls.confirmReplace` (a new order asks for a new payment).
+- Views never carry the buyer key, a secret, `notify` or the request id,
+  and carry the warnings `pay_before`, `amount_mints_bill` and, on-chain,
+  `late_payment_kept`, `per_output_fee` and `fee_floor`.
+
 ### 6.8 Lightning, connections, identity
 
 - `wallet.lightning(name?)` returns the NIP-47 calls against a registered

@@ -171,6 +171,15 @@
   above dust refused, budget periods, and the full `circle_wallet` terms
   (`accepting`, `fee_reserve`, limits).
   ([#22](https://github.com/ohstr/cashkit/pull/22))
+- Adds orders (NIP-CO): `wallet.orders.quote`, `place`, `refresh`, `list`,
+  `get` and `watch` over a `cashorder1` Order connection, paid over
+  Lightning or on-chain. An order is a `cash_order` pending call that stays
+  open until the order is finished; its bills become holdings marked
+  ordered, and a gift's go to their recipient.
+- Adds the NIP-CO core: terms, the order fee and confirmation tiers, the
+  mint split, the request, the order reply (an invoice must be for exactly
+  `pay_millis`, an address of the Hub's chain and network), the buyer key,
+  order notices, and `connectOrder`.
 
 ## [0.1.0-rc.2]
 
