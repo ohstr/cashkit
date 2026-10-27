@@ -294,6 +294,7 @@
   redeem quotes and zap claims treat a claimed, withdrawn or expired row as
   such instead of as missing. New `ownClaim`; `matchClaim`,
   `matchClaimAuto` and `NO_LOCAL_IDENTITY` are removed.
+  ([#35](https://github.com/ohstr/cashkit/pull/35))
 
 ## [0.1.0-rc.2]
 
