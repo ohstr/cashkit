@@ -18,7 +18,9 @@ export { canonicalParams, paramsHash, toJSONText } from './canonical.js'
 export {
   checkFreshness,
   bearerShapeOK,
+  servingMethod,
   decodeEnvelope,
+  servableItems,
   encodeEnvelope,
   hasBillProof,
   hasCashSecret,
@@ -47,6 +49,7 @@ export {
 export {
   conversationKeyFor,
   decodeResponse,
+  decodeResponseChunk,
   deriveReplyKey,
   encodeResponse,
   MAX_CREATED_AT_BACKDATE,

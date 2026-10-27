@@ -3,7 +3,7 @@
 // batch_send}.go.
 import { nip44 } from '../core/index.js'
 import {
-  decodeResponse,
+  decodeResponseChunk,
   deriveReplyKey,
   hubUsableForBills,
   isPowRejection,
@@ -436,7 +436,7 @@ export class BatchSession {
       }
       let chunk
       try {
-        chunk = decodeResponse(plaintext, p.envelope.nonce, p.ids, this.limits)
+        chunk = decodeResponseChunk(plaintext, p.envelope.nonce, p.ids, this.limits)
       } catch {
         continue // another request's reply, or unreadable: not a chunk of this one
       }

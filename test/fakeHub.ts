@@ -7,6 +7,7 @@ import {
   checkFreshness,
   conversationKeyFor,
   decodeEnvelope,
+  servableItems,
   DEFAULT_LIMITS,
   encodeResponse,
   goEventJSON,
@@ -248,7 +249,8 @@ export class FakeHub {
   private async serve(e: NostrEvent, relay: string): Promise<void> {
     const f = this.faults
     const ck = conversationKeyFor(e.pubkey, this.inboxKey)
-    const { envelope } = decodeEnvelope(nip44.decrypt(e.content, ck), this.limits)
+    const decoded = decodeEnvelope(nip44.decrypt(e.content, ck), this.limits).envelope
+    const envelope = { ...decoded, items: servableItems(decoded, this.limits).kept }
     const now = Math.floor(this.clock() / 1000)
     let tooFar = false
     try {
