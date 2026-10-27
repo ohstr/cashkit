@@ -218,6 +218,7 @@
 - Adds NIP-LSP announcements (kind 10735): building from an LSP's own LSPS
   answers, the client checks in the NIP's order, newest-only tracking with
   no fallback, and the live check against the node's LSPS answers.
+  ([#28](https://github.com/ohstr/cashkit/pull/28))
 
 ## [0.1.0-rc.2]
 
