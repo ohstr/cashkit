@@ -334,6 +334,7 @@
   `outbox.*`, published at open and by `autoSettle`), and the user's
   curators (`curators.*`: app defaults, the user's edits, a private NIP-51
   set published and synced). A session now starts on the wallet's clock.
+  ([#39](https://github.com/ohstr/cashkit/pull/39))
 
 ## [0.1.0-rc.2]
 
