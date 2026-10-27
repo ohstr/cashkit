@@ -419,12 +419,20 @@ export interface OwnClaim<R extends RosterRow> {
 }
 
 /**
- * `ownRow` (scope `mine`) then `claimable`: the row is found from the
+ * The `cash_status` scope a holder reads its own row with: `mine`, except
+ * for a `connection_key` slice. A Hub answers `mine` for the item-proof
+ * signer, which is never a ConnectionKey, so a connection-key holder reads
+ * `all` and picks its row by `identity_value` and `ia_pubkey`.
+ */
+export const ownScope = (credential: Credential): 'mine' | 'all' => (credential.kind === 'connection_key' ? 'all' : 'mine')
+
+/**
+ * `ownRow` (in the credential's `ownScope`) then `claimable`: the row is found from the
  * credential, and a claimed, withdrawn or expired row is returned as not
  * claimable, never as missing.
  */
-export function ownClaim<R extends RosterRow>(rows: readonly R[], credential: Credential, now: number): OwnClaim<R> {
-  const row = ownRow(rows, credential, 'mine')
+export function ownClaim<R extends RosterRow>(rows: readonly R[], credential: Credential, now: number, scope: 'mine' | 'all' = ownScope(credential)): OwnClaim<R> {
+  const row = ownRow(rows, credential, scope)
   const c = claimable(row, now)
   return { row, claimable: c.ok, reason: c.reason }
 }

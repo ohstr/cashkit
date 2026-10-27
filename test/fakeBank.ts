@@ -7,7 +7,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { decideLookup, encodeCashHubConnection, finalizeEvent, fromHex, getPublicKey, hubGroupFor, nip44, signCashHubConnection, toHex, verifyEvent, type NostrEvent } from '../src/core/index.js'
 import { FakeHub, type Answer, type MemoryRelayPool, type RequestInfo } from './fakeHub.js'
 
-export type Identity = { readonly type: 'pubkey' | 'connection_key'; readonly value: string } | { readonly type: 'cash'; readonly value: string }
+export type Identity = { readonly type: 'pubkey'; readonly value: string } | { readonly type: 'connection_key'; readonly value: string; readonly ia: string } | { readonly type: 'cash'; readonly value: string }
 
 export interface BankWallet {
   readonly walletKey: Uint8Array
@@ -113,6 +113,11 @@ export class FakeBank {
     return this.mint(amount, { type: 'pubkey', value: pubkey }, o)
   }
 
+  /** A bill bound to a connection key, attested by `ia`. */
+  mintToConnectionKey(amount: bigint, key: string, ia: string, o: { expiresAt?: number } = {}): BankWallet {
+    return this.mint(amount, { type: 'connection_key', value: key, ia }, o)
+  }
+
   mintToCash(amount: bigint, secretHex: string, o: { expiresAt?: number } = {}): BankWallet {
     return this.mint(amount, { type: 'cash', value: commitment(secretHex) }, o)
   }
@@ -183,15 +188,41 @@ export class FakeBank {
       if (commitment(secret) !== w.identity.value) return { error: { code: 'NOT_FOUND', message: 'no slice of this bill matches this cash secret' } }
       return undefined
     }
+    if (w.identity.type === 'connection_key') {
+      // A `mine` read names the item-proof signer, never a ConnectionKey; `all` is served on the bill proof.
+      if (info.item.method === 'cash_status') return p['scope'] === 'all' ? undefined : { error: { code: 'NOT_FOUND', message: 'no slice of this bill is registered for the identity that signed this item' } }
+      return this.checkConnectionKey(w.identity, info)
+    }
     if (info.signer !== w.identity.value) return { error: { code: 'NOT_FOUND', message: 'no slice of this bill is registered for the identity that signed this item' } }
     return undefined
   }
+
+  /** A connection_key slice's claim: its identity and attestation (by the recorded IA), whose `p` signed the item. */
+  private checkConnectionKey(id: { value: string; ia: string }, info: RequestInfo): Answer | undefined {
+    const p = info.params
+    const notFound: Answer = { error: { code: 'NOT_FOUND', message: 'no slice of this bill matches this connection key' } }
+    if (p['identity_type'] !== 'connection_key' || p['identity_value'] !== id.value) return notFound
+    let att: NostrEvent
+    try {
+      att = JSON.parse(p['attestation_event'] as string) as NostrEvent
+    } catch {
+      return { error: { code: 'BAD_REQUEST', message: 'attestation_event is not an event' } }
+    }
+    const tag = (n: string) => att.tags.find((t) => t[0] === n)?.[1]
+    if (!verifyEvent(att) || att.kind !== 35522 || att.pubkey !== id.ia || tag('d') !== id.value || tag('p') !== info.signer) return { error: { code: 'RESTRICTED', message: 'the attestation does not authorize this signer' } }
+    this.ckClaims++
+    return undefined
+  }
+
+  /** Claims authorized by a connection-key attestation, for assertions. */
+  ckClaims = 0
 
   private row(w: BankWallet) {
     const fee = this.fee(w.amount)
     return {
       identity_type: w.identity.type,
       identity_value: w.identity.value,
+      ...(w.identity.type === 'connection_key' && { ia_pubkey: w.identity.ia }),
       amount_millis: w.amount,
       claimed: w.claimed === true,
       redeem_fee_millis: fee,
@@ -216,8 +247,10 @@ export class FakeBank {
     const p = info.params
     const ni = p['new_identity'] as { identity_type: string; identity_value?: string } | undefined
     if (ni === undefined || ni.identity_value === undefined) return { error: { code: 'BAD_REQUEST', message: 'new_identity is required' } }
-    const to = { type: ni.identity_type, value: ni.identity_value } as Identity
+    const to = { type: ni.identity_type, value: ni.identity_value, ...((ni as { ia_pubkey?: string }).ia_pubkey !== undefined && { ia: (ni as { ia_pubkey?: string }).ia_pubkey }) } as Identity
     const caller = w.identity
+    // Tokens go to whoever signed the item: a connection key is no pubkey to encrypt to.
+    const deliverTo: Identity = caller.type === 'connection_key' ? { type: 'pubkey', value: info.signer ?? '' } : caller
     const split = p['amount_millis'] === undefined ? undefined : BigInt(p['amount_millis'] as number)
     if (split !== undefined && (split <= 0n || split > w.amount)) return { error: { code: 'BAD_REQUEST', message: 'amount_millis out of range' } }
     const partial = split !== undefined && split < w.amount
@@ -242,9 +275,9 @@ export class FakeBank {
           identity_value: to.value,
           ...(rest !== undefined && { remaining_amount_millis: w.amount - amt }),
           new_wallet_pubkey: zw.walletPubkey,
-          new_wallet_token: this.deliver(zw, caller),
+          new_wallet_token: this.deliver(zw, deliverTo),
           remainder_wallet_pubkey: rest?.walletPubkey ?? '',
-          remainder_wallet_token: rest !== undefined ? this.deliver(rest, caller) : '',
+          remainder_wallet_token: rest !== undefined ? this.deliver(rest, deliverTo) : '',
           issued_at: issuedAt,
           expires_at: expiresAt,
         },
@@ -265,9 +298,9 @@ export class FakeBank {
           identity_value: to.value,
           remaining_amount_millis: w.amount - split,
           new_wallet_pubkey: carved.walletPubkey,
-          new_wallet_token: this.deliver(carved, caller),
+          new_wallet_token: this.deliver(carved, deliverTo),
           remainder_wallet_pubkey: rest.walletPubkey,
-          remainder_wallet_token: this.deliver(rest, caller),
+          remainder_wallet_token: this.deliver(rest, deliverTo),
         },
       }
     }
@@ -280,7 +313,7 @@ export class FakeBank {
           identity_type: to.type,
           identity_value: to.value,
           new_wallet_pubkey: moved.walletPubkey,
-          new_wallet_token: this.deliver(moved, caller),
+          new_wallet_token: this.deliver(moved, deliverTo),
         },
       }
     }

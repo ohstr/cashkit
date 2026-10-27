@@ -75,7 +75,7 @@ const chainOf = (token: string) => {
 
 async function identityOf(ctx: Ctx, h: Holding): Promise<PocketIdentity> {
   if (h.mode === 'cash') return { type: 'cash' }
-  if (h.mode === 'connection_key' && h.connectionKey !== undefined) return { type: 'connection_key', value: connectionKeyFromAttested(h.connectionKey.platform, h.connectionKey.externalId), ia: h.connectionKey.iaPubkey }
+  if (h.mode === 'connection_key' && h.connectionKey !== undefined) return { type: 'connection_key', value: h.connectionKey.key ?? connectionKeyFromAttested(h.connectionKey.platform, h.connectionKey.externalId), ia: h.connectionKey.iaPubkey }
   return { type: 'pubkey', value: (await ctx.requireSigner()).pubkey }
 }
 

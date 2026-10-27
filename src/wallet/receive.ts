@@ -1,12 +1,12 @@
 // Receive and protect (design §6.1, §6.4). Port of cashctl
 // cmd/cash_receive.go runCashReceive and cmd/receive_secure.go
 // protectRekeyOnly.
-import { bySecret, bySigning, decodeToken, newCashTarget, sniff, splitCashString, type Credential, type Token } from '../core/index.js'
+import { bySecret, bySigning, decodeToken, newCashTarget, sniff, splitCashString, type Credential, type NostrEvent, type Token } from '../core/index.js'
 import { ClientError } from '../client/index.js'
 import { validateClaimedAmount } from './amounts.js'
 import { getHeld, lockedHoldings } from './bills.js'
 import { runTransfer } from './kinds.js'
-import { tokenFacts, type Ctx } from './context.js'
+import { connectionKeyCredential, tokenFacts, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
 import { addHolding, appendActivity, findByToken } from './ledger.js'
 import type { Holding } from './model.js'
@@ -57,8 +57,19 @@ function reportOf(tok: Token): TokenReport {
   }
 }
 
+export interface ReceiveOptions {
+  /** Protect a cash note by rekeying it (default: `settings.autoProtect`). */
+  readonly protect?: boolean
+  /**
+   * For a bill bound to a connection key: the account's attestation (kind
+   * 35522, the event or its JSON text) naming this wallet's identity. The
+   * holding keeps it, as every claim on the slice must name it.
+   */
+  readonly attestation?: NostrEvent | string
+}
+
 /** `receive`: check the bill with its Hub, commit it, then protect a cash note. */
-export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean } = {}): Promise<ReceiveResult> {
+export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}): Promise<ReceiveResult> {
   const { token: input, cashSecret: embedded } = splitCashString(rawInput.trim())
   refuseKind(input)
   let tok: Token
@@ -68,7 +79,18 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
     throw new CashkitError('invalid_input', (err as Error).message, { input, cause: err })
   }
   const facts = tokenFacts(input)
-  let isCash = tok.identityRequired === false || embedded !== ''
+  let ck: ReturnType<typeof connectionKeyCredential> | undefined
+  if (o.attestation !== undefined) {
+    if (embedded !== '') throw new CashkitError('usage', 'a cash note carries its own secret: receive it without an attestation', { input })
+    let event: NostrEvent
+    try {
+      event = typeof o.attestation === 'string' ? (JSON.parse(o.attestation) as NostrEvent) : o.attestation
+    } catch (err) {
+      throw new CashkitError('invalid_input', 'the attestation is not a JSON event', { input, cause: err })
+    }
+    ck = connectionKeyCredential(await ctx.requireSigner(), event, ctx.nowSeconds(), undefined, input)
+  }
+  let isCash = ck === undefined && (tok.identityRequired === false || embedded !== '')
   const signer = await ctx.signer()
   if (isCash && embedded === '' && signer !== undefined) {
     // Metadata says cash, but a transfer may have bound it to us since.
@@ -86,7 +108,8 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
   if (existing?.status === 'held' || existing?.status === 'redeeming') throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
 
   let cred: Credential
-  if (embedded !== '') cred = bySecret(embedded)
+  if (ck !== undefined) cred = ck.credential
+  else if (embedded !== '') cred = bySecret(embedded)
   else cred = bySigning(await ctx.requireSigner())
   let r
   try {
@@ -98,7 +121,9 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
         'invalid_input',
         embedded !== ''
           ? "the cash secret after '#' does not match this bill (is it complete?) — refusing to receive it"
-          : 'the Cash Hub has no matching recipient for this token — refusing to receive it',
+          : ck !== undefined
+            ? "the Cash Hub has no slice of this token for this attestation's account — refusing to receive it"
+            : 'the Cash Hub has no matching recipient for this token — refusing to receive it',
         { input },
       )
     }
@@ -119,7 +144,11 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
         verified: true,
         ...(r.minterPubkey !== undefined && { minterPubkey: r.minterPubkey }),
         ...(r.expiresAt !== undefined && { expiresAt: r.expiresAt }),
-        ...(r.isCash ? { mode: 'cash' as const, protection: 'shared' as const, ...(sealedSecret !== undefined && { cashSecret: sealedSecret }) } : { mode: 'pubkey' as const, protection: 'none' as const }),
+        ...(r.isCash
+          ? { mode: 'cash' as const, protection: 'shared' as const, ...(sealedSecret !== undefined && { cashSecret: sealedSecret }) }
+          : ck !== undefined
+            ? { mode: 'connection_key' as const, protection: 'none' as const, connectionKey: ck.binding }
+            : { mode: 'pubkey' as const, protection: 'none' as const }),
       },
       { now: ctx.now(), random: ctx.random },
     )

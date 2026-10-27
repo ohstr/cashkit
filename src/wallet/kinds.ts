@@ -89,6 +89,7 @@ async function callCredential(ctx: Ctx, call: PendingCall, h: Holding): Promise<
   const a = call.authorizer
   if (a.kind === 'throwaway') return bySigning(localSigner(hexBytes(await ctx.open(a.authorizerKey))))
   if (a.kind === 'cash') return bySecret(await ctx.open(h.cashSecret!))
+  if (h.mode === 'connection_key') return ctx.credentialFor(h)
   return bySigning(await ctx.requireSigner())
 }
 
@@ -159,6 +160,7 @@ async function remainderOf(ctx: Ctx, h: Holding): Promise<PlainOutput['destinati
     return { kind: 'throwaway', pubkey: localSigner(hexBytes(key)).pubkey, key }
   }
   if (h.mode === 'cash') return { kind: 'cash', secret: newCashTarget(ctx.random).secret }
+  if (h.mode === 'connection_key' && h.connectionKey?.key !== undefined) return { kind: 'connection_key', key: h.connectionKey.key, platform: h.connectionKey.platform, ia: h.connectionKey.iaPubkey }
   return { kind: 'pubkey', pubkey: (await ctx.requireSigner()).pubkey }
 }
 
@@ -294,6 +296,8 @@ async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashT
       t,
       {
         ...identityFields(remOut.destination),
+        // A connection-key source's remainder stays with the same account and attestation.
+        ...(remOut.destination.kind === 'connection_key' && src.connectionKey !== undefined && { connectionKey: src.connectionKey }),
         token: r.remainderWalletToken,
         walletPubkey: r.remainderWalletPubkey,
         hubGroup: f.hubGroup,

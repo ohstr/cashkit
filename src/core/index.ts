@@ -207,6 +207,7 @@ export {
   claimable,
   ownClaim,
   ownRow,
+  ownScope,
   type NotClaimableReason,
   type OwnClaim,
   type RosterRow,

@@ -20,10 +20,13 @@ import {
   CoreError,
   decodeLookupDone,
   decryptDelivery,
+  eventJSON,
   nearMatch,
   newCashTarget,
   newNotify,
   newRequestId,
+  ownRow,
+  ownScope,
   normalizeAddressText,
   parseCashWithdrawQuoteResult,
   parseDetail,
@@ -147,16 +150,21 @@ async function sliceIdentity(ctx: Ctx, h: Holding): Promise<{ identityValue: str
   const credential = await ctx.credentialFor(h)
   if (credential.kind === 'secret') return { identityValue: cashCommitment(credential.secret), credential }
   if (credential.kind === 'signing') return { identityValue: credential.signer.pubkey, credential }
-  throw new CashkitError('usage', 'on-chain withdrawals from connection-key bills are not supported yet', { reason: 'withdraw_not_offered' })
+  const att = credential.attestation!
+  return { identityValue: att.connectionKey, iaPubkey: att.event.pubkey, credential }
 }
 
 async function statusRow(ctx: Ctx, h: Holding) {
   const credential = await ctx.credentialFor(h)
-  const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope: 'mine' }])
+  const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope: ownScope(credential) }])
   const o = r.outcomes[0]
   if (o?.state !== 'result' || o.value === undefined) throw new CashkitError('network', "the bill's Hub did not answer its status; try again", { input: h.id })
-  const row = o.value.recipients[0]
-  if (row === undefined) throw new CashkitError('not_found', 'no slice of this bill answers to this wallet', { input: h.id })
+  let row
+  try {
+    row = ownRow(o.value.recipients, credential, ownScope(credential))
+  } catch {
+    throw new CashkitError('not_found', 'no slice of this bill answers to this wallet', { input: h.id })
+  }
   return { row, withdraw: o.value.withdraw }
 }
 
@@ -215,13 +223,18 @@ export async function quoteWithdrawal(ctx: Ctx, holdingId: string, rawAddress: s
   }
   const slice = await sliceIdentity(ctx, h)
   const session = await ctx.clientFor(h).session()
-  const out = await quoteWithdraw(session, ctx.clientDeps, { bill: billOf(h), credential: slice.credential, params: cashWithdrawQuoteRequest({ address, ...(o.sendBefore !== undefined && { sendBefore: o.sendBefore }) }) })
+  const out = await quoteWithdraw(session, ctx.clientDeps, { bill: billOf(h), credential: slice.credential, params: cashWithdrawQuoteRequest({
+      address,
+      ...(o.sendBefore !== undefined && { sendBefore: o.sendBefore }),
+      ...(slice.credential.kind === 'connection_key' && { connectionKey: { identityValue: slice.identityValue, iaPubkey: slice.iaPubkey!, attestationEvent: eventJSON(slice.credential.attestation!.event) } }),
+    }),
+  })
   if (out?.state === 'error' && out.error !== undefined) throw refusal(out.error.code, out.error.message, (out.error as { detail?: unknown }).detail, 'quote')
   if (out?.state !== 'result') throw new CashkitError('network', 'the Hub did not answer the quote; nothing moved, ask again', { input: h.id })
   let r
   try {
     r = parseCashWithdrawQuoteResult(out.value)
-    verifyQuoteAnswer(r, { hubXOnly: session.hub, wallet: h.walletPubkey, identityValue: slice.identityValue, address, ...(o.sendBefore !== undefined && { sendBefore: o.sendBefore }), amountMillis: row.amount_millis, redeemFeeMillis: row.redeem_fee_millis })
+    verifyQuoteAnswer(r, { hubXOnly: session.hub, wallet: h.walletPubkey, identityValue: slice.identityValue, ...(slice.iaPubkey !== undefined && { iaPubkey: slice.iaPubkey }), address, ...(o.sendBefore !== undefined && { sendBefore: o.sendBefore }), amountMillis: row.amount_millis, redeemFeeMillis: row.redeem_fee_millis })
   } catch (err) {
     throw new CashkitError('invalid_input', `the Hub's quote does not check out: ${(err as Error).message}`, { reason: 'quote_mismatch', cause: err })
   }
@@ -275,7 +288,12 @@ export async function sendWithdrawal(ctx: Ctx, view: WithdrawQuoteView, o: { con
   if (!session.usableForBills) throw new CashkitError('internal', "this bill's Hub announces no usable max_request_age; nothing was sent", { reason: 'hub_unusable' })
   const slice = await sliceIdentity(ctx, h)
   const remint = slice.credential.kind === 'secret' ? newCashTarget(ctx.random) : undefined
-  const remintOut: PlainOutput['destination'] = remint !== undefined ? { kind: 'cash', secret: remint.secret } : { kind: 'pubkey', pubkey: slice.identityValue }
+  const remintOut: PlainOutput['destination'] =
+    remint !== undefined
+      ? { kind: 'cash', secret: remint.secret }
+      : slice.iaPubkey !== undefined
+        ? { kind: 'connection_key', key: slice.identityValue, platform: h.connectionKey?.platform ?? '', ia: slice.iaPubkey }
+        : { kind: 'pubkey', pubkey: slice.identityValue }
   const call = await prepareCall(ctx, {
     kind: 'withdraw',
     requestId: newRequestId(ctx.random),
@@ -355,7 +373,11 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
         relayUrls: f.tok.relays,
         amount: p.amountMillis,
         verified: false,
-        ...(out?.destination.kind === 'cash' ? { mode: 'cash' as const, protection: 'protected' as const, cashSecret: out.destination.secret } : { mode: 'pubkey' as const, protection: 'none' as const }),
+        ...(out?.destination.kind === 'cash'
+          ? { mode: 'cash' as const, protection: 'protected' as const, cashSecret: out.destination.secret }
+          : out?.destination.kind === 'connection_key' && src.connectionKey !== undefined
+            ? { mode: 'connection_key' as const, protection: 'none' as const, connectionKey: src.connectionKey }
+            : { mode: 'pubkey' as const, protection: 'none' as const }),
         ...(f.minterPubkey !== undefined && { minterPubkey: f.minterPubkey }),
         ...(src.expiresAt !== undefined && { expiresAt: src.expiresAt }),
         origin: 'reminted',

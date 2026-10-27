@@ -664,7 +664,7 @@ interface Holding {
   mode: 'pubkey' | 'cash' | 'connection_key'
   protection: 'none' | 'shared' | 'protected'   // cash mode only
   cashSecret?: Sealed<CashSecret>
-  connectionKey?: { platform: string; externalId: string; attestationId: string; iaPubkey: string }
+  connectionKey?: { platform: string; externalId: string; attestationId: string; iaPubkey: string; key?: string; attestation?: string /* the 35522, JSON */ }
   throwawayKey?: Sealed<PrivKey>    // a merge key this bill sits on (§6.2)
   version: number
 }
@@ -821,7 +821,7 @@ prompts.
 ### 6.1 Receive
 
 ```ts
-receive(input: string, o?: { protect?: boolean /* default settings.autoProtect */ }): Promise<ReceiveResult>
+receive(input: string, o?: { protect?: boolean /* default settings.autoProtect */; attestation?: NostrEvent | string }): Promise<ReceiveResult>
 type ReceiveResult =
   | { received: true; holding: HoldingView; secured: { status: 'not_applicable' | 'declined' | 'failed' | 'rekeyed'; unresolved?: boolean; likelyWrongSecret?: boolean } }
   | { received: false; reason: 'no_embedded_secret'; report: TokenReport }
@@ -834,7 +834,8 @@ Flow, from `cash_receive.go`:
    identity, then degrades to a read-only report.
 3. A token already held is a `conflict`.
 4. `checkClaim`, the caller's own row found from the credential (`ownRow`,
-   scope `mine`) and checked with `claimable`:
+   in `ownScope`: `mine`, or `all` for a connection key) and checked with
+   `claimable`:
    - spent → `spent`
    - no match → `invalid_input`
    - a row that is claimed or ended by a cash_withdraw → `spent` (reason
@@ -846,6 +847,19 @@ Flow, from `cash_receive.go`:
 7. Protect: rekey to a fresh secret, written ahead as a pending call.
 
 Receive never merges.
+
+A bill bound to a connection key is received with `attestation`, the
+account's NIP-IC attestation naming this wallet's identity. Before anything
+is sent it must parse, its `d` must be the ConnectionKey of its `platform`
+and `evidence.user_id` (canonical on a canonical platform), its `p` this
+wallet's pubkey, and it must carry an unpassed `expiration`
+(`auth`/`attestation_invalid` otherwise). A Hub answers `mine` for the
+item-proof signer, never a ConnectionKey, so the holder reads `scope: all`
+and takes the row with its key and IA. The holding keeps the attestation:
+every claim on the slice (send, redeem, withdraw) names it, a split's
+remainder and a cancelled withdrawal's re-mint stay bound to the same
+account, and a holding without it cannot be spent
+(`usage`/`attestation_missing`). Connection-key bills are not merged.
 
 ### 6.2 Send
 

@@ -51,7 +51,7 @@ export { COLLECTIONS, DEFAULT_SETTINGS, LOCAL_ONLY, SCHEMA_VERSION } from './mod
 export { holdingView, pendingCallView, toJSON, type HoldingView, type PendingCallView } from './views.js'
 export { MAX_ATTEMPTS, type SettleCallsReport } from './runner.js'
 export type { Outcome, Report } from './report.js'
-export type { ReceiveResult, Secured, TokenReport } from './receive.js'
+export type { ReceiveOptions, ReceiveResult, Secured, TokenReport } from './receive.js'
 export type { PlannedSource, SendInput, SendPlan, SendResult } from './send.js'
 export type { MintInput, MintResult } from './mint.js'
 export type { DiscoverOptions, DiscoverView, OfferCard, TapView } from './discover.js'
