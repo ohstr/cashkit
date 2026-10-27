@@ -19,7 +19,8 @@ import {
   fromHex,
   getEventHash,
   localSigner,
-  matchClaim,
+  claimable,
+  ownRow,
   newConnectionKey,
   newIdentityHash,
   parseAttestation,
@@ -48,19 +49,14 @@ const signer = localSigner(fromHex('02'.repeat(32)))
 const attestation = parseAttestation(v.attestation[0].event)
 const IA = attestation.event.pubkey
 
+// Kept: cashkit follows the NIP text here, and nmilat does not.
 const MISMATCH = new Set([
-  // attestation
-  // requests
-  'redeem with an amount', // nmilat sends amount with an invoice that has one (10u); cashkit refuses amount unless the invoice is amountless
-  'transfer to pubkey uppercase', // nmilat sends the uppercase pubkey as given; cashkit refuses a pubkey identity that is not lowercase hex
-  // results
-  // ownRow (cashkit: matchClaim)
-  "connection_key, the credential's IA", // nmilat finds the connection_key row of the credential's IA; matchClaim matches only pubkey and cash rows
-  'cash, uppercase commitment', // nmilat refuses a scope-mine row that is not the caller's commitment; matchClaim takes any unclaimed cash row
-  'widened mine: two rows', // nmilat refuses a scope-mine answer of more than one row; matchClaim takes the caller's row
-  // claimable (cashkit: matchClaim)
-  'ended by a cash_withdraw', // nmilat: a row with withdraw_request_id is not claimable; matchClaim reads only `claimed`
-  'expired one second later', // nmilat: a row past expires_at is not claimable; matchClaim reads only `claimed`
+  // nmilat sends amount 500000 with a 10u invoice. NIP-CASH §cash_redeem: "`amount` — OPTIONAL. Overrides the
+  // amount of an **amountless** invoice. It MUST NOT be used to alter an invoice that already carries one".
+  'redeem with an amount',
+  // nmilat sends the uppercase pubkey as given; cashkit refuses an identity_value that is not 64 lowercase hex
+  // (lowercase hex everywhere).
+  'transfer to pubkey uppercase',
 ])
 
 const credentials: Record<string, Credential> = {
@@ -175,10 +171,15 @@ function bindingOf(tags: string[][]): ProofBinding {
   }
 }
 
-/** The index of the caller's own row: an unclaimed row matchClaim accepts, or -1. */
-function ownRow(credential: string, rows: Json[]): number {
+/** The index of the caller's own row, or -1 when ownRow refuses. */
+function ownRowIndex(credential: string, scope: string, rows: Json[]): number {
   const typed = rows.map((r) => ({ ...r, amount_millis: BigInt(r.amount_millis) }))
-  return typed.findIndex((r) => matchClaim([r], credential === 'cash', credential === 'signing' ? signer.pubkey : '') !== undefined)
+  const cred = credential === 'cash' ? bySecret(v.cashTarget[0].secret) : credentials[credential]!
+  try {
+    return typed.indexOf(ownRow(typed, cred, scope === 'all' ? 'all' : 'mine'))
+  } catch {
+    return -1
+  }
 }
 
 describe('claim.json', () => {
@@ -253,13 +254,11 @@ describe('claim.json', () => {
   })
 
   test.each(named(v.ownRow))('ownRow: %s', (_: string, c: Json) => {
-    if (MISMATCH.has(c.name)) return
-    expect(ownRow(c.credential, c.rows)).toBe(c.index)
+    expect(ownRowIndex(c.credential, c.scope, c.rows)).toBe(c.index)
   })
 
   test.each(named(v.claimable))('claimable: %s', (_: string, c: Json) => {
-    if (MISMATCH.has(c.name)) return
-    expect(ownRow('signing', [c.row]) === 0).toBe(c.ok)
+    expect(claimable({ ...c.row, ...(c.row.expires_at !== undefined && { expires_at: Number(c.row.expires_at) }) }, c.now)).toEqual({ ok: c.ok, reason: c.reason })
   })
 })
 

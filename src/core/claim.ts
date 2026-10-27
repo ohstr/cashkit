@@ -355,6 +355,59 @@ export async function cashConsolidateRequest(p: {
   return { sources, new_identity: newIdentity(p.to), request_id: requestId }
 }
 
+/** The roster row fields `ownRow` and `claimable` read. */
+export type RosterRow = Pick<
+  import('./results.js').RecipientStatus,
+  'identity_type' | 'identity_value' | 'ia_pubkey' | 'amount_millis' | 'claimed' | 'expires_at' | 'withdraw_request_id'
+>
+
+/**
+ * The caller's own row, the identity taken from the credential, never from
+ * the caller's word: a signing credential's pubkey matches a pubkey row; a
+ * connection_key credential matches its attestation's key and IA; a cash
+ * credential matches the cash row its secret commits to (exactly, lowercase).
+ * With scope `mine` the answer must be exactly that one row, else it is
+ * refused as widened; with `all`, the first matching row, else not found.
+ */
+export function ownRow<R extends RosterRow>(rows: readonly R[], credential: Credential, scope: 'mine' | 'all' = 'mine'): R {
+  const match = rowMatcher(credential)
+  if (scope === 'mine') {
+    if (rows.length !== 1 || !match(rows[0]!)) throw new CoreError('invalid_payload', `a scope-mine answer is not exactly the caller's row: ${rows.length} rows`)
+    return rows[0]!
+  }
+  const row = rows.find(match)
+  if (row === undefined) throw new CoreError('invalid_payload', 'this bill has no slice for the caller')
+  return row
+}
+
+function rowMatcher(c: Credential): (r: RosterRow) => boolean {
+  switch (c.kind) {
+    case 'signing':
+      return (r) => r.identity_type === 'pubkey' && r.identity_value === c.signer.pubkey
+    case 'connection_key': {
+      const att = c.attestation
+      if (att === undefined) throw new CoreError('invalid_request', 'a connection_key credential needs its attestation to match a row')
+      return (r) => r.identity_type === 'connection_key' && r.identity_value === att.connectionKey && r.ia_pubkey === att.event.pubkey
+    }
+    default: {
+      const commit = cashCommitment(c.secret)
+      return (r) => r.identity_type === 'cash' && r.identity_value === commit
+    }
+  }
+}
+
+/**
+ * Whether a row can still be spent at `now`, and if not why: `claimed`,
+ * `withdrawn` (a cash_withdraw ended it) or `expired` (past a non-zero
+ * `expires_at`; the second it names is still live).
+ */
+export function claimable(row: Pick<RosterRow, 'claimed' | 'withdraw_request_id' | 'expires_at'>, now: number): { readonly ok: boolean; readonly reason: '' | 'claimed' | 'withdrawn' | 'expired' } {
+  if (row.claimed) return { ok: false, reason: 'claimed' }
+  if (row.withdraw_request_id !== undefined && row.withdraw_request_id !== '') return { ok: false, reason: 'withdrawn' }
+  if (row.expires_at !== undefined && row.expires_at !== 0 && now > row.expires_at) return { ok: false, reason: 'expired' }
+  return { ok: true, reason: '' }
+}
+
 /** The roster row fields a claim match reads. */
 export type RecipientStatus = Pick<import('./results.js').RecipientStatus, 'identity_type' | 'identity_value' | 'amount_millis' | 'claimed'>
 
