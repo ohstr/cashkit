@@ -13,9 +13,6 @@ const v = load('lookup.json')
 const JOIN_HORIZON = 360
 /** JSON with bigints as numbers: every amount here is a safe integer. */
 const numeric = (x: unknown): unknown => JSON.parse(JSON.stringify(x, (_k, y) => (typeof y === 'bigint' ? Number(y) : y)))
-const MISMATCH = new Set([
-  'no deadline', // nmilat refuses deadline 0; cashkit's cashLookupParams accepts any deadline >= 0
-])
 
 describe('lookup.json', () => {
   test.each(named(v.decideLookup, (c, i) => `${c.id ?? 'decide'} #${i}`))('decideLookup %s', (_: string, c: Json) => {
@@ -27,7 +24,6 @@ describe('lookup.json', () => {
     expect(deadlineFor(c.horizon, 1720000000) - 1720000000).toBe(c.window)
   })
   test.each(named(v.params))('params: %s', (_: string, c: Json) => {
-    if (MISMATCH.has(c.name)) return
     const p = c.params
     const by = { ...(p.request_id !== undefined && { requestId: p.request_id }), ...(p.connection_pubkey !== undefined && { connectionPubkey: p.connection_pubkey }) } as { requestId: string }
     const go = () => cashLookupParams(by, p.deadline, p.cash_secret)

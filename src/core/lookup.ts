@@ -30,7 +30,7 @@ export function cashLookupParams(by: { readonly requestId: string } | { readonly
   if ((id === undefined) === (cp === undefined)) throw badParams('exactly one of request_id and connection_pubkey')
   if (id !== undefined && !isRequestId(id)) throw badParams('request_id must be 16 to 32 bytes of lowercase hex')
   if (cp !== undefined && !HEX64.test(cp)) throw badParams('connection_pubkey must be 64 lowercase hex')
-  if (!Number.isSafeInteger(deadline) || deadline < 0) throw badParams('deadline must be unix seconds')
+  if (!Number.isSafeInteger(deadline) || deadline <= 0) throw badParams("a lookup needs the call's deadline (unix seconds)")
   if (cashSecret !== undefined && !isCashSecret(cashSecret)) throw badParams('cash_secret must be 64 lowercase hex')
   return { ...(id !== undefined && { request_id: id }), ...(cp !== undefined && { connection_pubkey: cp }), deadline, ...(cashSecret !== undefined && { cash_secret: cashSecret }) }
 }
