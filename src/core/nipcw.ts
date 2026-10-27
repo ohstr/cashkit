@@ -329,8 +329,9 @@ function addMonthsClamped(createdAt: number, months: number): number {
   return Math.floor(Date.UTC(ty, tm, day, d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()) / 1000)
 }
 
-/** The start of the k-th period (k = 0 is the creation), counted from the creation day; undefined for `never` past k = 0. */
+/** The start of the k-th period (k = 0 is the creation), counted from the creation day; undefined for a negative k and for `never` past k = 0. */
 export function budgetPeriodStart(createdAt: number, renewal: string, k: number): number | undefined {
+  if (!Number.isInteger(k) || k < 0) return undefined
   switch (renewal) {
     case 'daily':
       return createdAt + k * DAY

@@ -16,6 +16,7 @@ import { verifyProvenance } from './provenance.js'
 import { isRequestId } from './requestId.js'
 import type { Tombstone } from './results.js'
 import { decodeToken } from './token.js'
+import { MAX_U64 } from './fees.js'
 
 export const METHOD_CASH_ORDER = 'cash_order'
 export const KIND_ORDER_NOTICE = 23189
@@ -112,13 +113,14 @@ export function parseOrderInfo(getInfo: unknown): OrderTerms {
 
 export const sellsNothing = (t: OrderTerms): boolean => t.lightning === undefined && t.onchain === undefined
 
-/** Tiers ascending, every `n` at least 1, the last tier open; `max_millis` within a known per-wallet ceiling. */
+/** A `window` of at least 1 second, tiers ascending, every `n` at least 1, the last tier open; `max_millis` within a known per-wallet ceiling. */
 export function validateTerms(t: OrderTerms, perWalletMaxMillis?: bigint): void {
   for (const [name, k] of [
     ['lightning', t.lightning],
     ['onchain', t.onchain],
   ] as const) {
     if (k === undefined) continue
+    if (k.window < 1) throw badTerms(`${name}: window is 0`)
     if (k.minMillis > k.maxMillis) throw badTerms(`${name}: min_millis is above max_millis`)
     if (perWalletMaxMillis !== undefined && perWalletMaxMillis > 0n && k.maxMillis > perWalletMaxMillis) throw badTerms(`${name}: max_millis is above the per-wallet ceiling`)
     if (name === 'onchain') {
@@ -144,6 +146,7 @@ export function validateTerms(t: OrderTerms, perWalletMaxMillis?: bigint): void 
  * and the amount itself must be.
  */
 export function orderFee(payment: Payment, k: KindTerms, amountMillis: bigint): { feeMillis: bigint; payMillis: bigint } {
+  if (payment !== 'lightning' && payment !== 'onchain') throw badRequest(`payment ${JSON.stringify(payment)}`)
   if (payment === 'onchain' && amountMillis % 1000n !== 0n) throw badRequest('an on-chain amount is a whole number of base units (a multiple of 1000 millis)')
   let fee = k.feeBase + (k.feePpm * amountMillis) / 1_000_000n
   let pay = amountMillis + fee
@@ -152,6 +155,7 @@ export function orderFee(payment: Payment, k: KindTerms, amountMillis: bigint): 
     pay += up
     fee += up
   }
+  if (fee > MAX_U64 || pay > MAX_U64) throw badRequest('the amount and its fee overflow a uint64')
   return { feeMillis: fee, payMillis: pay }
 }
 
@@ -346,21 +350,24 @@ const replyUint = (v: unknown, what: string): bigint => {
 }
 
 /**
- * Reads an order, as a reply or a lookup's `done` carries it (§Response).
- * Anything off its shape is an error, never a state: a `cash_secret`
- * anywhere; an unknown state or payment; a payment or amount that does not
+ * Reads an order, as a reply or a lookup's `done` carries it (§Response;
+ * `lookup` says which). Anything off its shape is an error, never a state: a
+ * `cash_secret` anywhere; an unknown state or payment; a direct reply whose
+ * order is not `open` (a used `request_id` is refused, so a reply is a new
+ * order); a payment or amount that does not
  * echo the request; `pay_millis` ≠ amount + fee; the wrong of invoice and
  * address for the kind; a Lightning invoice not for exactly `pay_millis`; an
  * on-chain order without confirmations or an address not of the Hub's chain
  * and network; a bill whose token does not decode, names another wallet, or
  * was not minted by the Hub identity.
  */
-export function parseOrder(v: unknown, p: { request?: Pick<CashOrderRequest, 'payment' | 'amount_millis'>; hubIdentity: string; chain?: string; network?: string }): Order {
+export function parseOrder(v: unknown, p: { request?: Pick<CashOrderRequest, 'payment' | 'amount_millis'>; hubIdentity: string; chain?: string; network?: string; lookup?: boolean }): Order {
   if (hasKey(v, 'cash_secret')) throw badReply('the Hub returned a cash secret')
   if (v === null || typeof v !== 'object' || Array.isArray(v)) throw badReply('not an object')
   const o = v as Record<string, unknown>
   const state = o['state']
   if (!(ORDER_STATES as readonly unknown[]).includes(state)) throw badReply(`unknown state ${String(state)}`)
+  if (p.lookup !== true && state !== 'open') throw badReply(`a new order is open, not ${JSON.stringify(state)}`)
   const payment = o['payment']
   if (payment !== 'lightning' && payment !== 'onchain') throw badReply(`unknown payment ${String(payment)}`)
   if (p.request !== undefined && payment !== p.request.payment) throw badReply(`payment ${payment}, ordered ${p.request.payment}`)

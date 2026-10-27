@@ -126,6 +126,7 @@ export function parseListing(ev: NostrEvent, o: { chains: readonly string[]; tes
   if (status !== 'open' && status !== 'paused' && status !== 'closed') throw new ListingError(1, 'status')
   const ts = all('t').map((t) => t[1] ?? '')
   const types = ts.filter((t): t is ListingType => t === 'cash_order' || t === 'circle_wallet')
+  if (new Set(types).size !== types.length) throw new ListingError(1, 'a repeated type t')
   if (types.length !== 1) throw new ListingError(2, 'the type is neither or both')
   const type = types[0]!
   const hrps = all('hint').map((h) => h[1])
@@ -225,7 +226,7 @@ export class VersionBook {
   /** Step 5: the current version, open or paused and not expired. */
   current(addr: string, now: number): Listing | undefined {
     const l = this.best.get(addr)
-    if (l === undefined || l.status === 'closed' || now >= listingExpiresAt(l)) return undefined
+    if (l === undefined || l.status === 'closed' || now > listingExpiresAt(l)) return undefined
     return l
   }
 

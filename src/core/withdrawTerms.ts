@@ -42,7 +42,7 @@ export function validateWithdrawTerms(v: unknown): WithdrawTerms | undefined {
     if (!Array.isArray(p) || p.length !== 2) return undefined
     const ver = smallInt(p[0], 16)
     const len = smallInt(p[1], 40)
-    if (ver === undefined || len === undefined || len < 2) return undefined
+    if (ver === undefined || len === undefined || len < 2 || (ver === 0 && len !== 20 && len !== 32)) return undefined
     scriptTypes.push([ver, len])
   }
   return { withdrawFeeBase: base, withdrawFeePpm: ppm, ...(min !== undefined && { minMillis: min }), ...(max !== undefined && { maxMillis: max }), scriptTypes, finalDepth: depth }

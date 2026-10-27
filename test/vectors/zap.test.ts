@@ -6,14 +6,6 @@ import { load, named, type Json } from './helpers.js'
 
 const v = load('zap.json')
 
-const MISMATCH = new Set([
-  // nmilat reads a 9522 with a NIP-40 expiration tag (shown, never counted); cashkit's rule 2 refuses it, so it is not valid.
-  'an expiration tag is kept, listed never counted',
-  'an expiration tag: listed, never counted',
-  // cashkit's rule 7 checks the target's author and time but not that e names the target event's id: it holds; nmilat fails it.
-  'retargeted: another e (rule 7)',
-])
-
 describe('zap.json 10522', () => {
   test.each(named(v.info))('%s', (_, c: Json) => {
     if (c.error !== undefined) {
@@ -31,8 +23,7 @@ describe('zap.json 10522', () => {
 })
 
 describe('zap.json parse (rules 1-3)', () => {
-  test.each(named(v.parse))('%s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.parse))('%s', (_, c: Json) => {
     const r = verifyCashZap(c.event)
     if (c.error !== undefined) {
       expect(r.valid).toBe(false)
@@ -47,14 +38,13 @@ const info = parseCashZapInfo(v.info[0].event)
 const verdict = (c: Json): CashZapVerdict => verifyCashZap(c.event, { target: v.target, ...(c.withInfo && { zapInfo: info }), trusted: c.trustedMinters.map((m: string) => ({ minter: m, chain: 'bitcoin' })) })
 
 describe('zap.json verify (rules 1-8)', () => {
-  test.each(named(v.verify))('%s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.verify))('%s', (_, c: Json) => {
     const r = verdict(c)
     // nmilat reports a skipped rule as not ok; cashkit leaves it undefined.
     expect(c.rules.map((x: Json) => r.rules[x.n as 1] ?? false)).toEqual(c.rules.map((x: Json) => x.ok))
     expect(r.minter ?? '').toBe(c.minter)
-    // nmilat calls a token zap-signed once its Minter is recovered over the zap payload.
-    expect(r.minter !== undefined && r.token?.scheme === 'zap_v1').toBe(c.zapSigned)
+    // nmilat calls a token zap-signed when rule 7 holds: its zap signature verifies against the target.
+    expect(r.rules[7] === true).toBe(c.zapSigned)
     expect(r.valid).toBe(c.valid)
     expect(r.countable).toBe(c.countable)
   })

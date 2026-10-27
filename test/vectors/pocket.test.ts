@@ -4,33 +4,11 @@
 // writes an entry is the wallet's (src/wallet/pocket.ts) and is not run here:
 // only the entries those sections give.
 import { describe, expect, test } from 'vitest'
-import { createRumor, eventJSON, KIND_POCKET_ENTRY, parsePocketEntry, pocketBalance, pocketEntryTags, resolveEntries, verifyWithdrawReceipt, type PocketEntry } from '../../src/core/index.js'
+import { checkPendingEntry, createRumor, eventJSON, KIND_POCKET_ENTRY, parsePocketEntry, pocketBalance, pocketEntryTags, resolveEntries, verifyWithdrawReceipt, type PocketEntry } from '../../src/core/index.js'
 import { load, named, type Json } from './helpers.js'
 
 const v = load('pocket.json')
 const wd = load('withdraw.json')
-
-const MISMATCH = new Set([
-  // cashkit's parsePocketEntry does not check that w is lowercase hex; nmilat refuses it.
-  'uppercase w',
-  // cashkit's parsePocketEntry does not check mint is a 66-hex compressed key; nmilat refuses a 64-hex one.
-  '64-hex mint',
-  // cashkit reads a state tag without its check time as checked at 0; nmilat refuses it.
-  'no state time',
-  // cashkit's parsePocketEntry reads the first of two amount tags; nmilat refuses a repeated tag.
-  'two amounts',
-  // cashkit's parsePocketEntry keeps expires_at 0; nmilat refuses it (0 means never and is not stored).
-  'expires_at 0',
-  // cashkit's pocketEntryTags does not check a cash_order or cash_withdraw entry's shape (notify, address, quote, its secrets); nmilat refuses to write these.
-  'a cash_order entry without notify',
-  'refused: no notify',
-  'refused: no address',
-  'refused: no quote',
-  'refused: a remainder secret',
-  // The winner agrees, but cashkit's resolveEntries names a conflict for any w with two distinct rumors; nmilat only when distinct rumors tie at the winning rev.
-  'v5 spent over v3 live',
-  'a higher rev supersedes a final state',
-])
 
 const rumorOf = (e: PocketEntry) => createRumor({ kind: KIND_POCKET_ENTRY, pubkey: v.user, created_at: v.createdAt, tags: pocketEntryTags(e), content: '' })
 /** Re-encodes a rumor's entry: the same tags and so the same rumor id. */
@@ -61,21 +39,23 @@ describe('pocket.json K-POCKET-6 frozen ids', () => {
   })
 })
 
-/** The refused entries carry no input: each is the entry its name changes. */
+/** The refused entries carry no input: each is the pending entry its name changes, refused as it is first written. */
 const order: PocketEntry = { w: '22'.repeat(16), rev: 1, state: 'pending', checkedAt: v.createdAt, wrapKey: v.wrapKey, amountMillis: 21000n, chain: 'bitcoin', requestId: '22'.repeat(16), deadline: 1720000300, target: 'bb'.repeat(32), device: 'dd'.repeat(16), secrets: [{ secret: '88'.repeat(32), role: '' }] }
-const REFUSED: Record<string, PocketEntry> = {
-  'a cash_order entry without notify': order,
-  'refused: no notify': without(call, 'notify'),
-  'refused: no address': without(call, 'address'),
-  'refused: no quote': without(call, 'quote'),
-  'refused: a remainder secret': { ...call, secrets: [{ secret: '77'.repeat(32), role: 'remainder' }] },
+const REFUSED: Record<string, [string, PocketEntry]> = {
+  'a cash_order entry without notify': ['cash_order', order],
+  'refused: no notify': ['cash_withdraw', without(call, 'notify')],
+  'refused: no address': ['cash_withdraw', without(call, 'address')],
+  'refused: no quote': ['cash_withdraw', without(call, 'quote')],
+  'refused: a remainder secret': ['cash_withdraw', { ...call, secrets: [{ secret: '77'.repeat(32), role: 'remainder' }] }],
 }
 
 const entryCase = (name: string, c: Json) => {
-  if (MISMATCH.has(name)) return
   if (c.error !== undefined) {
-    expect(REFUSED[name]).toBeDefined()
-    expect(() => pocketEntryTags(REFUSED[name]!)).toThrow()
+    const [method, e] = REFUSED[name]!
+    expect(() => {
+      checkPendingEntry(method, e)
+      pocketEntryTags(e)
+    }).toThrow()
     return
   }
   roundTrip(c.rumor)
@@ -84,8 +64,7 @@ const entryCase = (name: string, c: Json) => {
 describe('pocket.json entries', () => {
   test.each(named(v.rumors))('rumor: %s', entryCase)
   test.each(named(v.withdraw))('withdraw: %s', entryCase)
-  test.each(named(v.parseRumor))('parse: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.parseRumor))('parse: %s', (_, c: Json) => {
     if (c.error !== undefined) {
       expect(() => parsePocketEntry(c.rumor)).toThrow()
       return
@@ -97,8 +76,7 @@ describe('pocket.json entries', () => {
 })
 
 describe('pocket.json resolve and balance', () => {
-  test.each(named(v.resolve))('resolve: %s', (name, c: Json) => {
-    if (MISMATCH.has(name)) return
+  test.each(named(v.resolve))('resolve: %s', (_, c: Json) => {
     const w = '11'.repeat(32)
     const rumors = c.entries.map((x: Json) => ({ rumor: { id: x.rumorId, created_at: x.createdAt }, entry: { w, rev: x.rev, state: x.state, checkedAt: 0, wrapKey: v.wrapKey, amountMillis: 1n, chain: 'bitcoin' } as PocketEntry }))
     const { entries, conflicts } = resolveEntries(rumors)

@@ -12,6 +12,7 @@ import {
   createSeal,
   createWrap,
   decodeToken,
+  checkPendingEntry,
   KIND_POCKET_ENTRY,
   connectionKeyFromAttested,
   parsePocketEntry,
@@ -123,7 +124,9 @@ async function pendingEntry(ctx: Ctx, call: PendingCall, state: 'pending' | 'don
 
 /** Before a call goes out: its pending entry, stored and read back. */
 async function writeAhead(ctx: Ctx, call: PendingCall): Promise<void> {
-  await writeEntry(ctx, await pendingEntry(ctx, call, 'pending'))
+  const entry = await pendingEntry(ctx, call, 'pending')
+  checkPendingEntry(call.method, { ...entry, rev: 1, wrapKey: '', checkedAt: ctx.nowSeconds() })
+  await writeEntry(ctx, entry)
 }
 
 /**
