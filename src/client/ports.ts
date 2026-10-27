@@ -1,6 +1,6 @@
 // The side-effecting interfaces the client layer runs over (design §3). The
 // client never opens a socket itself; an adapter implements RelayPool.
-import type { NostrEvent } from '../core/index.js'
+import type { EventTemplate, NostrEvent } from '../core/index.js'
 
 /** A NIP-01 subscription filter. Tag filters use `#<letter>` keys. */
 export interface Filter {
@@ -44,7 +44,16 @@ export interface RelayPool {
   publish(relay: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }>
   /** The relay's NIP-11 document, when the adapter can read it. */
   relayInfo?(relay: string): Promise<unknown>
+  /**
+   * NIP-42: from now on, answer a relay's AUTH challenge with the event
+   * `sign` returns for the kind-22242 template (undefined stops answering).
+   * Adapters that cannot authenticate leave this out.
+   */
+  setAuth?(sign: AuthSigner | undefined): void
 }
+
+/** Signs a NIP-42 kind-22242 template as the user. */
+export type AuthSigner = (t: EventTemplate) => Promise<NostrEvent>
 
 export interface ClientDeps {
   readonly relays: RelayPool

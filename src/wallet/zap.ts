@@ -26,7 +26,7 @@ import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
 import { addHolding, appendActivity, heldHoldings } from './ledger.js'
 import { runTransfer, setZapPublisher } from './kinds.js'
-import type { Holding, PendingCall } from './model.js'
+import { DEFAULT_SETTINGS, type Holding, type PendingCall } from './model.js'
 import { parseTarget } from './target.js'
 
 const READ_MS = 2500
@@ -223,7 +223,7 @@ export async function approveMinter(ctx: Ctx, minter: string, chain: string): Pr
     const cur = await t.get('settings', 'settings')
     const list = cur?.trustedMinters ?? []
     if (list.some((m) => m.minter === minter && m.chain === chain)) return
-    const next = { id: 'settings', autoProtect: true, allowAutoConsolidate: true, zapMinLifeSeconds: 2_592_000, ...cur, trustedMinters: [...list, { minter, chain }], version: (cur?.version ?? 0) + 1 }
+    const next = { id: 'settings', ...DEFAULT_SETTINGS, ...cur, trustedMinters: [...list, { minter, chain }], version: (cur?.version ?? 0) + 1 }
     await t.put('settings', next, cur?.version ?? 0)
   })
   return { networkUnverifiable: true }

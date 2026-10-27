@@ -131,6 +131,11 @@ export class MemoryRelayPool implements RelayPool {
     const pow = powCheck(r, e, this.clock())
     if (pow !== undefined) return pow
     this.published.push({ relay: url, event: e })
+    // NIP-09: a deletion removes the events it names that its author signed.
+    if (e.kind === 5) {
+      const ids = new Set(e.tags.filter((t) => t[0] === 'e').map((t) => t[1]))
+      r.stored = r.stored.filter((x) => !(ids.has(x.id) && x.pubkey === e.pubkey))
+    }
     if (!isEphemeral(e.kind)) {
       // Replaceable kinds keep only the newest per author.
       if (e.kind >= 10000 && e.kind < 20000) r.stored = r.stored.filter((x) => !(x.kind === e.kind && x.pubkey === e.pubkey))

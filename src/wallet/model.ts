@@ -215,6 +215,12 @@ export interface Settings {
   readonly trustedMinters: readonly { readonly minter: string; readonly chain: string }[]
   /** The least life a Cash Zap needs to be totalled (NIP-CZ §Counting). */
   readonly zapMinLifeSeconds: number
+  /**
+   * Set a NIP-40 `expiration` on Cash Pocket wraps of entries with an
+   * `expires_at` (NIP-CP §Writing, Expiration). Off by default; the wrap is
+   * deleted all the same.
+   */
+  readonly pocketNip40: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -222,6 +228,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowAutoConsolidate: true,
   trustedMinters: [],
   zapMinLifeSeconds: 2_592_000,
+  pocketNip40: false,
 }
 
 export interface SettingsRow extends Settings {
@@ -434,6 +441,8 @@ export interface PocketRow {
   readonly wrapId: string
   readonly wrapKey: Sealed
   readonly at: number
+  /** `cash_status` showed the bill has no expiry, so its missing `expires_at` is not looked up again. */
+  readonly noExpiry?: boolean
   readonly version: number
 }
 

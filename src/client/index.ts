@@ -1,6 +1,6 @@
 // @ohstr/cashkit/client: Hub and NWC clients over a RelayPool port
 // (design §2.3). Stateless about the wallet.
-export type { ClientDeps, Filter, RelayPool, SubscriptionHandlers } from './ports.js'
+export type { AuthSigner, ClientDeps, Filter, RelayPool, SubscriptionHandlers } from './ports.js'
 export { ClientError, NotServedError, WalletError, type ClientErrorCode } from './errors.js'
 export { billFor, billFromParts, checkBill, minterOf, selectVerifiedCopy, type Bill } from './bill.js'
 export {
