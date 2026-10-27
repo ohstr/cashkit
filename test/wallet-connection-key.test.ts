@@ -116,4 +116,25 @@ describe('connection-key slices', () => {
     })
     expect(await err(h.wallet.send({ to: getPublicKey(fill(0x66, 32)), holdings: [holding.id] }))).toMatchObject({ code: 'usage', reason: 'attestation_missing' })
   })
+  test('an expired attestation stops spending; receiving the bill again with a fresh one for the same account restores it', async () => {
+    let t = Date.now()
+    const c = await harness({ deps: { clock: () => t } })
+    c.bank.hub.clock = () => t
+    const nowS = () => Math.floor(t / 1000)
+    const w = c.bank.mintToConnectionKey(5000n, KEY, IA)
+    const r = await c.wallet.receive(w.token, { attestation: attestation(c.me, { expiration: nowS() + 600 }) })
+    if (!r.received) throw new Error('not received')
+    t += 3600_000
+    const bob = getPublicKey(fill(0x66, 32))
+    expect(await err(c.wallet.send({ to: bob, holdings: [r.holding.id] }))).toMatchObject({ code: 'auth', reason: 'attestation_invalid' })
+    // Another account's or another IA's attestation does not replace it.
+    expect(await err(c.wallet.receive(w.token, { attestation: attestation(c.me, { userId: '80351110224678913', expiration: FAR }) }))).toMatchObject({ code: 'auth', reason: 'attestation_invalid' })
+    expect(await err(c.wallet.receive(w.token, { attestation: attestation(c.me, { key: fill(0x52, 32) }) }))).toMatchObject({ code: 'auth', reason: 'attestation_invalid' })
+    // Without an attestation it is still already held.
+    expect(await err(c.wallet.receive(w.token))).toMatchObject({ code: 'conflict' })
+    const again = await c.wallet.receive(w.token, { attestation: attestation(c.me) })
+    expect(again).toMatchObject({ received: true, holding: { id: r.holding.id, status: 'held', mode: 'connection_key' } })
+    expect((await c.wallet.send({ to: bob, holdings: [r.holding.id] })).sent).toBe(5000n)
+    expect(c.bank.balanceOf(bob)).toBe(5000n)
+  })
 })

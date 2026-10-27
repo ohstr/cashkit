@@ -866,8 +866,12 @@ item-proof signer, never a ConnectionKey, so the holder reads `scope: all`
 and takes the row with its key and IA. The holding keeps the attestation:
 every claim on the slice (send, redeem, withdraw) names it, a split's
 remainder and a cancelled withdrawal's re-mint stay bound to the same
-account, and a holding without it cannot be spent
-(`usage`/`attestation_missing`). Connection-key bills are not merged.
+account (the Hub binds both to the slice's identity), and a holding without
+it cannot be spent (`usage`/`attestation_missing`). Once the stored
+attestation expires every claim fails `auth`/`attestation_invalid`;
+receiving the held bill again with a current attestation for the same key
+and IA replaces it (one for another account or IA is refused).
+Connection-key bills are not merged.
 
 ### 6.2 Send
 

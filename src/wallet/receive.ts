@@ -8,7 +8,7 @@ import { getHeld, lockedHoldings } from './bills.js'
 import { runTransfer } from './kinds.js'
 import { connectionKeyCredential, tokenFacts, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
-import { addHolding, appendActivity, findByToken } from './ledger.js'
+import { addHolding, appendActivity, findByToken, updateHolding } from './ledger.js'
 import type { Holding } from './model.js'
 import { holdingView, type HoldingView } from './views.js'
 
@@ -63,7 +63,9 @@ export interface ReceiveOptions {
   /**
    * For a bill bound to a connection key: the account's attestation (kind
    * 35522, the event or its JSON text) naming this wallet's identity. The
-   * holding keeps it, as every claim on the slice must name it.
+   * holding keeps it, as every claim on the slice must name it. Receiving a
+   * held connection-key bill again with a newer attestation for the same
+   * account and IA replaces the stored one (one that expired).
    */
   readonly attestation?: NostrEvent | string
 }
@@ -105,7 +107,10 @@ export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}
     return { received: false, reason: 'no_embedded_secret', report: { ...reportOf(tok), ...(facts.minterPubkey !== undefined && { minterPubkey: facts.minterPubkey }) } }
   }
   const existing = await ctx.read((t) => findByToken(t, input))
-  if (existing?.status === 'held' || existing?.status === 'redeeming') throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
+  if (existing?.status === 'held' || existing?.status === 'redeeming') {
+    if (ck !== undefined && existing.mode === 'connection_key' && existing.connectionKey !== undefined) return refreshAttestation(ctx, existing, o.attestation!, input)
+    throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
+  }
 
   let cred: Credential
   if (ck !== undefined) cred = ck.credential
@@ -163,6 +168,19 @@ export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}
     else ({ secured, holding: final } = await protectOne(ctx, holding))
   }
   return { received: true, holding: holdingView(final, ctx.nowSeconds()), secured }
+}
+
+/**
+ * A held connection-key bill received again with a newer attestation: its
+ * binding takes the new one, which must name the same account and IA (an
+ * attestation expires, and every claim on the slice needs an unexpired one).
+ */
+async function refreshAttestation(ctx: Ctx, h: Holding, attestation: NostrEvent | string, input: string): Promise<ReceiveResult> {
+  const b = h.connectionKey!
+  const event = typeof attestation === 'string' ? (JSON.parse(attestation) as NostrEvent) : attestation
+  const { binding } = connectionKeyCredential(await ctx.requireSigner(), event, ctx.nowSeconds(), { key: b.key, ia: b.iaPubkey }, input)
+  const updated = await ctx.commit((t) => updateHolding(t, h.id, (x) => ({ ...x, connectionKey: binding })))
+  return { received: true, holding: holdingView(updated, ctx.nowSeconds()), secured: { status: 'not_applicable' } }
 }
 
 /**

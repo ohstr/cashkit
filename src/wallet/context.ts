@@ -214,7 +214,14 @@ export class Ctx {
       if (b?.attestation === undefined) {
         throw new CashkitError('usage', "this holding is bound to a connection key, but the wallet does not have the account's attestation: receive the bill again with it", { input: h.id, reason: 'attestation_missing' })
       }
-      return connectionKeyCredential(await this.requireSigner(), JSON.parse(b.attestation) as NostrEvent, this.nowSeconds(), { key: b.key, ia: b.iaPubkey }, h.id).credential
+      try {
+        return connectionKeyCredential(await this.requireSigner(), JSON.parse(b.attestation) as NostrEvent, this.nowSeconds(), { key: b.key, ia: b.iaPubkey }, h.id).credential
+      } catch (err) {
+        if (err instanceof CashkitError && err.reason === 'attestation_invalid') {
+          throw new CashkitError('auth', `${err.message}: receive the bill again with a current attestation for the same account`, { input: h.id, reason: 'attestation_invalid', cause: err })
+        }
+        throw err
+      }
     }
     return bySigning(await this.requireSigner())
   }
