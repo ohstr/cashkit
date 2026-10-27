@@ -18,7 +18,7 @@ import {
 } from '../src/core/index.js'
 import type { FakeBank, Identity } from './fakeBank.js'
 import type { Answer, RequestInfo } from './fakeHub.js'
-import { invoice } from './helpers.js'
+import { signedInvoice } from './helpers.js'
 
 let seq = 0x3000
 function nextKey(): Uint8Array {
@@ -58,10 +58,12 @@ export class FakeOrder {
   readonly pubkey = getPublicKey(this.connKey)
   readonly client = getPublicKey(this.secret)
   terms: Record<string, unknown> = TERMS
-  /** How `get_info` answers `invoice`: a different amount to test the wallet's check. */
-  invoiceFor: (pay: bigint) => string = (pay) => invoice(pay, 0x77)
+  /** The invoice an order reply carries: by default for `pay`, made now by the Hub's node and expiring at `payBy`. */
+  invoiceFor: (pay: bigint, payBy: number) => string = (pay, payBy) => signedInvoice({ amountMillis: pay, nodeKey: this.bank.hub.nodeKey, timestamp: this.now, expiry: Math.max(1, payBy - this.now), hashByte: 0x77 })
   /** Applies the order but loses its reply. */
   loseReply = false
+  /** Answers nothing and keeps nothing: the order was never placed. */
+  dropOrder = false
   readonly orders = new Map<string, FakeOrderRow>()
   readonly placed: RequestInfo[] = []
   readonly string: string
@@ -101,6 +103,7 @@ export class FakeOrder {
 
   private order(info: RequestInfo): Answer {
     this.placed.push(info)
+    if (this.dropOrder) return 'omit'
     const p = info.params as Record<string, unknown>
     const rid = p['request_id']
     if (typeof rid !== 'string') return { error: { code: 'BAD_REQUEST', message: 'request_id' } }
@@ -140,7 +143,7 @@ export class FakeOrder {
       amount_millis: o.amount,
       fee_millis: o.fee,
       pay_millis: o.pay,
-      ...(o.payment === 'lightning' ? { invoice: this.invoiceFor(o.pay) } : { address: ADDRESS, confirmations: 1 }),
+      ...(o.payment === 'lightning' ? { invoice: this.invoiceFor(o.pay, o.payBy) } : { address: ADDRESS, confirmations: 1 }),
       pay_by: o.payBy,
       bills: o.bills,
     }
@@ -161,10 +164,14 @@ export class FakeOrder {
   }
 
   /** A payment of `received` millis arrives and is minted (§Minting), then a notice goes out. */
+  /** A misbehaving Hub: bills minted to another recipient, or with an expiry. */
+  mintTo?: Identity | undefined
+  mintExpiry?: number
+
   async pay(o: FakeOrderRow, received: bigint): Promise<void> {
     const max = BigInt(((this.terms as Record<string, Record<string, unknown>>)[o.payment]!['max_millis'] as number) ?? 0)
     for (const amt of mintSplit(received, o.fee, max)) {
-      const w = this.bank.mint(amt, o.recipient)
+      const w = this.bank.mint(amt, this.mintTo ?? o.recipient, { ...(this.mintExpiry !== undefined && { expiresAt: this.mintExpiry }) })
       o.bills.push({ wallet_pubkey: w.walletPubkey, cash_token: w.token, amount_millis: amt, paid_millis: received, ...(o.payment === 'onchain' && { outpoint: `${'ab'.repeat(32)}:${o.bills.length}` }) })
     }
     o.state = 'minted'

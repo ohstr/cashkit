@@ -1,6 +1,9 @@
 // Shared test helpers: hand-built TLV strings, as cashctl's rawBech32 and
 // nmilat's encodeTLVs build them, so malformed inputs can be produced.
-import { bech32Encode, toWords } from '../src/core/bech32.js'
+import { secp256k1 } from '@noble/curves/secp256k1.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { hexToBytes } from '@noble/hashes/utils.js'
+import { bech32Encode, convertBits, toWords } from '../src/core/bech32.js'
 import { concatBytes, utf8 } from '../src/core/bytes.js'
 import { zapPayloadV1, encodeCashHubConnection, encodeCircleHubConnection, encodeOrderConnection, getPublicKey, signCashHubConnection, signCircleHubConnection, signOrderConnection, encodeToken, mintPayloadV1, relayHashOf, signCompact, signedMessageDigest, type TokenFields } from '../src/core/index.js'
 
@@ -43,6 +46,32 @@ export function invoice(amountMillis?: bigint, hashByte = 0x42): string {
   const words = Uint8Array.from([...fill(0, 7), 1, hash.length >> 5, hash.length & 31, ...hash, ...fill(0, 104)])
   const amount = amountMillis === undefined ? '' : `${amountMillis * 10n}p`
   return bech32Encode(`lnfc${amount}`, words)
+}
+
+/** A big-endian number as `n` 5-bit words. */
+const intWords = (v: number, n: number): number[] => Array.from({ length: n }, (_, i) => Math.floor(v / 32 ** (n - 1 - i)) % 32)
+
+/**
+ * A bolt11 signed by `nodeKey` (so its payee recovers to that node), with a
+ * creation time and an optional `x` expiry and `n` payee field.
+ */
+export function signedInvoice(o: { amountMillis?: bigint; nodeKey: Uint8Array; timestamp: number; expiry?: number; payeeField?: string; hashByte?: number }): string {
+  const hash = toWords(fill(o.hashByte ?? 0x42, 32))
+  const fields: number[] = [1, hash.length >> 5, hash.length & 31, ...hash]
+  if (o.expiry !== undefined) {
+    const w = intWords(o.expiry, Math.max(1, Math.ceil(Math.log2(o.expiry + 1) / 5)))
+    fields.push(6, w.length >> 5, w.length & 31, ...w)
+  }
+  if (o.payeeField !== undefined) {
+    const w = toWords(hexToBytes(o.payeeField))
+    fields.push(19, w.length >> 5, w.length & 31, ...w)
+  }
+  const data = Uint8Array.from([...intWords(o.timestamp, 7), ...fields])
+  const hrp = `lnfc${o.amountMillis === undefined ? '' : `${o.amountMillis * 10n}p`}`
+  const digest = sha256(concatBytes(utf8(hrp), convertBits(data, 5, 8, true)))
+  const sig = secp256k1.sign(digest, o.nodeKey, { prehash: false, format: 'recovered' })
+  const sigWords = toWords(concatBytes(sig.subarray(1), sig.subarray(0, 1)))
+  return bech32Encode(hrp, concatBytes(data, sigWords))
 }
 
 /** The fixture minter key (nmilat LocalMintSigner). */

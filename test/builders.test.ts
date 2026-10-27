@@ -46,6 +46,7 @@ import {
   pubkeyTarget,
   readNetworkChain,
   redeemFeeQuote,
+  redeemInvoiceMillis,
   sourcesHash,
   toHex,
   type ProofBinding,
@@ -466,5 +467,20 @@ describe('T-1207 network and chain', () => {
     expect(readNetworkChain({ network: 'main' })).toEqual({ networkRaw: 'main', networkUnknown: true, testNetwork: false })
     expect(readNetworkChain({ network: 1 })).toMatchObject({ networkRaw: 1, networkUnknown: true })
     expect(readNetworkChain(null)).toEqual({ networkUnknown: false, testNetwork: false })
+  })
+})
+
+describe('redeemInvoiceMillis (nmilat RedeemInvoiceMillis)', () => {
+  const row = { amount_millis: 21000n, net_redeemable_millis: 20790n }
+  const minter = 'ab'.repeat(32)
+  test.each<[string, string | undefined, string | undefined, bigint, boolean]>([
+    ['payee is the minter, x-only', minter, minter, 21000n, true],
+    ['payee is the minter, 66 hex', `02${minter}`, minter, 21000n, true],
+    ['minter given as 66 hex', minter, `03${minter}`, 21000n, true],
+    ['another payee', 'cd'.repeat(32), minter, 20790n, false],
+    ['no payee', undefined, minter, 20790n, false],
+    ['no verified minter', minter, undefined, 20790n, false],
+  ])('%s', (_, payee, m, millis, sameNode) => {
+    expect(redeemInvoiceMillis(row, payee, m)).toEqual({ millis, sameNode })
   })
 })

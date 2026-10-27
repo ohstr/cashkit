@@ -58,7 +58,7 @@ export type { DiscoverOptions, DiscoverView, OfferCard, TapView } from './discov
 export type { PocketSyncReport } from './pocket.js'
 export type { ZapInput, ZapSent, ZapView } from './zap.js'
 export { isNotice, type ConfirmHandler, type ConfirmNotice, type ConfirmQuestion, type ConfirmRequest, type ConfirmWithdrawData, type PublishNotice } from './confirm.js'
-export type { WithdrawalView, WithdrawPhase, WithdrawPrivacy, WithdrawQuoteView, WithdrawTermsView } from './withdraw.js'
+export type { WithdrawalView, WithdrawPhase, WithdrawPrivacy, WithdrawQuoteField, WithdrawQuoteView, WithdrawTermsView } from './withdraw.js'
 export type { OrderQuote, OrderTo, OrderView, OrderWarning, PlaceOrderInput } from './orders.js'
 export type { RedeemInput, RedeemOutcome, RedeemPlan, RedeemPlanItem } from './redeem.js'
 export type { ConsolidateOutcome, ConsolidateReport } from './consolidate.js'

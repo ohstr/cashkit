@@ -59,6 +59,12 @@ export interface Holding {
   readonly origin?: HoldingOrigin
   /** Minted for this wallet's orders, or made only from such bills (local; never from the wire). */
   readonly ordered?: boolean
+  /**
+   * Sets of holdings (ids, sorted, joined by commas) whose merge the Hub
+   * refused `RESTRICTED` (fee terms that differ, which the client cannot
+   * see): such a set is not planned again.
+   */
+  readonly refusedMerges?: readonly string[]
   /** A zap bill's Cash Zap fields (NIP-CZ): its provenance, and so its Hub, is recovered only with them. */
   readonly zap?: { readonly recipient: string; readonly sender: string; readonly zapTarget: string; readonly issuedAt: number; readonly expiresAt: number }
   /** Kept out of every merge the wallet plans (local; set by the user). */
@@ -283,6 +289,22 @@ export interface CallCreated {
 }
 
 /** An order as the wallet last read it (NIP-CO §Response), and what the wallet learned about it. */
+/** A bill of an order as last read. */
+export interface OrderRecordBill {
+  readonly walletPubkey: string
+  readonly amountMillis: bigint
+  readonly paidMillis: bigint
+  readonly outpoint?: string
+  readonly holdingId?: string
+  readonly spent: boolean
+  /**
+   * The bill's own row, read before it is kept, is not what was ordered:
+   * `not_ours` (another recipient: no holding is made) or `expires` (it
+   * carries an expiry: kept, not marked ordered).
+   */
+  readonly problem?: 'not_ours' | 'expires'
+}
+
 export interface OrderRecord {
   readonly state: 'open' | 'paid' | 'minted' | 'expired' | 'closed'
   readonly payment: 'lightning' | 'onchain'
@@ -290,10 +312,11 @@ export interface OrderRecord {
   readonly feeMillis: bigint
   readonly payMillis: bigint
   readonly invoice?: string
+  readonly invoiceExpiresAt?: number
   readonly address?: string
   readonly confirmations?: number
   readonly payBy: number
-  readonly bills: readonly { readonly walletPubkey: string; readonly amountMillis: bigint; readonly paidMillis: bigint; readonly outpoint?: string; readonly holdingId?: string; readonly spent: boolean }[]
+  readonly bills: readonly OrderRecordBill[]
   /** Ever seen `paid`, `minted` or `closed`. */
   readonly sawProgress: boolean
   /** The reply's fee or confirmations differ from the terms read before placing. */

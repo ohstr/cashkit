@@ -909,9 +909,16 @@ redeem(...same): Promise<Report<RedeemOutcome>>
   - `invoice` accepts exactly one holding. For a fixed-amount invoice,
     passing `amount` is an error; for an amount-less invoice, `amount` is
     required.
+  - The invoice's amount must be what the Hub will pay: the bill's full
+    amount when the invoice's payee (its `n` field, else the key its
+    signature recovers to) is the bill's own minter, a same-node payment
+    that is fee-free; otherwise the net amount (`redeemInvoiceMillis`).
+    Any other amount is refused before anything is sent (`invalid_input`,
+    reason `invoice_amount`).
 - Quotes are batched per node (`nodeKey`, the minter whose announcement
   names the inbox) with `statusMany`. Each holding gets one invoice for its
-  **net** amount. Every holding on the same node goes in one `redeemMany`,
+  **net** amount, made again for the full amount when its payee turns out
+  to be the bill's own minter. Every holding on the same node goes in one `redeemMany`,
   which is one relay event.
 - A holding with no recoverable minter cannot be spent, and is refused.
 - Invoices made through the app's NWC wallet ask for `expiry` 3600.
@@ -939,7 +946,10 @@ status(o?: { holdings?: string[]; scope?: 'mine' | 'all' }): Promise<Report<Stat
   (never by minter) and, within it, keeps ordered bills apart from the rest
   and groups by the `min_transfer_millis` last read from `cash_status`; it
   merges every group of two or more. A bill past its expiry or kept out of
-  merges (`holdings.setExcludeFromMerge(id, on)`) is never auto-merged.
+  merges (`holdings.setExcludeFromMerge(id, on)`) is never auto-merged. A
+  set the Hub refused `RESTRICTED` (fee terms that differ, which the
+  client cannot see) is remembered on its holdings and not planned again;
+  naming it still tries.
   Holdings alone in their group are reported in `aloneOnTheirHub`.
 - **Naming** ordered and other bills together is `invalid_input` with
   reason `mixed_ordered`, before anything is written.
@@ -1073,16 +1083,22 @@ orders.refresh(id), orders.list(), orders.get(id), orders.watch(id, { signal?, p
   on-chain `expired` or `closed`, which may still gain bills). A reply the
   Hub committed but this wallet refuses (an invoice for another amount, an
   address of another chain or network) keeps the order open, flagged
-  `invalidReply`, its invoice or address never shown.
+  `invalidReply`, its invoice or address never shown. `payDeadline` is
+  `pay_by`, or the invoice's own expiry when that comes first.
 - `refresh` reads the order with `cash_lookup` (signed by the buyer key);
   each new bill this wallet keeps becomes a holding marked ordered (once,
-  by wallet pubkey), and a tombstoned one marks its holding spent. An order
+  by wallet pubkey), and a tombstoned one marks its holding spent. Before a
+  bill is kept its own row is read: one that is not the ordered
+  recipient's is never kept (`problem: 'not_ours'`), one carrying an expiry
+  is kept with it and without the ordered mark (`problem: 'expires'`), and
+  one whose row got no answer is kept unverified. An order
   past `pay_by` that never progressed and shows no bill ended unpaid, once
   a lookup after `pay_by` was answered.
 - `watch` reads the order on each order notice (kind 23189 on `notify`)
   and, for Lightning, every 5 s until `pay_by`, while the app watches.
 - A lost reply is settled by lookup; an `unknown` one waits for
-  `pendingCalls.confirmReplace` (a new order asks for a new payment).
+  `pendingCalls.confirmReplace` (a new order asks for a new payment), and
+  the re-placed order carries a fresh `notify`.
 - Views never carry the buyer key, a secret, `notify` or the request id,
   and carry the warnings `pay_before`, `amount_mints_bill` and, on-chain,
   `late_payment_kept`, `per_output_fee` and `fee_floor`.
@@ -1090,8 +1106,8 @@ orders.refresh(id), orders.list(), orders.get(id), orders.watch(id, { signal?, p
 ### 6.7b On-chain withdrawals
 
 ```ts
-withdraw.terms(holdingId), withdraw.quote(holdingId, address, { sendBefore? }),
-withdraw.send(quoteView, { confirm }), withdraw.refresh(id), withdraw.cancel(id),
+withdraw.terms(holdingId), withdraw.quote(holdingId, address, { sendBefore? }), withdraw.requote(quoteView),
+withdraw.send(quoteView, { confirm }), withdraw.refresh(id), withdraw.cancel(id), withdraw.recover(holdingId),
 withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), withdraw.watch(id, o)
 ```
 
@@ -1110,6 +1126,16 @@ withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), 
   for comparison, `highFee`, `expiringSoon`, privacy warnings
   (`known_amount` with `splitFirst`, `address_reuse`, `near_match`) and
   `unrecoverable` for a cash note.
+- `requote` asks again for the same bill, address and send-by: a new
+  handle whose `quoteChanged` lists the fields that differ, for the app to
+  highlight before the user confirms again; the old handle can no longer
+  be sent.
+- `recover` finds a withdrawal this wallet has no record of: the bill's
+  own row or tombstone, read with the holding's credential, carries the
+  `withdraw_request_id`. It is created `recovered` and looked up at once
+  (deadline now), never placed again; its receipt is still checked against
+  this Hub, bill and request id. A cash note's re-mint cannot be kept: its
+  secret was in the lost record.
 - `send` needs `confirm(view)` to resolve true, refuses a bill expiring
   within 120 s, and runs `cash_withdraw` as a pending call written ahead
   with the quote, request id, `notify` and, for a cash note, a fresh remint

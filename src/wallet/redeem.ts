@@ -2,7 +2,7 @@
 // runCashRedeem, resolveHeldTokensForRedeem, selectHeldTokensForRedeemAmount,
 // invoiceAmountOverride and makeRedeemInvoices, and cmd/redeem_private.go
 // redeemHubGroup, retryWithPendingSecrets and applyRedeemResults.
-import { decodeBolt11, type CashRedeemResult } from '../core/index.js'
+import { decodeBolt11, redeemInvoiceMillis, type CashRedeemResult } from '../core/index.js'
 import { NotServedError, NwcClient, WalletError, type BatchRedeem } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import { getHeld, getHolding } from './bills.js'
@@ -92,10 +92,11 @@ async function destinationConnection(ctx: Ctx, into: string | undefined): Promis
 
 export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> {
   let invoiceAmount: bigint | undefined
+  let fixed = 0n
+  let payee: string | undefined
   if (o.invoice !== undefined) {
-    let fixed: bigint
     try {
-      fixed = decodeBolt11(o.invoice).amountMillis
+      ;({ amountMillis: fixed, payee } = decodeBolt11(o.invoice))
     } catch (err) {
       throw new CashkitError('invalid_input', (err as Error).message, { input: o.invoice, cause: err })
     }
@@ -138,11 +139,18 @@ export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> 
       refused.push({ holdingId: h.id, error: q.error })
       continue
     }
-    if (invoiceAmount !== undefined && invoiceAmount > q.quote.net) {
-      refused.push({ holdingId: h.id, error: new CashkitError('invalid_input', `amount ${invoiceAmount} millis exceeds this bill's own net redeemable value of ${q.quote.net} millis`, { input: h.id }) })
+    // What the invoice must carry: the full amount when its payee is the bill's own minter (same node, fee-free), else the net amount.
+    const want = redeemInvoiceMillis({ amount_millis: q.quote.amount, net_redeemable_millis: q.quote.net }, payee, q.holding.minterXonly ?? q.holding.minterPubkey)
+    const asked = fixed > 0n ? fixed : invoiceAmount
+    if (o.invoice !== undefined && asked !== want.millis) {
+      refused.push({
+        holdingId: h.id,
+        error: new CashkitError('invalid_input', `this invoice asks for ${asked} millis, but this bill redeems ${want.millis} millis into it${want.sameNode ? ' (a payment on its own node, fee-free)' : ' (after its redeem fee)'}`, { input: h.id, reason: 'invoice_amount' }),
+      })
       continue
     }
-    items.push({ holdingId: h.id, version: q.holding.version, amount: q.quote.amount, fee: q.quote.fee, net: q.quote.net, ...(q.quote.expiresAt !== undefined && { expiresAt: q.quote.expiresAt }) })
+    const net = o.invoice !== undefined ? want.millis : q.quote.net
+    items.push({ holdingId: h.id, version: q.holding.version, amount: q.quote.amount, fee: q.quote.amount - net, net, ...(q.quote.expiresAt !== undefined && { expiresAt: q.quote.expiresAt }) })
   }
   const sum = (f: (i: RedeemPlanItem) => bigint) => items.reduce((a, i) => a + f(i), 0n)
   return { op: 'redeem', items, refused, destination, total: sum((i) => i.amount), totalFee: sum((i) => i.fee), totalNet: sum((i) => i.net) }
@@ -175,10 +183,10 @@ export async function executeRedeem(ctx: Ctx, plan: RedeemPlan): Promise<Report<
     } else {
       const conn = await destinationConnection(ctx, plan.destination.name)
       const nwc = await nwcFor(ctx, conn)
-      freshInvoice = (r) => makeInvoice(nwc, r.item.net)
+      freshInvoice = (r) => redeemInvoice(nwc, r)
       for (const l of live) {
         try {
-          ready.push({ ...l, invoice: await makeInvoice(nwc, l.item.net) })
+          ready.push({ ...l, invoice: await redeemInvoice(nwc, l) })
         } catch (err) {
           const e = err instanceof WalletError ? fromWalletError(err) : err instanceof CashkitError ? err : classifyReadError(err)
           outcomes.push({ ok: false, error: e, holdingIds: [l.item.holdingId] })
@@ -207,6 +215,23 @@ async function makeInvoice(nwc: NwcClient, amount: bigint): Promise<string> {
   const invoice = r['invoice']
   if (typeof invoice !== 'string' || invoice === '') throw new CashkitError('internal', 'the wallet answered make_invoice without an invoice')
   return invoice
+}
+
+/**
+ * The invoice a redeem into the app's wallet pays: for the net amount, or,
+ * when the wallet's node is the bill's own minter (the invoice's payee), a
+ * new one for the full amount, which a same-node payment carries fee-free.
+ */
+async function redeemInvoice(nwc: NwcClient, l: { readonly item: RedeemPlanItem; readonly holding: Holding }): Promise<string> {
+  const first = await makeInvoice(nwc, l.item.net)
+  let payee: string | undefined
+  try {
+    payee = decodeBolt11(first).payee
+  } catch {
+    return first
+  }
+  const want = redeemInvoiceMillis({ amount_millis: l.item.amount, net_redeemable_millis: l.item.net }, payee, l.holding.minterXonly ?? l.holding.minterPubkey)
+  return want.sameNode && want.millis !== l.item.net ? makeInvoice(nwc, want.millis) : first
 }
 
 const INVOICE_EXPIRY = 3600

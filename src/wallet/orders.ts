@@ -5,6 +5,8 @@
 // a notice, a poll or demand. Bills that arrive become holdings marked
 // ordered; a gift's bills stay with their recipient.
 import {
+  bySecret,
+  bySigning,
   cashOrderRequest,
   localSigner,
   confirmationsFor,
@@ -18,6 +20,7 @@ import {
   orderFee,
   parseOrder,
   validateTerms,
+  type Credential,
   type MintRecipient,
   type Order,
   type OrderTerms,
@@ -28,7 +31,7 @@ import { prepareCall, finishCall, type PlainOutput } from './calls.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError, fromWalletError } from './errors.js'
 import { addHolding, appendActivity, updateHolding } from './ledger.js'
-import type { CallCreated, OrderRecord, PendingCall } from './model.js'
+import type { CallCreated, OrderRecord, OrderRecordBill, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
 import { executeCall, pocketHooks, registerCallKind, type CallKind } from './runner.js'
 import { unverifiedAnswer } from './confirm.js'
@@ -65,6 +68,8 @@ export interface OrderView {
   readonly address?: string
   readonly confirmations?: number
   readonly payBy: number
+  /** Pay before this: `payBy`, or the invoice's own expiry when that comes first. */
+  readonly payDeadline: number
   readonly bills: OrderRecord['bills']
   readonly finished: boolean
   readonly endedUnpaid: boolean
@@ -252,7 +257,7 @@ async function buyerKeyOf(ctx: Ctx, call: PendingCall): Promise<string> {
 }
 
 /** The record an order reply or lookup gives, merged with what was known. */
-function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet: ReadonlyMap<string, string>): OrderRecord {
+function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet: ReadonlyMap<string, string>, checks: ReadonlyMap<string, BillCheck> = new Map()): OrderRecord {
   const p = call.params ?? {}
   const prev = call.order
   const sawProgress = (prev?.sawProgress ?? false) || order.state === 'paid' || order.state === 'minted' || order.state === 'closed'
@@ -267,17 +272,24 @@ function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet:
     feeMillis: order.feeMillis,
     payMillis: order.payMillis,
     ...(order.invoice !== undefined && { invoice: order.invoice }),
+    ...(order.invoiceExpiresAt !== undefined && { invoiceExpiresAt: order.invoiceExpiresAt }),
     ...(order.address !== undefined && { address: order.address }),
     ...(order.confirmations !== undefined && { confirmations: order.confirmations }),
     payBy: order.payBy,
-    bills: order.bills.map((b) => ({
-      walletPubkey: b.walletPubkey,
-      amountMillis: b.amountMillis,
-      paidMillis: b.paidMillis,
-      ...(b.outpoint !== undefined && { outpoint: b.outpoint }),
-      ...(holdingByWallet.get(b.walletPubkey) !== undefined && { holdingId: holdingByWallet.get(b.walletPubkey)! }),
-      spent: typeof b.token !== 'string',
-    })),
+    bills: order.bills.map((b): OrderRecordBill => {
+      const before = prev?.bills.find((x) => x.walletPubkey === b.walletPubkey)?.problem
+      const c = checks.get(b.walletPubkey)
+      const problem = c === 'not_ours' || c === 'expires' ? c : before
+      return {
+        walletPubkey: b.walletPubkey,
+        amountMillis: b.amountMillis,
+        paidMillis: b.paidMillis,
+        ...(b.outpoint !== undefined && { outpoint: b.outpoint }),
+        ...(holdingByWallet.get(b.walletPubkey) !== undefined && { holdingId: holdingByWallet.get(b.walletPubkey)! }),
+        spent: typeof b.token !== 'string',
+        ...(problem !== undefined && { problem }),
+      }
+    }),
     sawProgress,
     ...(termsChanged && { termsChanged: true }),
     ...(ended && { endedUnpaid: true }),
@@ -292,7 +304,41 @@ function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet:
  * holding spent; the record replaces the last one. The call stays
  * `open_order` until the order is finished.
  */
-async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Order): Promise<CallCreated> {
+/** What a bill's own row said before it was kept: as ordered, another recipient's, carrying an expiry, or no answer. */
+type BillCheck = 'ok' | 'not_ours' | 'expires' | 'unknown'
+/** The expiry a bill's row carried, by wallet pubkey, for one that `expires`. */
+type BillChecks = Map<string, BillCheck> & { expiry?: Map<string, number> }
+
+/**
+ * Reads the own row of each live bill this wallet keeps and does not hold
+ * yet (NIP-CO §Minting: every bill is stamped with the ordered recipient
+ * and no expiry): a bill whose row is not the recipient's is never kept,
+ * one with an expiry is kept without the ordered mark, and one that got no
+ * answer is kept unverified.
+ */
+async function checkBills(ctx: Ctx, call: PendingCall, order: Order): Promise<BillChecks> {
+  const out: BillChecks = new Map<string, BillCheck>()
+  out.expiry = new Map()
+  const dest = call.outputs[0]?.destination
+  if (call.params?.['keep'] !== 'holding' || dest === undefined) return out
+  const held = new Set((await ctx.read((t) => t.list('holdings'))).map((h) => h.walletPubkey))
+  let credential: Credential | undefined
+  for (const b of order.bills) {
+    if (typeof b.token !== 'string' || held.has(b.walletPubkey)) continue
+    try {
+      credential ??= dest.kind === 'cash' ? bySecret(await ctx.open(dest.secret)) : bySigning(await ctx.requireSigner())
+      const r = await ctx.client(b.token).checkClaim(credential)
+      const expires = r.expiresAt !== undefined && r.expiresAt !== 0
+      out.set(b.walletPubkey, expires ? 'expires' : 'ok')
+      if (expires) out.expiry.set(b.walletPubkey, r.expiresAt!)
+    } catch (err) {
+      out.set(b.walletPubkey, err instanceof ClientError && err.code === 'claim_not_found' ? 'not_ours' : 'unknown')
+    }
+  }
+  return out
+}
+
+async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Order, checks: BillChecks = new Map()): Promise<CallCreated> {
   const cur = (await t.get('pendingCalls', call.id))!
   const keep = call.params?.['keep'] === 'holding'
   const out = call.outputs[0]?.destination
@@ -309,7 +355,8 @@ async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Orde
       }
       continue
     }
-    if (!keep || typeof b.token !== 'string' || out === undefined) continue
+    const check = checks.get(b.walletPubkey) ?? 'unknown'
+    if (!keep || typeof b.token !== 'string' || out === undefined || check === 'not_ours') continue
     const f = tokenFacts(b.token)
     const h = await addHolding(
       t,
@@ -319,11 +366,12 @@ async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Orde
         hubGroup: f.hubGroup,
         relayUrls: f.tok.relays,
         amount: b.amountMillis,
-        verified: true,
+        verified: check !== 'unknown',
         ...(out.kind === 'cash' ? { mode: 'cash' as const, protection: 'protected' as const, cashSecret: out.secret } : { mode: 'pubkey' as const, protection: 'none' as const }),
         ...(f.minterPubkey !== undefined && { minterPubkey: f.minterPubkey, minterXonly: f.minterPubkey.length === 66 ? f.minterPubkey.slice(2) : f.minterPubkey }),
         origin: 'ordered',
-        ordered: true,
+        ...(check !== 'expires' && { ordered: true }),
+        ...(checks.expiry?.get(b.walletPubkey) !== undefined && { expiresAt: checks.expiry.get(b.walletPubkey)! }),
       },
       { now: ctx.now(), random: ctx.random },
     )
@@ -331,7 +379,7 @@ async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Orde
     created.push(h.id)
     await appendActivity(t, ctx.now(), { action: 'receive', amount: b.amountMillis, holdingId: h.id, mode: h.mode })
   }
-  const record = recordOf(cur, order, ctx.nowSeconds(), byWallet)
+  const record = recordOf(cur, order, ctx.nowSeconds(), byWallet, checks)
   await t.put('pendingCalls', { ...cur, order: record, state: 'open_order', version: cur.version + 1 }, cur.version)
   // A finished order closes its call; the record stays readable (a closed on-chain order may still gain bills).
   if (record.finished) await finishCall(t, call.id, 'applied')
@@ -366,6 +414,8 @@ function parseFor(call: PendingCall, raw: unknown, lookup: boolean): Order {
 const orderKind: CallKind = {
   autoReplace: false,
   replaceRequest: 'confirmOrderReplace',
+  // §Request: notify is fresh for every order, and a re-placed order is a new one.
+  forReplace: (ctx, call) => ({ ...call, params: { ...call.params, notify: newNotify(ctx.random) } }),
   async place(ctx, call, beforePublish) {
     const c = await connect(ctx, call.params?.['connection'] ?? '', { confirmUnverified: () => Promise.resolve(true) })
     const outcome = await c.place(requestOf(call), { buyerKey: await buyerKeyOf(ctx, call), send: { notAfter: call.deadline, beforePublish } })
@@ -383,7 +433,8 @@ const orderKind: CallKind = {
         await t.put('pendingCalls', { ...cur, order: invalidRecord(call, raw, reason, ctx.nowSeconds()), state: 'open_order', version: cur.version + 1 }, cur.version)
       }
     }
-    return (t) => applyOrder(ctx, t, call, order)
+    const checks = await checkBills(ctx, call, order)
+    return (t) => applyOrder(ctx, t, call, order, checks)
   },
   async lookupTarget(ctx, call) {
     const conn = call.params?.['connection'] ?? ''
@@ -419,7 +470,8 @@ export async function refreshOrder(ctx: Ctx, id: string): Promise<OrderView> {
       })
     }
     if (order !== undefined) {
-      await ctx.commit((t) => applyOrder(ctx, t, call, order))
+      const checks = await checkBills(ctx, call, order)
+      await ctx.commit((t) => applyOrder(ctx, t, call, order, checks))
       if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)
     }
   } else if (o?.state === 'error' && o.error?.code === 'UNAUTHORIZED') {
@@ -452,6 +504,7 @@ export function orderView(call: PendingCall): OrderView {
     ...(valid && r.address !== undefined && { address: r.address }),
     ...(r?.confirmations !== undefined && { confirmations: r.confirmations }),
     payBy: r?.payBy ?? 0,
+    payDeadline: Math.min(r?.payBy ?? 0, r?.invoiceExpiresAt ?? Number.MAX_SAFE_INTEGER),
     bills: r?.bills ?? [],
     finished: r?.finished ?? false,
     endedUnpaid: r?.endedUnpaid ?? false,

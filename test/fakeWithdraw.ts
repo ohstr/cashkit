@@ -139,6 +139,7 @@ export class FakeWithdraw {
     const tag = (k: string) => q.tags.find((t) => t[0] === k)?.[1] ?? ''
     if (!verifyEvent(q) || q.pubkey !== this.bank.hub.node || tag('d') !== w.walletPubkey) return { error: { code: 'RESTRICTED', message: 'quote', detail: 'quote_invalid' } }
     w.spent = true
+    w.withdrawRequestId = rid
     const payout = BigInt(tag('payout_millis'))
     const sentBy = Number(tag('sent_by'))
     const receipt = this.sign(23188, [['d', w.walletPubkey], ['q', q.id], ['request_hash', requestHash(rid)], ['address', tag('address')], ['payout_millis', String(payout)], ['sent_by', String(sentBy)]])

@@ -5,7 +5,7 @@ import { newCashTarget, pubkeyTarget, type Target } from '../core/index.js'
 import { getHeld, liveAmount, lockedHoldings, moveCashNotesToKey, newThrowawayKey, requireUnlocked, toCashNotes } from './bills.js'
 import type { Ctx } from './context.js'
 import { CashkitError } from './errors.js'
-import { heldHoldings } from './ledger.js'
+import { heldHoldings, updateHolding } from './ledger.js'
 import { consolidateCap, consolidateInRounds } from './merge.js'
 import type { Holding } from './model.js'
 import type { Report } from './report.js'
@@ -97,9 +97,34 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
   }
 }
 
+/** The key a set of holdings is remembered by. */
+// oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy
+const setKey = (ids: readonly string[]): string => [...ids].sort().join(',')
+
+/** Remembers a set the Hub refused `RESTRICTED`, on each of its holdings. */
+async function rememberRefused(ctx: Ctx, ids: readonly string[]): Promise<void> {
+  const key = setKey(ids)
+  await ctx.commit(async (t) => {
+    for (const id of ids) {
+      const h = await t.get('holdings', id)
+      if (h === undefined || (h.refusedMerges ?? []).includes(key)) continue
+      await updateHolding(t, id, (x) => ({ ...x, refusedMerges: [...(x.refusedMerges ?? []), key] }))
+    }
+  })
+}
+
+const refusedBefore = (group: readonly Holding[]): boolean => {
+  const key = setKey(group.map((h) => h.id))
+  return group.every((h) => (h.refusedMerges ?? []).includes(key))
+}
+
+const isRestricted = (err: unknown): boolean => err instanceof CashkitError && err.nwcCode === 'RESTRICTED'
+
 /**
  * Named holdings merge into one; with none named, every hub group of two or
- * more merges on its own, and failures are reported per group.
+ * more merges on its own, and failures are reported per group. A set the
+ * Hub refused `RESTRICTED` is remembered and not planned again (naming it
+ * still tries).
  */
 export async function consolidate(ctx: Ctx, o: { holdings?: readonly string[]; to?: string; ia?: string } = {}): Promise<ConsolidateReport> {
   return ctx.spend(async () => {
@@ -110,8 +135,13 @@ export async function consolidate(ctx: Ctx, o: { holdings?: readonly string[]; t
     const alone = [...groups.values()].filter((g) => g.length === 1).map((g) => g[0]!.id).sort()
     if (o.holdings !== undefined) {
       if (new Set(o.holdings).size !== o.holdings.length) throw new CashkitError('usage', 'a holding was named more than once')
-      const outcome = await consolidateGroup(ctx, o.holdings, o.to, o.ia)
-      return { outcomes: [{ ok: true, ...outcome }], aloneOnTheirHub: [] }
+      try {
+        const outcome = await consolidateGroup(ctx, o.holdings, o.to, o.ia)
+        return { outcomes: [{ ok: true, ...outcome }], aloneOnTheirHub: [] }
+      } catch (err) {
+        if (isRestricted(err)) await rememberRefused(ctx, o.holdings)
+        throw err
+      }
     }
     const report: ConsolidateReport = { outcomes: [], aloneOnTheirHub: alone }
     const outcomes = report.outcomes as ConsolidateReport['outcomes'][number][]
@@ -120,9 +150,11 @@ export async function consolidate(ctx: Ctx, o: { holdings?: readonly string[]; t
     for (const key of [...groups.keys()].sort()) {
       const ids = groups.get(key)!.map((h) => h.id)
       if (ids.length < 2) continue
+      if (refusedBefore(held.filter((h) => ids.includes(h.id)))) continue
       try {
         outcomes.push({ ok: true, ...(await consolidateGroup(ctx, ids, o.to, o.ia)) })
       } catch (err) {
+        if (isRestricted(err)) await rememberRefused(ctx, ids)
         const e = err instanceof CashkitError ? err : new CashkitError('internal', (err as Error).message, { cause: err })
         outcomes.push({ ok: false, error: e, holdingIds: ids })
         firstError ??= e

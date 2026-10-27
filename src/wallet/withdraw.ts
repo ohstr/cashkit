@@ -118,7 +118,16 @@ export interface WithdrawQuoteView {
   /** A cash-mode bill: a lost local record cannot be recovered. */
   readonly unrecoverable: boolean
   readonly irreversible: true
+  /**
+   * On a re-quote (`requote`): the fields that differ from the quote it
+   * replaces, for the app to highlight before the user confirms again.
+   */
+  readonly quoteChanged?: readonly WithdrawQuoteField[]
 }
+
+/** The quote fields a re-quote compares. */
+export type WithdrawQuoteField = 'amountMillis' | 'networkFeeMillis' | 'hubFeeMillis' | 'feeMillis' | 'payoutMillis' | 'sentBy' | 'holdsUntil'
+const QUOTE_FIELDS: readonly WithdrawQuoteField[] = ['amountMillis', 'networkFeeMillis', 'hubFeeMillis', 'feeMillis', 'payoutMillis', 'sentBy', 'holdsUntil']
 
 export type WithdrawPhase = 'sending' | 'accepted' | 'broadcast' | 'confirmed' | 'confirming_again' | 'late_unsigned' | 'late_signed' | 'final' | 'cancelled' | 'refused' | 'not_sent'
 
@@ -144,7 +153,7 @@ export interface WithdrawalView {
   readonly txCheck?: 'ok' | 'mismatch'
 }
 
-const quotes = new Map<string, { view: WithdrawQuoteView; quote: WithdrawQuote; holding: Holding; terms: WithdrawTerms; used: boolean }>()
+const quotes = new Map<string, { view: WithdrawQuoteView; quote: WithdrawQuote; holding: Holding; terms: WithdrawTerms; used: boolean; sendBefore?: number }>()
 
 async function sliceIdentity(ctx: Ctx, h: Holding): Promise<{ identityValue: string; iaPubkey?: string; credential: Credential }> {
   const credential = await ctx.credentialFor(h)
@@ -266,9 +275,27 @@ export async function quoteWithdrawal(ctx: Ctx, holdingId: string, rawAddress: s
     unrecoverable: h.mode === 'cash',
     irreversible: true,
   }
-  quotes.set(handle, { view, quote: r.quote, holding: h, terms, used: false })
+  quotes.set(handle, { view, quote: r.quote, holding: h, terms, used: false, ...(o.sendBefore !== undefined && { sendBefore: o.sendBefore }) })
   if (view.expiringSoon && view.expiresAt !== undefined) ctx.confirmations.notify({ type: 'expiringSoon', holdingId: view.holdingId, expiresAt: view.expiresAt })
   return view
+}
+
+/**
+ * Quotes the same withdrawal again (the bill, address and send-by of
+ * `view`), as a new handle whose `quoteChanged` lists what differs from
+ * `view`; the old handle can no longer be sent. A re-quote with nothing
+ * changed in address, amount, fee and payout needs no new confirmation;
+ * any other does.
+ */
+export async function requoteWithdrawal(ctx: Ctx, view: WithdrawQuoteView): Promise<WithdrawQuoteView> {
+  const old = quotes.get(view.handle)
+  if (old === undefined || old.used) throw new CashkitError('usage', 'this quote was already sent or is unknown: get a new quote', { reason: 'quote_used' })
+  const next = await quoteWithdrawal(ctx, old.view.holdingId, old.view.address, { ...(old.sendBefore !== undefined && { sendBefore: old.sendBefore }) })
+  old.used = true
+  const quoteChanged = QUOTE_FIELDS.filter((f) => next[f] !== old.view[f])
+  const withChanges: WithdrawQuoteView = { ...next, quoteChanged }
+  quotes.get(next.handle)!.view = withChanges
+  return withChanges
 }
 
 /**
@@ -364,9 +391,10 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
   }
   const finishedNow = payoutFinished(p)
   let remintId: string | undefined
-  if (p.state === 'cancelled' && remint !== undefined && src !== undefined) {
+  const out = call.outputs.find((x) => x.role === 'remint')
+  // A recovered cash-mode withdrawal never knew its remint secret: the re-minted bill cannot be kept.
+  if (p.state === 'cancelled' && remint !== undefined && src !== undefined && out !== undefined) {
     const f = tokenFacts(remint.token)
-    const out = call.outputs.find((x) => x.role === 'remint')
     const added = await addHolding(
       t,
       {
@@ -417,8 +445,13 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
 async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'reply' | 'lookup'): Promise<{ payout: Payout; remint?: { token: string } }> {
   const p = parsePayout(raw)
   if (from === 'reply' && p.state !== 'queued') throw new CoreError('invalid_payload', 'a new payout is queued')
-  const q = parseWithdrawQuote(call.params?.['quote'] ?? '')
-  verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: q.id, requestId: call.requestId, address: call.params?.['address'] ?? '', payoutMillis: BigInt(call.params?.['payout'] ?? '0'), sentBy: Number(call.params?.['sentBy'] ?? '0') })
+  if (call.params?.['recovered'] === '1') {
+    // Nothing was written ahead: the receipt must still be this Hub's, for this bill and this request id, and agree with the payout it came with.
+    verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: '', requestId: call.requestId, address: p.address, payoutMillis: p.payoutMillis, sentBy: p.sentBy })
+  } else {
+    const q = parseWithdrawQuote(call.params?.['quote'] ?? '')
+    verifyWithdrawReceipt(p.receipt, { hubXOnly: call.node, target: call.target, quoteId: q.id, requestId: call.requestId, address: call.params?.['address'] ?? '', payoutMillis: BigInt(call.params?.['payout'] ?? '0'), sentBy: Number(call.params?.['sentBy'] ?? '0') })
+  }
   let remint: { token: string } | undefined
   if (p.state === 'cancelled' && typeof p.newWalletToken === 'string' && p.newWalletPubkey !== undefined) {
     const { credential } = await credentialOfCall(ctx, call)
@@ -431,6 +464,7 @@ const withdrawKind: CallKind = {
   autoReplace: false,
   replaceRequest: 'confirmWithdrawReplace',
   async place(ctx, call, beforePublish) {
+    if (call.params?.['recovered'] === '1') throw new CashkitError('usage', 'a recovered withdrawal is only looked up, never placed again', { reason: 'recovered' })
     const { credential, holding } = await credentialOfCall(ctx, call)
     const q = parseWithdrawQuote(call.params?.['quote'] ?? '')
     const remint = call.outputs.find((x) => x.role === 'remint')?.destination
@@ -532,6 +566,50 @@ function noticeWithdrawal(ctx: Ctx, v: WithdrawalView): WithdrawalView {
   else if (v.phase === 'late_unsigned') ctx.confirmations.notify({ type: 'withdrawLate', id: v.id, signed: false, returnsBy: v.sentBy + CANCEL_GRACE })
   else ctx.confirmations.notify({ type: 'withdrawLate', id: v.id, signed: true, owed: true, cancelAvailableAt: v.sentBy + CANCEL_REQUEST_AFTER, canSendItMyself: true })
   return v
+}
+
+/**
+ * Recovers a withdrawal this wallet has no record of: the bill's own row (or
+ * tombstone), read with the holding's credential, names the `cash_withdraw`
+ * that ended it. A `recovered` withdrawal is created with that request id
+ * and looked up at once (deadline now); it is never placed again. A
+ * cash-mode bill's re-mint, should the payout be cancelled, cannot be kept:
+ * its secret was in the lost record.
+ */
+export async function recoverWithdrawal(ctx: Ctx, holdingId: string): Promise<WithdrawalView> {
+  const h = await ctx.read((t) => t.get('holdings', holdingId))
+  if (h === undefined) throw new CashkitError('not_found', `no holding ${holdingId}`, { input: holdingId })
+  const credential = await ctx.credentialFor(h)
+  const r = await ctx.clientFor(h).statusMany([{ id: '1', bill: billOf(h), credential, scope: 'mine' }])
+  const o = r.outcomes[0]
+  if (o?.state !== 'result' || o.value === undefined) throw new CashkitError('network', "the bill's Hub did not answer its status; try again", { input: h.id })
+  const rid = o.value.tombstone?.withdrawRequestId ?? o.value.recipients[0]?.withdraw_request_id
+  if (rid === undefined || rid === '') throw new CashkitError('not_found', 'the Hub names no on-chain withdrawal of this bill for this wallet', { input: h.id, reason: 'no_withdrawal' })
+  const known = (await ctx.read((t) => t.list('pendingCalls'))).find((c) => c.requestId === rid)
+  if (known !== undefined) return withdrawalView(known)
+  const session = await ctx.clientFor(h).session()
+  const now = ctx.nowSeconds()
+  const call = await prepareCall(ctx, {
+    kind: 'withdraw',
+    requestId: rid,
+    method: 'cash_withdraw',
+    target: h.walletPubkey,
+    node: session.hub,
+    relays: session.relays,
+    deadline: now,
+    hAtSend: session.maxRequestAge ?? 0,
+    amount: h.amount ?? 0n,
+    sources: [h.id],
+    authorizer: h.mode === 'cash' ? { kind: 'cash', holdingId: h.id } : { kind: 'identity' },
+    outputs: credential.kind === 'signing' ? [{ role: 'remint', destination: { kind: 'pubkey', pubkey: credential.signer.pubkey } }] : [],
+    context: { op: 'withdraw' },
+    params: { recovered: '1' },
+  })
+  await ctx.commit(async (t) => {
+    const cur = (await t.get('pendingCalls', call.id))!
+    await t.put('pendingCalls', { ...cur, state: 'open_withdraw', version: cur.version + 1 }, cur.version)
+  })
+  return refreshWithdrawal(ctx, call.id)
 }
 
 export function withdrawalView(call: PendingCall): WithdrawalView {

@@ -19,7 +19,7 @@ import {
 } from '../src/core/index.js'
 import { CashkitError } from '../src/wallet/index.js'
 import { ADDRESS, FakeOrder, TERMS } from './fakeOrder.js'
-import { invoice } from './helpers.js'
+import { invoice, signedInvoice } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
 
 const failure = (p: Promise<unknown>): Promise<CashkitError> =>
@@ -145,6 +145,25 @@ describe('wallet.orders', () => {
     await h.wallet.orders.refresh(v.id)
     expect(await h.wallet.holdings()).toHaveLength(1)
   })
+  test('a bill not stamped as ordered: another recipient’s is never kept; one with an expiry is kept unmarked', async () => {
+    const { h, shop } = await setup()
+    const v = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning', to: 'self' })
+    shop.mintTo = { type: 'pubkey', value: 'ab'.repeat(32) }
+    await shop.pay(shop.only(), 5_005_000n)
+    const wrong = await h.wallet.orders.refresh(v.id)
+    expect(wrong.bills[0]).toMatchObject({ problem: 'not_ours' })
+    expect(wrong.bills[0]!.holdingId).toBeUndefined()
+    expect(await h.wallet.holdings()).toEqual([])
+    const w = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning', to: 'self' })
+    shop.mintTo = undefined
+    shop.mintExpiry = 4_000_000_000
+    await shop.pay([...shop.orders.values()].at(-1)!, 5_005_000n)
+    const exp = await h.wallet.orders.refresh(w.id)
+    expect(exp.bills[0]).toMatchObject({ problem: 'expires' })
+    const [held] = await h.wallet.holdings()
+    expect(held).toMatchObject({ amount: 4_999_000n, expiresAt: 4_000_000_000 })
+    expect(held!.ordered).toBeFalsy()
+  })
   test('a gift: the bill goes to its recipient; no holding is made', async () => {
     const { h, shop } = await setup()
     const bob = await harness({ pool: h.pool, bank: h.bank })
@@ -177,6 +196,17 @@ describe('wallet.orders', () => {
     expect(v.invalidReply).toMatch(/invoice/)
     expect(v.invoice).toBeUndefined()
   })
+  test('the deadline shown is pay_by, or the invoice’s own expiry when that comes first', async () => {
+    const { h, shop } = await setup()
+    const at = (expiry: number) => (pay: bigint) => signedInvoice({ amountMillis: pay, nodeKey: h.bank.hub.nodeKey, timestamp: Math.floor(h.bank.hub.clock() / 1000), expiry })
+    shop.invoiceFor = at(7200)
+    const late = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' })
+    expect(late.payDeadline).toBe(late.payBy)
+    shop.invoiceFor = at(600)
+    const early = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' })
+    expect(early.payDeadline).toBe(early.payBy - 3000)
+    expect(early.invoice).toMatch(/^ln/)
+  })
   test('a retired connection sells nothing: not_selling, nothing written; amounts out of range are refused locally', async () => {
     const { h, shop } = await setup()
     expect(await failure(h.wallet.orders.place({ connection: shop.string, amountMillis: 1n, payment: 'onchain' }))).toMatchObject({ code: 'invalid_input', reason: 'amount_out_of_range' })
@@ -195,6 +225,27 @@ describe('wallet.orders', () => {
     const [o] = await x.wallet.orders.list()
     expect(o).toMatchObject({ id: e.pendingCallId, state: 'open' })
     expect(o!.invoice).toMatch(/^ln/)
+  }, 20_000)
+  test('an order never placed is placed again only on confirmation, with a fresh notify', async () => {
+    let skew = 0
+    const clock = () => Date.now() + skew
+    const h = await harness({ deps: { clock, replyWaitMs: 300, nwcTimeoutMs: 2000 } })
+    h.bank.hub.clock = clock
+    const shop = new FakeOrder(h.bank)
+    shop.dropOrder = true
+    const e = await failure(h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning' }))
+    const id = e.pendingCallId!
+    const first = (await h.storage.tx('r', (t) => t.get('pendingCalls', id)))!
+    skew = (first.deadline + 2) * 1000 - Date.now()
+    await h.wallet.settle()
+    expect(await h.storage.tx('r', (t) => t.get('pendingCalls', id))).toMatchObject({ needsUser: 'confirm_replace' })
+    shop.dropOrder = false
+    await h.wallet.pendingCalls.confirmReplace(id)
+    const next = (await h.storage.tx('r', (t) => t.list('pendingCalls'))).find((c) => c.derivedFrom === id)!
+    expect(next.params!['notify']).toMatch(/^[0-9a-f]{64}$/)
+    expect(next.params!['notify']).not.toBe(first.params!['notify'])
+    expect(shop.placed.at(-1)!.params['notify']).toBe(next.params!['notify'])
+    expect(next.state).toBe('open_order')
   }, 20_000)
   test('watch: a notice reads the order', async () => {
     const { h, shop } = await setup()
