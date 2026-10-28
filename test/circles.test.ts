@@ -127,6 +127,21 @@ describe('settling joins', () => {
     expect((await x.wallet.settle()).joins.joined).toEqual([pj.id])
     expect((await x.wallet.circles.list()).map((c) => c.connectionPubkey)).toEqual([pj.id])
   }, 20_000)
+  test('another device\'s join never seen sent waits until nothing can arrive, then is looked up, never kept forever (R2-K11)', async () => {
+    const { h, circle } = await setup()
+    circle.loseJoinReply = true
+    const x = await harness({ pool: h.pool, bank: h.bank, deps: { replyWaitMs: 300, nwcTimeoutMs: 2000 } })
+    await failure(x.wallet.circles.join(circle.string, terms))
+    circle.loseJoinReply = false
+    const pj = (await x.storage.tx('r', (t) => t.list('pendingJoins')))[0]!
+    // A backup taken between the write-ahead and the send: the join did go out from the other device.
+    await x.storage.tx('rw', (t) => t.put('pendingJoins', { ...pj, sent: false, device: 'ff'.repeat(16), version: pj.version + 1 }, pj.version))
+    expect((await x.wallet.settle()).joins.pending).toEqual([pj.id])
+    const cur = (await x.storage.tx('r', (t) => t.get('pendingJoins', pj.id)))!
+    await x.storage.tx('rw', (t) => t.put('pendingJoins', { ...cur, deadline: Math.floor(Date.now() / 1000) - 400, version: cur.version + 1 }, cur.version))
+    expect((await x.wallet.settle()).joins.joined).toEqual([pj.id])
+    expect(await x.storage.tx('r', (t) => t.list('pendingJoins'))).toEqual([])
+  }, 20_000)
   test('one join whose answer does not parse never stops the others', async () => {
     const { h, circle: a } = await setup()
     const b = new FakeCircle(h.bank, { rotationDelaySecs: 432000, label: 'Bea’s Circle' })

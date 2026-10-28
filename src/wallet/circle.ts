@@ -387,9 +387,16 @@ export async function settleJoins(ctx: Ctx): Promise<SettleJoinsReport> {
   const signer = await ctx.signer()
   for (const pj of joins) {
     const now = ctx.nowSeconds()
-    if (!pj.sent) {
-      // Never sent: dropped, but only by the device that wrote it.
-      if (pj.device === ctx.deviceId) await ctx.commit((t) => t.delete('pendingJoins', pj.id)).catch(() => undefined)
+    if (!pj.sent && pj.device === ctx.deviceId) {
+      // Never sent from here: dropped.
+      await ctx.commit((t) => t.delete('pendingJoins', pj.id)).catch(() => undefined)
+      continue
+    }
+    if (!pj.sent && now <= pj.deadline + 360) {
+      // Another device's join this copy never saw sent (a backup taken mid-join): it may have gone out there. Once
+      // nothing can still arrive it is looked up like a sent one, which moves nothing: a join that was made is
+      // added, one that was not is surfaced (join_not_made) for the member to forget, never kept silently.
+      pending.push(pj.id)
       continue
     }
     if (signer === undefined || signer.pubkey !== pj.signerPubkey || (pj.lookup?.retryAfter !== undefined && now < pj.lookup.retryAfter)) {
