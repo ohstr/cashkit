@@ -174,6 +174,17 @@ describe('the pocket engine: revs across devices', () => {
     await b2.send({ amount: 5000n })
     expect((await b2.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
   })
+  test('a held bill another device rewrote live at a higher rev: the sync records that rev, so this device\'s spend wins (R2-K1)', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const w = (await heldRow(a)).walletPubkey
+    await writeElsewhere(a, await liveEntry(a, 4))
+    await a.wallet.pocket.sync()
+    expect((await a.storage.tx('r', (t) => t.get('pocket', w)))?.rev).toBe(4)
+    await a.wallet.send({ amount: 5000n })
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
+  })
   test('a held bill the pocket shows spent is re-checked: still unspent, it is written live above that rev', async () => {
     const a = await withPocket()
     await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)

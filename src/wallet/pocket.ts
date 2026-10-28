@@ -386,6 +386,21 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
     })
     imported.push(h.id)
   }
+  // A bill held here whose entry another device rewrote above our record: remember that rev and wrap, so this
+  // device's next write for it (a spend, from afterCall) goes above it and deletes it (NIP-CP §Writing).
+  for (const h of local) {
+    const e = entries.get(h.walletPubkey)
+    const wrap = e === undefined ? undefined : wrapOf.get(e.w)
+    if (e === undefined || wrap === undefined || wrap.rev !== e.rev) continue
+    const cur = await ctx.read((t) => t.get('pocket', e.w))
+    if (cur !== undefined && cur.rev >= e.rev) continue
+    const sealedWrapKey = await ctx.seal(wrap.wrapKey)
+    await ctx.commit(async (t) => {
+      const now = await t.get('pocket', e.w)
+      if (now !== undefined && now.rev >= e.rev) return
+      await t.put('pocket', { id: e.w, rev: e.rev, state: e.state, wrapId: wrap.wrapId, wrapKey: sealedWrapKey, at: ctx.now(), ...(now?.noExpiry === true && { noExpiry: true }), version: (now?.version ?? 0) + 1 }, now?.version ?? 0)
+    })
+  }
   const finalElsewhere = local.filter((h) => {
     const e = entries.get(h.walletPubkey)
     return h.status === 'held' && e !== undefined && e.state !== 'live' && e.state !== 'pending'
