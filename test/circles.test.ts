@@ -391,7 +391,10 @@ describe('member requests end to end: watch and refresh', () => {
       await eventually(() => alerts.includes('rotation_alert'), 'the old device sees the rotation')
       expect(await b.wallet.circles.recover(circle.string, newConnectionSecret!)).toMatchObject({ state: 'pending' })
       circle.completeRotation(w)
-      expect(await b.wallet.circles.recover(circle.string, newConnectionSecret!)).toMatchObject({ state: 'done', wallet: { walletPubkey: r.walletPubkey } })
+      // The rotate key was stored before the request was returned: recover finds it without being passed it (R2-K8).
+      expect(await b.storage.tx('r', (t) => t.get('pendingRecoveries', r.walletPubkey))).toMatchObject({ newConnectionPubkey: getPublicKey(fromHex(newConnectionSecret!)) })
+      expect(await b.wallet.circles.recover(circle.string)).toMatchObject({ state: 'done', wallet: { walletPubkey: r.walletPubkey } })
+      expect(await b.storage.tx('r', (t) => t.get('pendingRecoveries', r.walletPubkey))).toBeUndefined()
       expect((await (await b.wallet.lightning((await b.wallet.circles.list())[0]!.name)).getBalance()).balance).toBe(900)
       // A freeze for a wallet held here goes through memberRequest: no secret comes back.
       const held = await b.wallet.circles.memberRequestFor(circle.string, r.walletPubkey, 'freeze')
@@ -402,6 +405,26 @@ describe('member requests end to end: watch and refresh', () => {
     }
   }, 30_000)
 
+  test('memberRequestFor asks the wallet\'s confirmUnverified handler for an unverified string (R2-K6)', async () => {
+    const { h, circle } = await setup()
+    const c = decodeCircleHubConnection(circle.string)
+    const tampered = encodeCircleHubConnection({ ...c, label: 'Not Ada', labelBytes: new TextEncoder().encode('Not Ada') })
+    const asked: string[] = []
+    h.wallet.on('confirm', (q) => (asked.push(q.type), q.type === 'confirmUnverified'))
+    const out = await h.wallet.circles.memberRequestFor(tampered, 'ab'.repeat(32), 'freeze')
+    expect(asked).toEqual(['confirmUnverified'])
+    expect(out.event.tags.find((t) => t[0] === 'action')![1]).toBe('freeze')
+  })
+  test('a late rotation_cancelled for an earlier rotation keeps the pending one and its key (R2-K7)', async () => {
+    const { h, circle } = await setup()
+    const r = await h.wallet.circles.join(circle.string, terms)
+    await h.wallet.circles.memberRequest(r.name, 'rotate')
+    const pending = (await h.wallet.circles.list())[0]!.rotation!
+    expect(await h.wallet.circles.notify(r.name, { notification_type: 'rotation_cancelled', notification: { connection_pubkey: 'cd'.repeat(32) } })).toBe('ignored')
+    expect((await h.wallet.circles.list())[0]!.rotation).toEqual(pending)
+    expect(await h.wallet.circles.notify(r.name, { notification_type: 'rotation_cancelled', notification: { connection_pubkey: pending.newConnectionPubkey } })).toBe('rotation_cancelled')
+    expect((await h.wallet.circles.list())[0]!.rotation).toBeUndefined()
+  })
   test('a request by the wrong member or for a wallet the Hub does not hold is refused by the Hub', async () => {
     const { h, circle } = await setup()
     const r = await h.wallet.circles.join(circle.string, terms)

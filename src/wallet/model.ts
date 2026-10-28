@@ -547,6 +547,23 @@ export interface Rows {
   discoverBook: DiscoverBookRow
   discoverEvents: DiscoverEventRow
   discoverOutbox: DiscoverOutboxRow
+  pendingRecoveries: PendingRecoveryRow
+}
+
+/**
+ * A rotate this device asked for, for a circle wallet it does not hold
+ * (`circles.memberRequestFor`): the new key's secret, sealed, kept until
+ * `circles.recover` takes the wallet with it (NIP-CW §Recovering a Lost
+ * Connection). Keyed by the wallet's pubkey; a new rotate replaces it.
+ */
+export interface PendingRecoveryRow {
+  /** The wallet_pubkey. */
+  readonly id: string
+  readonly hubPubkey: string
+  readonly newConnectionPubkey: string
+  readonly newSecret: Sealed
+  readonly requestedAt: number
+  readonly version: number
 }
 
 /** What this device last wrote to the Cash Pocket for a `w`: its revision, state and the wrap (with its key, to delete it). */
@@ -569,6 +586,6 @@ export type AppendOnly = 'activity'
 export type Row<C extends Collection> = Rows[C]
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 export type NewRow<C extends AppendOnly> = DistributiveOmit<Rows[C], 'id'>
-export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox']
+export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox', 'pendingRecoveries']
 /** Collections of this store only: never exported, never imported. */
 export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox']

@@ -5,6 +5,7 @@
 import {
   buildMemberRequest,
   connectionKeyFromSecret,
+  decodeCircleHubConnection,
   decodeLookupDone,
   isRenewal,
   parseCreateCircleWalletResult,
@@ -478,8 +479,32 @@ export type RecoverResult =
  * the wallet is stored with the new key's secret: in place of the moved
  * connection when this device holds one, else as a new connection.
  */
-export async function recoverCircle(ctx: Ctx, hubString: string, newConnectionSecret: string, o: RecoverOptions = {}): Promise<RecoverResult> {
+export async function recoverCircle(ctx: Ctx, hubString: string, newConnectionSecret: string | undefined, o: RecoverOptions = {}): Promise<RecoverResult> {
   if (sniff(hubString.trim()) !== 'circlehub') throw new CashkitError('invalid_input', 'not a circlehub1 connection string', { reason: 'connection_invalid' })
+  if (newConnectionSecret !== undefined) return recoverWithKey(ctx, hubString, newConnectionSecret, o)
+  // No secret given: every rotate key memberRequestFor stored for a wallet of this circle, newest first.
+  const hubPubkey = decodeCircleHubPubkey(hubString)
+  const stored = (await ctx.read((t) => t.list('pendingRecoveries'))).filter((r) => r.hubPubkey === hubPubkey).sort((a, b) => b.requestedAt - a.requestedAt)
+  if (stored.length === 0) throw new CashkitError('usage', 'no rotate key is stored for this circle on this device: pass the new connection secret', { reason: 'no_recovery_key' })
+  let pending: RecoverResult | undefined
+  for (const r of stored) {
+    const res = await recoverWithKey(ctx, hubString, await ctx.open(r.newSecret), o)
+    if (res.state === 'done') return res
+    if (res.state === 'pending' && (pending === undefined || (pending.state === 'pending' && res.retryAt < pending.retryAt))) pending = res
+  }
+  return pending ?? { state: 'not_found' }
+}
+
+/** The Hub pubkey (TLV 0) of a `circlehub1` string, decoded offline. */
+function decodeCircleHubPubkey(hubString: string): string {
+  try {
+    return decodeCircleHubConnection(hubString.trim()).walletPubkey
+  } catch (err) {
+    throw new CashkitError('invalid_input', `not a circlehub1 connection string: ${(err as Error).message}`, { reason: 'connection_invalid', cause: err })
+  }
+}
+
+async function recoverWithKey(ctx: Ctx, hubString: string, newConnectionSecret: string, o: RecoverOptions): Promise<RecoverResult> {
   let key
   try {
     key = connectionKeyFromSecret(newConnectionSecret.trim())
@@ -542,6 +567,11 @@ export async function recoverCircle(ctx: Ctx, hubString: string, newConnectionSe
     const r: Connection = { id: name, kind: 'circle_wallet', isDefault: makeDefault, walletPubkey: d.walletPubkey, relays: d.relays, secret, circle, version: 1 }
     await t.put('connections', r, 0)
     return r
+  })
+  // The wallet is held under the new key now: its stored rotate key is no longer needed.
+  await ctx.commit(async (t) => {
+    const pr = await t.get('pendingRecoveries', d.walletPubkey)
+    if (pr !== undefined && pr.newConnectionPubkey === key.pubkey) await t.delete('pendingRecoveries', d.walletPubkey)
   })
   return { state: 'done', wallet: joinResult(row, d, hub) }
 }
@@ -631,7 +661,11 @@ export async function memberRequest(ctx: Ctx, name: string, action: MemberAction
 /** A member request for a wallet this device does not hold, and a rotate's new key for `circles.recover`. */
 export interface MemberRequestForResult {
   readonly event: NostrEvent
-  /** rotate only: the new key's secret, for `circles.recover` once the rotation completes. Secret-bearing: keep it until then. */
+  /**
+   * rotate only: the new key's secret, for `circles.recover` once the
+   * rotation completes. Also stored, sealed, on this device (and in its
+   * backups), so `circles.recover(hub)` finds it without being passed it.
+   */
   readonly newConnectionSecret?: string
 }
 
@@ -648,11 +682,20 @@ export interface MemberRequestForResult {
 export async function memberRequestFor(ctx: Ctx, hubString: string, walletPubkey: string, action: MemberAction, o: { confirmUnverified?: (v: HubView) => Promise<boolean> } = {}): Promise<MemberRequestForResult> {
   if (!/^[0-9a-f]{64}$/.test(walletPubkey)) throw new CashkitError('invalid_input', 'wallet_pubkey must be 64 lowercase hex characters', { input: walletPubkey })
   if (!['rotate', 'freeze', 'unfreeze'].includes(action)) throw new CashkitError('invalid_input', `unknown member request action "${String(action)}"`)
-  const { hubPubkey } = await verifyCircleHubString(ctx, hubString, o.confirmUnverified)
+  const { hubPubkey } = await verifyCircleHubString(ctx, hubString, unverifiedAnswer(ctx.confirmations, o.confirmUnverified))
   const held = (await ctx.read((t) => t.list('connections'))).find((c) => c.kind === 'circle_wallet' && c.circle?.hubPubkey === hubPubkey && c.walletPubkey === walletPubkey && c.moved !== true)
   if (held !== undefined) return { event: await memberRequest(ctx, held.id, action) }
   const signer = await ctx.requireSigner()
   const newKey = action === 'rotate' ? newConnectionKey(ctx) : undefined
+  if (newKey !== undefined) {
+    // Stored, sealed, before the request leaves: a host that loses the returned secret can still recover.
+    const newSecret = await ctx.seal(newKey.secret)
+    const requestedAt = ctx.nowSeconds()
+    await ctx.commit(async (t) => {
+      const cur = await t.get('pendingRecoveries', walletPubkey)
+      await t.put('pendingRecoveries', { id: walletPubkey, hubPubkey, newConnectionPubkey: newKey.pubkey, newSecret, requestedAt, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+    })
+  }
   const event = await buildMemberRequest(signer, { hubPubkey, action, walletPubkey, ...(newKey !== undefined && { newConnectionPubkey: newKey.pubkey }), now: ctx.nowSeconds() })
   return { event, ...(newKey !== undefined && { newConnectionSecret: newKey.secret }) }
 }
@@ -688,7 +731,11 @@ export async function applyCircleNotification(ctx: Ctx, name: string, n: CircleN
       return 'rotation_alert'
     }
     case 'rotation_cancelled':
+      // Only the cancellation of the rotation this device asked for drops its new key; a late one for an earlier
+      // rotation says nothing about the pending one.
+      if (c.rotation === undefined || c.rotation.newConnectionPubkey !== n.notification.connection_pubkey) return 'ignored'
       await put((x) => {
+        if (x.rotation?.newConnectionPubkey !== n.notification.connection_pubkey) return x
         const { rotation: _r, ...rest } = x
         return rest as Connection
       })

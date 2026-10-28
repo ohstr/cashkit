@@ -745,9 +745,10 @@ export class Wallet {
      * the wallet up through the circle's `circlehub1`, signed by this
      * identity, naming the new key; `done` stores it with the new key's
      * secret, `pending` says when to ask again, `not_found` means no
-     * rotation to that key.
+     * rotation to that key. Without the secret, the rotate keys
+     * `memberRequestFor` stored for this circle are tried, newest first.
      */
-    recover: (hub: string, newConnectionSecret: string, o: RecoverOptions = {}): Promise<RecoverResult> => this.ctx.spend(() => recoverCircle(this.ctx, hub, newConnectionSecret, o)),
+    recover: (hub: string, newConnectionSecret?: string, o: RecoverOptions = {}): Promise<RecoverResult> => this.ctx.spend(() => recoverCircle(this.ctx, hub, newConnectionSecret, o)),
     /** Drops a pending join the member decided about (`needsUser`). */
     forgetJoin: (connectionPubkey: string): Promise<void> => this.ctx.commit((t) => t.delete('pendingJoins', connectionPubkey)),
   }

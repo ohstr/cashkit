@@ -29,10 +29,11 @@ export const SEALED_FIELDS: Readonly<Partial<Record<Collection, readonly string[
   identity: ['priv'],
   pendingJoins: ['connectionSecret', 'hubConnection'],
   pendingCalls: ['authorizer.authorizerKey', 'authorizer.buyerKey', 'outputs[].destination.secret', 'outputs[].destination.key'],
+  pendingRecoveries: ['newSecret'],
 }
 
 /** Collections that carry value or a way to reach it: what makes a backup stale. */
-const VALUE_BEARING: readonly Collection[] = ['holdings', 'handoffs', 'connections', 'identity', 'pendingJoins', 'pendingCalls']
+const VALUE_BEARING: readonly Collection[] = ['holdings', 'handoffs', 'connections', 'identity', 'pendingJoins', 'pendingCalls', 'pendingRecoveries']
 
 /** The collections a backup carries: everything but this store's local ones (device, derived ids, hubs). */
 const EXPORTED: readonly Collection[] = COLLECTIONS.filter((c) => !LOCAL_ONLY.includes(c))
