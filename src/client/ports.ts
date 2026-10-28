@@ -53,6 +53,14 @@ export interface RelayPool {
    * leave this out.
    */
   setAuth?(sign: AuthSigner | undefined): void
+  /**
+   * A new pool with its own connections, sharing no socket with this one.
+   * Authenticated traffic (the Cash Pocket's, signed in as the user) runs on
+   * it, so a Hub inbox, listing, order or zap read on the same relay URL
+   * never rides a connection that knows the user. Adapters that cannot open
+   * separate connections leave this out.
+   */
+  isolated?(): RelayPool
 }
 
 /** Signs a NIP-42 kind-22242 template as the user. */

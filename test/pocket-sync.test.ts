@@ -305,10 +305,13 @@ describe('the sync-pocket adapter: relays and AUTH', () => {
     const wrap2 = finalizeEvent({ kind: 1059, created_at: 1, tags: [['p', user]], content: 'x' }, fill(0x42, 32))
     expect(await other.publish(wrap2)).toEqual(['wss://fallback.test'])
   })
-  test('auth is handed to a pool that can authenticate, for the pocket relays only', async () => {
+  test('auth is handed to the pocket\'s own isolated pool, for the pocket relays only; never to the shared pool', async () => {
     const got: ((t: EventTemplate) => Promise<NostrEvent>)[] = []
-    const pool = Object.assign(new MemoryRelayPool(), { setAuth: (s: (t: EventTemplate) => Promise<NostrEvent>) => got.push(s) })
+    const shared: ((t: EventTemplate) => Promise<NostrEvent>)[] = []
+    const own = Object.assign(new MemoryRelayPool(), { setAuth: (s: (t: EventTemplate) => Promise<NostrEvent>) => got.push(s) })
+    const pool = Object.assign(new MemoryRelayPool(), { setAuth: (s: (t: EventTemplate) => Promise<NostrEvent>) => shared.push(s), isolated: () => own })
     syncPocket({ pool, relays: R, ownRelays: ['wss://mine.test/'], auth: signAuth })
+    expect(shared).toHaveLength(0)
     expect(got).toHaveLength(1)
     expect((await got[0]!(authTemplate('wss://inbox1.test'))).kind).toBe(22242)
     expect((await got[0]!(authTemplate('wss://mine.test'))).kind).toBe(22242)
@@ -402,6 +405,37 @@ describe('NIP-42 AUTH in the relay adapters', () => {
     const closed = new Promise<string>((res) => pool.subscribe(['wss://hub-inbox.test'], { kinds: [23195] }, { onEvent: () => {}, onEose: () => res('eose'), onClose: (_r, why) => res(why) }))
     expect(await closed).toMatch(/^auth-required:/)
     expect(sockets.get('wss://hub-inbox.test')!.sent.filter((m) => m[0] === 'AUTH')).toHaveLength(0)
+  })
+  test('the pocket signs in on sockets of its own: a Hub read of the same relay URL rides an unauthenticated one (R2-K5)', async () => {
+    const sockets: AuthRelaySocket[] = []
+    // A relay that is both the user's pocket relay and a Hub inbox; the pocket's socket is signed in.
+    const strict = new RelayWs({ connect: (url) => (sockets.push(new AuthRelaySocket(url)), sockets.at(-1)!) })
+    const viaStrict = syncPocket({ pool: strict, relays: ['wss://both.test'], auth: sign, minRelays: 1, readTimeoutMs: 500 })
+    const wrap = finalizeEvent({ kind: 1059, created_at: 1, tags: [['p', 'bb'.repeat(32)]], content: 'x' }, sk)
+    expect(await viaStrict.publish(wrap)).toEqual(['wss://both.test'])
+    const pocketSocket = sockets.find((x) => x.authed)!
+    expect(pocketSocket).toBeDefined()
+    // The shared pool's own traffic opens another socket, which never authenticates.
+    const eose = new Promise<string>((res) => strict.subscribe(['wss://both.test'], { kinds: [23195] }, { onEvent: () => {}, onEose: () => res('eose'), onClose: (_r, why) => res(why) }))
+    expect(await eose).toMatch(/^auth-required:/)
+    const hubSockets = sockets.filter((x) => x !== pocketSocket && x.sent.some((m) => m[0] === 'REQ' && JSON.stringify(m[2]).includes('23195')))
+    expect(hubSockets).toHaveLength(1)
+    expect(hubSockets[0]!.sent.filter((m) => m[0] === 'AUTH')).toHaveLength(0)
+    expect(pocketSocket.sent.some((m) => m[0] === 'REQ' && JSON.stringify(m[2]).includes('23195'))).toBe(false)
+  })
+  test('a pool that cannot be isolated does not authenticate the pocket at all', async () => {
+    const shared: unknown[] = []
+    const pool = Object.assign(new MemoryRelayPool(), { setAuth: (s: unknown) => shared.push(s) })
+    syncPocket({ pool, relays: R, auth: signAuth })
+    expect(shared).toHaveLength(0)
+  })
+  test('nostr-tools isolates only with newPool', () => {
+    const fake: SimplePoolLike = { subscribe: () => ({ close() {} }), publish: () => [Promise.resolve('')] }
+    expect(new NostrToolsPool(fake).isolated).toBeUndefined()
+    const made: SimplePoolLike[] = []
+    const p = new NostrToolsPool(fake, { newPool: () => (made.push({ ...fake }), made.at(-1)!) })
+    expect(p.isolated!()).toBeInstanceOf(NostrToolsPool)
+    expect(made).toHaveLength(1)
   })
   test('relay-ws without a signer passes the refusal on', async () => {
     const pool = new RelayWs({ connect: (url) => new AuthRelaySocket(url) })

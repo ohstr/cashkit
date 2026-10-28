@@ -602,6 +602,7 @@ interface RelayPool {
             h: { onEvent(e: SignedEvent): void; onEose(relay: string): void }): () => void
   publish(relay: string, e: SignedEvent): Promise<{ ok: boolean; message?: string }>
   setAuth?(sign: ((t: EventTemplate) => Promise<SignedEvent>) | undefined): void
+  isolated?(): RelayPool
 }
 ```
 
@@ -612,9 +613,14 @@ a REQ or EVENT `auth-required:`, `relay-ws` answers that relay's AUTH
 challenge with a kind-22242 event signed by `sign` and sends it once more;
 `relay-nostr-tools` passes it to SimplePool as `onauth`, which does the
 same. A challenge alone is never answered, and a `sign` that throws
-declines. `relay-ndk` does not authenticate. `syncPocket({ auth })` limits
-`sign` to the pocket relays, so a Hub inbox, listing, order or zap relay on
-the same pool never learns the user's identity from an AUTH.
+declines. `relay-ndk` does not authenticate. `isolated()` returns a pool
+with connections of its own (`relay-ws` always; `relay-nostr-tools` with
+its `newPool` option). `syncPocket({ auth })` sets `sign` only on such a
+pool (`authPool`, else `pool.isolated()`), never on the shared one, and
+limits it to the pocket relays: a Hub inbox, listing, order or zap relay
+never learns the user's identity from an AUTH, nor rides a socket that is
+signed in, even when it is also one of the user's pocket relays. Without an
+isolated pool the pocket does not authenticate.
 
 **Lock.** `withLock(name, fn)` serialises money-moving operations per wallet
 (§5.4). `lock-weblocks` uses `navigator.locks`; `lock-memory` is per-process.
@@ -1282,9 +1288,10 @@ gift-wrapped to the user, each with a fresh wrap key it records.
   kind 10050 `relay` tags, else the write relays of their newest NIP-65
   kind 10002 (`r` with no marker or `write`), else the configured `relays`;
   `ownRelays` are always added. A list whose id or signature does not check
-  is ignored. With `auth`, the pool's `setAuth` answers a NIP-42 challenge
-  from a pocket relay that refuses `auth-required:` (one that serves a 1059
-  only to its `p`), and from no other relay.
+  is ignored. With `auth`, the pocket's own isolated pool (`authPool`, or
+  `pool.isolated()`) answers a NIP-42 challenge from a pocket relay that
+  refuses `auth-required:` (one that serves a 1059 only to its `p`), and
+  from no other relay; all pocket traffic runs on that pool.
 
 ### 6.7e Discover
 

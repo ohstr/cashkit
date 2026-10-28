@@ -26,9 +26,27 @@ export interface SimplePoolLike {
   publish(relays: string[], event: NostrEvent, params?: { onauth?: (t: EventTemplate) => Promise<NostrEvent> }): Promise<string>[]
 }
 
+export interface NostrToolsPoolOptions {
+  /**
+   * Makes another SimplePool (`() => new SimplePool()`): with it, `isolated()`
+   * gives a pool with connections of its own, so the Cash Pocket can sign in
+   * to its relays without the app's other traffic riding that connection.
+   * Without it, the pocket does not authenticate.
+   */
+  readonly newPool?: () => SimplePoolLike
+}
+
 export class NostrToolsPool implements RelayPool {
   private signer: AuthSigner | undefined
-  constructor(private readonly pool: SimplePoolLike) {}
+  /** A pool on a SimplePool of its own; present only with `newPool`. */
+  readonly isolated?: () => RelayPool
+  constructor(
+    private readonly pool: SimplePoolLike,
+    opts: NostrToolsPoolOptions = {},
+  ) {
+    const make = opts.newPool
+    if (make !== undefined) this.isolated = () => new NostrToolsPool(make(), opts)
+  }
 
   /** NIP-42: nostr-tools answers a relay's AUTH challenge with `sign` (passed as `onauth`). */
   setAuth(sign: AuthSigner | undefined): void {

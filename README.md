@@ -523,9 +523,14 @@ import NDK, { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk'
 import { NostrToolsPool } from '@ohstr/cashkit/adapters/relay-nostr-tools'
 import { NdkPool } from '@ohstr/cashkit/adapters/relay-ndk'
 
-const viaNostrTools = new NostrToolsPool(new SimplePool())
+// newPool lets a Cash Pocket sign in to its relays on a SimplePool of its own.
+const viaNostrTools = new NostrToolsPool(new SimplePool(), { newPool: () => new SimplePool() })
 const viaNdk = new NdkPool(ndk, { NDKEvent, NDKRelaySet })
 ```
+
+A Cash Pocket with `auth` signs in (NIP-42) only on a pool of its own
+(`authPool`, or the pool's `isolated()`), never on the one the rest of the
+wallet uses; a pool that cannot be isolated leaves the pocket signed out.
 
 ### Talk to a Hub directly
 

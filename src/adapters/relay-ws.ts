@@ -1,5 +1,6 @@
 // RelayPool over the global WebSocket (browsers, Node >= 22, Bun): one
-// connection per relay, opened on demand and shared by every subscription.
+// connection per relay, opened on demand and shared by every subscription
+// of this pool; `isolated()` gives a pool with connections of its own.
 // With `setAuth`, a REQ or EVENT that a relay refuses `auth-required:` is
 // sent once more after answering that relay's NIP-42 AUTH challenge. A
 // challenge alone is never answered: a relay that does not ask learns no
@@ -50,7 +51,7 @@ export class RelayWs implements RelayPool {
   private readonly connectTimeoutMs: number
   private signer: AuthSigner | undefined
 
-  constructor(opts: RelayWsOptions = {}) {
+  constructor(private readonly opts: RelayWsOptions = {}) {
     this.connectFn = opts.connect ?? ((url) => new (globalThis as unknown as { WebSocket: new (u: string) => WebSocketLike }).WebSocket(url))
     this.publishTimeoutMs = opts.publishTimeoutMs ?? 10_000
     this.connectTimeoutMs = opts.connectTimeoutMs ?? 10_000
@@ -219,6 +220,11 @@ export class RelayWs implements RelayPool {
     // Refused until the client authenticates: answer the challenge, then send once more.
     if (!(await this.reauthed(url, c)) || c.closed) return r
     return this.sendAndWait(c, ['EVENT', e], e.id)
+  }
+
+  /** A pool with the same options and connections of its own (no socket, challenge or signer shared with this one). */
+  isolated(): RelayWs {
+    return new RelayWs(this.opts)
   }
 
   /** Closes every connection. */

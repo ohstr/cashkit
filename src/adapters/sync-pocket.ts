@@ -3,11 +3,14 @@
 // (kind 10002), else the relays configured here, plus any relay of the
 // user's own; they are read back by id, and a sync reads every wrap
 // addressed to the user (incrementally, from two days before the last).
-// With `auth`, the pool answers a pocket relay's NIP-42 AUTH challenge when
-// that relay refuses `auth-required:`, so a relay that serves a 1059 only to
-// its `p` serves the user's wraps. Only the pocket relays (configured, own
-// and those found in the user's lists) are answered: a Hub inbox, listing,
-// order or zap relay on the same pool is never signed in to as the user.
+// With `auth`, the pocket's own pool answers a pocket relay's NIP-42 AUTH
+// challenge when that relay refuses `auth-required:`, so a relay that serves
+// a 1059 only to its `p` serves the user's wraps. That pool is `authPool`, or
+// `pool.isolated()`: its connections are never shared with other traffic, so
+// a Hub inbox, listing, order or zap read on the same relay URL never rides a
+// socket signed in as the user. Only the pocket relays (configured, own and
+// those found in the user's lists) are answered. A pool that cannot be
+// isolated, with no `authPool`, does not authenticate at all.
 import { readEvents, type AuthSigner, type RelayPool } from '../client/index.js'
 import { verifyEvent, type EventTemplate, type NostrEvent } from '../core/index.js'
 import type { Pocket } from '../wallet/ports.js'
@@ -22,10 +25,16 @@ export interface SyncPocketOptions {
   readonly ownRelays?: readonly string[]
   /**
    * Signs the NIP-42 answer to a pocket relay's AUTH challenge as the user;
-   * passed to the pool's `setAuth` when the adapter supports it, limited to
-   * the pocket relays.
+   * passed to the pocket pool's `setAuth` when the adapter supports it,
+   * limited to the pocket relays. Never set on `pool` itself.
    */
   readonly auth?: AuthSigner
+  /**
+   * The pool the pocket's own traffic uses when `auth` is set: one no other
+   * part of the app uses. Default `pool.isolated()`; without either, the
+   * pocket runs on `pool` and does not authenticate.
+   */
+  readonly authPool?: RelayPool
   /** Default 2, capped at the relays in use. */
   readonly minRelays?: number
   readonly readTimeoutMs?: number
@@ -68,8 +77,11 @@ export function syncPocket(o: SyncPocketOptions): Pocket {
   // The relays this pocket writes to or reads from; AUTH goes to these only.
   const pocketRelays = new Set(last.map(relayKey))
   const auth = o.auth
-  if (auth !== undefined) {
-    o.pool.setAuth?.(async (t) => {
+  // Signed-in traffic goes over a pool of its own; the shared pool is never signed in to.
+  const signedIn = auth !== undefined ? (o.authPool ?? o.pool.isolated?.()) : undefined
+  const pool = signedIn ?? o.pool
+  if (auth !== undefined && signedIn !== undefined) {
+    signedIn.setAuth?.(async (t) => {
       const relay = relayOf(t)
       if (relay === undefined || !pocketRelays.has(relayKey(relay))) throw new Error('not a pocket relay')
       return auth(t)
@@ -100,18 +112,18 @@ export function syncPocket(o: SyncPocketOptions): Pocket {
     },
     async publish(wrap) {
       const relays = await relaysFor(recipientOf(wrap))
-      const r = await Promise.all(relays.map(async (url) => ((await o.pool.publish(url, wrap).catch(() => ({ ok: false }))).ok ? url : undefined)))
+      const r = await Promise.all(relays.map(async (url) => ((await pool.publish(url, wrap).catch(() => ({ ok: false }))).ok ? url : undefined)))
       return r.filter((x): x is string => x !== undefined)
     },
     async has(wrapId) {
-      return (await readEvents(o.pool, last, { ids: [wrapId] }, wait).catch(() => [])).some((e) => e.id === wrapId)
+      return (await readEvents(pool, last, { ids: [wrapId] }, wait).catch(() => [])).some((e) => e.id === wrapId)
     },
     async fetch(pubkey, since) {
       const relays = await relaysFor(pubkey)
-      return readEvents(o.pool, relays, { kinds: [1059], '#p': [pubkey], ...(since !== undefined && { since: since - 172800 }) }, wait).catch(() => [] as NostrEvent[])
+      return readEvents(pool, relays, { kinds: [1059], '#p': [pubkey], ...(since !== undefined && { since: since - 172800 }) }, wait).catch(() => [] as NostrEvent[])
     },
     async remove(deletion) {
-      await Promise.all(last.map((url) => o.pool.publish(url, deletion).catch(() => undefined)))
+      await Promise.all(last.map((url) => pool.publish(url, deletion).catch(() => undefined)))
     },
   }
 }
