@@ -84,10 +84,10 @@ const DEC = /^(0|[1-9][0-9]*)$/
 const SUMMARY: Readonly<Record<ListingType, readonly string[]>> = { cash_order: ['lightning', 'onchain'], circle_wallet: ['allowlist', 'follow_set'] }
 
 export const listingAddress = (l: Pick<Listing, 'nodeIdentity' | 'd'>): string => `${KIND_LISTING}:${l.nodeIdentity}:${l.d}`
-/** `min(expiration, created_at + 30 days)`, whatever the listing says. */
 /** A geohash: its base-32 alphabet only (no a, i, l, o). */
 const GEOHASH = /^[0-9b-hjkmnp-z]+$/
 
+/** `min(expiration, created_at + 30 days)`, whatever the listing says. */
 export const listingExpiresAt = (l: Pick<Listing, 'expiration' | 'event'>): number => Math.min(l.expiration, l.event.created_at + MAX_EXPIRY_SECS)
 
 /**

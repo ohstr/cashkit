@@ -132,7 +132,6 @@ function quoteOf(terms: OrderTerms, payment: Payment, amountMillis: bigint) {
   }
 }
 
-/** The terms, the order fee, what to pay, the confirmations and the bill's redeem fee. Nothing is written. */
 /** The terms as NIP-CO §Terms requires them, else `terms_invalid`. */
 function checkTerms(terms: Parameters<typeof validateTerms>[0]): void {
   try {
@@ -142,6 +141,7 @@ function checkTerms(terms: Parameters<typeof validateTerms>[0]): void {
   }
 }
 
+/** The terms, the order fee, what to pay, the confirmations and the bill's redeem fee. Nothing is written. */
 export async function quoteOrder(ctx: Ctx, connection: string, o: { amountMillis: bigint; payment: Payment; confirmUnverified?: (v: HubView) => Promise<boolean> }): Promise<OrderQuote> {
   const c = await connect(ctx, connection, { confirmUnverified: unverifiedAnswer(ctx.confirmations, o.confirmUnverified) })
   const terms = await c.terms().catch((err: unknown) => {

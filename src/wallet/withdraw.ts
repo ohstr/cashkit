@@ -641,14 +641,6 @@ function noticeWithdrawal(ctx: Ctx, v: WithdrawalView): WithdrawalView {
   return v
 }
 
-/**
- * Recovers a withdrawal this wallet has no record of: the bill's own row (or
- * tombstone), read with the holding's credential, names the `cash_withdraw`
- * that ended it. A `recovered` withdrawal is created with that request id
- * and looked up at once (deadline now); it is never placed again. A
- * cash-mode bill's re-mint, should the payout be cancelled, cannot be kept:
- * its secret was in the lost record.
- */
 /** Where a recovered withdrawal's re-mint goes: the slice's own identity; a cash-mode remint secret was never known here. */
 function remintOf(credential: Credential, h: Holding): PlainOutput[] {
   if (credential.kind === 'signing') return [{ role: 'remint', destination: { kind: 'pubkey', pubkey: credential.signer.pubkey } }]
@@ -657,6 +649,14 @@ function remintOf(credential: Credential, h: Holding): PlainOutput[] {
   return []
 }
 
+/**
+ * Recovers a withdrawal this wallet has no record of: the bill's own row (or
+ * tombstone), read with the holding's credential, names the `cash_withdraw`
+ * that ended it. A `recovered` withdrawal is created with that request id
+ * and looked up at once (deadline now); it is never placed again. A
+ * cash-mode bill's re-mint, should the payout be cancelled, cannot be kept:
+ * its secret was in the lost record.
+ */
 export async function recoverWithdrawal(ctx: Ctx, holdingId: string): Promise<WithdrawalView> {
   const h = await ctx.read((t) => t.get('holdings', holdingId))
   if (h === undefined) throw new CashkitError('not_found', `no holding ${holdingId}`, { input: holdingId })

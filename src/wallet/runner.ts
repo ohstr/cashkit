@@ -97,7 +97,6 @@ async function update(ctx: Ctx, id: string, change: (c: PendingCall) => PendingC
   })
 }
 
-/** Closes an open call; a call already closed stays as it is. */
 /**
  * Cash Pocket hooks (set by the pocket module when a Pocket is configured):
  * the write-ahead pending entry, read back before the call is sent, and the
@@ -110,6 +109,7 @@ export const pocketHooks: {
   beforeReplace?: (ctx: Ctx, call: PendingCall) => Promise<'place' | 'derived' | 'closed'>
 } = {}
 
+/** Closes an open call; a call already closed stays as it is. */
 async function close(ctx: Ctx, id: string, outcome: Parameters<typeof finishCall>[2], o: { code?: string; detail?: string; needsUser?: CallNeedsUser } = {}): Promise<void> {
   await closeRow(ctx, id, outcome, o)
   if (ctx.deps.pocket !== undefined) await pocketHooks.after?.(ctx, id).catch(() => undefined)
@@ -325,10 +325,10 @@ export async function settleCalls(ctx: Ctx): Promise<SettleCallsReport> {
   return { applied, closed, replaced, open, needsUser }
 }
 
-/** `unknown`: the call was not applied and never will be. */
 /** A call rebuilt from the Hub's records (a recovered withdrawal): it is only looked up, never placed again. */
 const isRecovered = (call: PendingCall) => call.params?.['recovered'] === '1'
 
+/** `unknown`: the call was not applied and never will be. */
 async function onUnknown(ctx: Ctx, call: PendingCall): Promise<'closed' | 'replaced' | 'needsUser' | 'open'> {
   if (isRecovered(call)) {
     await close(ctx, call.id, 'lookup_expired', { needsUser: 'lookup_expired' })
