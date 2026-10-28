@@ -516,6 +516,12 @@ export interface DiscoverOutboxRow {
   readonly reason?: string
   /** The unsigned event, as JSON; signed only when published. */
   readonly template: string
+  /**
+   * The identity (pubkey) that queued it, which the user told who would see
+   * it: only that identity's signer publishes it. A row stored without one
+   * (an earlier version) is dropped unpublished.
+   */
+  readonly author?: string
   readonly relays: readonly string[]
   /** Unix seconds: never published before. */
   readonly dueAt: number

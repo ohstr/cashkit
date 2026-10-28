@@ -157,6 +157,26 @@ describe('the outbox', () => {
     expect(ev.tags).toContainEqual(['l', 'no_payout', 'cash.report'])
     expect(await h.wallet.discover.outbox.list()).toEqual([])
   })
+  test('only the identity that queued an item publishes it; one stored without its author is dropped unpublished (KT-10)', async () => {
+    const { h, advance } = await clocked()
+    const node = getPublicKey(fill(0x54, 32))
+    await h.wallet.discover.refresh({ relays: [R], follows: [] })
+    const a = await h.wallet.discover.report(node, { reason: 'spam', content: 'a', confirm: async () => true })
+    const b = await h.wallet.discover.report(node, { reason: 'spam', content: 'b', confirm: async () => true })
+    if (!a.queued || !b.queued) throw new Error('not queued')
+    expect(a.item.author).toBe(h.me)
+    await h.storage.tx('rw', async (t) => {
+      const ra = (await t.get('discoverOutbox', a.item.id))!
+      await t.put('discoverOutbox', { ...ra, author: 'ee'.repeat(32), version: ra.version + 1 }, ra.version)
+      const rb = (await t.get('discoverOutbox', b.item.id))!
+      const { author: _x, ...legacy } = rb
+      await t.put('discoverOutbox', { ...legacy, version: rb.version + 1 }, rb.version)
+    })
+    advance(21_600)
+    expect((await h.wallet.discover.outbox.publishDue()).published).toEqual([])
+    expect(h.pool.published.filter((p) => p.event.kind === 1984)).toEqual([])
+    expect((await h.wallet.discover.outbox.list()).map((x) => x.id)).toEqual([a.item.id])
+  })
   test('declined at the confirmation, nothing is queued; a queued item can be cancelled; a due item is published at the next open', async () => {
     const storage = new MemoryStorage()
     let t = Date.now()

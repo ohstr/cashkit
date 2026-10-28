@@ -541,9 +541,11 @@ export interface OutboxItem {
   /** Unix seconds: not published before. */
   readonly dueAt: number
   readonly createdAt: number
+  /** The identity that queued it; only it publishes it. */
+  readonly author?: string
 }
 
-const item = (r: DiscoverOutboxRow): OutboxItem => ({ id: r.id, kind: r.kind, node: r.node, ...(r.address !== undefined && { address: r.address }), ...(r.reason !== undefined && { reason: r.reason }), dueAt: r.dueAt, createdAt: r.createdAt })
+const item = (r: DiscoverOutboxRow): OutboxItem => ({ id: r.id, kind: r.kind, node: r.node, ...(r.address !== undefined && { address: r.address }), ...(r.reason !== undefined && { reason: r.reason }), dueAt: r.dueAt, createdAt: r.createdAt, ...(r.author !== undefined && { author: r.author }) })
 
 /** A delay drawn uniformly from [1 h, 6 h), so the publication time does not reveal when the user ordered or joined. */
 function delay(ctx: Ctx): number {
@@ -552,11 +554,11 @@ function delay(ctx: Ctx): number {
   return DELAY_MIN + Math.floor(u * (DELAY_MAX - DELAY_MIN))
 }
 
-async function queue(ctx: Ctx, row: Omit<DiscoverOutboxRow, 'version' | 'dueAt' | 'createdAt' | 'relays'>, me: string): Promise<OutboxItem> {
+async function queue(ctx: Ctx, row: Omit<DiscoverOutboxRow, 'version' | 'dueAt' | 'createdAt' | 'relays' | 'author'>, me: string): Promise<OutboxItem> {
   const base = stateOf(ctx).relays
   const relays = [...new Set([...(await writeRelaysOf(ctx, me, base)), ...base])]
   const now = ctx.nowSeconds()
-  const full = { ...row, relays, dueAt: now + delay(ctx), createdAt: now }
+  const full = { ...row, relays, dueAt: now + delay(ctx), createdAt: now, author: me }
   await ctx.commit(async (t) => {
     const cur = await t.get('discoverOutbox', row.id)
     await t.put('discoverOutbox', { ...full, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
@@ -663,12 +665,25 @@ export async function nextOutboxDue(ctx: Ctx): Promise<number | undefined> {
 /**
  * Signs (now, with the identity's signer) and publishes every queued item
  * whose time has come, never before; an item no relay accepted stays queued.
+ * Only the identity that queued an item publishes it: one queued by another
+ * identity (the signer changed since) stays queued for it, and one stored
+ * without its author is dropped unpublished (KT-10).
  */
 export async function publishDue(ctx: Ctx): Promise<{ published: string[] }> {
   const signer = await ctx.signer()
   if (signer === undefined) return { published: [] }
   const now = ctx.nowSeconds()
-  const due = (await ctx.read((t) => t.list('discoverOutbox'))).filter((r) => r.dueAt <= now)
+  const rows = await ctx.read((t) => t.list('discoverOutbox'))
+  const orphans = rows.filter((r) => r.author === undefined)
+  if (orphans.length > 0) {
+    await ctx.commit(async (tx) => {
+      for (const r of orphans) {
+        const cur = await tx.get('discoverOutbox', r.id)
+        if (cur !== undefined && cur.author === undefined) await tx.delete('discoverOutbox', r.id)
+      }
+    })
+  }
+  const due = rows.filter((r) => r.dueAt <= now && r.author === signer.pubkey)
   const published: string[] = []
   for (const r of due) {
     const t = JSON.parse(r.template) as EventTemplate
