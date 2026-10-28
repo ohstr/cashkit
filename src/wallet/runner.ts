@@ -54,8 +54,17 @@ export interface CallKind {
   recovery?(ctx: Ctx, call: PendingCall, result: unknown): Promise<readonly string[]>
   /** Runs once the result is saved (e.g. publishing a zap's 9522); failures are left for the next settle. */
   afterApply?(ctx: Ctx, callId: string): Promise<void>
-  /** Whether `unknown` re-places it automatically (`cash_transfer`, `cash_consolidate`) or asks the user first. */
-  readonly autoReplace: boolean
+  /**
+   * Whether `unknown` re-places it automatically (`cash_transfer`,
+   * `cash_consolidate`; a `cash_withdraw` unless it saw `REQUEST_REUSED`) or
+   * asks the user first.
+   */
+  readonly autoReplace: boolean | ((call: PendingCall) => boolean)
+  /**
+   * Before an automatic re-placement: a reason it may not be placed again
+   * (a withdrawal whose quote is no longer valid), which closes it refused.
+   */
+  replaceBlocked?(ctx: Ctx, call: PendingCall): Promise<{ readonly code: string; readonly detail?: string } | undefined>
   /** The confirmation request that asks the user to place it again (kinds that are not `autoReplace`). */
   readonly replaceRequest?: 'confirmMintReplace' | 'confirmOrderReplace' | 'confirmWithdrawReplace'
   /** Changes a re-placed call before it is written (a `cash_order` gets a fresh `notify`). */
@@ -206,6 +215,7 @@ export async function executeCall(ctx: Ctx, call: PendingCall): Promise<CallCrea
       throw new CashkitError('network', `this ${call.method} was not sent; nothing moved`, ...(placed.error !== undefined ? [{ cause: placed.error }] : []))
     case 'open': {
       if (c.reason === 'refused' && c.code !== 'REQUEST_REUSED') await update(ctx, call.id, (x) => ({ ...x, lastCode: c.code!, ...(c.detail !== undefined && { lastDetail: c.detail }) }))
+      if (c.reason === 'refused' && c.code === 'REQUEST_REUSED') await update(ctx, call.id, (x) => ({ ...x, sawReused: true }))
       ctx.emit({ op: call.kind, phase: 'pending', id: call.id, pendingCallId: call.id })
       const code = c.reason === 'refused' && c.code !== undefined && c.code !== 'REQUEST_REUSED' ? codeForNwc(c.code) : 'indeterminate'
       throw new CashkitError(
@@ -340,7 +350,14 @@ async function onUnknown(ctx: Ctx, call: PendingCall): Promise<'closed' | 'repla
     ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
     return 'needsUser'
   }
-  if (!kindOf(call).autoReplace) {
+  const kind = kindOf(call)
+  const auto = typeof kind.autoReplace === 'function' ? kind.autoReplace(call) : kind.autoReplace
+  const blocked = auto ? await kind.replaceBlocked?.(ctx, call) : undefined
+  if (blocked !== undefined) {
+    await close(ctx, call.id, 'not_applied', { code: blocked.code, ...(blocked.detail !== undefined && { detail: blocked.detail }), needsUser: 'refused' })
+    return 'closed'
+  }
+  if (!auto) {
     await update(ctx, call.id, (x) => ({ ...x, needsUser: 'confirm_replace', lookup: { ...(x.lookup ?? { omissions: 0 }), status: 'unknown' } }))
     ctx.emit({ op: call.kind, phase: 'needs_user', id: call.id, pendingCallId: call.id })
     askReplace(ctx, call.id)
@@ -409,7 +426,7 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
 }
 
 function stripOpen(c: PendingCall): PendingCall {
-  const { outcome: _o, lastCode: _c, lastDetail: _d, lookup: _l, needsUser: _n, derivedFrom: _f, ...rest } = c
+  const { outcome: _o, lastCode: _c, lastDetail: _d, lookup: _l, needsUser: _n, derivedFrom: _f, sawReused: _r, ...rest } = c
   return rest as PendingCall
 }
 

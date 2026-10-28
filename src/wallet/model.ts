@@ -414,6 +414,8 @@ export interface PendingCall {
   readonly outcome?: CallOutcome
   readonly lastCode?: string
   readonly lastDetail?: string
+  /** The call was once answered `REQUEST_REUSED`: an `unknown` then asks the user before placing it again. */
+  readonly sawReused?: boolean
   readonly lookup?: { readonly status?: string; readonly retryAfter?: number; readonly checkedAt?: number; readonly omissions: number; readonly bearerStage?: 'without' | 'with' }
   readonly needsUser?: CallNeedsUser
   /** What the call created once applied. */

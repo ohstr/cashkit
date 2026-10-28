@@ -512,9 +512,22 @@ async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'rep
   return { payout: p, ...(remint !== undefined && { remint }) }
 }
 
+/** A refusal that ends a quote's validity (NIP-CASH §Processing Algorithm, step 3). */
+const QUOTE_ENDED: ReadonlySet<string> = new Set(['quote_expired', 'quote_invalid'])
+
 const withdrawKind: CallKind = {
-  autoReplace: false,
+  // NIP-CP §Lookups: placed again automatically only after no answer and an `unknown` lookup, while its quote is
+  // valid; after REQUEST_REUSED only once the user confirms (confirmWithdrawReplace, default no).
+  autoReplace: (call) => call.sawReused !== true,
   replaceRequest: 'confirmWithdrawReplace',
+  async replaceBlocked(ctx, call) {
+    // No chain view here: a quote counts as valid until a call of this withdrawal (this one or one it replaced) was
+    // refused quote_expired or quote_invalid. Such a refusal already closes its own call; this walks the chain too.
+    for (let c: PendingCall | undefined = call; c !== undefined; c = c.derivedFrom === undefined ? undefined : await ctx.read((t) => t.get('pendingCalls', c!.derivedFrom!))) {
+      if (c.lastDetail !== undefined && QUOTE_ENDED.has(c.lastDetail)) return { code: c.lastCode ?? 'RESTRICTED', detail: c.lastDetail }
+    }
+    return undefined
+  },
   async place(ctx, call, beforePublish) {
     if (call.params?.['recovered'] === '1') throw new CashkitError('usage', 'a recovered withdrawal is only looked up, never placed again', { reason: 'recovered' })
     const { credential, holding } = await credentialOfCall(ctx, call)

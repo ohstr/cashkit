@@ -7,6 +7,7 @@ import {
   classifyAddressAmong,
   CoreError,
   decodeWitnessAddress,
+  derivedRequestId,
   finalizeEvent,
   getPublicKey,
   nearMatch,
@@ -338,5 +339,73 @@ describe('wallet.withdraw: a cancelled payout', () => {
     expect(await h.wallet.pendingCalls.list()).toEqual([])
     await h.wallet.withdraw.refresh(v.id)
     expect(seen).toEqual([expect.objectContaining({ type: 'withdrawCancelled', id: v.id, remintGone: { reason: 'redeemed' } })])
+  })
+})
+
+describe('wallet.withdraw: a lost withdrawal is placed again (NIP-CP §Lookups)', () => {
+  let skew = 0
+  const clock = () => Date.now() + skew
+  async function lost(o: { reused?: boolean; refusedDetail?: string } = {}) {
+    skew = 0
+    const h = await harness({ deps: { clock } })
+    h.bank.hub.clock = clock
+    const hub = new FakeWithdraw(h.bank)
+    const r = await h.wallet.receive(h.bank.mintToPubkey(21_000_000n, h.me).token)
+    const id = r.received ? r.holding.id : ''
+    const prev = h.bank.override
+    // The call never reaches the Hub (or is answered REQUEST_REUSED, or refused): its lookup then answers unknown.
+    h.bank.override = (m, info) =>
+      m === 'cash_withdraw' && (info.params as Record<string, unknown>)['cancel'] !== true
+        ? o.reused === true
+          ? { error: { code: 'REQUEST_REUSED', message: 'used' } }
+          : o.refusedDetail !== undefined
+            ? { error: { code: 'RESTRICTED', message: 'x', detail: o.refusedDetail } }
+            : 'omit'
+        : prev?.(m, info)
+    const e = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes }).then(
+      () => undefined,
+      (x: unknown) => x as CashkitError,
+    )
+    const pc = (await h.storage.tx('r', (x) => x.list('pendingCalls'))).find((c) => c.kind === 'withdraw')!
+    h.bank.override = prev
+    skew = (pc.deadline + 2) * 1000 - Date.now()
+    return { h, hub, id, e, pc }
+  }
+  test('after no answer and an unknown lookup: automatically, under the derived id, with the same quote and notify', async () => {
+    const { h, pc } = await lost()
+    const rep = await h.wallet.settle()
+    expect(rep.replaced).toEqual([pc.id])
+    const all = await h.storage.tx('r', (x) => x.list('pendingCalls'))
+    const next = all.find((c) => c.derivedFrom === pc.id)!
+    expect(next).toMatchObject({ requestId: derivedRequestId(pc.requestId), attempts: 2, state: 'open_withdraw' })
+    expect(next.params).toMatchObject({ quote: pc.params!['quote'], notify: pc.params!['notify'] })
+    expect(all.find((c) => c.id === pc.id)).toMatchObject({ outcome: 'replaced' })
+    const sent = h.bank.hub.requests.filter((r) => r.item.method === 'cash_withdraw').map((r) => r.params['request_id'])
+    expect(sent.at(-1)).toBe(next.requestId)
+  })
+  test('after REQUEST_REUSED: waits for the user (confirm_replace), never automatically', async () => {
+    const { h, pc } = await lost({ reused: true })
+    const before = h.bank.hub.requests.filter((r) => r.item.method === 'cash_withdraw').length
+    await h.wallet.settle()
+    expect(await h.storage.tx('r', (x) => x.get('pendingCalls', pc.id))).toMatchObject({ needsUser: 'confirm_replace', sawReused: true })
+    expect(h.bank.hub.requests.filter((r) => r.item.method === 'cash_withdraw')).toHaveLength(before)
+  })
+  test('a call refused quote_expired is closed refused, never placed again', async () => {
+    const { h, pc } = await lost({ refusedDetail: 'quote_expired' })
+    await h.wallet.settle()
+    expect(await h.storage.tx('r', (x) => x.get('pendingCalls', pc.id))).toMatchObject({ state: 'done', outcome: 'not_applied', needsUser: 'refused', lastDetail: 'quote_expired' })
+    expect((await h.storage.tx('r', (x) => x.list('pendingCalls'))).some((c) => c.derivedFrom === pc.id)).toBe(false)
+  })
+  test('a re-placement of a chain whose earlier call was refused quote_expired is closed refused', async () => {
+    const { h, pc } = await lost()
+    // As if this call replaced one the Hub refused quote_expired.
+    await h.storage.tx('rw', async (x) => {
+      await x.put('pendingCalls', { ...pc, id: 'pc-parent', state: 'done', outcome: 'replaced', lastCode: 'RESTRICTED', lastDetail: 'quote_expired', version: 1 }, 0)
+      const c = (await x.get('pendingCalls', pc.id))!
+      await x.put('pendingCalls', { ...c, derivedFrom: 'pc-parent', version: c.version + 1 }, c.version)
+    })
+    await h.wallet.settle()
+    expect(await h.storage.tx('r', (x) => x.get('pendingCalls', pc.id))).toMatchObject({ state: 'done', outcome: 'not_applied', lastDetail: 'quote_expired' })
+    expect((await h.storage.tx('r', (x) => x.list('pendingCalls'))).some((c) => c.derivedFrom === pc.id)).toBe(false)
   })
 })
