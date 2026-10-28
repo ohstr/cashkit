@@ -414,7 +414,8 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
         await writeEntry(ctx, await heldEntry(ctx, h), at(h.walletPubkey))
         published.push(h.walletPubkey)
       }
-    } else if (e !== undefined && e.state === 'live' && h.status !== 'redeeming') {
+    } else if (e !== undefined && e.state === 'live' && h.status !== 'redeeming' && !(h.status === 'redeemed' && h.redeem?.presumedAt !== undefined)) {
+      // A redeem still in flight, or only presumed paid (a timeout), writes no final state (NIP-CP §Refreshing States).
       await writeEntry(ctx, await heldEntry(ctx, h, 'spent'), at(h.walletPubkey))
       published.push(h.walletPubkey)
     }

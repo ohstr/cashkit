@@ -72,7 +72,18 @@ export interface Holding {
   /** `min_transfer_millis` as `cash_status` last reported it: bills merge only with bills of the same figure. */
   readonly minTransfer?: bigint
   /** While `redeeming`: the invoice the Hub was asked to pay, where it was made, and when it expires. */
-  readonly redeem?: { readonly invoice: string; readonly into: string; readonly invoiceExpiresAt?: number; readonly since: number }
+  readonly redeem?: {
+    readonly invoice: string
+    readonly into: string
+    readonly invoiceExpiresAt?: number
+    readonly since: number
+    /**
+     * Set when the bill became `redeemed` only because its row stayed claimed
+     * a day past the invoice's expiry ("presumed paid"): it is still re-read
+     * by `settle()`, and goes back to held if a later read shows it unclaimed.
+     */
+    readonly presumedAt?: number
+  }
   /** ms epoch. */
   readonly addedAt: number
   readonly version: number

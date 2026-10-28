@@ -83,3 +83,45 @@ describe('unclear redeems', () => {
     expect(nwc.seen.filter((x) => x.method === 'make_invoice')).toHaveLength(2)
   })
 })
+
+describe('presumed paid (§10.3 Redeem outcome, KC-11)', () => {
+  let skew = 0
+  const clock = () => Date.now() + skew
+  async function presumed() {
+    skew = 0
+    const h = await harness({ deps: { clock } })
+    h.bank.hub.clock = clock
+    const nwc = new FakeNwcWallet(h.pool)
+    await h.wallet.connections.add('main', nwc.uri)
+    const w = h.bank.mintToPubkey(5000n, h.me)
+    await h.wallet.receive(w.token)
+    internalOnce(h, w.token, true)
+    await h.wallet.redeem()
+    expect((await h.wallet.holdings({ includeSpent: true }))[0]?.status).toBe('redeeming')
+    skew = (3600 + 24 * 3600 + 60) * 1000
+    const rep = await h.wallet.settle()
+    expect(rep.redeems.redeemed).toHaveLength(1)
+    return { h, token: w.token }
+  }
+  test('a row still claimed a day past the invoice expiry is presumed paid, then re-opened by a later unclaimed read', async () => {
+    const { h, token } = await presumed()
+    const [row] = await h.wallet.holdings({ includeSpent: true })
+    expect(row).toMatchObject({ status: 'redeemed' })
+    // Still claimed: unchanged, read again by the next settle.
+    expect((await h.wallet.settle()).redeems.released).toEqual([])
+    h.bank.wallet(token)!.claimed = false
+    expect((await h.wallet.settle()).redeems.released).toEqual([row!.id])
+    expect((await h.wallet.holdings()).map((x) => x.status)).toEqual(['held'])
+  })
+  test('a tombstone makes a presumed-paid bill final: it is never re-opened', async () => {
+    const { h, token } = await presumed()
+    h.bank.wallet(token)!.spent = true
+    await h.wallet.settle()
+    const raw = await h.storage.tx('r', (t) => t.list('holdings'))
+    expect(raw[0]).toMatchObject({ status: 'redeemed' })
+    expect(raw[0]!.redeem).toBeUndefined()
+    h.bank.wallet(token)!.spent = false
+    h.bank.wallet(token)!.claimed = false
+    expect((await h.wallet.settle()).redeems.released).toEqual([])
+  })
+})

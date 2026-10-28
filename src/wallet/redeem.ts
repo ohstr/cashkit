@@ -373,7 +373,7 @@ async function readUnclear(ctx: Ctx, unclear: readonly { r: Ready; error: Cashki
 }
 
 export interface RedeemingReport {
-  /** Back to held: the payment failed (the row is unclaimed); redeem again. */
+  /** Back to held: the payment failed (the row is unclaimed); redeem again. A presumed-paid bill read unclaimed again is here too. */
   readonly released: readonly string[]
   /** Paid: the invoice settled, or the row stayed claimed a day past the invoice's expiry. */
   readonly redeemed: readonly string[]
@@ -382,10 +382,22 @@ export interface RedeemingReport {
   readonly stillRedeeming: readonly string[]
 }
 
-/** Re-reads every `redeeming` holding (run by `settle()`). */
+/** A bill `redeemed` only by the day-past-expiry rule: still re-read, and re-opened if its row reads unclaimed. */
+export const presumedPaid = (h: Holding): boolean => h.status === 'redeemed' && h.redeem?.presumedAt !== undefined
+
+/**
+ * Re-reads every `redeeming` holding, and every presumed-paid one (run by
+ * `settle()`). A presumed-paid bill whose row reads unclaimed goes back to
+ * held (the payment never happened, §10.3 Redeem outcome); a tombstone, or
+ * the app's wallet reporting the invoice settled, makes it final; anything
+ * else, an unreadable status included, leaves it as it is.
+ */
 export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
-  const rows = (await ctx.read((t) => t.list('holdings'))).filter((h) => h.status === 'redeeming')
-  const rep = { released: [] as string[], redeemed: [] as string[], spent: [] as string[], stillRedeeming: [] as string[] }
+  const all = await ctx.read((t) => t.list('holdings'))
+  const presumed = all.filter(presumedPaid)
+  const rows = all.filter((h) => h.status === 'redeeming')
+  const reopened = await recheckPresumed(ctx, presumed)
+  const rep = { released: [...reopened] as string[], redeemed: [] as string[], spent: [] as string[], stillRedeeming: [] as string[] }
   if (rows.length === 0) return rep
   const st = await statusByNode(ctx, rows)
   const now = ctx.nowSeconds()
@@ -393,12 +405,16 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
     const s = st.get(h.id)
     const info = h.redeem
     let next: 'held' | 'redeemed' | 'spent' | undefined
+    let presumedNow = false
     if (s !== undefined && 'state' in s && s.state === 'spent') next = 'spent'
     else if (s !== undefined && 'state' in s && s.state === 'available' && !s.result.recipients.some((x) => x.claimed)) next = 'held'
     else if (info !== undefined) {
       if (info.into !== 'invoice' && (await invoiceSettled(ctx, info.into, info.invoice))) next = 'redeemed'
       // Only a row the Hub showed still claimed counts; an unreadable status (a connection-key bill) says nothing.
-      else if (s !== undefined && 'state' in s && s.state === 'available' && now > (info.invoiceExpiresAt ?? info.since + INVOICE_EXPIRY) + CLAIMED_GRACE) next = 'redeemed'
+      else if (s !== undefined && 'state' in s && s.state === 'available' && now > (info.invoiceExpiresAt ?? info.since + INVOICE_EXPIRY) + CLAIMED_GRACE) {
+        next = 'redeemed'
+        presumedNow = true
+      }
     }
     if (next === undefined) {
       rep.stillRedeeming.push(h.id)
@@ -407,8 +423,9 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
     const status = next
     await ctx.commit(async (t) => {
       await updateHolding(t, h.id, (x) => {
-        const { redeem: _r, ...rest } = x
-        return { ...rest, status } as Holding
+        const { redeem: r, ...rest } = x
+        // Presumed paid keeps its redeem record, marked, so later settles keep reading it.
+        return (presumedNow && r !== undefined ? { ...rest, status, redeem: { ...r, presumedAt: now } } : { ...rest, status }) as Holding
       })
       if (status === 'spent') await appendActivity(t, ctx.now(), { action: 'spent', holdingId: h.id })
       if (status === 'redeemed') await appendActivity(t, ctx.now(), { action: 'redeem', amount: h.amount ?? 0n, feesPaid: 0n, into: info?.into ?? 'invoice', holdingIds: [h.id] })
@@ -416,6 +433,37 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
     ;(status === 'held' ? rep.released : status === 'redeemed' ? rep.redeemed : rep.spent).push(h.id)
   }
   return rep
+}
+
+/**
+ * Re-reads presumed-paid bills: unclaimed again ⇒ back to held (returned);
+ * a tombstone or a settled invoice ⇒ final (the mark is dropped); still
+ * claimed, no answer or an unreadable status ⇒ unchanged.
+ */
+async function recheckPresumed(ctx: Ctx, presumed: readonly Holding[]): Promise<string[]> {
+  if (presumed.length === 0) return []
+  const st = await statusByNode(ctx, presumed)
+  const reopened: string[] = []
+  for (const h of presumed) {
+    const s = st.get(h.id)
+    const info = h.redeem!
+    let next: 'held' | 'final' | undefined
+    if (s !== undefined && 'state' in s && s.state === 'spent') next = 'final'
+    else if (s !== undefined && 'state' in s && s.state === 'available' && !s.result.recipients.some((x) => x.claimed)) next = 'held'
+    else if (info.into !== 'invoice' && (await invoiceSettled(ctx, info.into, info.invoice))) next = 'final'
+    if (next === undefined) continue
+    const to = next
+    await ctx.commit(async (t) => {
+      const cur = await t.get('holdings', h.id)
+      if (cur === undefined || !presumedPaid(cur)) return
+      await updateHolding(t, h.id, (x) => {
+        const { redeem: _r, ...rest } = x
+        return { ...rest, status: to === 'held' ? 'held' : 'redeemed' } as Holding
+      })
+    })
+    if (to === 'held') reopened.push(h.id)
+  }
+  return reopened
 }
 
 /** Whether the app's NWC wallet reports the invoice paid; any failure reads as not yet. */
