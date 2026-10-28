@@ -77,13 +77,17 @@ import { executeRedeem, planRedeem, settleRedeeming, type RedeemingReport, type 
 import { protectMany, receive, type ReceiveOptions, type ReceiveResult, type Secured } from './receive.js'
 import { report, type Report } from './report.js'
 import { executeSend, planSend, type SendInput, type SendPlan, type SendResult } from './send.js'
-import { lockedHoldings } from './bills.js'
+import { lockedHoldings, toCashNotes } from './bills.js'
 import { closeByUser, confirmReplace, settleCalls, type SettleCallsReport } from './runner.js'
 import { status, type StatusOutcome } from './status.js'
 import { holdingView, pendingCallView, type HoldingView, type PendingCallView } from './views.js'
 
-/** What `settle()` did: the pending calls, then the `redeeming` holdings. */
-export type SettleReport = SettleCallsReport & { readonly redeems: RedeemingReport; readonly joins: SettleJoinsReport }
+/**
+ * What `settle()` did: the pending calls, then the `redeeming` holdings.
+ * `unmerged`: bills a merge left on its one-time key, turned back into cash
+ * notes (best-effort; one that could not move stays for the next settle).
+ */
+export type SettleReport = SettleCallsReport & { readonly redeems: RedeemingReport; readonly joins: SettleJoinsReport; readonly unmerged: number }
 
 export interface ConnectionView {
   readonly name: string
@@ -375,16 +379,20 @@ export class Wallet {
   /**
    * Settles every open call by `cash_lookup`: applies a lost reply, places
    * an unknown call again under its derived id, surfaces the rest. Then
-   * re-reads every `redeeming` holding, and publishes again any zap's 9522
-   * that no relay has accepted.
+   * re-reads every `redeeming` (and presumed-paid) holding, turns what a
+   * merge left on its one-time key back into cash notes, and publishes again
+   * any zap's 9522 that no relay has accepted.
    */
   settle(): Promise<SettleReport> {
     return this.ctx.spend(async () => {
       const calls = await settleCalls(this.ctx)
+      // No merge runs between operations: a held merge-key bill with no open call is a leftover (withdraw and zap refuse it).
+      const leftovers = (await this.ctx.read((t) => t.list('holdings'))).filter((h) => h.status === 'held' && h.throwawayKey !== undefined).map((h) => h.id)
+      const unmerged = leftovers.length > 0 ? await toCashNotes(this.ctx, leftovers).catch(() => 0) : 0
       const redeems = await settleRedeeming(this.ctx).catch(() => ({ released: [], redeemed: [], spent: [], stillRedeeming: [] }))
       const joins = await settleJoins(this.ctx).catch(() => ({ joined: [], pending: [], needsUser: [] }))
       await republishZaps(this.ctx).catch(() => 0)
-      return { ...calls, redeems, joins }
+      return { ...calls, redeems, joins, unmerged }
     })
   }
 

@@ -210,12 +210,15 @@ export async function withdrawTerms(ctx: Ctx, holdingId: string): Promise<Withdr
 }
 
 /**
- * A bill held under a one-time merge key is not withdrawn: its lookups,
- * cancel request and re-minted bill would all need that key. The merge it
- * is part of (or its fallback to a cash note) finishes first.
+ * A bill held under a one-time merge key is not withdrawn (shared client
+ * rule, docs/design.md): its lookups and cancel request are authorized by
+ * that key, the cancelled payout's re-mint is delivered to it, and a
+ * pocket entry has no slot for it, so no other device could follow the
+ * withdrawal (NIP-CASH §Redeeming On-chain; NIP-CP §Writing). settle()
+ * turns such a leftover back into a cash note, which can then be withdrawn.
  */
 function refuseMidMerge(h: Holding): void {
-  if (h.throwawayKey !== undefined) throw new CashkitError('conflict', 'this bill is part of a merge that has not finished; settle() or the next send finishes it', { reason: 'mid_merge', input: h.id })
+  if (h.throwawayKey !== undefined) throw new CashkitError('conflict', 'this bill is part of a merge that has not finished; settle() turns it back into a cash note (the next send also uses it)', { reason: 'mid_merge', input: h.id })
 }
 
 /**

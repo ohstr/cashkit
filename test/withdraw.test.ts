@@ -274,6 +274,23 @@ describe('wallet.withdraw: checks against what was confirmed', () => {
     })
     expect(await failure(h.wallet.withdraw.quote(id, PAYTO))).toMatchObject({ code: 'conflict', reason: 'mid_merge' })
   })
+  test('settle() turns a merge-key leftover back into a cash note, which can then be withdrawn (R2-K4)', async () => {
+    const { h, id } = await setup()
+    const key = fill(0x45, 32)
+    const row0 = (await h.storage.tx('r', (t) => t.get('holdings', id)))!
+    // The bill now answers to the merge key, as after a merge that stopped midway.
+    h.bank.wallet(row0.token)!.identity = { type: 'pubkey', value: getPublicKey(key) }
+    await h.storage.tx('rw', async (t) => {
+      const row = (await t.get('holdings', id))!
+      await t.put('holdings', { ...row, throwawayKey: { alg: 'none', data: toHex(new TextEncoder().encode(toHex(key))) }, version: row.version + 1 }, row.version)
+    })
+    expect(await failure(h.wallet.withdraw.quote(id, PAYTO))).toMatchObject({ reason: 'mid_merge', message: expect.stringMatching(/settle\(\) turns it back into a cash note/) })
+    const rep = await h.wallet.settle()
+    expect(rep.unmerged).toBe(1)
+    const [note] = await h.wallet.holdings()
+    expect(note).toMatchObject({ mode: 'cash' })
+    expect((await h.wallet.withdraw.quote(note!.id, PAYTO)).amountMillis).toBe(21_000_000n)
+  })
   test('a payout naming another address or payout than the quote is not applied, even with a tx that pays it', async () => {
     const { h, hub, id } = await setup()
     const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
