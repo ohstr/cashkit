@@ -17,7 +17,8 @@ import { MemoryStorage } from '../../src/adapters/storage-memory.js'
 import { NoneVault } from '../../src/adapters/vault-none.js'
 import { syncPocket } from '../../src/adapters/sync-pocket.js'
 import { localSigner } from '../../src/core/index.js'
-import { readEvents } from '../../src/client/index.js'
+import { readEvents, type RelayPool } from '../../src/client/index.js'
+import type { NostrEvent } from '../../src/core/index.js'
 import { Wallet, CashkitError } from '../../src/wallet/index.js'
 import type { WalletDeps } from '../../src/wallet/ports.js'
 import { admin, api, createCashHub, deleteCashHub, hooks, relayUrl, until, type CreatedApp } from './admin.js'
@@ -45,6 +46,26 @@ async function settleAll(w: Wallet) {
     report = await w.settle()
   }
   return report
+}
+
+/** pool, except that the NIP-47 responses (kind 23195) to calls carrying a deadline (an `expiration` tag: mint_cash, not get_info) never arrive. */
+function dropDeadlineReplies(inner: RelayPool): RelayPool {
+  const dropped = new Set<string>()
+  const lost = (e: NostrEvent) => e.kind === 23195 && e.tags.some((t) => t[0] === 'e' && dropped.has(t[1]!))
+  return {
+    subscribe: (relays, filter, h) =>
+      inner.subscribe(relays, filter, {
+        // Delegated one by one: a handler object may keep its methods on a prototype.
+        onEose: (r) => h.onEose(r),
+        ...(h.onClose && { onClose: (r: string, why: string) => h.onClose!(r, why) }),
+        onEvent: (e, r) => (lost(e) ? undefined : h.onEvent(e, r)),
+      }),
+    publish: (relay, e) => {
+      if (e.kind === 23194 && e.tags.some((t) => t[0] === 'expiration')) dropped.add(e.id)
+      return inner.publish(relay, e)
+    },
+    ...(inner.relayInfo && { relayInfo: (relay: string) => inner.relayInfo!(relay) }),
+  }
 }
 
 afterAll(() => {
@@ -90,7 +111,11 @@ describe.skipIf(admin === undefined)('lokihub: cashhub1 mint and lost replies', 
     await first.identity.generate()
     await withHub(first, hub)
     first.close()
-    const lossy = await openWallet({ storage, vault, replyWaitMs: 1 }, false)
+    // A mint goes over NIP-47 on the cashhub1 connection, not the private
+    // transport. The online check (get_info) has to be answered, so the reply
+    // is lost at the relay instead: the mint's response (its request carries
+    // the deadline as an expiration tag) is dropped, and it gives up after 5 s.
+    const lossy = await openWallet({ storage, vault, relays: dropDeadlineReplies(pool), nwcTimeoutMs: 5_000 }, false)
     const lost = await lossy.mint({ hub: 'hub', amount: 12_000n, to: 'self' }).catch((e: unknown) => e)
     expect(lost).toBeInstanceOf(CashkitError)
     expect((lost as CashkitError).code).toBe('indeterminate')
@@ -128,7 +153,7 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: orders paid by the p
     await api('PUT', `/api/cash-hubs/${hub.id}/order-terms`, {
       terms: {
         lightning: { min_millis: 1000, max_millis: 1_000_000, fee_base: 1000, fee_ppm: 1000, window: 600 },
-        onchain: { min_millis: 10_000, max_millis: 1_000_000, fee_base: 21_000, fee_ppm: 2000, window: 3600, confirmations: [{ n: 1 }] },
+        onchain: { min_millis: 10_000, max_millis: 5_000_000, fee_base: 21_000, fee_ppm: 2000, window: 3600, confirmations: [{ n: 1 }] },
         bill: { redeem_fee_base: 0, redeem_fee_ppm: 0, min_transfer_millis: 0 },
       },
       openCeilingLightningMillis: 5_000_000,
@@ -183,14 +208,19 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: orders paid by the p
   test('an on-chain order is minted after one confirmation', async () => {
     const w = await openWallet()
     await w.identity.generate()
-    const o = await w.orders.place({ connection: cashorder, amountMillis: 20_000n, payment: 'onchain' })
+    // Large enough that its single output is not dust on the chain.
+    const o = await w.orders.place({ connection: cashorder, amountMillis: 1_000_000n, payment: 'onchain' })
     expect(o.address).toBeDefined()
     // One output, rounded up to whole loki: more mints more, never a refund.
     const pay = ((o.payMillis + 999n) / 1000n) * 1000n
     const txid = await hooks.payAddress(o.address!, pay)
     expect(txid).toMatch(/^[0-9a-f]{64}$/)
-    await until('on-chain order finished', async () => (await w.orders.refresh(o.id)).finished, { mine: true, tries: 20 })
-    expect((await w.orders.get(o.id)).bills).toHaveLength(1)
+    // An on-chain order stays open (not finished) until it expires or closes,
+    // and may gain more bills (NIP-CO §Client Behavior): wait for the bill.
+    await until('on-chain order minted', async () => (await w.orders.refresh(o.id)).bills.length > 0, { mine: true, tries: 20 })
+    const done = await w.orders.get(o.id)
+    expect(done.bills).toHaveLength(1)
+    expect(done.finished).toBe(false)
   }, 600_000)
 })
 
@@ -198,7 +228,8 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: on-chain withdrawals
   let hub: CreatedApp
   let offered = false
   beforeAll(async () => {
-    hub = await createCashHub({ name: 'cashkit-e2e withdraw', perWalletMaxMloki: 50_000_000, fundLoki: 30_000 })
+    // Four withdrawals of a 21,000-loki bill each, plus a re-mint.
+    hub = await createCashHub({ name: 'cashkit-e2e withdraw', perWalletMaxMloki: 50_000_000, fundLoki: 120_000 })
     try {
       await api('PUT', '/api/cash-withdraw/node', { enabled: true })
       const v = await api<{ offered: boolean }>('PUT', `/api/cash-hubs/${hub.id}/withdraw-terms`, { enabled: true, fee_base_millis: 1000, fee_ppm: 1000 })
