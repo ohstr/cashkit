@@ -1,10 +1,10 @@
 // pocket.json: NIP-CP pocket entries (kind 9525 rumors) — their tags and
 // rumor ids (K-POCKET-1..2, 5, 6), rumor parsing, version resolution
-// (K-POCKET-3) and the balance (K-POCKET-4). When an order or a withdrawal
+// (K-POCKET-3), the balance (K-POCKET-4) and the result to state table (K-POCKET-7). When an order or a withdrawal
 // writes an entry is the wallet's (src/wallet/pocket.ts) and is not run here:
 // only the entries those sections give.
 import { describe, expect, test } from 'vitest'
-import { checkPendingEntry, createRumor, eventJSON, KIND_POCKET_ENTRY, parsePocketEntry, pocketBalance, pocketEntryTags, resolveEntries, verifyWithdrawReceipt, type PocketEntry } from '../../src/core/index.js'
+import { checkPendingEntry, createRumor, eventJSON, KIND_POCKET_ENTRY, parsePocketEntry, parseTombstone, pocketBalance, pocketEntryTags, resolveEntries, stateForResult, verifyWithdrawReceipt, type BillAnswer, type PocketEntry } from '../../src/core/index.js'
 import { load, named, type Json } from './helpers.js'
 
 const v = load('pocket.json')
@@ -99,5 +99,31 @@ describe('pocket.json withdrawal entries', () => {
     }
     for (const w of c.writes) roundTrip(w.rumor)
     if (c.done !== undefined) roundTrip(c.done.rumor)
+  })
+})
+
+// K-POCKET-7: NIP-CP §Balance's result to state table (core stateForResult).
+const answerOf = (c: Json): BillAnswer => {
+  switch (c.result) {
+    case 'tombstone': {
+      const t = parseTombstone(c.tombstone)
+      expect(t).toBeDefined()
+      return { result: 'tombstone', ...(t!.reason !== undefined && { reason: t!.reason }) }
+    }
+    case 'not_found': {
+      return { result: 'not_found', byEntryKey: c.proof === 'identity_key' || c.proof === 'cash_secret' }
+    }
+    default:
+      return { result: c.result }
+  }
+}
+
+describe('pocket.json result to state (K-POCKET-7)', () => {
+  test('the section is there', () => {
+    expect(v.resultToState.length).toBeGreaterThanOrEqual(13)
+  })
+  test.each((v.resultToState as Json[]).map((c) => [c.name, c] as const))('%s', (_, c) => {
+    const a = answerOf(c)
+    expect(stateForResult(a)).toEqual({ state: c.state, definitive: c.definitive })
   })
 })

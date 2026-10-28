@@ -279,6 +279,37 @@ export function pocketBalance(entries: Iterable<PocketEntry>): Map<string, bigin
 export const stateForTombstone = (reason: string | undefined): PocketState => (reason === 'expired' ? 'expired' : reason === 'reclaimed' ? 'reclaimed' : 'spent')
 
 /**
+ * What a Hub said about a held bill, whichever method it answered
+ * (`cash_status`, `cash_redeem`, `cash_transfer`, `cash_consolidate`, or a
+ * lookup `done`): the wallet's own spend, a tombstone, `NOT_FOUND` (with
+ * whether the item proof was signed by the entry's identity key or, for a
+ * cash entry, made with its secret), or no answer.
+ */
+export type BillAnswer =
+  | { readonly result: 'own_spend' }
+  | { readonly result: 'tombstone'; readonly reason?: string }
+  | { readonly result: 'not_found'; readonly byEntryKey: boolean }
+  | { readonly result: 'no_answer' }
+
+/**
+ * NIP-CP §Balance's result to state table: the entry's state, and whether
+ * the answer is definitive (only a definitive answer may set a final state).
+ * `NOT_FOUND` for any other proof (a connection-key holder's) reads as no answer.
+ */
+export function stateForResult(a: BillAnswer): { readonly state: PocketState; readonly definitive: boolean } {
+  switch (a.result) {
+    case 'own_spend':
+      return { state: 'spent', definitive: true }
+    case 'tombstone':
+      return { state: stateForTombstone(a.reason), definitive: true }
+    case 'not_found':
+      return a.byEntryKey ? { state: 'reclaimed', definitive: true } : { state: 'unknown', definitive: false }
+    case 'no_answer':
+      return { state: 'unknown', definitive: false }
+  }
+}
+
+/**
  * A wrap's NIP-40 `expiration`, used only when the user turns it on:
  * `expires_at` plus the grace, rounded up to a whole week, plus 0–6 random days.
  */
