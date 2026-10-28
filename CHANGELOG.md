@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.2.0-rc.1]
 
 - Adds the holding statuses `expired` and `reclaimed` to the exported
   `HoldingStatus`, and `StatusOutcome.ends`; code that switches on a status
@@ -34,7 +34,6 @@
   the pending rotation alone; another device's unsent join is looked up once
   nothing can still arrive.
 
-## [0.2.0-rc.1]
 
 - Reads and writes the token's signature scheme (TLV 8) and verifies mint
   provenance over the `cash-mint:v1` and `cash-zap:v1` payloads, which sign
