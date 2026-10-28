@@ -1,0 +1,242 @@
+{
+  "description": "Proof of work on kind 23190 requests: NIP-13 difficulty of an id, the relay's pow: refusal message, the nonce and expiration tags, and the relay rule bounding the expiration to one day ahead.",
+  "source": "nipcash/transport/pow.go, nip13/nip13.go, internal/cashtest/powrelay.go; nipcash/transport/serve_test.go (K-POW-1..3), internal/cashtest/powrelay_test.go (K-POW-4)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "difficulty": [
+    {
+      "id": "K-POW-1",
+      "eventId": "000006d8c378af1779d2feebc7603a125d99eca0ccf1085959b307f64e5dd358",
+      "difficulty": 21
+    },
+    {
+      "eventId": "0000000000000000000000000000000000000000000000000000000000000000",
+      "difficulty": 256
+    },
+    {
+      "eventId": "8000000000000000000000000000000000000000000000000000000000000000",
+      "difficulty": 0
+    },
+    {
+      "eventId": "00ff000000000000000000000000000000000000000000000000000000000000",
+      "difficulty": 8
+    },
+    {
+      "eventId": "zz",
+      "difficulty": 0,
+      "error": "invalid key, bad size: 2"
+    }
+  ],
+  "parseRejection": [
+    {
+      "id": "K-POW-2",
+      "message": "pow: difficulty 20 required",
+      "difficulty": 20,
+      "powRefusal": true
+    },
+    {
+      "message": "pow: too low",
+      "difficulty": 0,
+      "powRefusal": true
+    },
+    {
+      "message": "blocked: no",
+      "difficulty": 0,
+      "powRefusal": false
+    },
+    {
+      "message": "pow:20",
+      "difficulty": 20,
+      "powRefusal": true
+    },
+    {
+      "message": "POW: difficulty 20",
+      "difficulty": 0,
+      "powRefusal": false
+    },
+    {
+      "message": "",
+      "difficulty": 0,
+      "powRefusal": false
+    }
+  ],
+  "tags": {
+    "id": "K-POW-3",
+    "notAfter": 1720000060,
+    "target": 20,
+    "shape": [
+      [
+        "expiration",
+        "1720000060"
+      ],
+      [
+        "nonce",
+        "<n>",
+        "20"
+      ]
+    ],
+    "example": {
+      "id": "00fd83f241b5570dc6011df43afa146aa21cfb4d9248263c74698288ec8a663d",
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "created_at": 1719996400,
+      "kind": 23190,
+      "tags": [
+        [
+          "p",
+          "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+        ],
+        [
+          "expiration",
+          "1720000060"
+        ],
+        [
+          "nonce",
+          "545",
+          "8"
+        ]
+      ],
+      "content": "x",
+      "sig": ""
+    }
+  },
+  "validate": [
+    {
+      "name": "mined to 8",
+      "event": {
+        "id": "00fd83f241b5570dc6011df43afa146aa21cfb4d9248263c74698288ec8a663d",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1719996400,
+        "kind": 23190,
+        "tags": [
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "expiration",
+            "1720000060"
+          ],
+          [
+            "nonce",
+            "545",
+            "8"
+          ]
+        ],
+        "content": "x",
+        "sig": ""
+      },
+      "difficulty": 8
+    },
+    {
+      "name": "declares more than the id has",
+      "event": {
+        "id": "00fd83f241b5570dc6011df43afa146aa21cfb4d9248263c74698288ec8a663d",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1719996400,
+        "kind": 23190,
+        "tags": [
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "expiration",
+            "1720000060"
+          ],
+          [
+            "nonce",
+            "545",
+            "40"
+          ]
+        ],
+        "content": "x",
+        "sig": ""
+      },
+      "difficulty": 40,
+      "error": "insufficient proof of work: nonce tag declares difficulty 40 but event ID only has 8 leading zero bits"
+    },
+    {
+      "name": "content changed after mining",
+      "event": {
+        "id": "00fd83f241b5570dc6011df43afa146aa21cfb4d9248263c74698288ec8a663d",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1719996400,
+        "kind": 23190,
+        "tags": [
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "expiration",
+            "1720000060"
+          ],
+          [
+            "nonce",
+            "545",
+            "8"
+          ]
+        ],
+        "content": "y",
+        "sig": ""
+      },
+      "difficulty": 8,
+      "error": "mismatched event ID: want 00fd83f241b5570dc6011df43afa146aa21cfb4d9248263c74698288ec8a663d, got 3cc5169760d83e665948c8ab4a174881f4887637ca9738fabf902cb204883086"
+    },
+    {
+      "name": "no nonce tag",
+      "event": {
+        "id": "00fd83f241b5570dc6011df43afa146aa21cfb4d9248263c74698288ec8a663d",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1719996400,
+        "kind": 23190,
+        "tags": [
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+          ],
+          [
+            "expiration",
+            "1720000060"
+          ]
+        ],
+        "content": "x",
+        "sig": ""
+      },
+      "difficulty": 0,
+      "error": "nonce tag not found, []"
+    }
+  ],
+  "relayRule": [
+    {
+      "id": "K-POW-4",
+      "now": 1720000000,
+      "expiration": 1720086400,
+      "accepted": true
+    },
+    {
+      "id": "K-POW-4",
+      "now": 1720000000,
+      "expiration": 1720086401,
+      "accepted": false
+    },
+    {
+      "id": "K-POW-4",
+      "now": 1720000000,
+      "expiration": 1719999999,
+      "accepted": false
+    },
+    {
+      "id": "K-POW-4",
+      "now": 1720000000,
+      "expiration": null,
+      "accepted": false
+    },
+    {
+      "id": "K-POW-4",
+      "now": 1720000000,
+      "expiration": 1720000000,
+      "accepted": true
+    }
+  ],
+  "maxPowAhead": 86400
+}

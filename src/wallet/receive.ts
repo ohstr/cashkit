@@ -1,14 +1,16 @@
 // Receive and protect (design §6.1, §6.4). Port of cashctl
 // cmd/cash_receive.go runCashReceive and cmd/receive_secure.go
 // protectRekeyOnly.
-import { bySecret, bySigning, decodeToken, newCashTarget, sniff, splitCashString, type Credential, type Token } from '../core/index.js'
-import { ClientError, WalletError } from '../client/index.js'
+import { bySecret, bySigning, decodeToken, newCashTarget, sniff, splitCashString, type Credential, type NostrEvent, type Token } from '../core/index.js'
+import { ClientError, type CheckClaimResult } from '../client/index.js'
 import { validateClaimedAmount } from './amounts.js'
-import { followMove, getHeld } from './bills.js'
-import { tokenFacts, type Ctx } from './context.js'
-import { CashkitError, classifyReadError, isNotSent } from './errors.js'
+import { getHeld, lockedHoldings } from './bills.js'
+import { runTransfer } from './kinds.js'
+import { connectionKeyCredential, tokenFacts, type Ctx } from './context.js'
+import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
+import { goneError, tombstoneStatus } from './billState.js'
 import { addHolding, appendActivity, findByToken, updateHolding } from './ledger.js'
-import type { Holding } from './model.js'
+import type { ConnectionKeyBinding, Holding } from './model.js'
 import { holdingView, type HoldingView } from './views.js'
 
 /** What a token says about itself, read offline. Carries no secret. */
@@ -29,14 +31,27 @@ export interface Secured {
 }
 
 export type ReceiveResult =
-  | { readonly received: true; readonly holding: HoldingView; readonly secured: Secured }
+  | {
+      readonly received: true
+      readonly holding: HoldingView
+      readonly secured: Secured
+      /**
+       * A connection-key bill whose Hub does not show its holder the status
+       * (NIP-CASH §Scoping the Roster answers `NOT_FOUND`): it is held
+       * unverified, at the amount its verified mint signature attests, and
+       * the Hub has not confirmed a slice for this account. Sending it works;
+       * a quote, redeem or withdrawal needs it moved to your own pubkey first.
+       */
+      readonly statusUnreadable?: true
+    }
   | { readonly received: false; readonly reason: 'no_embedded_secret'; readonly report: TokenReport }
 
 function refuseKind(input: string): void {
   const kind = sniff(input)
   const why: Partial<Record<typeof kind, string>> = {
-    circlehub: "that's a Circle Hub connection: join it with wallet.joinCircle()",
-    cashhub: "that's a Cash Hub connection (for minting cash): minting needs the Hub operator's own tooling",
+    circlehub: "that's a Circle Hub connection: join it with wallet.circles.join()",
+    cashhub: "that's a Cash Hub connection (for minting cash), not a cash token: add it with wallet.connections.add()",
+    cashorder: "that's an Order connection (for buying cash), not a cash token",
     nwc_uri: "that looks like a wallet connection, not a cash token: add it with wallet.connections.add()",
     nostr_entity: "that's a Nostr identifier, not a cash token",
     lightning_invoice: "that's a Lightning invoice, not a cash token: pay it from a wallet, or redeem into it with wallet.redeem({ invoice })",
@@ -55,8 +70,21 @@ function reportOf(tok: Token): TokenReport {
   }
 }
 
+export interface ReceiveOptions {
+  /** Protect a cash note by rekeying it (default: `settings.autoProtect`). */
+  readonly protect?: boolean
+  /**
+   * For a bill bound to a connection key: the account's attestation (kind
+   * 35522, the event or its JSON text) naming this wallet's identity. The
+   * holding keeps it, as every claim on the slice must name it. Receiving a
+   * held connection-key bill again with a newer attestation for the same
+   * account and IA replaces the stored one (one that expired).
+   */
+  readonly attestation?: NostrEvent | string
+}
+
 /** `receive`: check the bill with its Hub, commit it, then protect a cash note. */
-export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean } = {}): Promise<ReceiveResult> {
+export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}): Promise<ReceiveResult> {
   const { token: input, cashSecret: embedded } = splitCashString(rawInput.trim())
   refuseKind(input)
   let tok: Token
@@ -66,12 +94,23 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
     throw new CashkitError('invalid_input', (err as Error).message, { input, cause: err })
   }
   const facts = tokenFacts(input)
-  let isCash = tok.identityRequired === false || embedded !== ''
+  let ck: ReturnType<typeof connectionKeyCredential> | undefined
+  if (o.attestation !== undefined) {
+    if (embedded !== '') throw new CashkitError('usage', 'a cash note carries its own secret: receive it without an attestation', { input })
+    let event: NostrEvent
+    try {
+      event = typeof o.attestation === 'string' ? (JSON.parse(o.attestation) as NostrEvent) : o.attestation
+    } catch (err) {
+      throw new CashkitError('invalid_input', 'the attestation is not a JSON event', { input, cause: err })
+    }
+    ck = connectionKeyCredential(await ctx.requireSigner(), event, ctx.nowSeconds(), undefined, input)
+  }
+  let isCash = ck === undefined && (tok.identityRequired === false || embedded !== '')
   const signer = await ctx.signer()
   if (isCash && embedded === '' && signer !== undefined) {
     // Metadata says cash, but a transfer may have bound it to us since.
     try {
-      const live = await ctx.client(tok).checkClaim(bySigning(signer), signer.pubkey)
+      const live = await ctx.client(tok).checkClaim(bySigning(signer))
       if (!live.isCash) isCash = false
     } catch {
       // stays a cash bill without its secret
@@ -81,27 +120,35 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
     return { received: false, reason: 'no_embedded_secret', report: { ...reportOf(tok), ...(facts.minterPubkey !== undefined && { minterPubkey: facts.minterPubkey }) } }
   }
   const existing = await ctx.read((t) => findByToken(t, input))
-  if (existing?.status === 'held') throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
+  if (existing?.status === 'held' || existing?.status === 'redeeming') {
+    if (ck !== undefined && existing.mode === 'connection_key' && existing.connectionKey !== undefined) return refreshAttestation(ctx, existing, o.attestation!, input)
+    throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
+  }
 
   let cred: Credential
-  if (embedded !== '') cred = bySecret(embedded)
+  if (ck !== undefined) cred = ck.credential
+  else if (embedded !== '') cred = bySecret(embedded)
   else cred = bySigning(await ctx.requireSigner())
-  let r
+  let r: CheckClaimResult | undefined
   try {
-    r = await ctx.client(tok).checkClaim(cred, signer?.pubkey ?? '')
+    r = await ctx.client(tok).checkClaim(cred)
   } catch (err) {
-    if (err instanceof ClientError && err.code === 'spent') throw new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone', { input })
+    if (ck !== undefined && err instanceof ClientError && err.code === 'status_unreadable') return receiveUnreadable(ctx, input, tok, facts, ck.binding)
+    if (err instanceof ClientError && err.code === 'spent') throw goneError(tombstoneStatus(err.tombstone), input)
     if (err instanceof ClientError && err.code === 'claim_not_found') {
       throw new CashkitError(
         'invalid_input',
         embedded !== ''
           ? "the cash secret after '#' does not match this bill (is it complete?) — refusing to receive it"
-          : 'the Cash Hub has no matching recipient for this token — refusing to receive it',
+          : ck !== undefined
+            ? "the Cash Hub has no slice of this token for this attestation's account — refusing to receive it"
+            : 'the Cash Hub has no matching recipient for this token — refusing to receive it',
         { input },
       )
     }
     throw classifyReadError(err)
   }
+  if (!r.claimable) throw notClaimableError(r.reason, input)
   validateClaimedAmount(tok, r.minterPubkey, r.amountMillis)
   const sealedSecret = embedded !== '' ? await ctx.seal(embedded) : undefined
   const holding = await ctx.commit(async (t) => {
@@ -116,7 +163,11 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
         verified: true,
         ...(r.minterPubkey !== undefined && { minterPubkey: r.minterPubkey }),
         ...(r.expiresAt !== undefined && { expiresAt: r.expiresAt }),
-        ...(r.isCash ? { mode: 'cash' as const, protection: 'shared' as const, ...(sealedSecret !== undefined && { cashSecret: sealedSecret }) } : { mode: 'pubkey' as const, protection: 'none' as const }),
+        ...(r.isCash
+          ? { mode: 'cash' as const, protection: 'shared' as const, ...(sealedSecret !== undefined && { cashSecret: sealedSecret }) }
+          : ck !== undefined
+            ? { mode: 'connection_key' as const, protection: 'none' as const, connectionKey: ck.binding }
+            : { mode: 'pubkey' as const, protection: 'none' as const }),
       },
       { now: ctx.now(), random: ctx.random },
     )
@@ -134,44 +185,74 @@ export async function receive(ctx: Ctx, rawInput: string, o: { protect?: boolean
 }
 
 /**
+ * A held connection-key bill received again with a newer attestation: its
+ * binding takes the new one, which must name the same account and IA (an
+ * attestation expires, and every claim on the slice needs an unexpired one).
+ */
+async function refreshAttestation(ctx: Ctx, h: Holding, attestation: NostrEvent | string, input: string): Promise<ReceiveResult> {
+  const b = h.connectionKey!
+  const event = typeof attestation === 'string' ? (JSON.parse(attestation) as NostrEvent) : attestation
+  const { binding } = connectionKeyCredential(await ctx.requireSigner(), event, ctx.nowSeconds(), { key: b.key, ia: b.iaPubkey }, input)
+  const updated = await ctx.commit((t) => updateHolding(t, h.id, (x) => ({ ...x, connectionKey: binding })))
+  return { received: true, holding: holdingView(updated, ctx.nowSeconds()), secured: { status: 'not_applicable' } }
+}
+
+/**
+ * Holds a connection-key bill a spec Hub will not show its holder the status
+ * of (NIP-CASH §Scoping the Roster). Nothing about it was confirmed, so it is
+ * kept `verified: false` at its attested amount: the mint signature verified
+ * (the client reached the Hub through it), so that figure is the minter's.
+ * Nothing moves, and a claim later made with the wrong account is refused by
+ * the Hub, never lost.
+ */
+async function receiveUnreadable(ctx: Ctx, input: string, tok: Token, facts: ReturnType<typeof tokenFacts>, binding: ConnectionKeyBinding): Promise<ReceiveResult> {
+  const amount = tok.attestedAmountMillis
+  if (facts.minterPubkey === undefined || amount === undefined) {
+    throw new CashkitError('invalid_input', "this token's mint signature does not verify, and its Hub does not show a connection-key holder the status, so nothing about it can be checked — refusing to receive it", { input })
+  }
+  validateClaimedAmount(tok, facts.minterPubkey, amount)
+  const holding = await ctx.commit(async (t) => {
+    const h = await addHolding(
+      t,
+      {
+        token: input,
+        walletPubkey: tok.walletPubkey,
+        hubGroup: facts.hubGroup,
+        relayUrls: tok.relays,
+        amount,
+        verified: false,
+        minterPubkey: facts.minterPubkey!,
+        mode: 'connection_key',
+        protection: 'none',
+        connectionKey: binding,
+      },
+      { now: ctx.now(), random: ctx.random },
+    )
+    await appendActivity(t, ctx.now(), { action: 'receive', amount, holdingId: h.id, mode: h.mode })
+    return h
+  })
+  return { received: true, holding: holdingView(holding, ctx.nowSeconds()), secured: { status: 'not_applicable' }, statusUnreadable: true }
+}
+
+/**
  * `protectRekeyOnly`: moves a shared cash note to a fresh secret only this
- * wallet knows. The secret is parked first; a definite refusal clears it,
- * silence keeps it for `settle()`.
+ * wallet knows, as one transfer call whose new secret is written ahead. An
+ * answer that leaves the call open keeps the holding locked until
+ * `settle()` resolves it, so its secret is never overwritten.
  */
 export async function protectOne(ctx: Ctx, h: Holding): Promise<{ secured: Secured; holding: Holding }> {
+  if (h.amount === undefined || h.cashSecret === undefined) return { secured: { status: 'failed' }, holding: h }
+  if ((await lockedHoldings(ctx)).has(h.id)) return { secured: { status: 'failed', unresolved: true }, holding: h }
   const target = newCashTarget(ctx.random)
-  const sealed = await ctx.seal(target.secret)
-  let parked: Holding
   try {
-    parked = await ctx.commit((t) => updateHolding(t, h.id, (x) => ({ ...x, pendingCashSecret: sealed }), h.version))
-  } catch {
-    return { secured: { status: 'failed' }, holding: h }
-  }
-  let res
-  try {
-    if (parked.amount === undefined || parked.cashSecret === undefined) throw new CashkitError('invalid_input', 'this holding has no amount or cash secret to protect')
-    res = await ctx.client(parked.token).cashTransfer({ credential: bySecret(await ctx.open(parked.cashSecret)), to: target, currentAmount: parked.amount })
+    await runTransfer(ctx, { op: 'protect', source: h, to: target, destination: { kind: 'cash', secret: target.secret }, keep: 'holding', amount: h.amount })
   } catch (err) {
-    if (err instanceof WalletError || isNotSent(err) || err instanceof CashkitError) {
-      const cleared = await ctx.commit((t) => updateHolding(t, h.id, ({ pendingCashSecret: _p, ...x }) => x)).catch(() => parked)
-      return { secured: { status: 'failed', likelyWrongSecret: err instanceof WalletError && err.walletCode === 'NOT_FOUND' }, holding: cleared }
-    }
-    return { secured: { status: 'failed', unresolved: true }, holding: parked }
+    const open = err instanceof CashkitError && err.pendingCallId !== undefined
+    const now = (await ctx.read((t) => t.get('holdings', h.id))) ?? h
+    return { secured: { status: 'failed', ...(open && { unresolved: true }), ...(err instanceof CashkitError && err.nwcCode === 'NOT_FOUND' && { likelyWrongSecret: true }) }, holding: now }
   }
-  try {
-    const done = await ctx.commit(async (t) => {
-      const x = await updateHolding(t, h.id, (cur) => {
-        const { pendingCashSecret: _p, ...rest } = followMove(cur, res)
-        return { ...rest, cashSecret: sealed, protection: 'protected' }
-      })
-      await appendActivity(t, ctx.now(), { action: 'protect', holdingId: h.id })
-      return x
-    })
-    return { secured: { status: 'rekeyed' }, holding: done }
-  } catch {
-    // The new secret is parked and committed; settle() promotes it.
-    return { secured: { status: 'failed', unresolved: true }, holding: parked }
-  }
+  const done = (await ctx.read((t) => t.get('holdings', h.id))) ?? h
+  return { secured: { status: 'rekeyed' }, holding: done }
 }
 
 /** Protects the named holdings, or every shared cash note. */

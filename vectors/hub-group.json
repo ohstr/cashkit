@@ -1,8 +1,18 @@
 {
   "description": "Hub-group fingerprint: the first 4 bytes of sha256 over the hub pubkey's hex TEXT, and the grouping rule.",
   "source": "nipcash/token.go HubGroupFor, SameHubGroup; nipcash/hub_group_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "nmilat": "github.com/ohstr/nmilat devel",
   "hubGroupFor": [
+    {
+      "hub": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "group": "3bbf9943",
+      "notRawBytes": "132f39a9"
+    },
+    {
+      "hub": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "group": "ed79e8ff",
+      "notRawBytes": "7c79f307"
+    },
     {
       "hub": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
       "group": "3985dac9",

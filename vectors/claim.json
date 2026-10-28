@@ -1,7 +1,7 @@
 {
-  "description": "NIP-IC attestations, cash targets, the claim proofs and new_identity bindings nmilat builds for cash_redeem, cash_transfer and cash_consolidate, and recipient matching.",
-  "source": "nipcash/{identity,proof,claim,cash_redeem,cash_transfer,cash_consolidate}.go, nipIC/attestation.go; nipcash/proof_binding_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "description": "Claim proofs (kind 23198, K-CLAIM-1..5) and their verification, NIP-IC attestations, cash targets, the requests nmilat builds for cash_redeem, cash_transfer and cash_consolidate, their results (tokens decrypted, tombstones), tombstone reasons, ordered inheritance, and finding the caller's own row (ownRow) and whether it can be spent (claimable).",
+  "source": "nipcash/{claim_proof,claim,identity,proof,cash_redeem,cash_transfer,cash_consolidate,tombstone,ordered}.go, nipIC/attestation.go; nipcash/claim_proof_test.go, withdraw_test.go, proof_binding_test.go",
+  "nmilat": "github.com/ohstr/nmilat devel",
   "attestation": [
     {
       "name": "valid",
@@ -125,20 +125,7 @@
         "content": "",
         "sig": "fe7515646b7ae8f88f19399f872cef9ff8658f05d1880a6206a2abf99b4de114d2531eea40a9908dc2def56d90987084167589e51028278415d1fb40fc701619"
       },
-      "want": {
-        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
-        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "platform": "github",
-        "evidence": {
-          "userId": "12345",
-          "username": "alice",
-          "verifiedAt": 1759999000,
-          "evidenceUrl": "https://gist.github.com/alice/1",
-          "challenge": "npv1x",
-          "preAuthCode": "abcd"
-        },
-        "expiresAt": null
-      }
+      "error": "nipIC: invalid tag: expiration \"soon\""
     },
     {
       "name": "wrong kind",
@@ -236,7 +223,7 @@
         "content": "",
         "sig": "e5db280fb7a788ffaacd76a7fbda819fa8db34f80653f0e158cf5f9b0da7799fd897b213fb694d6ff5578577558e7b70e9f79706111e3cce492c757afff8f917"
       },
-      "error": "nipIC: missing required tag: #d tag is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"d\" tag is required for Kind 35522"
     },
     {
       "name": "empty d",
@@ -270,7 +257,7 @@
         "content": "",
         "sig": "98629f6949dd3467bab7110306457b7d119d12705c1fada0664b5f1aac9796c6047a76e476f8cdb2fab3f3321656da34707904a46162e03e237d1aa0850f1403"
       },
-      "error": "nipIC: missing required tag: #d tag is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"d\" tag is required for Kind 35522"
     },
     {
       "name": "missing p",
@@ -300,7 +287,7 @@
         "content": "",
         "sig": "9a8abd61dc8509fbb2b89a45abc531d7b394d04cb5d3d51951198f72b79d6389256bf2eed3a93f278598ae84b75becefcb387dbf300b2fadadd396a67af8859c"
       },
-      "error": "nipIC: missing required tag: #p tag (user pubkey) is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"p\" tag is required for Kind 35522"
     },
     {
       "name": "empty p",
@@ -334,7 +321,7 @@
         "content": "",
         "sig": "0491342532d6256d62759d2f67d5f64b4415ceff5a5fb672d52831c9f5f16e029121b15e8e919bd7ebbcbe3b2122fa889fb1e3f4ac75d35c0f8fba57755ccf48"
       },
-      "error": "nipIC: missing required tag: #p tag (user pubkey) is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"p\" tag is required for Kind 35522"
     },
     {
       "name": "missing platform",
@@ -364,7 +351,7 @@
         "content": "",
         "sig": "c00899bf7e8dc72ea363ff504c66d5f90b8085466a2394deca390554204b88c77565c5825da761e4eba969fe987be0834df5d90555e54581dcfbb4d76645868c"
       },
-      "error": "nipIC: missing required tag: #platform tag is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"platform\" tag is required for Kind 35522"
     },
     {
       "name": "empty platform",
@@ -398,7 +385,7 @@
         "content": "",
         "sig": "7cdc959cb388fc9e8fa4f2c4a373dc61beef0de5ca9f611a2a6f77f14369e3e918113df5849a0351196257d8c9e6a7d019681e22216e42f5011238b999ae8e09"
       },
-      "error": "nipIC: missing required tag: #platform tag is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"platform\" tag is required for Kind 35522"
     },
     {
       "name": "missing evidence",
@@ -428,7 +415,7 @@
         "content": "",
         "sig": "9bc0f8fcb20979fb0ea98aa4fc11d61a4631cdda947b93c9558969d7c71851025f79ebe60db2050e21dd360c5ce3b3aaeafd3d956713bf2b8d940fd8aa7fb5f8"
       },
-      "error": "nipIC: missing required tag: #evidence tag is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"evidence\" tag is required for Kind 35522"
     },
     {
       "name": "empty evidence",
@@ -462,7 +449,7 @@
         "content": "",
         "sig": "b8d5f493e10700d787b12b5596a8e9713f1df71b09ebb31cf8f0f3f1e56af58eeab547ce75a26326896f54fd1fff9d9cb76da328f572e1d692d97017d9d19213"
       },
-      "error": "nipIC: missing required tag: #evidence tag is required for Kind 35522"
+      "error": "nipIC: missing required tag: \"evidence\" tag is required for Kind 35522"
     },
     {
       "name": "platform-prefixed d",
@@ -564,20 +551,7 @@
         "content": "",
         "sig": "de23243afd6bae152c11d5ec30c02a73f9253f560080d5ae2a12c42554b0de4a330045f483c4e00e6d528fc0d484556679d1d9dcc8d0963cb0d35e3128924e47"
       },
-      "want": {
-        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
-        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "platform": "github",
-        "evidence": {
-          "userId": "",
-          "username": "",
-          "verifiedAt": 0,
-          "evidenceUrl": "",
-          "challenge": "",
-          "preAuthCode": ""
-        },
-        "expiresAt": 4102444800
-      }
+      "error": "nipIC: invalid tag: evidence version must be 1"
     },
     {
       "name": "evidence an array",
@@ -713,20 +687,7 @@
         "content": "",
         "sig": "192a0c333f6cdeeebd731f7e353d9872428693c611f4f2a69d83e4294aed00714179848b461c42177780c367b2bcabecab35e21d147ccdbd757a2e435667338b"
       },
-      "want": {
-        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
-        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "platform": "github",
-        "evidence": {
-          "userId": "x",
-          "username": "",
-          "verifiedAt": 0,
-          "evidenceUrl": "",
-          "challenge": "",
-          "preAuthCode": ""
-        },
-        "expiresAt": 4102444800
-      }
+      "error": "nipIC: invalid tag: evidence version must be 1"
     },
     {
       "name": "a repeated tag: the last one wins",
@@ -764,20 +725,7 @@
         "content": "",
         "sig": "dbb2b3b9fb8489feb3ec2354461b7ebbf16851e537264dd3ca859a0a37277780ae5a661996cb82f00b7797ab35c77a2b8dcc66e665dadf0991318bd9b4efa72d"
       },
-      "want": {
-        "connectionKey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
-        "userPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "platform": "x",
-        "evidence": {
-          "userId": "12345",
-          "username": "alice",
-          "verifiedAt": 1759999000,
-          "evidenceUrl": "https://gist.github.com/alice/1",
-          "challenge": "npv1x",
-          "preAuthCode": "abcd"
-        },
-        "expiresAt": 4102444800
-      }
+      "error": "nipIC: invalid tag: \"platform\" tag repeated"
     },
     {
       "name": "one-element tags are skipped",
@@ -832,12 +780,12 @@
   ],
   "cashTarget": [
     {
-      "secret": "2b981c5ea36d869d57e8f2a3e97eba137458bc1a976cb3cd675e9ce1a38549ce",
-      "commit": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
+      "secret": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "commit": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2"
     },
     {
-      "secret": "4344312968c7236698386c9243570a1ec777234202f4d64e8e0fa2ea9a00fa19",
-      "commit": "817d2796179a1a64d5f64bcdbd05c83861852d1caad822542253baf02ae7cca2"
+      "secret": "c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+      "commit": "ae2a4ad16dc264b2fd4ed034e0fd56c9ad901e14000a89451123af42810afa8d"
     }
   ],
   "requests": [
@@ -873,6 +821,10 @@
               "abababababababababababababababababababababababababababababababab"
             ],
             [
+              "m",
+              "cash_redeem"
+            ],
+            [
               "bolt11_hash",
               "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             ]
@@ -902,6 +854,10 @@
             [
               "d",
               "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "m",
+              "cash_redeem"
             ],
             [
               "bolt11_hash",
@@ -952,6 +908,17 @@
         "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0",
         "wallet": "abababababababababababababababababababababababababababababababab"
       },
+      "error": "nipcash: amount must not be sent with an invoice that carries an amount"
+    },
+    {
+      "name": "redeem an amountless invoice with an amount",
+      "method": "cash_redeem",
+      "inputs": {
+        "amount": 500000,
+        "credential": "signing",
+        "invoice": "lnfc1png28sqpp52pg4y56524t9wkzetfd4ch27tasxzcnrv3jkvemgd94xkmrddehsh3fx9md6x750kqe5n7szy73d5qphvwku8hdlue4qax4a742jea0kjfuvhyqxnj5j4skvl76p0fxg7r4rnzvhg2m7w0966msreksyj3gqyq7vjg",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
       "request": {
         "amount": 500000,
         "identity_event": {
@@ -964,15 +931,19 @@
               "abababababababababababababababababababababababababababababababab"
             ],
             [
+              "m",
+              "cash_redeem"
+            ],
+            [
               "bolt11_hash",
-              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              "505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f"
             ]
           ],
           "valid": true
         },
         "identity_type": "pubkey",
         "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "invoice": "lnfc10u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqahznw0"
+        "invoice": "lnfc1png28sqpp52pg4y56524t9wkzetfd4ch27tasxzcnrv3jkvemgd94xkmrddehsh3fx9md6x750kqe5n7szy73d5qphvwku8hdlue4qax4a742jea0kjfuvhyqxnj5j4skvl76p0fxg7r4rnzvhg2m7w0966msreksyj3gqyq7vjg"
       }
     },
     {
@@ -1005,6 +976,10 @@
               "abababababababababababababababababababababababababababababababab"
             ],
             [
+              "m",
+              "cash_transfer"
+            ],
+            [
               "new_identity_hash",
               "0da174a2f5b86e84b32c08e2f2340dd2088e80bd1a1488b2bace690d0c5ca529"
             ],
@@ -1020,7 +995,8 @@
         "new_identity": {
           "identity_type": "pubkey",
           "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
-        }
+        },
+        "request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {
@@ -1032,34 +1008,7 @@
         "to": "pubkey uppercase",
         "wallet": "abababababababababababababababababababababababababababababababab"
       },
-      "request": {
-        "identity_event": {
-          "content": "",
-          "kind": 23198,
-          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-          "tags": [
-            [
-              "d",
-              "abababababababababababababababababababababababababababababababab"
-            ],
-            [
-              "new_identity_hash",
-              "de7594371a4adb3c884513f962bbc86ca2d6fbd1dd0ca8c579b00f7447a3dd84"
-            ],
-            [
-              "amount_millis",
-              "21000"
-            ]
-          ],
-          "valid": true
-        },
-        "identity_type": "pubkey",
-        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "new_identity": {
-          "identity_type": "pubkey",
-          "identity_value": "4D4B6CD1361032CA9BD2AEB9D900AA4D45D9EAD80AC9423374C451A7254D0766"
-        }
-      }
+      "error": "nipcash: a pubkey must be 64 lowercase hex characters"
     },
     {
       "name": "transfer to connection_key",
@@ -1081,6 +1030,10 @@
               "abababababababababababababababababababababababababababababababab"
             ],
             [
+              "m",
+              "cash_transfer"
+            ],
+            [
               "new_identity_hash",
               "56b35f63fa86d0a4c7124a4592c9d2133fb6a39c45c084d32180fa9761ac3a90"
             ],
@@ -1097,7 +1050,8 @@
           "ia_pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
           "identity_type": "connection_key",
           "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
-        }
+        },
+        "request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {
@@ -1120,43 +1074,26 @@
         "to": "connection_key no platform",
         "wallet": "abababababababababababababababababababababababababababababababab"
       },
-      "request": {
-        "identity_event": {
-          "content": "",
-          "kind": 23198,
-          "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-          "tags": [
-            [
-              "d",
-              "abababababababababababababababababababababababababababababababab"
-            ],
-            [
-              "new_identity_hash",
-              "2078f06e21cbfad60cd04352d9d930b721837db5d9e13a64f84fce614ce59d27"
-            ],
-            [
-              "amount_millis",
-              "21000"
-            ]
-          ],
-          "valid": true
-        },
-        "identity_type": "pubkey",
-        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-        "new_identity": {
-          "ia_pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
-          "identity_type": "pubkey",
-          "identity_value": "32eb79f94af0cffcb8a0841b15fd77b222423029780864d97822f0c8fce243e2"
-        }
-      }
+      "error": "nipIC: platform name must match [a-z0-9._-]+"
     },
     {
-      "name": "transfer to resolved connection_key",
+      "name": "transfer to connection_key typed github",
       "method": "cash_transfer",
       "inputs": {
         "credential": "signing",
         "currentAmount": 21000,
-        "to": "resolved connection_key",
+        "to": "connection_key typed github",
+        "wallet": "abababababababababababababababababababababababababababababababab"
+      },
+      "error": "nipIC: this platform has no canonical form; take the key from the recipient's attestation or nconnection"
+    },
+    {
+      "name": "transfer to connection_key typed x",
+      "method": "cash_transfer",
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "connection_key typed x",
         "wallet": "abababababababababababababababababababababababababababababababab"
       },
       "request": {
@@ -1170,8 +1107,12 @@
               "abababababababababababababababababababababababababababababababab"
             ],
             [
+              "m",
+              "cash_transfer"
+            ],
+            [
               "new_identity_hash",
-              "56b35f63fa86d0a4c7124a4592c9d2133fb6a39c45c084d32180fa9761ac3a90"
+              "22a911dc4b3e0b1f93c1da4e8ee66c9c746214feb373c3abe6fdbb26019a4159"
             ],
             [
               "amount_millis",
@@ -1185,8 +1126,9 @@
         "new_identity": {
           "ia_pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
           "identity_type": "connection_key",
-          "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf"
-        }
+          "identity_value": "e659b0738cfe438a5d0a58a6eaac063b29537dc9e4570dafac589de080f35c58"
+        },
+        "request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {
@@ -1209,8 +1151,12 @@
               "abababababababababababababababababababababababababababababababab"
             ],
             [
+              "m",
+              "cash_transfer"
+            ],
+            [
               "new_identity_hash",
-              "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+              "fbe7e31a2128cb8352ecb9edf7d633854f5236eac0b49fc83f81cbd40f1058bc"
             ],
             [
               "amount_millis",
@@ -1223,8 +1169,9 @@
         "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
         "new_identity": {
           "identity_type": "cash",
-          "identity_value": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
-        }
+          "identity_value": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2"
+        },
+        "request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {
@@ -1241,7 +1188,8 @@
         "new_identity": {
           "identity_type": "pubkey",
           "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
-        }
+        },
+        "request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {
@@ -1263,6 +1211,10 @@
             [
               "d",
               "abababababababababababababababababababababababababababababababab"
+            ],
+            [
+              "m",
+              "cash_transfer"
             ],
             [
               "new_identity_hash",
@@ -1288,7 +1240,8 @@
         "new_identity": {
           "identity_type": "pubkey",
           "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
-        }
+        },
+        "request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {
@@ -1313,8 +1266,12 @@
               "abababababababababababababababababababababababababababababababab"
             ],
             [
+              "m",
+              "cash_transfer"
+            ],
+            [
               "new_identity_hash",
-              "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+              "fbe7e31a2128cb8352ecb9edf7d633854f5236eac0b49fc83f81cbd40f1058bc"
             ],
             [
               "amount_millis",
@@ -1327,8 +1284,9 @@
         "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
         "new_identity": {
           "identity_type": "cash",
-          "identity_value": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
-        }
+          "identity_value": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2"
+        },
+        "request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {
@@ -1354,6 +1312,7 @@
           "identity_type": "pubkey",
           "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
         },
+        "request_id": "00112233445566778899aabbccddeeff",
         "sources": [
           {
             "identity_event": {
@@ -1366,12 +1325,20 @@
                   "abababababababababababababababababababababababababababababababab"
                 ],
                 [
+                  "m",
+                  "cash_consolidate"
+                ],
+                [
                   "new_identity_hash",
                   "0da174a2f5b86e84b32c08e2f2340dd2088e80bd1a1488b2bace690d0c5ca529"
                 ],
                 [
                   "amount_millis",
                   "1000"
+                ],
+                [
+                  "s",
+                  "dcd7d37b4a82f5161c1ad6968b78c29b905c3af1fd251401ab26d45b6a9c9977"
                 ]
               ],
               "valid": true
@@ -1391,12 +1358,20 @@
                   "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
                 ],
                 [
+                  "m",
+                  "cash_consolidate"
+                ],
+                [
                   "new_identity_hash",
                   "0da174a2f5b86e84b32c08e2f2340dd2088e80bd1a1488b2bace690d0c5ca529"
                 ],
                 [
                   "amount_millis",
                   "2000"
+                ],
+                [
+                  "s",
+                  "dcd7d37b4a82f5161c1ad6968b78c29b905c3af1fd251401ab26d45b6a9c9977"
                 ]
               ],
               "valid": true
@@ -1429,8 +1404,9 @@
       "request": {
         "new_identity": {
           "identity_type": "cash",
-          "identity_value": "778ab5c31e45fe2b4da1f9fb6302af779e1332e05d3fada5311142ec5ee2bcd6"
+          "identity_value": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2"
         },
+        "request_id": "00112233445566778899aabbccddeeff",
         "sources": [
           {
             "identity_event": {
@@ -1443,12 +1419,20 @@
                   "abababababababababababababababababababababababababababababababab"
                 ],
                 [
+                  "m",
+                  "cash_consolidate"
+                ],
+                [
                   "new_identity_hash",
-                  "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+                  "fbe7e31a2128cb8352ecb9edf7d633854f5236eac0b49fc83f81cbd40f1058bc"
                 ],
                 [
                   "amount_millis",
                   "1000"
+                ],
+                [
+                  "s",
+                  "dcd7d37b4a82f5161c1ad6968b78c29b905c3af1fd251401ab26d45b6a9c9977"
                 ]
               ],
               "valid": true
@@ -1469,12 +1453,20 @@
                   "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
                 ],
                 [
+                  "m",
+                  "cash_consolidate"
+                ],
+                [
                   "new_identity_hash",
-                  "d24f1faa9a833bfedbacb297d1c71f3d69ffdac733430d8f88586ec4253974b2"
+                  "fbe7e31a2128cb8352ecb9edf7d633854f5236eac0b49fc83f81cbd40f1058bc"
                 ],
                 [
                   "amount_millis",
                   "2000"
+                ],
+                [
+                  "s",
+                  "dcd7d37b4a82f5161c1ad6968b78c29b905c3af1fd251401ab26d45b6a9c9977"
                 ],
                 [
                   "connection_key",
@@ -1570,12 +1562,1228 @@
       "error": "nipcash: a connection_key identity requires an ia_pubkey"
     }
   ],
-  "matchClaim": [
+  "kats": [
     {
-      "name": "cash row, cash claim",
-      "recipients": [
+      "id": "K-CLAIM-1",
+      "kind": 23198,
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "createdAt": 1720000000,
+      "tags": [
+        [
+          "d",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "m",
+          "cash_redeem"
+        ],
+        [
+          "bolt11_hash",
+          "4444444444444444444444444444444444444444444444444444444444444444"
+        ]
+      ],
+      "want": "ad995b77237f369c79c5df82729d465eb9b5b4ddafb815995dee99db8d6b07c8"
+    },
+    {
+      "id": "K-CLAIM-2",
+      "kind": 23198,
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "createdAt": 1720000000,
+      "tags": [
+        [
+          "d",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "m",
+          "cash_transfer"
+        ],
+        [
+          "new_identity_hash",
+          "90aad9efdfc1980322c6248a266df6bca9d766bb360654f5e2bfecccc941bed0"
+        ],
+        [
+          "amount_millis",
+          "5000"
+        ]
+      ],
+      "want": "c466018a22842f8b79c7447cebf3a023add78ff7d053d8b715205343ae4ad8df"
+    },
+    {
+      "id": "K-CLAIM-3",
+      "input": [
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "2222222222222222222222222222222222222222222222222222222222222222"
+      ],
+      "want": "ca9034371c79ec26ec0496b53420a1117d4f765800dfdce138138b139d591f13"
+    },
+    {
+      "id": "K-CLAIM-4",
+      "input": "pubkey:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:",
+      "want": "90aad9efdfc1980322c6248a266df6bca9d766bb360654f5e2bfecccc941bed0"
+    },
+    {
+      "id": "K-CLAIM-4 (neg: refused)",
+      "input": "pubkey:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "want": "7d09e57d9def2934d5cbedff5bad3a5c871ea3bf55a674df919e5eb92fc83df4"
+    },
+    {
+      "id": "K-CLAIM-5",
+      "kind": 23198,
+      "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+      "createdAt": 1720000050,
+      "tags": [
+        [
+          "d",
+          "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+        ],
+        [
+          "m",
+          "cash_withdraw"
+        ],
+        [
+          "q",
+          "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22"
+        ]
+      ],
+      "want": "d21236b945c9ae88e23fe8fd9bc3559b08b9a6ec6d4a74acd15825314b3d7428"
+    }
+  ],
+  "verifyClaimProof": [
+    {
+      "name": "valid",
+      "proof": "{\"id\":\"8d77d662957fa7ed2b77bc7821e401fdb8dc87385c78334a55b1976da49f0e0e\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"64779fcb2d05616b109836ff0f133b36771b03b4bd6fa73a8e8019c358a586b10ca0e4d2153d941388f17ac36ee67dc77ef304f6a1ea163e61fb50ea72433eb9\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "recomputedId": "8d77d662957fa7ed2b77bc7821e401fdb8dc87385c78334a55b1976da49f0e0e"
+    },
+    {
+      "name": "already consumed",
+      "proof": "{\"id\":\"8d77d662957fa7ed2b77bc7821e401fdb8dc87385c78334a55b1976da49f0e0e\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"64779fcb2d05616b109836ff0f133b36771b03b4bd6fa73a8e8019c358a586b10ca0e4d2153d941388f17ac36ee67dc77ef304f6a1ea163e61fb50ea72433eb9\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": true,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: already consumed"
+    },
+    {
+      "name": "created_at -300 s from now",
+      "proof": "{\"id\":\"a338c109925b89547887232d4e3ac96fb8b8faad165b212249ad463645fe5ff6\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1719999700,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"c94ca3ec7af1bc0a58e3a6f6cd5f9cefbb3b6321a676eb1298dc511dc2bb49771524a60613fcf6c70f3d4e3873dca46901d521e0cb5d18864bbf1c817a2bdbc6\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "recomputedId": "a338c109925b89547887232d4e3ac96fb8b8faad165b212249ad463645fe5ff6"
+    },
+    {
+      "name": "created_at -301 s from now",
+      "proof": "{\"id\":\"9727bbc238302cc361857a42496aa4da4b7ad175f3462e09dbac879eb1cbe020\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1719999699,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"5b08a84db86c27fe6e41f80be4efd5262f294588d08efa511ed1a4a95237a449c671314d4c6f4d0120b44df079c93bff9b67341b6f2e473872cd9ae08950debc\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: created_at 1719999699 is outside the freshness window"
+    },
+    {
+      "name": "created_at 60 s from now",
+      "proof": "{\"id\":\"0641cee52c02de518ced365a9ff1cab3749246844daffba47d305c63809f1664\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000060,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"4b01d9627b44f4f97c8ef592ebbd86d22b6da2d998db61fd80dde147983b5daf98508a3687f76ddc043e1cb3e6430ba7ec4c9221407febe09ca8adb7f0ed6086\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "recomputedId": "0641cee52c02de518ced365a9ff1cab3749246844daffba47d305c63809f1664"
+    },
+    {
+      "name": "created_at 61 s from now",
+      "proof": "{\"id\":\"da02d133e52955ed28c30339ccfceb541399c5c0e4a53472c20b448a83af0b6f\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000061,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"569f7bb2243cc0d1c51c0184bff5fa737496f5231080759818625beeb7eaf55f41d4354a5bbe2d827392cfa2c458f316b8be7f4138ac0d26662a4e36cd6bf0fc\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: created_at 1720000061 is outside the freshness window"
+    },
+    {
+      "name": "wrong kind",
+      "proof": "{\"id\":\"7d3a9789f764144370db78e101d7973850b09908a04f40aa6755e94be73f9d93\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23192,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"db2962581ad8558f46b51b17d625bf1fc38f09b39ad946671fbda5b4e19ffeecf16b206bda1ff5f7a61996e78bfd88ebaebe4887c304bf3a406104c2a480d4de\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: kind 23192"
+    },
+    {
+      "name": "signed by another key",
+      "proof": "{\"id\":\"52b7ca2245dca92609ec45da4ade1c05294b28219be1bd43168a3881cadb951a\",\"pubkey\":\"f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"f1034e1274d64e0e0cdae138de2cec030874b25dd69bfe4c09ee1e3b3d502b7e5818a8e06a3ffcc417fc6151555fb33ece4665fc66c5eaeb021f1cba18d6d471\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: signed by another key than the slice's"
+    },
+    {
+      "name": "d names another wallet",
+      "proof": "{\"id\":\"ff75263d54a488dc5b18ee4ce075038ca56c2ec611580c533805939c3a97f6b6\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"2222222222222222222222222222222222222222222222222222222222222222\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"7e3619dd69f0777a444aa7a75a1a30e12744a378ed5a4c08d941db50851f1f0a90173787da17053fd3cb0d26d68f1cae14101943d8acf7a1e52346790d01d5d0\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: tag \"d\" does not match the call"
+    },
+    {
+      "name": "m names another method",
+      "proof": "{\"id\":\"1f7a633fac0e11247d6030d9fb82a5a1fefa983f1a230ba75d0181056269f3c3\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_transfer\"],[\"new_identity_hash\",\"\"]],\"content\":\"\",\"sig\":\"ae09ff35f70e467deb54054a3449e317c8e33479c4d6fdcb19a0b681d6b04dd78dae2e7248a2827745166a8e06efde1248f937a2a830cff27ca688ea7d91827e\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: tag \"new_identity_hash\" is not one this method and slice use"
+    },
+    {
+      "name": "bolt11_hash of another invoice",
+      "proof": "{\"id\":\"e19b4e88898435ad5d2efd6ffc3227e0dd176b8d3b93f0adbf406b377e6f4da3\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"5555555555555555555555555555555555555555555555555555555555555555\"]],\"content\":\"\",\"sig\":\"cb27b5f2f565c2bfb8b52bf39c9b0f7e9d28d816ec72c6609a67f83b0a96cf43f08ad0fc0ec581d7ed128b8f5d054cb7085f67da108455be4f88be57a85d289f\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: tag \"bolt11_hash\" does not match the call"
+    },
+    {
+      "name": "no m tag",
+      "proof": "{\"id\":\"bd8973cb3868d29843ca7abc4bd03e2d7b56ae51c18c42f66e6f23b12af5c61d\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"\",\"sig\":\"603e4d3f1a5e8d554a7fafcd8d33baa860de833c889f7a170658433b1f7fea5e92027f4f79db87b7603ee1c30860b1182825d3b13ea5436998cdb74b9b49b5dc\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: tag \"m\" missing"
+    },
+    {
+      "name": "m twice",
+      "proof": "{\"id\":\"4ea9511cae614c7c67dff67a0d59df9a87973e64947de3092df8f773b859ce46\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"],[\"m\",\"cash_redeem\"]],\"content\":\"\",\"sig\":\"8f3978c7aff5d74aff1399951ef05c1722e8d6a280c362e1c7f05a321bee06874ced7608a44c4b5993615c65d7a622a85abe8899c2f727f8112d39a9e326eb2e\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: tag \"m\" repeated"
+    },
+    {
+      "name": "non-empty content",
+      "proof": "{\"id\":\"9839c322637392c5215f7e40d68bd18d46a049035bd528416678605a9e812657\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_redeem\"],[\"bolt11_hash\",\"4444444444444444444444444444444444444444444444444444444444444444\"]],\"content\":\"x\",\"sig\":\"47dcc9c4e003a3ab72cf63afcec91dde466c0c005e0a438291a2e58caa69de92fe6a1504aa5ade708293bccbb85f6a83296fcf7968993a515e64a80f6927e747\"}",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: content is not empty"
+    },
+    {
+      "name": "not JSON",
+      "proof": "{",
+      "expect": {
+        "bolt11Hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "consumed": false,
+        "method": "cash_redeem",
+        "quoteId": "",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: not an event: unexpected end of JSON input"
+    },
+    {
+      "name": "cash_withdraw with q",
+      "proof": "{\"id\":\"9c9def08475ba8dcdf20da02f50abc22c44c36de8cfb0de6e5469bbc69d24a77\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_withdraw\"],[\"q\",\"bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22\"]],\"content\":\"\",\"sig\":\"3f5b2bee973b915912e7cff1a493b73561c4b62f755ea26650d60107953c964ceafe8eb7be1cf4bf8ff5873995afaf1ed968b7c3150568fc9bfc87b4cd29bd99\"}",
+      "expect": {
+        "bolt11Hash": "",
+        "consumed": false,
+        "method": "cash_withdraw",
+        "quoteId": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+      "recomputedId": "9c9def08475ba8dcdf20da02f50abc22c44c36de8cfb0de6e5469bbc69d24a77"
+    },
+    {
+      "name": "cash_withdraw with another quote",
+      "proof": "{\"id\":\"3c5490f5963cee10e2aa7512dc474a73d84377c8a71cd123cb57b0426b84ccbf\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1720000000,\"kind\":23198,\"tags\":[[\"d\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"m\",\"cash_withdraw\"],[\"q\",\"6666666666666666666666666666666666666666666666666666666666666666\"]],\"content\":\"\",\"sig\":\"c7225119d0e2f842f3b946faf2d573121630ae6ffeff32fd0d6512855b028aff62fb96ecd9bedb44094c10fc8d83a175e2524ae6ea76e62d9a558a78b65f7836\"}",
+      "expect": {
+        "bolt11Hash": "",
+        "consumed": false,
+        "method": "cash_withdraw",
+        "quoteId": "bd16a92aef27ec468b00c715f9c3bf4f3cf4d148fa6cd62cbac0773c30f85a22",
+        "sliceType": "pubkey",
+        "sliceValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "wallet": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "now": 1720000000,
+      "error": "nipcash: claim proof UNAUTHORIZED: tag \"q\" does not match the call"
+    }
+  ],
+  "results": [
+    {
+      "name": "full transfer to a pubkey, answered in place",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_token\":\"\"}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": null,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": null,
+        "NewWalletPubkey": "",
+        "NewWalletToken": "",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "full transfer to a pubkey, answered in place",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_token\":\"\"}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": null,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": null,
+        "NewWalletPubkey": "",
+        "NewWalletToken": "",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "full transfer to a pubkey already holding an unclaimed slice: a one-wallet spin-off",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"Aug6GD0RypCMbSAb+CdxdqEjta9uaCdMIu+QUz3Ik8oTE1bYkJZJZ2VheSMdVxqrmPaOrG5ewz3G6c0fGD6PVk21sw1K2fTHMP0W7mSCCXoL0Gv3FWbFT3o+7r6h6dXtx1tm\"}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": null,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "full transfer to a pubkey already holding an unclaimed slice: a one-wallet spin-off",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"Aug6GD0RypCMbSAb+CdxdqEjta9uaCdMIu+QUz3Ik8oTE1bYkJZJZ2VheSMdVxqrmPaOrG5ewz3G6c0fGD6PVk21sw1K2fTHMP0W7mSCCXoL0Gv3FWbFT3o+7r6h6dXtx1tm\"}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": null,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "partial split",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "splitAmount": 5000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":5000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"remaining_amount_millis\":16000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AsnkeQykVknoNaY2gGrwSa10lLHwXYv/S60b/yYGnI/BTutYkbCvgfeRo24BVyiEAiMTO0bDHAbHZPyaI1PF50RAUrPbzLrsFcF49emrf2bnPnQaGqVLayOame8n8N8lI4Av\",\"remainder_wallet_pubkey\":\"1fd22aba903a3ee542ba62dca598bd19da4e0af9001ff0d5cefbb3878b2aaaf4\",\"remainder_wallet_token\":\"Ah+Ol+yvNwiUSt/k0MeeL7fx/+st/G+qMq6nTz1bo/7PInfGfjsSpTyIuxho5Bt8s2u/u5bQ1wJ4Js+7EJpdXFD4dE6ps/mHGqaCkuoDZfcxM+UkIJxsBMA/yQYNFv0IYWeA\"}",
+      "want": {
+        "AmountMillis": 5000,
+        "ExpiresAt": null,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "1fd22aba903a3ee542ba62dca598bd19da4e0af9001ff0d5cefbb3878b2aaaf4",
+        "RemainderWalletToken": "satscash1remaindertoken",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": 16000
+      }
+    },
+    {
+      "name": "partial split",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "splitAmount": 5000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":5000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"remaining_amount_millis\":16000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AsnkeQykVknoNaY2gGrwSa10lLHwXYv/S60b/yYGnI/BTutYkbCvgfeRo24BVyiEAiMTO0bDHAbHZPyaI1PF50RAUrPbzLrsFcF49emrf2bnPnQaGqVLayOame8n8N8lI4Av\",\"remainder_wallet_pubkey\":\"1fd22aba903a3ee542ba62dca598bd19da4e0af9001ff0d5cefbb3878b2aaaf4\",\"remainder_wallet_token\":\"Ah+Ol+yvNwiUSt/k0MeeL7fx/+st/G+qMq6nTz1bo/7PInfGfjsSpTyIuxho5Bt8s2u/u5bQ1wJ4Js+7EJpdXFD4dE6ps/mHGqaCkuoDZfcxM+UkIJxsBMA/yQYNFv0IYWeA\"}",
+      "want": {
+        "AmountMillis": 5000,
+        "ExpiresAt": null,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "1fd22aba903a3ee542ba62dca598bd19da4e0af9001ff0d5cefbb3878b2aaaf4",
+        "RemainderWalletToken": "satscash1remaindertoken",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": 16000
+      }
+    },
+    {
+      "name": "full transfer to cash on a wallet that once had two recipients: spun off",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "cash"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"cash\",\"identity_value\":\"56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AqhrJS1IOoQ+LMqPLib+QtmDYVvERHvGU0nySFIWKc2dUWQCCsGODuz1aSd4s0PPkuNc5cX/i03wPU1r9Jy61HqAE5xbKkqwd65P/Uup2wO2B+pOoSHA/OmmpZMFdBDkHaI2\"}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": null,
+        "IdentityType": "cash",
+        "IdentityValue": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2",
+        "IssuedAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "full transfer to cash on a wallet that once had two recipients: spun off",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "cash"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"cash\",\"identity_value\":\"56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AqhrJS1IOoQ+LMqPLib+QtmDYVvERHvGU0nySFIWKc2dUWQCCsGODuz1aSd4s0PPkuNc5cX/i03wPU1r9Jy61HqAE5xbKkqwd65P/Uup2wO2B+pOoSHA/OmmpZMFdBDkHaI2\"}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": null,
+        "IdentityType": "cash",
+        "IdentityValue": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2",
+        "IssuedAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "zap transfer signed values",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AsrNc9GE/bg3W2VZ719HRX6NvzdfXV1hzT9L1MZiFgTODWhPLO2XR2P/H6j+L2vZKp0yafM6YLAIMkiu6yrIh6nJF2fjee1lWpbO1tPWuIwSS2AAPpSU3sndRhP2SlOzrgye\",\"issued_at\":1720000000,\"expires_at\":0}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": 0,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": 1720000000,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "zap transfer signed values",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AsrNc9GE/bg3W2VZ719HRX6NvzdfXV1hzT9L1MZiFgTODWhPLO2XR2P/H6j+L2vZKp0yafM6YLAIMkiu6yrIh6nJF2fjee1lWpbO1tPWuIwSS2AAPpSU3sndRhP2SlOzrgye\",\"issued_at\":1720000000,\"expires_at\":0}",
+      "want": {
+        "AmountMillis": 21000,
+        "ExpiresAt": 0,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": 1720000000,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null,
+        "RemainderWalletPubkey": "",
+        "RemainderWalletToken": "",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": null
+      }
+    },
+    {
+      "name": "created bill already destroyed",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":5000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"remaining_amount_millis\":16000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":{\"status\":\"spent\",\"reason\":\"redeemed\",\"retained_until\":1722592000},\"remainder_wallet_pubkey\":\"1fd22aba903a3ee542ba62dca598bd19da4e0af9001ff0d5cefbb3878b2aaaf4\",\"remainder_wallet_token\":\"AgLdP9OhfhDNO0nMt2nSc9m/1JeeuAPB1lG0Khez970KczNdyxMkqF/BUIt+1xwNCtO5fiFisDhI82DaT0mfFLLNjHEZQYLpWCgrKYxptVLp9v13Qfg3XJ9pnxWJtRLRJUUF\"}",
+      "error": "nipcash: a direct reply carries a tombstone where a token belongs"
+    },
+    {
+      "name": "created bill already destroyed",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":5000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"remaining_amount_millis\":16000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":{\"status\":\"spent\",\"reason\":\"redeemed\",\"retained_until\":1722592000},\"remainder_wallet_pubkey\":\"1fd22aba903a3ee542ba62dca598bd19da4e0af9001ff0d5cefbb3878b2aaaf4\",\"remainder_wallet_token\":\"AgLdP9OhfhDNO0nMt2nSc9m/1JeeuAPB1lG0Khez970KczNdyxMkqF/BUIt+1xwNCtO5fiFisDhI82DaT0mfFLLNjHEZQYLpWCgrKYxptVLp9v13Qfg3XJ9pnxWJtRLRJUUF\"}",
+      "want": {
+        "AmountMillis": 5000,
+        "ExpiresAt": null,
+        "IdentityType": "pubkey",
+        "IdentityValue": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "IssuedAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "",
+        "NewWalletTombstone": {
+          "reason": "redeemed",
+          "retained_until": 1722592000,
+          "status": "spent"
+        },
+        "RemainderWalletPubkey": "1fd22aba903a3ee542ba62dca598bd19da4e0af9001ff0d5cefbb3878b2aaaf4",
+        "RemainderWalletToken": "satscash1remaindertoken",
+        "RemainderWalletTombstone": null,
+        "RemainingAmountMillis": 16000
+      }
+    },
+    {
+      "name": "the source is gone: tombstone",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"status\":\"spent\",\"reason\":\"transferred\",\"retained_until\":1722592000}",
+      "error": "nipcash: cash_transfer answered for a destroyed bill (spent, transferred)",
+      "gone": {
+        "status": "spent",
+        "reason": "transferred",
+        "retained_until": 1722592000
+      }
+    },
+    {
+      "name": "the source is gone: tombstone",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"status\":\"spent\",\"reason\":\"transferred\",\"retained_until\":1722592000}",
+      "error": "nipcash: cash_transfer answered for a destroyed bill (spent, transferred)",
+      "gone": {
+        "status": "spent",
+        "reason": "transferred",
+        "retained_until": 1722592000
+      }
+    },
+    {
+      "name": "the source was written off: tombstone without reason",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"status\":\"spent\",\"retained_until\":1722592000}",
+      "error": "nipcash: cash_transfer answered for a destroyed bill (spent, no reason)",
+      "gone": {
+        "status": "spent",
+        "retained_until": 1722592000
+      }
+    },
+    {
+      "name": "the source was written off: tombstone without reason",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"status\":\"spent\",\"retained_until\":1722592000}",
+      "error": "nipcash: cash_transfer answered for a destroyed bill (spent, no reason)",
+      "gone": {
+        "status": "spent",
+        "retained_until": 1722592000
+      }
+    },
+    {
+      "name": "a Hub returned a secret",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_token\":\"\",\"secret\":\"x\"}",
+      "error": "nipcash: the Hub's reply carries a cash secret"
+    },
+    {
+      "name": "a Hub returned a secret",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_token\":\"\",\"secret\":\"x\"}",
+      "error": "nipcash: the Hub's reply carries a cash secret"
+    },
+    {
+      "name": "token sealed by another key",
+      "method": "cash_transfer",
+      "lookup": false,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"Ajdidv9BiKAyla9/gDr88vArRX6WTutQ5v/5Az58XqfZJ+Q9F5eEhm1rg0DdofO9NH3h9MP6IcN3dCVRm9Z8QEeMdBSVe3oErZW6SchnkTw8gKpkhhxJ9lQxhnEUHs+vd7zQ\"}",
+      "error": "nipcash: decrypt delivery: invalid MAC"
+    },
+    {
+      "name": "token sealed by another key",
+      "method": "cash_transfer",
+      "lookup": true,
+      "inputs": {
+        "credential": "signing",
+        "currentAmount": 21000,
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"Ajdidv9BiKAyla9/gDr88vArRX6WTutQ5v/5Az58XqfZJ+Q9F5eEhm1rg0DdofO9NH3h9MP6IcN3dCVRm9Z8QEeMdBSVe3oErZW6SchnkTw8gKpkhhxJ9lQxhnEUHs+vd7zQ\"}",
+      "error": "nipcash: decrypt delivery: invalid MAC"
+    },
+    {
+      "name": "merged",
+      "method": "cash_consolidate",
+      "lookup": false,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":3000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AtyYZY3VlXkS+x5vWGB5gurbCkgFk+cAFAKye/pKxRxXvC2M6FLNvLbYDDVy+VWmqsQdqqr/74s1d8DTIeOmQI7/Mt337M0yU8ELcFJiwb0SX50gybOSfzGxK6aJ1/z9/mxe\",\"expires_at\":1730000000}",
+      "want": {
+        "AmountMillis": 3000,
+        "ExpiresAt": 1730000000,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null
+      }
+    },
+    {
+      "name": "merged",
+      "method": "cash_consolidate",
+      "lookup": true,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":3000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"AtyYZY3VlXkS+x5vWGB5gurbCkgFk+cAFAKye/pKxRxXvC2M6FLNvLbYDDVy+VWmqsQdqqr/74s1d8DTIeOmQI7/Mt337M0yU8ELcFJiwb0SX50gybOSfzGxK6aJ1/z9/mxe\",\"expires_at\":1730000000}",
+      "want": {
+        "AmountMillis": 3000,
+        "ExpiresAt": 1730000000,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null
+      }
+    },
+    {
+      "name": "merged, never expires",
+      "method": "cash_consolidate",
+      "lookup": false,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":3000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"Aq3mKUHRfAW/nB8UTxyjs5VDcTUjnIWtkVHTUxQMjOg1bZWkxwPl51FrfQv0dWBJGxGmpLvrISsDum9SrfKA/LIBb6MYWrKE7EndpGyJvqjBWVElUYHk+7u6uZKwEIN/BSiX\"}",
+      "want": {
+        "AmountMillis": 3000,
+        "ExpiresAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null
+      }
+    },
+    {
+      "name": "merged, never expires",
+      "method": "cash_consolidate",
+      "lookup": true,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":3000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":\"Aq3mKUHRfAW/nB8UTxyjs5VDcTUjnIWtkVHTUxQMjOg1bZWkxwPl51FrfQv0dWBJGxGmpLvrISsDum9SrfKA/LIBb6MYWrKE7EndpGyJvqjBWVElUYHk+7u6uZKwEIN/BSiX\"}",
+      "want": {
+        "AmountMillis": 3000,
+        "ExpiresAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "satscash1newwallettoken",
+        "NewWalletTombstone": null
+      }
+    },
+    {
+      "name": "merged bill already destroyed",
+      "method": "cash_consolidate",
+      "lookup": false,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":3000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":{\"status\":\"spent\",\"reason\":\"consolidated\"}}",
+      "error": "nipcash: a direct reply carries a tombstone where a token belongs"
+    },
+    {
+      "name": "merged bill already destroyed",
+      "method": "cash_consolidate",
+      "lookup": true,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"amount_millis\":3000,\"new_wallet_pubkey\":\"9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67\",\"new_wallet_token\":{\"status\":\"spent\",\"reason\":\"consolidated\"}}",
+      "want": {
+        "AmountMillis": 3000,
+        "ExpiresAt": null,
+        "NewWalletPubkey": "9c5530e4385ebc41cdaf8257edf9a2baaf8506a4099103211e6ed7382103ed67",
+        "NewWalletToken": "",
+        "NewWalletTombstone": {
+          "reason": "consolidated",
+          "status": "spent"
+        }
+      }
+    },
+    {
+      "name": "a source is gone",
+      "method": "cash_consolidate",
+      "lookup": false,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"status\":\"spent\",\"reason\":\"expired\"}",
+      "error": "nipcash: cash_consolidate answered for a destroyed bill (spent, expired)",
+      "gone": {
+        "status": "spent",
+        "reason": "expired"
+      }
+    },
+    {
+      "name": "a source is gone",
+      "method": "cash_consolidate",
+      "lookup": true,
+      "inputs": {
+        "sources": [
+          {
+            "amount": 1000,
+            "credential": "signing",
+            "wallet": "abababababababababababababababababababababababababababababababab"
+          },
+          {
+            "amount": 2000,
+            "credential": "signing",
+            "wallet": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          }
+        ],
+        "to": "pubkey"
+      },
+      "result": "{\"status\":\"spent\",\"reason\":\"expired\"}",
+      "error": "nipcash: cash_consolidate answered for a destroyed bill (spent, expired)",
+      "gone": {
+        "status": "spent",
+        "reason": "expired"
+      }
+    },
+    {
+      "name": "preimage and fees",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"preimage\":\"abababababababababababababababababababababababababababababababab\",\"fees_paid\":210}",
+      "want": {
+        "fees_paid": 210,
+        "preimage": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "same-node redeem, no fee",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"preimage\":\"abababababababababababababababababababababababababababababababab\",\"fees_paid\":0}",
+      "want": {
+        "fees_paid": 0,
+        "preimage": "abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "no preimage",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"fees_paid\":210}",
+      "error": "nipcash: cash_redeem preimage is not 64 lowercase hex"
+    },
+    {
+      "name": "short preimage",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"preimage\":\"abcd\",\"fees_paid\":210}",
+      "error": "nipcash: cash_redeem preimage is not 64 lowercase hex"
+    },
+    {
+      "name": "uppercase preimage",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"preimage\":\"ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB\",\"fees_paid\":210}",
+      "error": "nipcash: cash_redeem preimage is not 64 lowercase hex"
+    },
+    {
+      "name": "fees_paid as a string",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"preimage\":\"abababababababababababababababababababababababababababababababab\",\"fees_paid\":\"210\"}",
+      "error": "nipcash: cash_redeem fees_paid is not an unsigned integer"
+    },
+    {
+      "name": "negative fees_paid",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"preimage\":\"abababababababababababababababababababababababababababababababab\",\"fees_paid\":-1}",
+      "error": "nipcash: cash_redeem fees_paid is not an unsigned integer"
+    },
+    {
+      "name": "not JSON",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "[",
+      "error": "nipcash: cash_redeem result: unexpected end of JSON input"
+    },
+    {
+      "name": "a tombstone",
+      "method": "cash_redeem",
+      "lookup": false,
+      "inputs": {},
+      "result": "{\"status\":\"spent\",\"reason\":\"redeemed\"}",
+      "error": "nipcash: cash_redeem answered for a destroyed bill (spent, redeemed)",
+      "gone": {
+        "status": "spent",
+        "reason": "redeemed"
+      }
+    }
+  ],
+  "tombstones": [
+    {
+      "name": "redeemed",
+      "input": "{\"status\":\"spent\",\"reason\":\"redeemed\",\"retained_until\":1722592000}",
+      "tombstone": {
+        "status": "spent",
+        "reason": "redeemed",
+        "retained_until": 1722592000
+      }
+    },
+    {
+      "name": "transferred",
+      "input": "{\"status\":\"spent\",\"reason\":\"transferred\"}",
+      "tombstone": {
+        "status": "spent",
+        "reason": "transferred"
+      }
+    },
+    {
+      "name": "consolidated",
+      "input": "{\"status\":\"spent\",\"reason\":\"consolidated\"}",
+      "tombstone": {
+        "status": "spent",
+        "reason": "consolidated"
+      }
+    },
+    {
+      "name": "expired",
+      "input": "{\"status\":\"spent\",\"reason\":\"expired\"}",
+      "tombstone": {
+        "status": "spent",
+        "reason": "expired"
+      }
+    },
+    {
+      "name": "reclaimed",
+      "input": "{\"status\":\"spent\",\"reason\":\"reclaimed\"}",
+      "tombstone": {
+        "status": "spent",
+        "reason": "reclaimed"
+      }
+    },
+    {
+      "name": "written-off: no reason, spent",
+      "input": "{\"status\":\"spent\"}",
+      "tombstone": {
+        "status": "spent"
+      }
+    },
+    {
+      "name": "unknown reason reads as spent with no reason",
+      "input": "{\"status\":\"spent\",\"reason\":\"written-off\"}",
+      "tombstone": {
+        "status": "spent"
+      }
+    },
+    {
+      "name": "ended by a cash_withdraw",
+      "input": "{\"status\":\"spent\",\"withdraw_request_id\":\"00112233445566778899aabbccddeeff\"}",
+      "tombstone": {
+        "status": "spent",
+        "withdraw_request_id": "00112233445566778899aabbccddeeff"
+      }
+    },
+    {
+      "name": "not spent",
+      "input": "{\"status\":\"live\"}",
+      "tombstone": null
+    },
+    {
+      "name": "not JSON",
+      "input": "[",
+      "tombstone": null
+    }
+  ],
+  "tombstoneReason": [
+    {
+      "state": "redeemed",
+      "reason": "redeemed"
+    },
+    {
+      "state": "transferred",
+      "reason": "transferred"
+    },
+    {
+      "state": "consolidated",
+      "reason": "consolidated"
+    },
+    {
+      "state": "expired",
+      "reason": "expired"
+    },
+    {
+      "state": "reclaimed",
+      "reason": "reclaimed"
+    },
+    {
+      "state": "written-off",
+      "reason": ""
+    },
+    {
+      "state": "withdrawn",
+      "reason": ""
+    },
+    {
+      "state": "",
+      "reason": ""
+    }
+  ],
+  "ordered": [
+    {
+      "name": "one ordered source: the result inherits ordered",
+      "sources": [
+        true
+      ],
+      "ordered": true,
+      "mixed": false
+    },
+    {
+      "name": "no ordered source",
+      "sources": [
+        false,
+        false
+      ],
+      "ordered": false,
+      "mixed": false
+    },
+    {
+      "name": "every source ordered",
+      "sources": [
+        true,
+        true,
+        true
+      ],
+      "ordered": true,
+      "mixed": false
+    },
+    {
+      "name": "mixed consolidate",
+      "sources": [
+        true,
+        false
+      ],
+      "ordered": false,
+      "mixed": true
+    },
+    {
+      "name": "mixed consolidate, ordered last",
+      "sources": [
+        false,
+        false,
+        true
+      ],
+      "ordered": false,
+      "mixed": true
+    }
+  ],
+  "ownRow": [
+    {
+      "name": "pubkey, mine",
+      "credential": "signing",
+      "scope": "mine",
+      "rows": [
         {
-          "identity_type": "cash",
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
           "amount_millis": 1000,
           "claimed": false,
           "redeem_fee_millis": 0,
@@ -1583,25 +2791,44 @@
           "min_transfer_millis": 0
         }
       ],
-      "isCash": true,
-      "asPubkey": "",
-      "matchClaimAmount": 1000,
-      "matchClaimOk": true,
-      "matchClaimAutoIndex": 0
+      "index": 0
     },
     {
-      "name": "claimed cash row is skipped",
-      "recipients": [
+      "name": "pubkey, empty scope is mine",
+      "credential": "signing",
+      "scope": "",
+      "rows": [
         {
-          "identity_type": "cash",
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
           "amount_millis": 1000,
-          "claimed": true,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": 0
+    },
+    {
+      "name": "connection_key, the credential's IA",
+      "credential": "connection_key",
+      "scope": "all",
+      "rows": [
+        {
+          "identity_type": "connection_key",
+          "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+          "ia_pubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
+          "amount_millis": 1000,
+          "claimed": false,
           "redeem_fee_millis": 0,
           "net_redeemable_millis": 0,
           "min_transfer_millis": 0
         },
         {
-          "identity_type": "cash",
+          "identity_type": "connection_key",
+          "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+          "ia_pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
           "amount_millis": 2000,
           "claimed": false,
           "redeem_fee_millis": 0,
@@ -1609,92 +2836,17 @@
           "min_transfer_millis": 0
         }
       ],
-      "isCash": true,
-      "asPubkey": "",
-      "matchClaimAmount": 2000,
-      "matchClaimOk": true,
-      "matchClaimAutoIndex": 1
+      "index": 1
     },
     {
-      "name": "pubkey row for us",
-      "recipients": [
-        {
-          "identity_type": "pubkey",
-          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-          "amount_millis": 3000,
-          "claimed": false,
-          "redeem_fee_millis": 0,
-          "net_redeemable_millis": 0,
-          "min_transfer_millis": 0
-        }
-      ],
-      "isCash": false,
-      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-      "matchClaimAmount": 3000,
-      "matchClaimOk": true,
-      "matchClaimAutoIndex": 0
-    },
-    {
-      "name": "pubkey row for someone else",
-      "recipients": [
-        {
-          "identity_type": "pubkey",
-          "identity_value": "abababababababababababababababababababababababababababababababab",
-          "amount_millis": 3000,
-          "claimed": false,
-          "redeem_fee_millis": 0,
-          "net_redeemable_millis": 0,
-          "min_transfer_millis": 0
-        }
-      ],
-      "isCash": false,
-      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-      "matchClaimAmount": 0,
-      "matchClaimOk": false,
-      "matchClaimAutoIndex": -1
-    },
-    {
-      "name": "no local identity never matches a pubkey row",
-      "recipients": [
-        {
-          "identity_type": "pubkey",
-          "amount_millis": 3000,
-          "claimed": false,
-          "redeem_fee_millis": 0,
-          "net_redeemable_millis": 0,
-          "min_transfer_millis": 0
-        }
-      ],
-      "isCash": false,
-      "asPubkey": "",
-      "matchClaimAmount": 0,
-      "matchClaimOk": false,
-      "matchClaimAutoIndex": -1
-    },
-    {
-      "name": "bearer is not cash",
-      "recipients": [
-        {
-          "identity_type": "bearer",
-          "amount_millis": 1000,
-          "claimed": false,
-          "redeem_fee_millis": 0,
-          "net_redeemable_millis": 0,
-          "min_transfer_millis": 0
-        }
-      ],
-      "isCash": true,
-      "asPubkey": "",
-      "matchClaimAmount": 0,
-      "matchClaimOk": false,
-      "matchClaimAutoIndex": -1
-    },
-    {
-      "name": "connection_key rows never match",
-      "recipients": [
+      "name": "connection_key, another IA only",
+      "credential": "connection_key",
+      "scope": "all",
+      "rows": [
         {
           "identity_type": "connection_key",
           "identity_value": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
+          "ia_pubkey": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
           "amount_millis": 1000,
           "claimed": false,
           "redeem_fee_millis": 0,
@@ -1702,19 +2854,132 @@
           "min_transfer_millis": 0
         }
       ],
-      "isCash": false,
-      "asPubkey": "2db75fb4d7a8e3005aca09c643b4e6f40142ddcfc18c675509988c1b111d0dcf",
-      "matchClaimAmount": 0,
-      "matchClaimOk": false,
-      "matchClaimAutoIndex": -1
+      "index": -1,
+      "error": "nipcash: this bill has no slice for the caller"
     },
     {
-      "name": "first match wins",
-      "recipients": [
+      "name": "cash, mine",
+      "credential": "cash",
+      "scope": "mine",
+      "rows": [
+        {
+          "identity_type": "cash",
+          "identity_value": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2",
+          "amount_millis": 3000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": 0
+    },
+    {
+      "name": "cash, uppercase commitment",
+      "credential": "cash",
+      "scope": "mine",
+      "rows": [
+        {
+          "identity_type": "cash",
+          "identity_value": "56D2617EC4DEB8C5B71B3549B853C844E5EA57A8A8780711E0322A1CC84825E2",
+          "amount_millis": 3000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": -1,
+      "error": "nipcash: a scope-mine answer is not exactly the caller's row: 1 rows"
+    },
+    {
+      "name": "widened mine with no row",
+      "credential": "signing",
+      "scope": "mine",
+      "rows": [],
+      "index": -1,
+      "error": "nipcash: a scope-mine answer is not exactly the caller's row: 0 rows"
+    },
+    {
+      "name": "widened mine: two rows",
+      "credential": "signing",
+      "scope": "mine",
+      "rows": [
         {
           "identity_type": "pubkey",
           "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-          "amount_millis": 1,
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "pubkey",
+          "identity_value": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+          "amount_millis": 2000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": -1,
+      "error": "nipcash: a scope-mine answer is not exactly the caller's row: 2 rows"
+    },
+    {
+      "name": "mine answered with another identity's row",
+      "credential": "signing",
+      "scope": "mine",
+      "rows": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+          "amount_millis": 2000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": -1,
+      "error": "nipcash: a scope-mine answer is not exactly the caller's row: 1 rows"
+    },
+    {
+      "name": "all: the caller's row among others",
+      "credential": "signing",
+      "scope": "all",
+      "rows": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+          "amount_millis": 2000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": 1
+    },
+    {
+      "name": "all: no match",
+      "credential": "signing",
+      "scope": "all",
+      "rows": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+          "amount_millis": 2000,
           "claimed": false,
           "redeem_fee_millis": 0,
           "net_redeemable_millis": 0,
@@ -1722,54 +2987,97 @@
         },
         {
           "identity_type": "cash",
-          "amount_millis": 2,
+          "identity_value": "56d2617ec4deb8c5b71b3549b853c844e5ea57a8a8780711e0322a1cc84825e2",
+          "amount_millis": 1000,
           "claimed": false,
           "redeem_fee_millis": 0,
           "net_redeemable_millis": 0,
           "min_transfer_millis": 0
         }
       ],
-      "isCash": false,
-      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-      "matchClaimAmount": 1,
-      "matchClaimOk": true,
-      "matchClaimAutoIndex": 0
+      "index": -1,
+      "error": "nipcash: this bill has no slice for the caller"
+    }
+  ],
+  "claimable": [
+    {
+      "name": "live, never expires",
+      "row": {
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "amount_millis": 1000,
+        "claimed": false,
+        "redeem_fee_millis": 0,
+        "net_redeemable_millis": 0,
+        "min_transfer_millis": 0
+      },
+      "now": 1720000000,
+      "ok": true,
+      "reason": ""
     },
     {
-      "name": "cash claim ignores pubkey rows",
-      "recipients": [
-        {
-          "identity_type": "pubkey",
-          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-          "amount_millis": 1,
-          "claimed": false,
-          "redeem_fee_millis": 0,
-          "net_redeemable_millis": 0,
-          "min_transfer_millis": 0
-        },
-        {
-          "identity_type": "cash",
-          "amount_millis": 2,
-          "claimed": false,
-          "redeem_fee_millis": 0,
-          "net_redeemable_millis": 0,
-          "min_transfer_millis": 0
-        }
-      ],
-      "isCash": true,
-      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-      "matchClaimAmount": 2,
-      "matchClaimOk": true,
-      "matchClaimAutoIndex": 0
+      "name": "claimed",
+      "row": {
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "amount_millis": 1000,
+        "claimed": true,
+        "claimed_at": 1719999990,
+        "redeem_fee_millis": 0,
+        "net_redeemable_millis": 0,
+        "min_transfer_millis": 0
+      },
+      "now": 1720000000,
+      "ok": false,
+      "reason": "claimed"
     },
     {
-      "name": "empty roster",
-      "recipients": [],
-      "isCash": true,
-      "asPubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
-      "matchClaimAmount": 0,
-      "matchClaimOk": false,
-      "matchClaimAutoIndex": -1
+      "name": "ended by a cash_withdraw",
+      "row": {
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "amount_millis": 1000,
+        "claimed": false,
+        "redeem_fee_millis": 0,
+        "net_redeemable_millis": 0,
+        "min_transfer_millis": 0,
+        "withdraw_request_id": "00112233445566778899aabbccddeeff"
+      },
+      "now": 1720000000,
+      "ok": false,
+      "reason": "withdrawn"
+    },
+    {
+      "name": "live at expires_at",
+      "row": {
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "amount_millis": 1000,
+        "claimed": false,
+        "redeem_fee_millis": 0,
+        "net_redeemable_millis": 0,
+        "min_transfer_millis": 0,
+        "expires_at": 1720000000
+      },
+      "now": 1720000000,
+      "ok": true,
+      "reason": ""
+    },
+    {
+      "name": "expired one second later",
+      "row": {
+        "identity_type": "pubkey",
+        "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "amount_millis": 1000,
+        "claimed": false,
+        "redeem_fee_millis": 0,
+        "net_redeemable_millis": 0,
+        "min_transfer_millis": 0,
+        "expires_at": 1720000000
+      },
+      "now": 1720000001,
+      "ok": false,
+      "reason": "expired"
     }
   ]
 }

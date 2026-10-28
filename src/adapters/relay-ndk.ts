@@ -7,7 +7,7 @@
 // One NDK subscription per relay, never grouped or answered from cache, so
 // EOSE is per relay and every event really came from the relay named.
 import type { NostrEvent } from '../core/index.js'
-import type { Filter, RelayPool, SubscriptionHandlers } from '../client/index.js'
+import { fetchRelayInfo, type Filter, type RelayPool, type SubscriptionHandlers } from '../client/index.js'
 
 interface NdkEventLike {
   rawEvent(): unknown
@@ -93,20 +93,32 @@ export class NdkPool implements RelayPool {
     }
   }
 
+  /** The relay's NIP-11 document over HTTP(S), or undefined. */
+  relayInfo(relay: string): Promise<unknown> {
+    return fetchRelayInfo(relay)
+  }
+
+  /**
+   * A refusal keeps the relay's own OK message when NDK exposes it per relay;
+   * otherwise `message` is undefined (never NDK's own wording), and a caller
+   * re-reads NIP-11 before re-mining.
+   */
   async publish(relay: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
     try {
       await this.connected(relay)
       const ev = new this.classes.NDKEvent(this.ndk as never, { ...e, tags: e.tags.map((t) => [...t]) } as never)
       const set = this.classes.NDKRelaySet.fromRelayUrls([relay], this.ndk as never)
       const acked = await ev.publish(set, this.o.publishTimeoutMs ?? 10_000, 1)
-      return acked.size > 0 ? { ok: true } : { ok: false, message: 'no relay acknowledged the event' }
+      return acked.size > 0 ? { ok: true } : { ok: false }
     } catch (err) {
       // NDK's publish error keeps each relay's own reason in `errors`.
       const perRelay = (err as { errors?: unknown }).errors
       if (perRelay instanceof Map && perRelay.size > 0) {
-        return { ok: false, message: [...perRelay.values()].map((x) => (x instanceof Error ? x.message : String(x))).join('; ') }
+        const first = [...perRelay.values()][0]
+        const m = first instanceof Error ? first.message : typeof first === 'string' ? first : undefined
+        return { ok: false, ...(m !== undefined && m !== '' && { message: m }) }
       }
-      return { ok: false, message: err instanceof Error ? err.message : String(err) }
+      return { ok: false }
     }
   }
 }

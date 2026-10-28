@@ -9,10 +9,10 @@ import { expand } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { finalizeEvent, nip44, type NostrEvent } from '../core/index.js'
 import { utf8 } from '../core/bytes.js'
-import { ENVELOPE_VERSION, KIND_PRIVATE_REQUEST } from './envelope.js'
+import { KIND_PRIVATE_REQUEST } from './envelope.js'
 import { TransportError } from './errors.js'
 import { compactGo, goString, unmarshalGo, type GoType } from './gojson.js'
-import { paddedSize, validateLimits, type Limits } from './limits.js'
+import { MAX_NIP44_PLAINTEXT, validateLimits, type Limits } from './limits.js'
 
 const REPLY_KEY_INFO = 'nipcash-reply-v1'
 /** NIP-59's backdating range. */
@@ -94,6 +94,8 @@ export function deriveReplyKey(conversationKey: Uint8Array, replyTo: string): Ui
 export interface ResultError {
   readonly code: string
   readonly message?: string
+  /** A machine-readable refinement some refusals carry (e.g. a withdraw quote's), kept as sent. */
+  readonly detail?: string
 }
 
 /** One item's outcome: a result, or an error. */
@@ -106,7 +108,6 @@ export interface ItemResult {
 }
 
 export interface ResponseEnvelope {
-  readonly v: number
   readonly reqNonce: string
   /** Set only when the whole envelope was refused. */
   readonly error?: ResultError
@@ -114,12 +115,17 @@ export interface ResponseEnvelope {
   /** 1-based chunk position and count. */
   readonly seq: number
   readonly total: number
+  /** Decoded only: ids this chunk answered twice, or with both a result and an error. They have no decided outcome. */
+  readonly conflictedIds?: readonly string[]
+  /** Decoded only: ids answered that the request never sent; dropped. */
+  readonly unknownIds?: readonly string[]
+  /** Decoded only: `seq` outside 1 to `total`, which makes the reply incomplete. */
+  readonly malformedSeq?: boolean
 }
 
-const RESULT_ERROR: GoType = { object: { code: 'string', message: 'string' } }
+const RESULT_ERROR: GoType = { object: { code: 'string', message: 'string', detail: 'string' } }
 const RESPONSE_TYPE: GoType = {
   object: {
-    v: 'int',
     req_nonce: 'string',
     error: RESULT_ERROR,
     results: { array: { object: { id: 'string', result_type: 'string', result: 'raw', error: RESULT_ERROR } } },
@@ -130,62 +136,92 @@ const RESPONSE_TYPE: GoType = {
 }
 
 function marshalError(e: ResultError): string {
-  return `{"code":${goString(e.code)}${e.message ? `,"message":${goString(e.message)}` : ''}}`
+  return `{"code":${goString(e.code)}${e.message ? `,"message":${goString(e.message)}` : ''}${e.detail !== undefined ? `,"detail":${goString(e.detail)}` : ''}}`
 }
 
-function marshalResponse(r: ResponseEnvelope, pad: string): string {
-  let s = `{"v":${r.v},"req_nonce":${goString(r.reqNonce)}`
-  if (r.error) s += `,"error":${marshalError(r.error)}`
-  if (r.results.length > 0) {
-    s +=
-      ',"results":[' +
-      r.results
-        .map(
-          (x) =>
-            `{"id":${goString(x.id)}` +
-            (x.resultType ? `,"result_type":${goString(x.resultType)}` : '') +
-            (x.result !== undefined && x.result !== '' ? `,"result":${compactGo(x.result)}` : '') +
-            (x.error ? `,"error":${marshalError(x.error)}` : '') +
-            '}',
-        )
-        .join(',') +
-      ']'
+function readError(err: Record<string, unknown>): ResultError {
+  return {
+    code: (err['code'] as string | undefined) ?? '',
+    ...(err['message'] ? { message: err['message'] as string } : {}),
+    ...(typeof err['detail'] === 'string' && { detail: err['detail'] }),
   }
+}
+
+function marshalResult(x: ItemResult): string {
+  return (
+    `{"id":${goString(x.id)}` +
+    (x.resultType ? `,"result_type":${goString(x.resultType)}` : '') +
+    (x.result !== undefined && x.result !== '' ? `,"result":${compactGo(x.result)}` : '') +
+    (x.error ? `,"error":${marshalError(x.error)}` : '') +
+    '}'
+  )
+}
+
+// Field order as nmilat writes it: `results` last, and `[]` for a reply that
+// answers no item and carries no envelope-level error (a complete reply of
+// omissions, told apart from a chunk that decides nothing).
+function marshalResponse(r: ResponseEnvelope, pad: string): string {
+  let s = `{"req_nonce":${goString(r.reqNonce)}`
+  if (r.error) s += `,"error":${marshalError(r.error)}`
   s += `,"seq":${r.seq},"total":${r.total}`
   if (pad !== '') s += `,"pad":${goString(pad)}`
+  if (r.results.length > 0) s += `,"results":[${r.results.map(marshalResult).join(',')}]`
+  else if (r.error === undefined) s += ',"results":[]'
   return s + '}'
 }
 
 const utf8Len = (s: string) => utf8(s).length
 
-/** Serialises and pads a response, as a Hub does (used by tests and FakeHub). */
+/** A reply's padded size: the Hub's bucket, capped at the NIP-44 ceiling, never the request's `max_bytes`. */
+function paddedReplySize(n: number, bucket: number): number {
+  if (n < 0 || n > MAX_NIP44_PLAINTEXT) throw new TransportError('envelope_too_large', `${n} bytes, ceiling ${MAX_NIP44_PLAINTEXT}`)
+  if (bucket <= 0) return n
+  return Math.min(Math.max(1, Math.ceil(n / bucket)) * bucket, MAX_NIP44_PLAINTEXT)
+}
+
+/**
+ * Serialises and pads a response, as a Hub does (used by tests and FakeHub).
+ * An envelope-level refusal may echo a malformed nonce as the client sent it;
+ * every other reply needs a 64-lowercase-hex `req_nonce`.
+ */
 export function encodeResponse(r: ResponseEnvelope, limits: Limits): string {
   validateLimits(limits)
-  if (r.v !== ENVELOPE_VERSION) throw new TransportError('envelope_version', `unsupported envelope version ${r.v}`)
-  if (!isLowerHex64(r.reqNonce)) throw new TransportError('response_malformed', 'req_nonce must be 64 lowercase hex characters')
+  const refusal = r.error !== undefined && r.results.length === 0
+  if (!isLowerHex64(r.reqNonce) && !(refusal && r.reqNonce !== '')) {
+    throw new TransportError('response_malformed', 'req_nonce must be 64 lowercase hex characters')
+  }
   const seq = r.seq === 0 && r.total === 0 ? 1 : r.seq
   const total = r.seq === 0 && r.total === 0 ? 1 : r.total
   if (total < 1 || seq < 1 || seq > total) throw new TransportError('response_malformed', `seq ${seq} of ${total} is not a position in a reply`)
   const norm = { ...r, seq, total }
   const body = marshalResponse(norm, '')
   const overhead = ',"pad":""'.length
-  const target = paddedSize(limits, utf8Len(body) + overhead)
+  const target = paddedReplySize(utf8Len(body) + overhead, limits.padBucketBytes)
   const padded = marshalResponse(norm, '0'.repeat(Math.max(target - utf8Len(body) - overhead, 0)))
-  if (utf8Len(padded) > limits.maxEnvelopeBytes) {
-    throw new TransportError('envelope_too_large', `${utf8Len(padded)} bytes after padding, limit ${limits.maxEnvelopeBytes}`)
+  if (utf8Len(padded) > MAX_NIP44_PLAINTEXT) {
+    throw new TransportError('envelope_too_large', `${utf8Len(padded)} bytes after padding, ceiling ${MAX_NIP44_PLAINTEXT}`)
   }
   return padded
 }
 
+/** A result body that is present and not JSON null. */
+const hasResultBody = (raw: unknown): boolean => typeof raw === 'string' && raw !== '' && raw !== 'null'
+
 /**
- * Parses a response and checks it answers the request with `reqNonce`, with
- * results only for ids that request contained, each at most once, and never
- * both a result and an error.
+ * Parses one chunk of a reply and checks it answers the request with
+ * `reqNonce`. It refuses only what makes the chunk unusable: a plaintext over
+ * `max(maxEnvelopeBytes, 65535)` bytes, bad JSON, or another request's nonce.
+ * Everything else is reported with the chunk kept (NIP-CASH §Chunked
+ * Replies): an unknown id is dropped (`unknownIds`), an id answered twice or
+ * with both a result and an error has no outcome (`conflictedIds`), and a
+ * `seq` outside 1 to `total` is flagged (`malformedSeq`) with its results
+ * kept. A client collecting a reply uses this one.
  */
-export function decodeResponse(plaintext: string, reqNonce: string, requestedIds: readonly string[], limits: Limits): ResponseEnvelope {
+export function decodeResponseChunk(plaintext: string, reqNonce: string, requestedIds: readonly string[], limits: Limits): ResponseEnvelope {
   validateLimits(limits)
-  if (utf8Len(plaintext) > limits.maxEnvelopeBytes) {
-    throw new TransportError('envelope_too_large', `${utf8Len(plaintext)} bytes, limit ${limits.maxEnvelopeBytes}`)
+  const limit = Math.max(limits.maxEnvelopeBytes, MAX_NIP44_PLAINTEXT)
+  if (utf8Len(plaintext) > limit) {
+    throw new TransportError('envelope_too_large', `${utf8Len(plaintext)} bytes, limit ${limit}`)
   }
   let decoded: { value: unknown; typeError: boolean }
   try {
@@ -195,47 +231,70 @@ export function decodeResponse(plaintext: string, reqNonce: string, requestedIds
   }
   if (decoded.typeError) throw new TransportError('response_malformed', 'response field has the wrong type')
   const o = (decoded.value ?? {}) as Record<string, unknown>
-  const v = Number((o['v'] as bigint | undefined) ?? 0n)
-  if (v !== ENVELOPE_VERSION) throw new TransportError('envelope_version', `unsupported envelope version ${v}`)
   const nonce = (o['req_nonce'] as string | undefined) ?? ''
   if (nonce !== reqNonce) throw new TransportError('response_mismatch', 'response answers a different request')
   let seq = Number((o['seq'] as bigint | undefined) ?? 0n)
   let total = Number((o['total'] as bigint | undefined) ?? 0n)
   if (seq === 0 && total === 0) seq = total = 1
-  if (total < 1 || seq < 1 || seq > total) throw new TransportError('response_malformed', `seq ${seq} of ${total} is not a position in a reply`)
+  const malformedSeq = total < 1 || seq < 1 || seq > total
 
   const known = new Set(requestedIds)
-  const seen = new Set<string>()
-  const results: ItemResult[] = []
-  for (const raw of (o['results'] as Record<string, unknown>[] | undefined) ?? []) {
+  const count = new Map<string, number>()
+  const raws = (o['results'] as Record<string, unknown>[] | undefined) ?? []
+  for (const raw of raws) {
     const id = (raw['id'] as string | undefined) ?? ''
-    if (!known.has(id)) throw new TransportError('unknown_item_id', 'response references an unknown item id')
-    if (seen.has(id)) throw new TransportError('response_malformed', 'duplicate result for one item')
-    seen.add(id)
+    count.set(id, (count.get(id) ?? 0) + 1)
+  }
+  const unknownIds = new Set<string>()
+  const conflicted = new Set<string>()
+  const results: ItemResult[] = []
+  for (const raw of raws) {
+    const id = (raw['id'] as string | undefined) ?? ''
+    if (!known.has(id)) {
+      unknownIds.add(id)
+      continue
+    }
     const err = raw['error'] as Record<string, unknown> | undefined
-    if (raw['result'] !== undefined && err !== undefined) {
-      throw new TransportError('response_malformed', 'an item carries both a result and an error')
+    if (count.get(id)! > 1 || (hasResultBody(raw['result']) && err !== undefined)) {
+      conflicted.add(id)
+      continue
     }
     results.push({
       id,
       ...(raw['result_type'] !== undefined && raw['result_type'] !== '' && { resultType: raw['result_type'] as string }),
       ...(raw['result'] !== undefined && { result: raw['result'] as string }),
-      ...(err !== undefined && {
-        error: { code: (err['code'] as string | undefined) ?? '', ...(err['message'] ? { message: err['message'] as string } : {}) },
-      }),
+      ...(err !== undefined && { error: readError(err) }),
     })
   }
   const envErr = o['error'] as Record<string, unknown> | undefined
   return {
-    v,
     reqNonce: nonce,
-    ...(envErr !== undefined && {
-      error: { code: (envErr['code'] as string | undefined) ?? '', ...(envErr['message'] ? { message: envErr['message'] as string } : {}) },
-    }),
+    ...(envErr !== undefined && { error: readError(envErr) }),
     results,
     seq,
     total,
+    ...(conflicted.size > 0 && { conflictedIds: [...conflicted] }),
+    ...(unknownIds.size > 0 && { unknownIds: [...unknownIds] }),
+    ...(malformedSeq && { malformedSeq: true }),
   }
+}
+
+/**
+ * The strict reading of a single-event reply: whatever `decodeResponseChunk`
+ * only reports is refused here (a plaintext over `maxEnvelopeBytes`, a `seq`
+ * outside 1 to `total`, an id the request never sent, an id answered twice, an
+ * item with both a result and an error).
+ */
+export function decodeResponse(plaintext: string, reqNonce: string, requestedIds: readonly string[], limits: Limits): ResponseEnvelope {
+  validateLimits(limits)
+  if (utf8Len(plaintext) > limits.maxEnvelopeBytes) {
+    throw new TransportError('envelope_too_large', `${utf8Len(plaintext)} bytes, limit ${limits.maxEnvelopeBytes}`)
+  }
+  const r = decodeResponseChunk(plaintext, reqNonce, requestedIds, limits)
+  if (r.malformedSeq) throw new TransportError('response_malformed', `seq ${r.seq} of ${r.total} is not a position in a reply`)
+  if (r.unknownIds !== undefined) throw new TransportError('unknown_item_id', 'response references an unknown item id')
+  if (r.conflictedIds !== undefined) throw new TransportError('response_malformed', 'an item is answered twice, or with both a result and an error')
+  return r
 }
 
 /** Ids requested but not answered: "not served", never "spent". */

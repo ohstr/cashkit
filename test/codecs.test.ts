@@ -8,9 +8,10 @@ import {
   decodeCashHubConnection,
   decodeCircleHubConnection,
   decodeNConnection,
+  decodeOrderConnection,
+  fromHex,
+  getPublicKey,
   decodeToken,
-  encodeCashHubConnection,
-  encodeCircleHubConnection,
   encodeNConnection,
   encodeToken,
   hasProvenance,
@@ -21,15 +22,20 @@ import {
   toHex,
   type Token,
 } from '../src/core/index.js'
-import { BASE, fill, KEY_HEX, RELAY, rawBech32, SECRET_HEX } from './helpers.js'
+import { BASE, fill, HUB_KEY, KEY_HEX, RELAY, rawBech32, SECRET_HEX, signedConnection, type RawTLV } from './helpers.js'
 
 const token = (over: Partial<Token> = {}): Token => ({
   hrp: 'lokicash',
   walletPubkey: KEY_HEX,
   secret: SECRET_HEX,
   relays: [RELAY],
+  scheme: 'mint_v1',
+  mintSignature: fill(1, 65),
+  attestedAmountMillis: 21000n,
   ...over,
 })
+/** What a decoder returns beside the fields given: the raw relay hints. */
+const decoded = (t: Token) => ({ ...t, relays: [...t.relays], relayBytes: t.relays.map((r) => new TextEncoder().encode(r)) })
 
 describe('bech32 framing', () => {
   test('encode then decode round-trips any HRP and payload', () => {
@@ -89,13 +95,14 @@ describe('cash token', () => {
       hubGroup: hubGroupFor('cd'.repeat(32)),
     })
     const back = decodeToken(encodeToken(t))
-    expect(back).toEqual({ ...t, relays: [...t.relays] })
+    expect(back).toEqual(decoded(t))
     expect(hasProvenance(back)).toBe(true)
+    expect(decodeToken(encodeToken({ ...t, scheme: 'zap_v1' })).scheme).toBe('zap_v1')
   })
   test('optional fields are absent, not undefined-valued, when missing', () => {
     const back = decodeToken(encodeToken(token()))
-    expect(new Set(Object.keys(back))).toEqual(new Set(['hrp', 'relays', 'secret', 'walletPubkey']))
-    expect(hasProvenance(back)).toBe(false)
+    expect(new Set(Object.keys(back))).toEqual(new Set(['hrp', 'relays', 'relayBytes', 'secret', 'walletPubkey', 'scheme', 'mintSignature', 'attestedAmountMillis']))
+    expect(hasProvenance(back)).toBe(true)
   })
   test('identity_required false survives (it is not the same as absent)', () => {
     expect(decodeToken(encodeToken(token({ identityRequired: false }))).identityRequired).toBe(false)
@@ -104,15 +111,17 @@ describe('cash token', () => {
     const t = token({ mintSignature: fill(1, 65), attestedAmountMillis: 18446744073709551615n })
     expect(decodeToken(encodeToken(t)).attestedAmountMillis).toBe(18446744073709551615n)
   })
-  test('encode skips blank relays (TestEncoders_SkipBlankRelayEntries)', () => {
-    expect(decodeToken(encodeToken(token({ relays: ['', RELAY, '  '] }))).relays).toEqual([RELAY])
-  })
   test.each<[string, Partial<Token>]>([
     ['no relays', { relays: [] }],
     ['only blank relays', { relays: [' ', '\t'] }],
+    ['a blank relay beside a usable one', { relays: ['', RELAY] }],
+    ['a non-ASCII relay', { relays: ['wss://bücher.example'] }],
+    ['no provenance', { mintSignature: undefined as never, attestedAmountMillis: undefined as never }],
+    ['no scheme', { scheme: 'none' }],
+    ['a malformed scheme', { scheme: 'malformed' }],
     ['a relay over 255 bytes', { relays: ['r'.repeat(256)] }],
-    ['a signature without an amount', { mintSignature: fill(1, 65) }],
-    ['an amount without a signature', { attestedAmountMillis: 1n }],
+    ['a signature without an amount', { attestedAmountMillis: undefined as never }],
+    ['an amount without a signature', { mintSignature: undefined as never }],
     ['a 64-byte signature', { mintSignature: fill(1, 64), attestedAmountMillis: 1n }],
     ['a negative amount', { mintSignature: fill(1, 65), attestedAmountMillis: -1n }],
     ['an amount above uint64', { mintSignature: fill(1, 65), attestedAmountMillis: 1n << 64n }],
@@ -150,9 +159,19 @@ describe('cash token', () => {
     ['short signature', [[5, fill(1, 64)], [6, fill(0, 8)]]],
     ['short amount', [[5, fill(1, 65)], [6, fill(0, 7)]]],
     ['duplicate signature', [[5, fill(1, 65)], [5, fill(1, 65)], [6, fill(0, 8)]]],
+    ['no scheme beside a pair', [[5, fill(1, 65)], [6, fill(0, 8)]]],
+    ['scheme 0', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(0)]]],
+    ['scheme 3', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(3)]]],
+    ['scheme 255', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(255)]]],
+    ['an empty scheme', [[5, fill(1, 65)], [6, fill(0, 8)], [8, new Uint8Array()]]],
+    ['a 2-byte scheme', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(1, 1)]]],
+    ['a repeated scheme, same value', [[5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(1)], [8, Uint8Array.of(1)]]],
+    ['a valid scheme without the pair', [[5, fill(1, 65)], [8, Uint8Array.of(1)]]],
   ])('anomalous provenance is dropped, not fatal: %s', (_, extra) => {
     const t = decodeToken(rawBech32('lokicash', [...BASE, ...extra]))
     expect(hasProvenance(t)).toBe(false)
+    expect(t.scheme).toBe('malformed')
+    expect(t.mintSignature).toBeUndefined()
     expect(t.walletPubkey).toBe(KEY_HEX)
   })
   test.each([
@@ -161,7 +180,7 @@ describe('cash token', () => {
     ['empty', [[7, new Uint8Array()]]],
     ['duplicated', [[7, fill(1, 4)], [7, fill(1, 4)]]],
   ] as [string, Parameters<typeof rawBech32>[1]][])('an anomalous hub group is dropped, the rest kept: %s', (_, extra) => {
-    const t = decodeToken(rawBech32('lokicash', [...BASE, [5, fill(1, 65)], [6, fill(0, 8)], ...extra]))
+    const t = decodeToken(rawBech32('lokicash', [...BASE, [5, fill(1, 65)], [6, fill(0, 8)], [8, Uint8Array.of(1)], ...extra]))
     expect(t.hubGroup).toBeUndefined()
     expect(hasProvenance(t)).toBe(true)
   })
@@ -169,9 +188,12 @@ describe('cash token', () => {
     const t = decodeToken(rawBech32('lokicash', [[0, fill(0x22, 32)], [4, Uint8Array.of(1, 2, 3)], [1, RELAY], [200, 'future'], [2, fill(0x33, 32)], [99, new Uint8Array()], [255, fill(0xee, 40)]]))
     expect(t.relays).toEqual([RELAY])
   })
-  test('decode keeps blank relays beside a usable one, and a leading BOM', () => {
-    expect(decodeToken(rawBech32('lokicash', [...BASE, [1, ' ']])).relays).toEqual([RELAY, ' '])
-    expect(decodeToken(rawBech32('lokicash', [...BASE, [1, '﻿wss://x']])).relays[1]).toBe('﻿wss://x')
+  test('decode skips an ASCII-blank relay, lists any other hint, and keeps every raw byte', () => {
+    const t = decodeToken(rawBech32('lokicash', [...BASE, [1, ' '], [1, '\uFEFFwss://x'], [1, Uint8Array.of(0xff)]]))
+    expect(t.relays).toEqual([RELAY, '\uFEFFwss://x', '\uFFFD'])
+    expect(t.relayBytes).toHaveLength(4)
+    expect(t.relayBytes![3]).toEqual(Uint8Array.of(0xff))
+    expect(t.scheme).toBe('none')
   })
   test('any HRP decodes as a token', () => {
     expect(decodeToken(rawBech32('xyzcash', BASE)).hrp).toBe('xyzcash')
@@ -189,35 +211,40 @@ describe('cash token', () => {
   })
 })
 
-describe('hub connections (cashhub1, circlehub1)', () => {
+describe('hub connections (cashhub1, cashorder1, circlehub1)', () => {
+  const SIGNED: RawTLV[] = [[4, fromHex(getPublicKey(HUB_KEY))], [5, fill(1, 65)], [6, 'bitcoin']]
+  const signedBase = (): RawTLV[] => [...BASE, ...SIGNED]
   test.each([
-    ['cashhub', encodeCashHubConnection, decodeCashHubConnection],
-    ['circlehub', encodeCircleHubConnection, decodeCircleHubConnection],
-  ] as const)('%s round-trips, label included', (hrp, encode, decode) => {
+    ['cashhub', decodeCashHubConnection],
+    ['cashorder', decodeOrderConnection],
+    ['circlehub', decodeCircleHubConnection],
+  ] as const)('%s round-trips, label included', (hrp, decode) => {
     const c = { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: 'Family ☕' }
-    const s = encode(c)
+    const s = signedConnection(hrp, c)
     expect(s.startsWith(`${hrp}1`)).toBe(true)
-    expect(decode(s)).toEqual(c)
-    expect(decode(encode({ ...c, label: '' })).label).toBe('')
+    expect(decode(s)).toMatchObject({ ...c, hubIdentity: getPublicKey(HUB_KEY), chain: 'bitcoin' })
+    expect(decode(signedConnection(hrp, { ...c, label: '' })).label).toBe('')
+    expect(decode(signedConnection(hrp, { ...c, label: '' })).labelBytes).toBeUndefined()
   })
-  test('each decoder refuses the other HRP and a token', () => {
-    const c = { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: '' }
-    expect(() => decodeCashHubConnection(encodeCircleHubConnection(c))).toThrow(CoreError)
-    expect(() => decodeCircleHubConnection(encodeCashHubConnection(c))).toThrow(CoreError)
+  test('each decoder refuses the other HRPs and a token', () => {
+    const c = { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY] }
+    expect(() => decodeCashHubConnection(signedConnection('circlehub', c))).toThrow(CoreError)
+    expect(() => decodeCircleHubConnection(signedConnection('cashhub', c))).toThrow(CoreError)
+    expect(() => decodeOrderConnection(signedConnection('cashhub', c))).toThrow(CoreError)
     expect(() => decodeCircleHubConnection(rawBech32('lokicash', BASE))).toThrow(CoreError)
   })
   test('a duplicate label is refused, even an empty one', () => {
-    expect(() => decodeCircleHubConnection(rawBech32('circlehub', [...BASE, [3, ''], [3, '']]))).toThrow(/duplicate label/)
+    expect(() => decodeCircleHubConnection(rawBech32('circlehub', [...signedBase(), [3, ''], [3, '']]))).toThrow(/duplicate label/)
   })
   test('a label over 255 bytes is refused on encode', () => {
-    expect(() => encodeCashHubConnection({ walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: 'é'.repeat(128) })).toThrow(CoreError)
+    expect(() => signedConnection('cashhub', { walletPubkey: KEY_HEX, secret: SECRET_HEX, relays: [RELAY], label: 'é'.repeat(128) })).toThrow(CoreError)
   })
   // cashctl TestDecode_RejectsMalformedCircleHubTLVs.
-  test.each<[string, Parameters<typeof rawBech32>[1], number[]?]>([
-    ['missing pubkey', [[1, RELAY], [2, fill(0x33, 32)]]],
-    ['missing secret', [[0, fill(0x22, 32)], [1, RELAY]]],
-    ['no relay', [[0, fill(0x22, 32)], [2, fill(0x33, 32)]]],
-    ['truncated entry', BASE, [3, 9, 1]],
+  test.each<[string, RawTLV[], number[]?]>([
+    ['missing pubkey', [[1, RELAY], [2, fill(0x33, 32)], ...SIGNED]],
+    ['missing secret', [[0, fill(0x22, 32)], [1, RELAY], ...SIGNED]],
+    ['no relay', [[0, fill(0x22, 32)], [2, fill(0x33, 32)], ...SIGNED]],
+    ['truncated entry', [...BASE, ...SIGNED], [3, 9, 1]],
   ])('circlehub decode refuses %s', (_, entries, raw) => {
     expect(() => decodeCircleHubConnection(rawBech32('circlehub', entries, raw))).toThrow(CoreError)
   })
@@ -229,9 +256,11 @@ describe('nconnection1', () => {
     const c = { connectionKey: ck, relays: ['wss://a', 'wss://b'], platform: 'discord' }
     expect(decodeNConnection(encodeNConnection(c))).toEqual(c)
   })
-  test('is lenient like nmilat: last key wins, a truncated tail is ignored', () => {
-    expect(decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [0, fill(0x55, 32)]])).connectionKey).toBe('55'.repeat(32))
-    expect(decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)]], [1, 32, 119])).relays).toEqual([])
+  test('refuses a second key, a second platform, a bad platform name and a truncated tail', () => {
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [0, fill(0x55, 32)]]))).toThrow(/more than one ConnectionKey/)
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [2, 'x'], [2, 'dns']]))).toThrow(/more than one platform/)
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)], [2, 'X']]))).toThrow(/platform name/)
+    expect(() => decodeNConnection(rawBech32('nconnection', [[0, fill(0x44, 32)]], [1, 32, 119]))).toThrow(/runs past the end/)
   })
   test('refuses a missing or short key, and the wrong HRP', () => {
     expect(() => decodeNConnection(rawBech32('nconnection', [[1, RELAY]]))).toThrow(CoreError)

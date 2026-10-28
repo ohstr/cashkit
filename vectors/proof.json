@@ -1,7 +1,141 @@
 {
-  "description": "Item (kind 23192) and bill (kind 23193) proofs: the six bound tags, and verification order, freshness window and kind separation.",
-  "source": "nipcash/transport/proof.go; proof_test.go, proof_window_test.go, bill_proof_test.go, nipcash/proof_binding_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "description": "Item (kind 23192) and bill (kind 23193) proofs: the six bound tags (K-PROOF-1..2), the params hash ph (K-PH-1..4), and verification order, freshness window and kind separation.",
+  "source": "nipcash/transport/proof.go, envelope.go CanonicalParamsHash; proof_strict_test.go, proof_test.go, proof_window_test.go, bill_proof_test.go, canonical_jcs_test.go, nipcash/proof_binding_test.go",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "kats": [
+    {
+      "id": "K-PROOF-1",
+      "kind": 23192,
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "createdAt": 1720000000,
+      "binding": {
+        "target": "1111111111111111111111111111111111111111111111111111111111111111",
+        "hub": "2222222222222222222222222222222222222222222222222222222222222222",
+        "method": "cash_status",
+        "paramsHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "nonce": "3333333333333333333333333333333333333333333333333333333333333333",
+        "notAfter": 1720000060
+      },
+      "tags": [
+        [
+          "d",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "h",
+          "2222222222222222222222222222222222222222222222222222222222222222"
+        ],
+        [
+          "m",
+          "cash_status"
+        ],
+        [
+          "ph",
+          "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        ],
+        [
+          "en",
+          "3333333333333333333333333333333333333333333333333333333333333333"
+        ],
+        [
+          "expiration",
+          "1720000060"
+        ]
+      ],
+      "eventId": "a121c54b100a68efbda151d0fe01c4290b7a9ea41c22409e916a0e9cb7aabb0b"
+    },
+    {
+      "id": "K-PROOF-2",
+      "kind": 23193,
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "createdAt": 1720000000,
+      "binding": {
+        "target": "1111111111111111111111111111111111111111111111111111111111111111",
+        "hub": "2222222222222222222222222222222222222222222222222222222222222222",
+        "method": "cash_status",
+        "paramsHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "nonce": "3333333333333333333333333333333333333333333333333333333333333333",
+        "notAfter": 1720000060
+      },
+      "tags": [
+        [
+          "d",
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        [
+          "h",
+          "2222222222222222222222222222222222222222222222222222222222222222"
+        ],
+        [
+          "m",
+          "cash_status"
+        ],
+        [
+          "ph",
+          "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        ],
+        [
+          "en",
+          "3333333333333333333333333333333333333333333333333333333333333333"
+        ],
+        [
+          "expiration",
+          "1720000060"
+        ]
+      ],
+      "eventId": "7e4908cda700cd019f244c5c4dafc43c321a23cbc023daec37c6011bfa802c53"
+    }
+  ],
+  "ph": [
+    {
+      "id": "K-PH-1",
+      "params": "{}",
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "K-PH-1",
+      "params": "",
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "K-PH-2",
+      "params": "{\"scope\":\"all\"}",
+      "hash": "ad912f7b3df717e48cbec6d735d0a02bdef1569dd700e374445aea82120592d5"
+    },
+    {
+      "id": "K-PH-3",
+      "params": "{\"amount\":18446744073709551615,\"invoice\":\"a<b\"}",
+      "hash": "88fe51f35b9c0a5ee45347afdaa517b2cb3ebc5916e4e0fe3b2fe42494e616a4"
+    },
+    {
+      "id": "",
+      "params": "{ \"scope\" : \"all\" }",
+      "hash": "ad912f7b3df717e48cbec6d735d0a02bdef1569dd700e374445aea82120592d5"
+    },
+    {
+      "id": "",
+      "params": "{\"b\":1,\"a\":2}",
+      "hash": "d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772"
+    },
+    {
+      "id": "",
+      "params": "[",
+      "hash": "",
+      "error": "transport: params are not valid JSON: unexpected EOF"
+    },
+    {
+      "id": "K-PH-4",
+      "params": "{\"amount\":18446744073709551615,\"invoice\":\"a<b\"}",
+      "note": "< escaped as \\u003c",
+      "hash": "2625065109f911142b060568bcfeda2e1f83514be6607bcc039feedbdb3e7b60"
+    },
+    {
+      "id": "K-PH-4",
+      "params": "{\"amount\":18446744073709551615,\"invoice\":\"a<b\"}",
+      "note": "the number rounded through a float",
+      "hash": "b5900d536afbcdce0fe359557e6b7b5c0258d41ddbad09ca7a2cda99ae5b89c6"
+    }
+  ],
   "build": [
     {
       "name": "item proof",
@@ -296,7 +430,7 @@
         "notAfter": 1
       },
       "now": 1760000000,
-      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+      "error": "transport: item proof expiration is not the envelope's not_after (transport: item proof is bound to a different envelope): expiration \"1760000060\", envelope not_after 1"
     },
     {
       "name": "freshness: created +60s from now",
@@ -341,7 +475,7 @@
         "notAfter": 1760000060
       },
       "now": 1760000301,
-      "error": "transport: item proof is outside its freshness window: created_at 2025-10-09T08:53:20Z, now 2025-10-09T08:58:21Z"
+      "error": "transport: item proof is outside its freshness window: created_at 1760000000, now 1760000301"
     },
     {
       "name": "freshness: created +61s from now",
@@ -356,7 +490,7 @@
         "notAfter": 1760000060
       },
       "now": 1759999939,
-      "error": "transport: item proof is outside its freshness window: created_at 2025-10-09T08:53:20Z, now 2025-10-09T08:52:19Z"
+      "error": "transport: item proof is outside its freshness window: created_at 1760000000, now 1759999939"
     },
     {
       "name": "duplicate m tag",
@@ -419,9 +553,24 @@
       "error": "transport: item proof is malformed: missing \"en\" tag"
     },
     {
-      "name": "no expiration tag is fine",
+      "name": "missing expiration tag is refused",
       "kind": "item",
       "proof": "{\"id\":\"04066916c6affd9e36cd4ccc9c82d0b8c3e6e3a544bbb9db8e321406488725dd\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"]],\"content\":\"\",\"sig\":\"8e9eab78a0f310862b5843d03bb06d057a2662d22b985e1ee89caf179f149192251cf0ea349bc9e13ea72c5d13efc73dea295f22c618218fa5a80f49db0c1457\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: missing \"expiration\" tag"
+    },
+    {
+      "name": "extra tags are ignored",
+      "kind": "item",
+      "proof": "{\"id\":\"14c45e78326a8d814dc6275ddbf9a775e8e788507b84d03877b026cb073e0ea1\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"],[\"x\",\"y\"]],\"content\":\"\",\"sig\":\"338c290be9e7a370223f404ce224d97a7bc94157be1d76713fe8dc1f928c052006d8bcc40d8013902f522ebd561a4bcf60191623f820c296ad4711f0282c091e\"}",
       "binding": {
         "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
         "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
@@ -434,9 +583,9 @@
       "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
     },
     {
-      "name": "extra tags are ignored",
+      "name": "a short binding tag is refused",
       "kind": "item",
-      "proof": "{\"id\":\"6c28f51d44bd1b9712556357ea5acd7fef0d9d1486583c4b61d23b6bfc5c6a24\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"],[\"x\",\"y\"],[\"d\"]],\"content\":\"\",\"sig\":\"0338c50fb7681ee106ce063f734893d7fd60094bb8393e4a92af442276e0b49e3c68de95c7208d3aa1854adb2a8f1ee4446aa11ccf48cc5ffbfba7e6d695f3c8\"}",
+      "proof": "{\"id\":\"28a7bd3e8ba7ff98bdd1b6a1d2711e3d43fc34294e35ed96bb8046f07c3b7b6c\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"],[\"d\"]],\"content\":\"\",\"sig\":\"26a36cd3a349e006d55dd9e8696cceec3c324a383ce8f3817ae417d4bdef28225516cb8eea3eac2e657028a20c7076e7b5192663d9e28634a21c71e67653984d\"}",
       "binding": {
         "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
         "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
@@ -446,7 +595,22 @@
         "notAfter": 1760000060
       },
       "now": 1760000000,
-      "signer": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+      "error": "transport: item proof is malformed: \"d\" tag is not one string"
+    },
+    {
+      "name": "a binding tag with an extra element is refused",
+      "kind": "item",
+      "proof": "{\"id\":\"68f39e2470dc617849d9c9ef7552bb6faac4414e7eb349022ae39a8f2f95895e\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"extra\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"6c5fbf12041f3afc96e5ec6d2408ef60c87cd5a206ce4701659c2c6305dc584e4e18f2ac0b5e0dd3724ae41108cf48ee063401e82904943bf029badb5b189456\"}",
+      "binding": {
+        "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "method": "cash_redeem",
+        "paramsHash": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "notAfter": 1760000060
+      },
+      "now": 1760000000,
+      "error": "transport: item proof is malformed: \"d\" tag is not one string"
     },
     {
       "name": "bad signature",

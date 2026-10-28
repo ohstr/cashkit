@@ -30,7 +30,7 @@ export async function heldHoldings(t: StorageTx): Promise<Holding[]> {
 export async function addHolding(t: StorageTx, h: NewHolding, o: { now: number; random: (n: number) => Uint8Array }): Promise<Holding> {
   const token = h.token.toLowerCase()
   const existing = await findByToken(t, token)
-  if (existing?.status === 'held') throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
+  if (existing?.status === 'held' || existing?.status === 'redeeming') throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })
   let id = existing?.id
   if (id === undefined) {
     do id = newId('h', o.random)
@@ -108,6 +108,10 @@ export function statusDescription(s: HoldingStatus): string {
       return 'consolidated into another token'
     case 'spent':
       return 'reported spent by its Hub'
+    case 'expired':
+      return 'reported expired by its Hub'
+    case 'reclaimed':
+      return 'removed by its sender (reclaimed)'
     default:
       return ''
   }

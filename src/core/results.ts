@@ -2,7 +2,9 @@
 // Port of nmilat nipcash's ParseResult methods. Input is the already-parsed
 // JSON `result`; uint64 amounts may arrive as safe-integer numbers or as
 // bigints from a precision-preserving parser, and are returned as bigint.
-import type { ConsolidateSource, RecipientStatus } from './claim.js'
+import type { ConsolidateSource } from './claim.js'
+import { isRequestId } from './requestId.js'
+import { validateWithdrawTerms, type WithdrawTerms } from './withdrawTerms.js'
 import { CoreError } from './errors.js'
 import { decryptDelivery, type Credential, type Target } from './identity.js'
 
@@ -50,15 +52,76 @@ function bool(o: Obj, key: string, what: string): boolean {
   return v
 }
 
+/** An expiry: omitted, null and 0 all mean "never expires" (undefined), never "expired at epoch 0". */
+function optExpiry(o: Obj, key: string, what: string): number | undefined {
+  const v = optInt(o, key, what)
+  if (v !== undefined && v < 0) throw bad(`${what}: ${key} must not be negative`)
+  return v === 0 ? undefined : v
+}
+
+/** The reasons a bill can end on; any other value, or none, reads as spent with no reason. */
+export type TombstoneReason = 'redeemed' | 'transferred' | 'consolidated' | 'expired' | 'reclaimed'
+const REASONS: ReadonlySet<string> = new Set(['redeemed', 'transferred', 'consolidated', 'expired', 'reclaimed'])
+
+/**
+ * A destroyed bill (NIP-CASH §Answering About a Destroyed Bill): the
+ * definite answer that it is gone, the item's result for every bill method.
+ */
+export interface Tombstone {
+  readonly status: 'spent'
+  /** Absent for a written-off bill, or when the Hub sent a value this client does not know. */
+  readonly reason?: TombstoneReason
+  readonly retainedUntil?: number
+  /** Only trusted by a caller whose own item proof the answer was to. */
+  readonly withdrawRequestId?: string
+}
+
+/** The tombstone a result is, or undefined when it is not one. Never throws. */
+export function parseTombstone(result: unknown): Tombstone | undefined {
+  if (result === null || typeof result !== 'object' || Array.isArray(result)) return undefined
+  const o = result as Obj
+  if (o['status'] !== 'spent') return undefined
+  const reason = typeof o['reason'] === 'string' && REASONS.has(o['reason']) ? (o['reason'] as TombstoneReason) : undefined
+  let retainedUntil: number | undefined
+  try {
+    retainedUntil = optInt(o, 'retained_until', 'tombstone')
+  } catch {
+    retainedUntil = undefined
+  }
+  const wid = isRequestId(o['withdraw_request_id']) ? o['withdraw_request_id'] : undefined
+  return { status: 'spent', ...(reason !== undefined && { reason }), ...(retainedUntil !== undefined && { retainedUntil }), ...(wid !== undefined && { withdrawRequestId: wid }) }
+}
+
+export type BillMethod = 'cash_status' | 'cash_redeem' | 'cash_transfer' | 'cash_consolidate'
+
+/** A bill method's result: its parsed value, or the tombstone in its place. */
+export type BillResult<R> = { readonly kind: 'result'; readonly value: R } | { readonly kind: 'tombstone'; readonly tombstone: Tombstone }
+
 export interface CashRedeemResult {
+  /** 64 lowercase hex. */
   readonly preimage: string
-  /** The recipient's own redeem fee, never the routing cost. */
+  /** The recipient's own redeem fee, never the routing cost; 0 for a same-node redeem. */
   readonly feesPaid: bigint
+}
+
+/** Whether a `cash_secret` or `secret` key appears anywhere in a parsed reply. */
+function carriesSecret(v: unknown): boolean {
+  if (Array.isArray(v)) return v.some(carriesSecret)
+  if (v === null || typeof v !== 'object') return false
+  return Object.entries(v).some(([k, x]) => k === 'cash_secret' || k === 'secret' || carriesSecret(x))
+}
+
+/** A Hub never returns a secret: a reply carrying one anywhere is refused. */
+function refuseSecrets(o: Record<string, unknown>, method: string): void {
+  if (carriesSecret(o)) throw bad(`${method}: the Hub's reply carries a cash secret`)
 }
 
 export function parseCashRedeemResult(result: unknown): CashRedeemResult {
   const o = asObject(result, 'cash_redeem result')
-  return { preimage: str(o, 'preimage', 'cash_redeem'), feesPaid: u64(o, 'fees_paid', 'cash_redeem') }
+  const preimage = o['preimage']
+  if (typeof preimage !== 'string' || !/^[0-9a-f]{64}$/.test(preimage)) throw bad('cash_redeem: preimage must be 64 lowercase hex')
+  if (o['fees_paid'] === undefined || o['fees_paid'] === null) throw bad('cash_redeem: fees_paid is required')
+  return { preimage, feesPaid: u64(o, 'fees_paid', 'cash_redeem') }
 }
 
 export interface CashTransferResult {
@@ -72,17 +135,25 @@ export interface CashTransferResult {
   readonly remainderWalletPubkey: string
   /** Decrypted; secret-bearing. */
   readonly remainderWalletToken: string
+  /** A zap transfer's bill: its signed `issued_at`. Absent on any other transfer. */
+  readonly issuedAt?: number
+  /** A zap bill's signed `expires_at`, 0 when it never expires (unlike every other expiry). */
+  readonly zapExpiresAt?: number
 }
 
 /** Parses a cash_transfer result, decrypting delivered tokens with `credential`. */
 export async function parseCashTransferResult(result: unknown, credential: Credential): Promise<CashTransferResult> {
   const o = asObject(result, 'cash_transfer result')
+  refuseSecrets(o, 'cash_transfer')
   const w = 'cash_transfer'
   const newWalletPubkey = str(o, 'new_wallet_pubkey', w)
   const remainderWalletPubkey = str(o, 'remainder_wallet_pubkey', w)
   const newToken = str(o, 'new_wallet_token', w)
   const remainderToken = str(o, 'remainder_wallet_token', w)
   const remaining = optU64(o, 'remaining_amount_millis', w)
+  const issuedAt = optInt(o, 'issued_at', w)
+  const zapExpiresAt = issuedAt !== undefined ? (optInt(o, 'expires_at', w) ?? 0) : undefined
+  if (issuedAt !== undefined && (issuedAt < 0 || zapExpiresAt! < 0)) throw bad('cash_transfer: issued_at and expires_at must not be negative')
   return {
     amountMillis: u64(o, 'amount_millis', w),
     identityType: str(o, 'identity_type', w),
@@ -92,6 +163,7 @@ export async function parseCashTransferResult(result: unknown, credential: Crede
     newWalletToken: newToken === '' ? '' : await decryptDelivery(credential, newWalletPubkey, newToken),
     remainderWalletPubkey,
     remainderWalletToken: remainderToken === '' ? '' : await decryptDelivery(credential, remainderWalletPubkey, remainderToken),
+    ...(issuedAt !== undefined && { issuedAt, zapExpiresAt: zapExpiresAt! }),
   }
 }
 
@@ -121,10 +193,11 @@ export async function parseCashConsolidateResult(
   p: { readonly sources: readonly ConsolidateSource[]; readonly to: Target },
 ): Promise<CashConsolidateResult> {
   const o = asObject(result, 'cash_consolidate result')
+  refuseSecrets(o, 'cash_consolidate')
   const w = 'cash_consolidate'
   const newWalletPubkey = str(o, 'new_wallet_pubkey', w)
   const token = str(o, 'new_wallet_token', w)
-  const expiresAt = optInt(o, 'expires_at', w)
+  const expiresAt = optExpiry(o, 'expires_at', w)
   const first = p.sources[0]
   let newWalletToken = token
   if (token !== '' && first !== undefined && p.to.identityType === 'pubkey') {
@@ -142,37 +215,50 @@ export async function parseCashConsolidateResult(
   }
 }
 
-/** A full cash_status roster row. */
-export interface RecipientStatusRow extends RecipientStatus {
+/** One recipient row of a cash_status roster. */
+export interface RecipientStatus {
+  readonly identity_type: string
+  readonly identity_value?: string
+  /** A `connection_key` row's Identity Authority. */
+  readonly ia_pubkey?: string
+  readonly amount_millis: bigint
+  readonly claimed: boolean
   readonly claimed_at?: number
   readonly redeem_fee_millis: bigint
   readonly net_redeemable_millis: bigint
   readonly min_transfer_millis: bigint
+  /** Absent for a wallet that never expires (0 and null read the same). */
   readonly expires_at?: number
+  /** Only trusted by a caller whose own item proof the answer was to. */
+  readonly withdraw_request_id?: string
 }
 
 export interface CashStatusResult {
-  readonly recipients: readonly RecipientStatusRow[]
-  /** "spent" when the bill's value has moved on. */
-  readonly error: string
-  readonly retainedUntil?: number
+  readonly recipients: readonly RecipientStatus[]
+  /** Set when the bill is gone; `recipients` is then empty. */
+  readonly tombstone?: Tombstone
+  /** The Hub's on-chain withdrawal terms, when it offers them and they are valid. */
+  readonly withdraw?: WithdrawTerms
 }
 
-export const STATUS_SPENT = 'spent'
-
 export function parseCashStatusResult(result: unknown): CashStatusResult {
+  const tombstone = parseTombstone(result)
+  if (tombstone !== undefined) return { recipients: [], tombstone }
   const o = asObject(result, 'cash_status result')
   const w = 'cash_status'
   const raw = o['recipients'] ?? []
   if (!Array.isArray(raw)) throw bad('cash_status: recipients must be an array')
-  const recipients = raw.map((r): RecipientStatusRow => {
+  const recipients = raw.map((r): RecipientStatus => {
     const row = asObject(r, 'cash_status recipient')
     const claimedAt = optInt(row, 'claimed_at', w)
-    const expiresAt = optInt(row, 'expires_at', w)
+    const expiresAt = optExpiry(row, 'expires_at', w)
     const value = str(row, 'identity_value', w)
+    const ia = str(row, 'ia_pubkey', w)
+    const wid = isRequestId(row['withdraw_request_id']) ? row['withdraw_request_id'] : undefined
     return {
       identity_type: str(row, 'identity_type', w),
       ...(value !== '' && { identity_value: value }),
+      ...(ia !== '' && { ia_pubkey: ia }),
       amount_millis: u64(row, 'amount_millis', w),
       claimed: bool(row, 'claimed', w),
       ...(claimedAt !== undefined && { claimed_at: claimedAt }),
@@ -180,10 +266,18 @@ export function parseCashStatusResult(result: unknown): CashStatusResult {
       net_redeemable_millis: u64(row, 'net_redeemable_millis', w),
       min_transfer_millis: u64(row, 'min_transfer_millis', w),
       ...(expiresAt !== undefined && { expires_at: expiresAt }),
+      ...(wid !== undefined && { withdraw_request_id: wid }),
     }
   })
-  const retainedUntil = optInt(o, 'retained_until', w)
-  return { recipients, error: str(o, 'error', w), ...(retainedUntil !== undefined && { retainedUntil }) }
+  const withdraw = validateWithdrawTerms(o['withdraw'])
+  return { recipients, ...(withdraw !== undefined && { withdraw }) }
 }
 
-export const isSpent = (r: Pick<CashStatusResult, 'error'>): boolean => r.error === STATUS_SPENT
+export const isSpent = (r: Pick<CashStatusResult, 'tombstone'>): boolean => r.tombstone !== undefined
+
+/** A bill method's result or its tombstone; `parse` reads the method's own shape. */
+export async function parseBillResult<R>(result: unknown, parse: (v: unknown) => R | Promise<R>): Promise<BillResult<R>> {
+  const tombstone = parseTombstone(result)
+  if (tombstone !== undefined) return { kind: 'tombstone', tombstone }
+  return { kind: 'result', value: await parse(result) }
+}

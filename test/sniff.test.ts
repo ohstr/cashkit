@@ -1,10 +1,9 @@
 // Ported from cashctl internal/dial/sniff_test.go.
 import { describe, expect, test } from 'vitest'
 import { bech32Encode, toWords } from '../src/core/bech32.js'
+import { signedConnection } from './helpers.js'
 import {
   bech32Hrp,
-  encodeCashHubConnection,
-  encodeCircleHubConnection,
   encodeNConnection,
   encodeToken,
   sniff,
@@ -21,14 +20,18 @@ describe('sniff', () => {
     expect(sniff('  nostr+walletconnect://abc')).toBe('nwc_uri')
   })
   test('cash token (TestSniff_CashToken)', () => {
-    expect(sniff(encodeToken({ hrp: 'lokicash', walletPubkey: pk, secret: sk, relays: ['wss://relay.example'] }))).toBe('cash_token')
+    expect(sniff(encodeToken({ hrp: 'lokicash', walletPubkey: pk, secret: sk, relays: ['wss://relay.example'], scheme: 'mint_v1', mintSignature: new Uint8Array(65).fill(1), attestedAmountMillis: 1n }))).toBe('cash_token')
   })
   test('any other HRP is a cash token too', () => {
     expect(sniff(bech32Encode('xyzcash', toWords(new Uint8Array(8))))).toBe('cash_token')
   })
   test('circle hub and cash hub (TestSniff_CircleHub, TestSniff_CashHub)', () => {
-    expect(sniff(encodeCircleHubConnection(conn))).toBe('circlehub')
-    expect(sniff(encodeCashHubConnection(conn))).toBe('cashhub')
+    expect(sniff(signedConnection('circlehub', conn))).toBe('circlehub')
+    expect(sniff(signedConnection('cashhub', conn))).toBe('cashhub')
+  })
+  test('an order connection, and every connection in uppercase', () => {
+    expect(sniff(signedConnection('cashorder', conn))).toBe('cashorder')
+    for (const hrp of ['cashhub', 'cashorder', 'circlehub'] as const) expect(sniff(signedConnection(hrp, conn).toUpperCase())).toBe(hrp)
   })
   test.each(['npub', 'nsec', 'note', 'nprofile', 'nevent', 'naddr', 'nconnection'])(
     'nostr entity %s (TestSniff_NostrEntity_AllRecognizedHRPs)',
@@ -48,7 +51,7 @@ describe('sniff', () => {
     expect(sniff(s)).toBe('unknown')
   })
   test('surrounding whitespace is ignored, as Go TrimSpace does', () => {
-    const s = encodeCircleHubConnection(conn)
+    const s = signedConnection('circlehub', conn)
     expect(sniff(`\n  ${s}\u0085`)).toBe('circlehub')
     expect(bech32Hrp('not bech32')).toBeUndefined()
   })

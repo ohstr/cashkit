@@ -1,0 +1,4389 @@
+{
+  "description": "NIP-CASH offer listings (kind 31190) and their signals: K-LIST-1..2, the deletion (K-LDEL-1), operator offers (K-OPS-1), a recommendation (K-REC-1) and a report (K-REP-1); ParseListing's steps in order, ignored tags, expiry and skew (K-LEXP-1..3), versions (K-LVER-1), operator verification, recommendation crediting, report shapes, at-tap outcomes and SanitizeText (K-TXT-1).",
+  "source": "nipcash/listing/*.go; nipcash/listing/kat_test.go, listing_test.go",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "events": [
+    {
+      "id": "K-LIST-1",
+      "event": {
+        "id": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "9b9ea17a88a292c32b2b80647696ce22b6393e94df609c0ecfec534c26c903e28f18f47e363eafe4f4976db6f481262420a82163f949db71ea8db249c40f31e3"
+      },
+      "note": "address 31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+    },
+    {
+      "id": "K-LIST-2",
+      "event": {
+        "id": "25d3a99b0b593aa70ad5d848a91cd300062f6c4a479bc7005d66277897a96506",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1793318400,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "closed"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "2449acd9929fb120a4d74ddccae3e62361071a65fb1682f098ab5dac3858a0cb4eb77105a7de60aaf937546ff2da9e88c7effd4582e9e9d1ab38219436413a92"
+      }
+    },
+    {
+      "id": "K-LDEL-1",
+      "event": {
+        "id": "5aa2a615eb258246769d21389dee11481066e3ef3809e9a25a7847acd848d37b",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1793318460,
+        "kind": 5,
+        "tags": [
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "k",
+            "31190"
+          ]
+        ],
+        "content": "",
+        "sig": "61a552701777f5671780990ba7d297b498c6824f43283a090401c96731a5bf8a6d34ea6fda832f3ff83f8f41728fa17b5909abe6870b5a9ea2d93e53806053c6"
+      }
+    },
+    {
+      "id": "K-OPS-1",
+      "event": {
+        "id": "3b74fc1d53fa35a72ba235ce398dc29e599f19e202fc5c16bec156179e1480a0",
+        "pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "created_at": 1792713600,
+        "kind": 11191,
+        "tags": [
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "wss://relay.example.com"
+          ],
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "wss://relay.example.com"
+          ],
+          [
+            "alt",
+            "Cash offers run by this account"
+          ]
+        ],
+        "content": "",
+        "sig": "2281d8a3d9027f93c9e8b9ecf308dad752f5537f9aa30dd639f1929be34e1dc340f951dd596e81fc870e6458475da53180b02c683a55c629d0dd9118c4463d43"
+      }
+    },
+    {
+      "id": "K-REC-1",
+      "event": {
+        "id": "1ffb32f70209a551300255197aad28472ef74130e432011039d6b5da5d45a5f8",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 31191,
+        "tags": [
+          [
+            "d",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+          ],
+          [
+            "k",
+            "31190"
+          ],
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "wss://relay.example.com"
+          ],
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "wss://relay.example.com"
+          ],
+          [
+            "alt",
+            "Recommendation of a cash offer"
+          ]
+        ],
+        "content": "fast payouts, used it for months",
+        "sig": "476ce7e0d6bf36b75127e6931eb64836c6bcd52c2d36065e8ecbb8354d4a98ab3ce65d868fe8aab811e09096a0623644dcebbefded9a52daa437496910fd6d56"
+      }
+    },
+    {
+      "id": "K-REP-1",
+      "event": {
+        "id": "00cc61c6f4914fac8dfc65a4a29057f687f4af1be394213658e7d53d5e1c1abd",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 1984,
+        "tags": [
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "other"
+          ],
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "e",
+            "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+            "other"
+          ],
+          [
+            "L",
+            "cash.report"
+          ],
+          [
+            "l",
+            "no_payout",
+            "cash.report"
+          ]
+        ],
+        "content": "took my payment, never minted",
+        "sig": "5ae93b1098f6eb690eb218f2dd891dc047c07833be0b386671d6a56ddcbba501d4d52519ddc2e92704c085b99ca9ca13f6ca8d00962db7ddf95122b724de07e1"
+      }
+    },
+    {
+      "id": "",
+      "event": {
+        "id": "5b2a606a86e2a71368d77056fc863f6f62726cb373d803380322729500c3fa99",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "another text",
+        "sig": "e81a43a8744bd7b1637a88b66cb2f83c507c9cc908c1b26d1edee8ed4b87b84645abc275fc6f58ef8ffada49b764ea214a3641142955ce54db5e71c39281bf5b"
+      },
+      "note": "K-LIST-1 with other content, same created_at (K-LVER-1)"
+    },
+    {
+      "id": "",
+      "event": {
+        "id": "9bf4f90db9614086bb251d1eebc8539e3e065630227975069475fc57cf556837",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "50829a2501b1ff679c6a283b68c318588ee6d9d049e88022a3288ba5052dbb80d64ba29e763b8bc514265005cbf1dc5fe5d75965fe1c165ee70fa6f853f63fad"
+      },
+      "note": "K-LIST-1 whose p names another key (operatorVerified)"
+    },
+    {
+      "id": "",
+      "event": {
+        "id": "3f97463627ed4490df70e874d25ae2449e1c2c91b79019a7b98745c281466b64",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "circle_wallet"
+          ],
+          [
+            "t",
+            "allowlist"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097ppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sfqfa6aw5q2wlgqlh7e88qa5nrksry2g9mhfnueyu3lg6wtzhyy7mh3vm2uwyjsahz0w2646l20k0s8cpyskjhkkvzc5cf08evesrulrpcxqa3xjarrda5kul5cgj9"
+          ],
+          [
+            "title",
+            "Circle"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1792714600"
+          ],
+          [
+            "alt",
+            "Cash offer: Circle"
+          ]
+        ],
+        "content": "",
+        "sig": "2c9cd7785d87786a21511be6f7011d3311bd9ac259a5ca23ca2862c1a7f9cb2dd31a76b97b7f944cabab5acd598eaecfa826a6f47db9e383222ed0a011c6b5b4"
+      },
+      "note": "a circle listing (tap)"
+    }
+  ],
+  "parseListing": [
+    {
+      "name": "K-LIST-1",
+      "event": {
+        "id": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "9b9ea17a88a292c32b2b80647696ce22b6393e94df609c0ecfec534c26c903e28f18f47e363eafe4f4976db6f481262420a82163f949db71ea8db249c40f31e3"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 0,
+      "want": {
+        "address": "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "chain": "bitcoin",
+        "connection": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+        "d": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "expiration": 1795305600,
+        "followSet": "",
+        "geohashes": [
+          "eyc"
+        ],
+        "hints": [
+          {
+            "Payment": "lightning",
+            "MinMillis": 1000000,
+            "MaxMillis": 1000000000,
+            "FeeBase": 1000,
+            "FeePpm": 1000
+          }
+        ],
+        "image": "https://example.com/counter.png",
+        "languages": [
+          "pt",
+          "en"
+        ],
+        "location": "Lisbon, Baixa",
+        "network": "mainnet",
+        "operator": {
+          "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "Relay": "wss://relay.example.com"
+        },
+        "status": "open",
+        "summary": [
+          "lightning",
+          "onchain"
+        ],
+        "title": "Alice's cash counter",
+        "type": "cash_order"
+      }
+    },
+    {
+      "name": "K-LIST-2",
+      "event": {
+        "id": "25d3a99b0b593aa70ad5d848a91cd300062f6c4a479bc7005d66277897a96506",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1793318400,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "closed"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "2449acd9929fb120a4d74ddccae3e62361071a65fb1682f098ab5dac3858a0cb4eb77105a7de60aaf937546ff2da9e88c7effd4582e9e9d1ab38219436413a92"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 0,
+      "want": {
+        "address": "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "chain": "bitcoin",
+        "connection": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+        "d": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "expiration": 1795305600,
+        "followSet": "",
+        "geohashes": [
+          "eyc"
+        ],
+        "hints": [
+          {
+            "Payment": "lightning",
+            "MinMillis": 1000000,
+            "MaxMillis": 1000000000,
+            "FeeBase": 1000,
+            "FeePpm": 1000
+          }
+        ],
+        "image": "https://example.com/counter.png",
+        "languages": [
+          "pt",
+          "en"
+        ],
+        "location": "Lisbon, Baixa",
+        "network": "mainnet",
+        "operator": {
+          "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "Relay": "wss://relay.example.com"
+        },
+        "status": "closed",
+        "summary": [
+          "lightning",
+          "onchain"
+        ],
+        "title": "Alice's cash counter",
+        "type": "cash_order"
+      }
+    },
+    {
+      "name": "step 1: two d",
+      "event": {
+        "id": "ce616b36206b48aba2e61965d1f00a3f08fc1bcc8f5955e1dd607bc7b5aceffa",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ],
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "5a185df3499768383c958e14c3544c06eac211a81de9997006a28f7e7740e0fd386e1b47aa76fa743a99b7e5c3d72958c569708c16987b763cf5b65dbc2bc704"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 2 d tags, want exactly 1"
+    },
+    {
+      "name": "step 1: no status",
+      "event": {
+        "id": "3c10096f712659378f90d9ee1910ca2832d79179d9e7c0166a8a146d2e2c8a01",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "ce7499d6723a0bf61950dd418d2c76729ef76b849ced64ceb9bc786df944deebc2ae55a0c8b33e8fe8c2997d810011fc556d45dda9a247ebbd56d44010ca8ac1"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 0 status tags, want exactly 1"
+    },
+    {
+      "name": "step 1: no expiration",
+      "event": {
+        "id": "63e97ef8c8b9d530775985f1047e6fd447655f0ebcba58c8009aa79ad289d7c4",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "a107c801f8325bec7cc952fbdf160e8164c85f7eb7bc1155e4d5c2ae025258c3b6555629dea9699a43f43aed29e39b7d3e68d8e44411da0843036fcbbeb04099"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 0 expiration tags, want exactly 1"
+    },
+    {
+      "name": "step 1: two titles",
+      "event": {
+        "id": "4cea4a9b1033ca6f2b5cc77da2e7a050b1cb2e9a998f20c68d597166313f5086",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ],
+          [
+            "title",
+            "x"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "99ce041e0081a1bb543d9c7c5e37b04bf5c3e8fa261c89bd5fc975fc18db3a8da40ebe3f66f0c4e0bd27ff47680b8485b3c05d1b0186fe69ed03de665dc253ec"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 2 title tags, want at most 1"
+    },
+    {
+      "name": "step 1: two lightning hints",
+      "event": {
+        "id": "9f359a96f5744278377d0dbe55f17e12069b3429ca40796c149552472e19dea9",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1",
+            "2",
+            "3",
+            "4"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "835af0ecee7d5d3cffbb6833b6bbea90b923dd0f276972c46ba0b2fc863ba9751bc3ce9663629cc4c4d284f7b7e4111b3d506df27bae146db67770d7698f34b6"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 2 hint tags for \"lightning\""
+    },
+    {
+      "name": "step 1: two type t of one value",
+      "event": {
+        "id": "b86bf9179f6e0e4600e471bb42d1912f8776be84dcd8c9d9653b845971510bdd",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ],
+          [
+            "t",
+            "cash_order"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "05965803ee93ae922afcfd4e94a566cc415a0ef8140982b9486a11637037d371504c89ea2cff21547a6aee9e39b1858a000c19907d9960c3b31833376114871f"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 2 type t tags \"cash_order\""
+    },
+    {
+      "name": "step 1: expiration 1795305600.0",
+      "event": {
+        "id": "c829082264065a2d3710ca483bd5e1a2f0f5679fafdc819328d42888e901400d",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600.0"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "7acdb95ad10927bee330f1cf3f48be16f804ea918e3a8bcd50ce28264cdcbcb7b84a9f14cef65590336a23215c823eb452b163cc6e5a7df090e1c87f4468ed3e"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: expiration \"1795305600.0\" is not an unsigned decimal integer"
+    },
+    {
+      "name": "step 1: unknown status",
+      "event": {
+        "id": "2f76526edc9bdad469a6968d8150c75195f344999e81819ee2865ccda2df0fcf",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "gone"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "e1851b429393cc29aa4611e141c4004faa09f224b5a9c7a61a422c17a45486c13a8ec835e6d926767a46148b47240535c0d84763be3302229005c3a49ff0f886"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: status \"gone\""
+    },
+    {
+      "name": "step 1: two location",
+      "event": {
+        "id": "26b4dc41038fc7d94c429f955667914edfcfa5e4f192f54f2c53b92c2d71c133",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ],
+          [
+            "location",
+            "x"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "c07e5ede426808cde6a79362149cfb4b7be235412705c600bd73e5adab95e2680abc9c80ac505bdf77cd4e5aed8e8361265d83ffcbfe76cf1340448ffc7113bb"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 2 location tags, want at most 1"
+    },
+    {
+      "name": "step 1: bad signature",
+      "event": {
+        "id": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "changed",
+        "sig": "9b9ea17a88a292c32b2b80647696ce22b6393e94df609c0ecfec534c26c903e28f18f47e363eafe4f4976db6f481262420a82163f949db71ea8db249c40f31e3"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: id or signature: event ID mismatch generated ID=0bad538c00cf0c8f72710c2a1976fdd98b96947b3b16a38c753626b9a0908e7c"
+    },
+    {
+      "name": "step 2: both type values",
+      "event": {
+        "id": "e98ca8e0afa367e4286a7b56f2c65875c98604e097dcef415821c0f4b2bd11e4",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ],
+          [
+            "t",
+            "circle_wallet"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "27a418d4f390c0ccc4a484899abdbb7f9c6e3dfe467c9b9bed77d41b59c02448bfade135dae7535317c3abce32638b28c63b944a12b7c7942f537f0020f8aaca"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 2,
+      "error": "listing: step 2: type t is neither or both values"
+    },
+    {
+      "name": "step 2: no type",
+      "event": {
+        "id": "76b3b508adbc631560435b997b370dfe7982d71a06f86e8af97bcfa05cabf9f6",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "7595e87c726711435d7c5134dba9f41befaeab559dd020d3453093d77f745f9d4f15b9914bb4c034fc2f89efa53ffec49a3156eb74e1ee95cd9a66620d49f844"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 2,
+      "error": "listing: step 2: type t is neither or both values"
+    },
+    {
+      "name": "step 2: wrong HRP: a cashhub1 string",
+      "event": {
+        "id": "a4bbacda13cf8da638a636a0e4167e6ca4b356343ccd4684153f028936f36213",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashhub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097ppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sglmk2f2kcxh2gfqlxq0uk7dvs9tqaa9f8r4k9sjgp70mh38k3yyamnl5e55hn2fc093p4p892dmj9gnnqt4nfnyujekflus6ttwdmzk6qxqa3xjarrda5ku8sxjj8"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "bc70b7fd6b8016de0fd27e36d03a5b21c984338077fd48a522ebadfb6d7491cd42a61508156aeb7fa0b514b8b98619dfb859e77f33bded26a1eb89171e85791a"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 2,
+      "error": "listing: step 2: connection is not a cashorder1 string"
+    },
+    {
+      "name": "step 2: circlehub1 under cash_order",
+      "event": {
+        "id": "67094c5228d737bbb4d272a6ff66ca1147aaa09dee82dbb074aa25631f52852d",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "circlehub1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097ppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sfqfa6aw5q2wlgqlh7e88qa5nrksry2g9mhfnueyu3lg6wtzhyy7mh3vm2uwyjsahz0w2646l20k0s8cpyskjhkkvzc5cf08evesrulrpcxqa3xjarrda5kul5cgj9"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "f34bb6c355b6a9797c223659104ef334553e3e36284dd045ac8767d9d99c1ec90ef952993560e326832a171d1e1f4e0146240244641c2020c733746680ae9cca"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 2,
+      "error": "listing: step 2: connection is not a cashorder1 string"
+    },
+    {
+      "name": "step 2: cashorder1 under circle_wallet",
+      "event": {
+        "id": "b9247a2bcaa8ab1283a972c8ee4f2a8c1e1b4196c75294714be9842022a6401e",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "circle_wallet"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "05f64401a0ef01f8ad10d999f0129aa1951261cd570239c0d480560f31a0b898009bae2497891a66f1652e7677c67d4df04e3a6940c68683b7d2af63b87b76d0"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 2,
+      "error": "listing: step 2: connection is not a circlehub1 string"
+    },
+    {
+      "name": "step 2: garbage connection",
+      "event": {
+        "id": "3c37ec8f52c0d24c41b9b80516c0b9443e7e13bca0764e6b1706f5c092ffa16c",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqqq"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "ddfbcecced3ae1cf78985d0c8c57efff4c2c0a923fc9da167cbbd2bb8e387742ecdf0a3a39ad8fbea0e8e5a2c4297a738fb4c68456e481c00ee5562beaaae97d"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 2,
+      "error": "listing: step 2: connection does not decode"
+    },
+    {
+      "name": "step 3: an unverified string",
+      "event": {
+        "id": "615e3dbbc8777a5b906cc83a4b8e22899403632843f7a7c1b328ae4cf794a783",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qcjgfhkyfmnyp3kzumgyp3k7atww3jhyppq0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq2sgluthgehlfl0jhnflfghy5dpzmslcka79kzlgne68paqsvtv2qt2q8scgktr0j7v2x90c5sk8a5xfz9znc9xzlpdhtsn752pcylazrw3gxqa3xjarrda5kujr9u7g"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "7b8578db246cc67ade9e2a702cf58c26cac9cbbbd0811b0200dd78b0ae5df0aa259db6997262b890ef64320c189a7ed7468f3558a8b0136c75ffab6997e8d551"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 3,
+      "error": "listing: step 3: connection is not signed by its hub identity"
+    },
+    {
+      "name": "step 3: TLV 4 is not pubkey",
+      "event": {
+        "id": "d24537840c3d8f035f41d1579e65e5a29f6093098a13bd3ac6d3aedad5ef7fe0",
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "094815050a264efc7b1bb35118d85c4ed872492b68fe7d3a4e3aa7fd01c014ce154315cf4fa3df13cbc0c97c9301a45bcd9b12214a939e3bfec6386d60a21132"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 3,
+      "error": "listing: step 3: hub identity is not the listing's pubkey"
+    },
+    {
+      "name": "step 3: TLV 0 is not d",
+      "event": {
+        "id": "d3a8cbb072a5f95105c67e82df26b22d926b3bc2e5a41f2cd179f70628a1cb82",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "c716797d7876d4e1f3accd93dbbbdc89511b7ef5be2961fbb0df72d21da489166f8873a0b94f588b47e606976bc7b039ade387b948cb13583b52fafd10fea0af"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 3,
+      "error": "listing: step 3: connection pubkey is not d"
+    },
+    {
+      "name": "step 3: TLV 6 is not n",
+      "event": {
+        "id": "138d7fc08c581425749e56d0b0409a94efea580baca2e808ca7fb4cdcaa2159f",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "litecoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "e16951dae13fbf41f374a45f3d64813fb57284ee04d10e7dceab606aa3c0e2702fe14fe55971415e4928a49435d0eb78d52b3ea6a4221f9d2553f0e0331ab051"
+      },
+      "chains": [
+        "litecoin"
+      ],
+      "step": 3,
+      "error": "listing: step 3: connection chain is not n"
+    },
+    {
+      "name": "step 4: a chain not held",
+      "event": {
+        "id": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "9b9ea17a88a292c32b2b80647696ce22b6393e94df609c0ecfec534c26c903e28f18f47e363eafe4f4976db6f481262420a82163f949db71ea8db249c40f31e3"
+      },
+      "chains": [
+        "litecoin"
+      ],
+      "step": 4,
+      "error": "listing: step 4: chain \"bitcoin\" is not held"
+    },
+    {
+      "name": "step 4: a test network",
+      "event": {
+        "id": "95bace7586e3bd5fe9249ecef98dcda4150d477a1448744d351efa6b8bcb707a",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "regtest"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "7f0d4306cbc140708487cc79542980bb1a3b6d73e11b0e66916b1653d611b656b1b2eeda1c849dde22f05f94bb6e904ce26c809e2fc08cc102728ea9fd2600da"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 4,
+      "error": "listing: step 4: network \"regtest\""
+    },
+    {
+      "name": "a test network with test networks enabled",
+      "event": {
+        "id": "95bace7586e3bd5fe9249ecef98dcda4150d477a1448744d351efa6b8bcb707a",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "regtest"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "7f0d4306cbc140708487cc79542980bb1a3b6d73e11b0e66916b1653d611b656b1b2eeda1c849dde22f05f94bb6e904ce26c809e2fc08cc102728ea9fd2600da"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "testNetworks": true,
+      "step": 0,
+      "want": {
+        "address": "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "chain": "bitcoin",
+        "connection": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+        "d": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "expiration": 1795305600,
+        "followSet": "",
+        "geohashes": [
+          "eyc"
+        ],
+        "hints": [
+          {
+            "Payment": "lightning",
+            "MinMillis": 1000000,
+            "MaxMillis": 1000000000,
+            "FeeBase": 1000,
+            "FeePpm": 1000
+          }
+        ],
+        "image": "https://example.com/counter.png",
+        "languages": [
+          "pt",
+          "en"
+        ],
+        "location": "Lisbon, Baixa",
+        "network": "regtest",
+        "operator": {
+          "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "Relay": "wss://relay.example.com"
+        },
+        "status": "open",
+        "summary": [
+          "lightning",
+          "onchain"
+        ],
+        "title": "Alice's cash counter",
+        "type": "cash_order"
+      }
+    },
+    {
+      "name": "step 1 before step 3",
+      "event": {
+        "id": "e70ba23999eb7fb0041e1c73b06dbb94bc2b8cdd76b456723a3915b668022a44",
+        "pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "0690b76fd04cbc5ecf9045ba2086a6e6d4b6a0be8868aac7781e5a25fc85947455b6a817bc75164481496c6e43ebbc4eda25f23aaf90fb50a882a50c9e23bbb7"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 1,
+      "error": "listing: step 1: 0 status tags, want exactly 1"
+    },
+    {
+      "name": "an uppercase connection is read lowercased",
+      "event": {
+        "id": "4866b18813b40d5f8a164b07b6b443ae5912b1808dc9b6ee45a869e8f3aa8e91",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "CASHORDER1QQS0JVY2QXF93SCSFY6YLP0CN4FZNDF3EPZCXMUEKZRQRUGNHNSRD7GPZAMHXUE69UHHYETVV9UJUETCV9KHQMR99E3K7MGZYPQYZSJRG3Z5V36GF99YKNZDFE84Q52J2D2924JHTPV45K6UT4097QC5G9KXJCM9YAEJQCMPWD5ZQCM0W4H8GETJQSS8N0NX0MUAEWAV2KSX99WWSU9SWQ5MLNDJMN3GM9VL9Q2MZMUP0XQ9GY079M5VML5LHETE5L55TJ2XS3DC0UTWLZMP05FUARS7SGX9K9Q94QRCVYT93HE0X9RZHU2GTR76RY3Z3FUZNP0SKM4CFL29QUZ073PHG5RQWCNFW33K76TWQXHA8F"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "6e1088b666f9a95c0bd55842671fecbef8bd430fde798c072b4c3d9082e072db526246d40a3da89d42af920847cbf7938854318a3eba5f5b54b607587498b0e2"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 0,
+      "want": {
+        "address": "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "chain": "bitcoin",
+        "connection": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+        "d": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "expiration": 1795305600,
+        "followSet": "",
+        "geohashes": [
+          "eyc"
+        ],
+        "hints": [
+          {
+            "Payment": "lightning",
+            "MinMillis": 1000000,
+            "MaxMillis": 1000000000,
+            "FeeBase": 1000,
+            "FeePpm": 1000
+          }
+        ],
+        "image": "https://example.com/counter.png",
+        "languages": [
+          "pt",
+          "en"
+        ],
+        "location": "Lisbon, Baixa",
+        "network": "mainnet",
+        "operator": {
+          "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "Relay": "wss://relay.example.com"
+        },
+        "status": "open",
+        "summary": [
+          "lightning",
+          "onchain"
+        ],
+        "title": "Alice's cash counter",
+        "type": "cash_order"
+      }
+    },
+    {
+      "name": "ignored tags dropped",
+      "event": {
+        "id": "7e6143c1ef759f3801e8632f168a8419177a5809332a574f769e8f58ae630204",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1792713600,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "http://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "open"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ],
+          [
+            "t",
+            "bogus"
+          ],
+          [
+            "t",
+            "allowlist"
+          ],
+          [
+            "hint",
+            "bolt12",
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          [
+            "g",
+            "eycabc"
+          ],
+          [
+            "a",
+            "30000:c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5:x"
+          ],
+          [
+            "hint",
+            "onchain",
+            "1",
+            "x",
+            "3",
+            "4"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "6bd41af8dc4f5fd0478d1e15e1c4c2c0e342a82c6a0af7c964981b8238687b78bfb7b5bf5d64e5f74a37f83eac0b8464b9a784f5c3b8422f85eec47a1f6e26ee"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 0,
+      "want": {
+        "address": "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "chain": "bitcoin",
+        "connection": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+        "d": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "expiration": 1795305600,
+        "followSet": "",
+        "geohashes": [
+          "eyc"
+        ],
+        "hints": [
+          {
+            "Payment": "lightning",
+            "MinMillis": 1000000,
+            "MaxMillis": 1000000000,
+            "FeeBase": 1000,
+            "FeePpm": 1000
+          }
+        ],
+        "image": "",
+        "languages": [
+          "pt",
+          "en"
+        ],
+        "location": "Lisbon, Baixa",
+        "network": "mainnet",
+        "operator": {
+          "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "Relay": "wss://relay.example.com"
+        },
+        "status": "open",
+        "summary": [
+          "lightning",
+          "onchain"
+        ],
+        "title": "Alice's cash counter",
+        "type": "cash_order"
+      }
+    },
+    {
+      "name": "closed",
+      "event": {
+        "id": "25d3a99b0b593aa70ad5d848a91cd300062f6c4a479bc7005d66277897a96506",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "created_at": 1793318400,
+        "kind": 31190,
+        "tags": [
+          [
+            "d",
+            "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "t",
+            "cash_order"
+          ],
+          [
+            "t",
+            "lightning"
+          ],
+          [
+            "t",
+            "onchain"
+          ],
+          [
+            "n",
+            "bitcoin"
+          ],
+          [
+            "network",
+            "mainnet"
+          ],
+          [
+            "connection",
+            "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f"
+          ],
+          [
+            "title",
+            "Alice's cash counter"
+          ],
+          [
+            "image",
+            "https://example.com/counter.png"
+          ],
+          [
+            "p",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "wss://relay.example.com"
+          ],
+          [
+            "status",
+            "closed"
+          ],
+          [
+            "expiration",
+            "1795305600"
+          ],
+          [
+            "hint",
+            "lightning",
+            "1000000",
+            "1000000000",
+            "1000",
+            "1000"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "pt",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "g",
+            "eyc"
+          ],
+          [
+            "location",
+            "Lisbon, Baixa"
+          ],
+          [
+            "alt",
+            "Cash offer: Alice's cash counter"
+          ]
+        ],
+        "content": "Cash for the Lisbon meetup. Lightning or on-chain, paid out within the hour.",
+        "sig": "2449acd9929fb120a4d74ddccae3e62361071a65fb1682f098ab5dac3858a0cb4eb77105a7de60aaf937546ff2da9e88c7effd4582e9e9d1ab38219436413a92"
+      },
+      "chains": [
+        "bitcoin"
+      ],
+      "step": 0,
+      "want": {
+        "address": "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "chain": "bitcoin",
+        "connection": "cashorder1qqs0jvy2qxf93scsfy6ylp0cn4fzndf3epzcxmuekzrqrugnhnsrd7gpzamhxue69uhhyetvv9ujuetcv9khqmr99e3k7mgzypqyzsjrg3z5v36gf99yknzdfe84q52j2d2924jhtpv45k6ut4097qc5g9kxjcm9yaejqcmpwd5zqcm0w4h8getjqss8n0nx0muaewav2ksx99wwsu9swq5mlndjmn3gm9vl9q2mzmup0xq9gy079m5vml5lhete5l55tj2xs3dc0utwlzmp05fuars7sgx9k9q94qrcvyt93he0x9rzhu2gtr76ry3z3fuznp0skm4cfl29quz073phg5rqwcnfw33k76twqxha8f",
+        "d": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "expiration": 1795305600,
+        "followSet": "",
+        "geohashes": [
+          "eyc"
+        ],
+        "hints": [
+          {
+            "Payment": "lightning",
+            "MinMillis": 1000000,
+            "MaxMillis": 1000000000,
+            "FeeBase": 1000,
+            "FeePpm": 1000
+          }
+        ],
+        "image": "https://example.com/counter.png",
+        "languages": [
+          "pt",
+          "en"
+        ],
+        "location": "Lisbon, Baixa",
+        "network": "mainnet",
+        "operator": {
+          "Pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "Relay": "wss://relay.example.com"
+        },
+        "status": "closed",
+        "summary": [
+          "lightning",
+          "onchain"
+        ],
+        "title": "Alice's cash counter",
+        "type": "cash_order"
+      }
+    }
+  ],
+  "expiresAt": [
+    {
+      "id": "K-LEXP-1",
+      "expiration": "1795305600",
+      "expiresAt": 1795305600
+    },
+    {
+      "id": "K-LEXP-2",
+      "expiration": "1800000000",
+      "expiresAt": 1795305600
+    },
+    {
+      "id": "K-LEXP-3",
+      "expiration": "1793000000",
+      "expiresAt": 1793000000
+    }
+  ],
+  "versions": [
+    {
+      "id": "K-LEXP-1",
+      "name": "seen 900 s ahead: accepted",
+      "offers": [
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+      ],
+      "at": [
+        1792712700
+      ],
+      "accepted": [
+        true
+      ],
+      "currentAt": 1792712700,
+      "current": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+    },
+    {
+      "id": "K-LEXP-1",
+      "name": "seen 901 s ahead: ignored",
+      "offers": [
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+      ],
+      "at": [
+        1792712699
+      ],
+      "accepted": [
+        false
+      ],
+      "currentAt": 1792712699,
+      "current": ""
+    },
+    {
+      "id": "K-LEXP-1",
+      "name": "current at its expiry",
+      "offers": [
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+      ],
+      "at": [
+        1792713600
+      ],
+      "accepted": [
+        true
+      ],
+      "currentAt": 1795305600,
+      "current": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+    },
+    {
+      "id": "K-LEXP-1",
+      "name": "not current after its expiry",
+      "offers": [
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+      ],
+      "at": [
+        1792713600
+      ],
+      "accepted": [
+        true
+      ],
+      "currentAt": 1795305601,
+      "current": ""
+    },
+    {
+      "id": "K-LVER-1",
+      "name": "equal created_at: the lower id kept",
+      "offers": [
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+        "5b2a606a86e2a71368d77056fc863f6f62726cb373d803380322729500c3fa99"
+      ],
+      "at": [
+        1792713600,
+        1792713600
+      ],
+      "accepted": [
+        true,
+        true
+      ],
+      "currentAt": 1792713600,
+      "current": "5b2a606a86e2a71368d77056fc863f6f62726cb373d803380322729500c3fa99"
+    },
+    {
+      "id": "K-LVER-1",
+      "name": "equal created_at, other order: the lower id kept",
+      "offers": [
+        "5b2a606a86e2a71368d77056fc863f6f62726cb373d803380322729500c3fa99",
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+      ],
+      "at": [
+        1792713600,
+        1792713600
+      ],
+      "accepted": [
+        true,
+        false
+      ],
+      "currentAt": 1792713600,
+      "current": "5b2a606a86e2a71368d77056fc863f6f62726cb373d803380322729500c3fa99"
+    },
+    {
+      "id": "K-LVER-1",
+      "name": "K-LIST-1 offered after K-LIST-2: refused",
+      "offers": [
+        "25d3a99b0b593aa70ad5d848a91cd300062f6c4a479bc7005d66277897a96506",
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+      ],
+      "at": [
+        1793318400,
+        1793318400
+      ],
+      "accepted": [
+        true,
+        false
+      ],
+      "currentAt": 1793318400,
+      "current": ""
+    },
+    {
+      "id": "K-LVER-1",
+      "name": "K-LIST-2 expired then K-LIST-1 again: still refused",
+      "offers": [
+        "25d3a99b0b593aa70ad5d848a91cd300062f6c4a479bc7005d66277897a96506",
+        "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0"
+      ],
+      "at": [
+        1793318400,
+        1793318400
+      ],
+      "accepted": [
+        true,
+        false
+      ],
+      "currentAt": 1795305700,
+      "current": ""
+    }
+  ],
+  "operatorVerified": [
+    {
+      "name": "K-OPS-1 with K-LIST-1: verified",
+      "listingId": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "operatorOffers": {
+        "id": "3b74fc1d53fa35a72ba235ce398dc29e599f19e202fc5c16bec156179e1480a0",
+        "pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "created_at": 1792713600,
+        "kind": 11191,
+        "tags": [
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "wss://relay.example.com"
+          ],
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "wss://relay.example.com"
+          ],
+          [
+            "alt",
+            "Cash offers run by this account"
+          ]
+        ],
+        "content": "",
+        "sig": "2281d8a3d9027f93c9e8b9ecf308dad752f5537f9aa30dd639f1929be34e1dc340f951dd596e81fc870e6458475da53180b02c683a55c629d0dd9118c4463d43"
+      },
+      "verified": true
+    },
+    {
+      "name": "an 11191 without the a: not verified",
+      "listingId": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "operatorOffers": {
+        "id": "58a64c876df9b87788a1934930059669d71e73b44933ad0ce5ec54eb934db742",
+        "pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "created_at": 1792713600,
+        "kind": 11191,
+        "tags": [
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "wss://relay.example.com"
+          ],
+          [
+            "alt",
+            "Cash offers run by this account"
+          ]
+        ],
+        "content": "",
+        "sig": "3c349ba9f975ed2b03558b0862b9c23d867c3d20d94ad4a45d281d37d25a0a84d11d98155e9a9552fce1d552fe7d47c5a008c6da921cd277e47a3f237bdf2daf"
+      },
+      "verified": false
+    },
+    {
+      "name": "K-LIST-1's p naming another key: not verified",
+      "listingId": "9bf4f90db9614086bb251d1eebc8539e3e065630227975069475fc57cf556837",
+      "operatorOffers": {
+        "id": "3b74fc1d53fa35a72ba235ce398dc29e599f19e202fc5c16bec156179e1480a0",
+        "pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "created_at": 1792713600,
+        "kind": 11191,
+        "tags": [
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "wss://relay.example.com"
+          ],
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "wss://relay.example.com"
+          ],
+          [
+            "alt",
+            "Cash offers run by this account"
+          ]
+        ],
+        "content": "",
+        "sig": "2281d8a3d9027f93c9e8b9ecf308dad752f5537f9aa30dd639f1929be34e1dc340f951dd596e81fc870e6458475da53180b02c683a55c629d0dd9118c4463d43"
+      },
+      "verified": false
+    }
+  ],
+  "creditedOffers": [
+    {
+      "id": "K-REC-1",
+      "recommendation": {
+        "id": "1ffb32f70209a551300255197aad28472ef74130e432011039d6b5da5d45a5f8",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 31191,
+        "tags": [
+          [
+            "d",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+          ],
+          [
+            "k",
+            "31190"
+          ],
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "wss://relay.example.com"
+          ],
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "wss://relay.example.com"
+          ],
+          [
+            "alt",
+            "Recommendation of a cash offer"
+          ]
+        ],
+        "content": "fast payouts, used it for months",
+        "sig": "476ce7e0d6bf36b75127e6931eb64836c6bcd52c2d36065e8ecbb8354d4a98ab3ce65d868fe8aab811e09096a0623644dcebbefded9a52daa437496910fd6d56"
+      },
+      "ofNode": [
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      ],
+      "operators": {
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      },
+      "credited": [
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13"
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "name": "K-REP-1",
+      "event": {
+        "id": "00cc61c6f4914fac8dfc65a4a29057f687f4af1be394213658e7d53d5e1c1abd",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 1984,
+        "tags": [
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "other"
+          ],
+          [
+            "a",
+            "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          ],
+          [
+            "e",
+            "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+            "other"
+          ],
+          [
+            "L",
+            "cash.report"
+          ],
+          [
+            "l",
+            "no_payout",
+            "cash.report"
+          ]
+        ],
+        "content": "took my payment, never minted",
+        "sig": "5ae93b1098f6eb690eb218f2dd891dc047c07833be0b386671d6a56ddcbba501d4d52519ddc2e92704c085b99ca9ca13f6ca8d00962db7ddf95122b724de07e1"
+      },
+      "step": 0,
+      "want": {
+        "addr": "31190:79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798:f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "author": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "listingId": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+        "node": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "reason": "no_payout"
+      }
+    },
+    {
+      "name": "only p: impersonation",
+      "event": {
+        "id": "794585ba9d4678002ae0c81d241a750067526f703ee2a0f4ea509f0be2e631e1",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 1984,
+        "tags": [
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "impersonation"
+          ]
+        ],
+        "content": "",
+        "sig": "171194cc3ed66d16917351e04a6dfb85f7158296fcb9b828f77b3dcb7fb4c02940e25e0557ddc0ada2e9f4c601908a69166712ce224738ebeedf2440d5fb469e"
+      },
+      "step": 0,
+      "want": {
+        "addr": "",
+        "author": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "listingId": "",
+        "node": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "reason": "impersonation"
+      }
+    },
+    {
+      "name": "only p: spam",
+      "event": {
+        "id": "4a0cb1790b899c2c021d326c12980055e5431c8b6913742021481b34a07574f5",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 1984,
+        "tags": [
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "spam"
+          ]
+        ],
+        "content": "",
+        "sig": "d66473f1306490da7a60f49aead22944cd73102dd2022dbb2aaf74f0f502b9b0e23591b7f5cf9874304f7a551edb8bf4687ebacc5488fe9abeeeb22e7440be37"
+      },
+      "step": 0,
+      "want": {
+        "addr": "",
+        "author": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "listingId": "",
+        "node": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "reason": "spam"
+      }
+    },
+    {
+      "name": "only p: terms_mismatch",
+      "event": {
+        "id": "9797298a6f0e7fa77b67dd6b279813f1b0339279b63f8862ebf0ebeb042faa48",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 1984,
+        "tags": [
+          [
+            "p",
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "other"
+          ],
+          [
+            "L",
+            "cash.report"
+          ],
+          [
+            "l",
+            "terms_mismatch",
+            "cash.report"
+          ]
+        ],
+        "content": "",
+        "sig": "40cb6f729f8b171de9c07a82bcfa208c5197377fd6e0c7ac7afa28d158415f37e90c508fee1257c48f133a8c4e89247758fd52a07156becad8ee612c040e8c68"
+      },
+      "step": 0,
+      "want": {
+        "addr": "",
+        "author": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "listingId": "",
+        "node": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "reason": "terms_mismatch"
+      }
+    },
+    {
+      "name": "no p",
+      "event": {
+        "id": "36e7f25ba8047caaa056b1fd144381b3152a19e81ac9c15ef2701199199afd8c",
+        "pubkey": "e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13",
+        "created_at": 1792800000,
+        "kind": 1984,
+        "tags": [
+          [
+            "e",
+            "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+            "other"
+          ]
+        ],
+        "content": "",
+        "sig": "4f3551c68058c8943076bd7e290fae9d30e888ffb58b186e573d7dc78912bdd5467ca87b014b84cda2e8fe37670f097a23779b8c3cef92ea40f732cca0766a4f"
+      },
+      "step": 0,
+      "error": "listing: not a valid report: no p"
+    }
+  ],
+  "tap": [
+    {
+      "name": "terms shown",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600}}}",
+      "outcome": "show",
+      "hintDiffers": false
+    },
+    {
+      "name": "the hint differs from the terms",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":2000,\"window\":3600}}}",
+      "outcome": "show",
+      "hintDiffers": true
+    },
+    {
+      "name": "a 66-hex identity",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600}}}",
+      "outcome": "show",
+      "hintDiffers": false
+    },
+    {
+      "name": "network differs: hidden for good",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"regtest\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600}}}",
+      "outcome": "hide_for_good",
+      "reason": "get_info names another network than the listing",
+      "hintDiffers": false
+    },
+    {
+      "name": "identity differs: hidden for good",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600}}}",
+      "outcome": "hide_for_good",
+      "reason": "online check failed",
+      "hintDiffers": false
+    },
+    {
+      "name": "chain differs: hidden for good",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"litecoin\",\"methods\":[\"get_info\"],\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600}}}",
+      "outcome": "hide_for_good",
+      "reason": "online check failed",
+      "hintDiffers": false
+    },
+    {
+      "name": "no chain: hidden for good",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"methods\":[\"get_info\"],\"cash_order\":{\"lightning\":{\"min_millis\":1000000,\"max_millis\":1000000000,\"fee_base\":1000,\"fee_ppm\":1000,\"window\":3600}}}",
+      "outcome": "hide_for_good",
+      "reason": "online check failed",
+      "hintDiffers": false
+    },
+    {
+      "name": "cash_order {}: hidden until a newer version",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "getInfo": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"cash_order\":{}}",
+      "outcome": "hide_until_newer",
+      "reason": "the Hub sells nothing on this connection",
+      "hintDiffers": false
+    },
+    {
+      "name": "no answer (RESTRICTED): unavailable",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "infoError": "nwc error RESTRICTED",
+      "outcome": "unavailable",
+      "reason": "no get_info answer",
+      "hintDiffers": false
+    },
+    {
+      "name": "no answer (RATE_LIMITED): unavailable",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "infoError": "nwc error RATE_LIMITED",
+      "outcome": "unavailable",
+      "reason": "no get_info answer",
+      "hintDiffers": false
+    },
+    {
+      "name": "no answer (INTERNAL): unavailable",
+      "listing": "a2aeaaa40b57de5807c1a466060e58111c23eaa96390a0b894982bcafbe555b0",
+      "infoError": "nwc error INTERNAL",
+      "outcome": "unavailable",
+      "reason": "no get_info answer",
+      "hintDiffers": false
+    },
+    {
+      "name": "circle accepting false: hidden until newer",
+      "listing": "3f97463627ed4490df70e874d25ae2449e1c2c91b79019a7b98745c281466b64",
+      "getInfo": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":1000,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"accepting\":false}}",
+      "outcome": "hide_until_newer",
+      "reason": "the circle takes no joins",
+      "hintDiffers": false
+    },
+    {
+      "name": "circle available 0: unavailable",
+      "listing": "3f97463627ed4490df70e874d25ae2449e1c2c91b79019a7b98745c281466b64",
+      "getInfo": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":0,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"accepting\":true}}",
+      "outcome": "unavailable",
+      "reason": "the circle has nothing available",
+      "hintDiffers": false
+    },
+    {
+      "name": "circle shown",
+      "listing": "3f97463627ed4490df70e874d25ae2449e1c2c91b79019a7b98745c281466b64",
+      "getInfo": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":1000,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"allowlist\",\"identity\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"accepting\":true}}",
+      "outcome": "show",
+      "hintDiffers": false
+    },
+    {
+      "name": "circle identity differs: hidden for good",
+      "listing": "3f97463627ed4490df70e874d25ae2449e1c2c91b79019a7b98745c281466b64",
+      "getInfo": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":1000,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"allowlist\",\"identity\":\"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5\",\"accepting\":true}}",
+      "outcome": "hide_for_good",
+      "reason": "online check failed",
+      "hintDiffers": false
+    }
+  ],
+  "sanitizeText": [
+    {
+      "id": "K-TXT-1",
+      "in": "Alice​'s‮ cash counter",
+      "max": 40,
+      "out": "Alice's cash counter"
+    },
+    {
+      "id": "K-TXT-1",
+      "in": "✔ Alice",
+      "max": 40,
+      "out": " Alice"
+    },
+    {
+      "in": "✔️ Alice",
+      "max": 40,
+      "out": " Alice"
+    },
+    {
+      "id": "K-TXT-1",
+      "in": "A\nB",
+      "max": 40,
+      "out": "A B"
+    },
+    {
+      "in": "A\r\nB\tC",
+      "max": 40,
+      "out": "A B C"
+    },
+    {
+      "id": "K-TXT-1",
+      "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 40,
+      "out": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "K-TXT-1",
+      "in": "ééééééééééééééééééééééééééééééééééééééééé",
+      "max": 40,
+      "out": "éééééééééééééééééééééééééééééééééééééééé"
+    },
+    {
+      "id": "K-TXT-1",
+      "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 280,
+      "out": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "in": "see https://evil.example/x",
+      "max": 40,
+      "out": "see https://evil.example/x"
+    },
+    {
+      "in": "⁦x⁩⁠﻿‌‍√☑✅🗸✓",
+      "max": 0,
+      "out": "x"
+    },
+    {
+      "in": "ééééééééééééééééééééééééééééééééééééééééé",
+      "max": 40,
+      "out": "éééééééééééééééééééééééééééééééééééééééé"
+    }
+  ]
+}

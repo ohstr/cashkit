@@ -1,7 +1,7 @@
 // Targets and NIP-05. Ported from cashctl internal/credential/
 // credential_test.go and nip05_test.go (names in comments).
 import { describe, expect, test } from 'vitest'
-import { encodeNConnection, encodeNpub, newConnectionKey } from '../src/core/index.js'
+import { encodeNConnection, encodeNpub, connectionKeyFromAttested } from '../src/core/index.js'
 import { looksLikeTarget, parseTarget, resolveNip05 } from '../src/wallet/index.js'
 import type { Fetch } from '../src/wallet/index.js'
 import { looksLikeNip05, MAX_NIP05_BODY } from '../src/wallet/target.js'
@@ -33,10 +33,31 @@ describe('parseTarget', () => {
     expect(await code(parseTarget('pubkey:'))).toBe('invalid_input')
   })
   test('connection:<platform>:<id>:<ia> (TestParseTarget_Connection)', async () => {
-    const t = await parseTarget(`connection:discord:alice:${IA}`)
-    expect(t.target).toEqual({ identityType: 'connection_key', identityValue: newConnectionKey('discord', 'alice'), iaPubkey: IA })
+    const t = await parseTarget(`connection:discord:80351110224678912:${IA}`)
+    expect(t.target).toEqual({ identityType: 'connection_key', identityValue: '22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d', iaPubkey: IA })
     expect(t.display).toBe('discord connection')
-    expect(await code(parseTarget('connection:discord:alice'))).toBe('invalid_input')
+    expect(await code(parseTarget('connection:discord:123456789'))).toBe('invalid_input')
+    // Typed input is hashed only in a canonical platform's canonical form.
+    expect(await code(parseTarget(`connection:discord:alice:${IA}`))).toBe('invalid_input')
+    expect(await code(parseTarget(`connection:github:12345:${IA}`))).toBe('invalid_input')
+  })
+  test('T-1808 a typed connection is hashed only in its canonical form, on a canonical platform', async () => {
+    const dns = await parseTarget(`connection:dns:BüCHER.example:${IA}`)
+    expect(dns.target.identityValue).toBe(connectionKeyFromAttested('dns', 'xn--bcher-kva.example'))
+    const email = await parseTarget(`connection:email: Alice@Example.COM :${IA}`)
+    expect(email.target.identityValue).toBe(connectionKeyFromAttested('email', 'alice@example.com'))
+    // Not canonical: refused, never repaired.
+    expect(await code(parseTarget(`connection:discord:080351110224678912:${IA}`))).toBe('invalid_input')
+    expect(await code(parseTarget(`connection:discord:alice:${IA}`))).toBe('invalid_input')
+    expect(await code(parseTarget(`connection:dns:BÜCHER.example:${IA}`))).toBe('invalid_input')
+    // Any other platform: the key comes from the recipient's nconnection.
+    const gh = await parseTarget(`connection:github:12345:${IA}`).catch((x: { code: string; message: string; hint?: string }) => x)
+    expect(gh).toMatchObject({ code: 'invalid_input', hint: 'nconnection1…' })
+    expect((gh as { message: string }).message).toContain('nconnection1')
+    expect(await code(parseTarget(`connection:Discord:80351110224678912:${IA}`))).toBe('invalid_input')
+    expect(await code(parseTarget(`connection:nostr:${IA}:${IA}`))).toBe('invalid_input')
+    // The IA may be an npub too.
+    expect((await parseTarget(`connection:x:12:${encodeNpub(IA)}`)).target.iaPubkey).toBe(IA)
   })
   test('cash makes a fresh secret each time, and never shows it (TestParseTarget_CashTarget_GeneratesFreshSecretEachTime)', async () => {
     const a = await parseTarget('cash')
@@ -70,8 +91,10 @@ describe('parseTarget', () => {
     expect(t.target).toEqual({ identityType: 'connection_key', identityValue: key, iaPubkey: IA })
     expect(t.resolved).toBe(`discord connection; Identity Authority: ${IA}`)
     expect(t.display).not.toContain('nconnection')
-    const bare = await parseTarget(encodeNConnection({ connectionKey: key, relays: ['wss://r'], platform: '' }), { ia: IA })
-    expect(bare.target.identityType).toBe('pubkey')
+    // Taken byte for byte, never re-derived; one without a platform is refused for a send.
+    expect(await code(parseTarget(encodeNConnection({ connectionKey: key, relays: ['wss://r'], platform: '' }), { ia: IA }))).toBe('invalid_input')
+    const other = await parseTarget(encodeNConnection({ connectionKey: key, relays: [], platform: 'github' }), { ia: IA })
+    expect(other.target).toEqual({ identityType: 'connection_key', identityValue: key, iaPubkey: IA })
   })
   test('the IA may be a NIP-05 name (TestResolveConnectionTarget)', async () => {
     const nc = encodeNConnection({ connectionKey: 'ef'.repeat(32), relays: ['wss://r'], platform: 'discord' })

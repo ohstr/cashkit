@@ -2,13 +2,12 @@
 // port cashctl cmd/*_test.go where they cover the same behaviour (named in
 // comments).
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { decodeToken, getPublicKey, newCashTarget, nip44, nip49Decrypt, toHex } from '../src/core/index.js'
+import { decodeToken, getPublicKey, newCashTarget, nip49Decrypt, toHex } from '../src/core/index.js'
 import { CashkitError, toJSON, type OperationEvent, type WalletState } from '../src/wallet/index.js'
 import { commitment, FakeBank } from './fakeBank.js'
-import { FakeNwcWallet, harness, NWC_RELAY, type Harness } from './walletHarness.js'
-import { FakeHub } from './fakeHub.js'
-import { invoice } from './helpers.js'
-import { CashClient, ClientError } from '../src/client/index.js'
+import { FakeNwcWallet, harness, type Harness } from './walletHarness.js'
+import { fill, invoice, signedInvoice } from './helpers.js'
+import { BatchSession, ClientError } from '../src/client/index.js'
 
 let h: Harness
 beforeEach(async () => {
@@ -224,15 +223,35 @@ describe('consolidate (cmd/cash_consolidate_test.go)', () => {
     expect(r.outcomes[0]).toMatchObject({ ok: true, amount: 3000n, holding: { mode: 'pubkey', amount: 3000n } })
     expect(await h.wallet.holdings()).toHaveLength(1)
   })
+  test('a set the Hub refused RESTRICTED is not planned again', async () => {
+    await receivePubkey(1000n)
+    await receivePubkey(2000n)
+    h.bank.override = (m) => (m === 'cash_consolidate' ? { error: { code: 'RESTRICTED', message: 'fee terms differ' } } : undefined)
+    const r = await h.wallet.consolidate()
+    expect(r.outcomes[0]).toMatchObject({ ok: false, error: { nwcCode: 'RESTRICTED' } })
+    h.bank.override = undefined
+    for (const c of await h.wallet.pendingCalls.list()) if (c.state !== 'done') await h.wallet.pendingCalls.close(c.id)
+    const sent = h.bank.hub.requests.filter((x) => x.item.method === 'cash_consolidate').length
+    expect((await h.wallet.consolidate()).outcomes).toEqual([])
+    expect(h.bank.hub.requests.filter((x) => x.item.method === 'cash_consolidate')).toHaveLength(sent)
+    // Another set (a third bill joins the group) is planned.
+    await receivePubkey(3000n)
+    expect((await h.wallet.consolidate()).outcomes[0]).toMatchObject({ ok: true, amount: 6000n })
+  })
   test('a round that fits no envelope is halved until it does, keeping what merged (§7.3)', async () => {
     for (const a of [1000n, 2000n, 3000n, 4000n, 5000n]) await receivePubkey(a)
-    const real = CashClient.prototype.cashConsolidate
+    const real = BatchSession.prototype.send
     const sizes: number[] = []
-    const spy = vi.spyOn(CashClient.prototype, 'cashConsolidate').mockImplementation(function (this: CashClient, cred, p) {
-      sizes.push(p.sources.length)
-      // As the session refuses an item that fits no envelope: locally, before sending.
-      if (p.sources.length > 3) return Promise.reject(new ClientError('item_too_large', 'item does not fit any envelope the hub accepts'))
-      return real.call(this, cred, p)
+    const spy = vi.spyOn(BatchSession.prototype, 'send').mockImplementation(async function (this: BatchSession, builders, o) {
+      for (const b of builders) {
+        if (b.method !== 'cash_consolidate') continue
+        const item = await b.build(b.id, { hub: this.hub, nonce: '00'.repeat(16), notAfter: o?.notAfter ?? 0 })
+        const n = (JSON.parse(item.params ?? '{}') as { sources: unknown[] }).sources.length
+        sizes.push(n)
+        // As the session refuses an item that fits no envelope: locally, before sending.
+        if (n > 3) throw new ClientError('item_too_large', 'item does not fit any envelope the hub accepts')
+      }
+      return real.call(this, builders, o)
     })
     try {
       const r = await h.wallet.consolidate()
@@ -316,13 +335,34 @@ describe('redeem (cmd/cash_redeem_test.go, cash_redeem_amount_select_test.go)', 
     await receivePubkey(5000n)
     expect((await err(h.wallet.planRedeem({ invoice: invoice(100n), amount: 100n })))?.code).toBe('usage')
     expect((await err(h.wallet.planRedeem({ invoice: invoice() })))?.code).toBe('usage')
-    const p = await h.wallet.planRedeem({ invoice: invoice(), amount: 1000n })
-    expect(p.destination).toMatchObject({ kind: 'invoice', amount: 1000n })
-    const over = await h.wallet.planRedeem({ invoice: invoice(), amount: 9000n })
-    expect(over.items).toHaveLength(0)
-    expect(over.refused[0]!.error.code).toBe('invalid_input')
+    const p = await h.wallet.planRedeem({ invoice: invoice(), amount: 5000n })
+    expect(p.destination).toMatchObject({ kind: 'invoice', amount: 5000n })
+    expect(p.items).toHaveLength(1)
+    for (const amount of [1000n, 9000n]) {
+      const off = await h.wallet.planRedeem({ invoice: invoice(), amount })
+      expect(off.items).toHaveLength(0)
+      expect(off.refused[0]!.error).toMatchObject({ code: 'invalid_input', reason: 'invoice_amount' })
+    }
     await receivePubkey(1n)
     expect((await err(h.wallet.planRedeem({ invoice: invoice(5n), all: true })))?.code).toBe('usage')
+  })
+  test("an invoice's payee decides its amount: the bill's own node is paid the full amount fee-free, any other the net", async () => {
+    h.bank.fee = (a) => a / 100n
+    h.bank.strictInvoices = true
+    const own = await receivePubkey(5000n)
+    const other = fill(0x5a, 32)
+    // Another node: the net amount, else refused locally (nothing sent).
+    const wrong = await h.wallet.planRedeem({ holdings: [own.holding.id], invoice: signedInvoice({ amountMillis: 5000n, nodeKey: other, timestamp: 1 }) })
+    expect(wrong.refused[0]!.error).toMatchObject({ code: 'invalid_input', reason: 'invoice_amount' })
+    expect(h.bank.redeemed).toHaveLength(0)
+    const net = await h.wallet.redeem({ holdings: [own.holding.id], invoice: signedInvoice({ amountMillis: 4950n, nodeKey: other, timestamp: 1 }) })
+    expect(net.outcomes[0]).toMatchObject({ ok: true, feesPaid: 50n })
+    // The bill's own node: the full amount, fee-free.
+    const second = await receivePubkey(5000n)
+    const same = await h.wallet.planRedeem({ holdings: [second.holding.id], invoice: signedInvoice({ amountMillis: 4950n, nodeKey: h.bank.hub.nodeKey, timestamp: 1 }) })
+    expect(same.refused[0]!.error).toMatchObject({ reason: 'invoice_amount' })
+    const full = await h.wallet.redeem({ holdings: [second.holding.id], invoice: signedInvoice({ amountMillis: 5000n, nodeKey: h.bank.hub.nodeKey, timestamp: 1 }) })
+    expect(full.outcomes[0]).toMatchObject({ ok: true, feesPaid: 0n })
   })
   test('a spent bill is tombstoned during the quote, never redeemed', async () => {
     const { w } = await receivePubkey(5000n)
@@ -359,6 +399,32 @@ test("status explains a cash secret the Hub no longer recognises (lokihub's NOT_
   const r = await h.wallet.status({ holdings: [holding.id] })
   expect(r.outcomes[0]).toMatchObject({ ok: false, error: { code: 'invalid_input' } })
   expect(r.firstError?.message).toMatch(/does not match this bill/)
+})
+
+describe('a row the Hub shows but that cannot be spent', () => {
+  test.each([
+    ['claimed', 'spent', (w: { claimed?: boolean }) => (w.claimed = true)],
+    ['withdrawn', 'spent', (w: { withdrawRequestId?: string }) => (w.withdrawRequestId = 'ab'.repeat(32))],
+  ] as const)('receive refuses a %s slice', async (reason, code, mark) => {
+    const w = h.bank.mintToPubkey(5000n, h.me)
+    mark(w)
+    expect(await err(h.wallet.receive(w.token))).toMatchObject({ code, reason })
+  })
+  test('status shows the holding with why it cannot be spent', async () => {
+    const a = await receivePubkey(1000n)
+    a.w.withdrawRequestId = 'ab'.repeat(32)
+    const r = await h.wallet.status({ holdings: [a.holding.id] })
+    expect(r.outcomes[0]).toMatchObject({ ok: true, state: 'available', amount: 1000n, notClaimable: 'withdrawn' })
+  })
+  test('a redeem quote of a withdrawn slice fails with its reason; the other bill still redeems', async () => {
+    await h.wallet.connections.add('main', new FakeNwcWallet(h.pool).uri)
+    const a = await receivePubkey(1000n)
+    await receivePubkey(2000n)
+    a.w.withdrawRequestId = 'ab'.repeat(32)
+    const r = await h.wallet.redeem({ all: true })
+    expect(r.outcomes.filter((o) => o.ok)).toHaveLength(1)
+    expect(r.outcomes.find((o) => !o.ok)).toMatchObject({ error: { code: 'spent', reason: 'withdrawn' } })
+  })
 })
 
 describe('balance (cmd/wallet_balance_test.go)', () => {
@@ -412,136 +478,6 @@ describe('activity and handoffs (cmd/handoffs_test.go)', () => {
   })
 })
 
-describe('circles (cmd/circle_test.go)', () => {
-  test('joins: the key is generated locally, the connection added, the pending join deleted', async () => {
-    const hub = new FakeNwcWallet(h.pool, 0x81)
-    let sent: Record<string, unknown> = {}
-    hub.handler = (_m, params) => {
-      sent = params
-      const details = JSON.stringify({ wallet_pubkey: '9a'.repeat(32), relays: ['wss://c1'], max_amount: 5000, expires_at: 1, fees_ppm: 10, budget_renewal: 'monthly' })
-      return { result: { encrypted_details: nip44.encrypt(details, nip44.getConversationKey(hub.key, h.me)) } }
-    }
-    const r = await h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5000n })
-    expect(r).toMatchObject({ name: 'circle', isDefault: true, walletPubkey: '9a'.repeat(32), maxAmount: 5000n, feesPpm: 10, private: false })
-    expect(r).not.toHaveProperty('fallbackReason')
-    expect(sent['connection_pubkey']).toBe(r.connectionPubkey)
-    expect(toJSON(r)).not.toContain('secret')
-    expect(h.wallet.state.pendingJoins).toHaveLength(0)
-    expect((await h.wallet.connections.list())[0]).toMatchObject({ name: 'circle', kind: 'circle', walletPubkey: '9a'.repeat(32) })
-  })
-  test('maxAmount 0 is invalid_input; WALLET_EXISTS is exists and forgets the key', async () => {
-    const hub = new FakeNwcWallet(h.pool, 0x81)
-    expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 0n })))?.code).toBe('invalid_input')
-    hub.handler = (m) => (m === 'get_info' ? { result: {} } : { error: { code: 'RESTRICTED', message: 'this identity already has an active circle wallet' } })
-    const e = await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n }))
-    expect([e?.code, e?.nwcCode]).toEqual(['exists', 'WALLET_EXISTS'])
-    expect(h.wallet.state.pendingJoins).toHaveLength(0)
-  })
-  test('a replay-guard refusal is retried once after 1.1 s', async () => {
-    const hub = new FakeNwcWallet(h.pool, 0x81)
-    let calls = 0
-    const slept: number[] = []
-    h.wallet.sleep = async (ms) => void slept.push(ms)
-    hub.handler = (m) => {
-      if (m === 'get_info') return { result: {} }
-      calls++
-      return { error: { code: 'BAD_REQUEST', message: 'identity_event has already been used' } }
-    }
-    expect((await err(h.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n })))?.code).toBe('conflict')
-    expect([calls, slept]).toEqual([2, [1100]])
-  })
-  test('silence keeps the pending join', async () => {
-    const hub = new FakeNwcWallet(h.pool, 0x81)
-    hub.handler = (m) => (m === 'get_info' ? { result: {} } : 'silent')
-    const x = await harness({ pool: h.pool, bank: h.bank, deps: { nwcTimeoutMs: 50 } })
-    expect((await err(x.wallet.joinCircle({ hub: hub.uri, maxAmount: 5n })))?.code).toBe('indeterminate')
-    expect(x.wallet.state.pendingJoins).toHaveLength(1)
-  })
-})
-
-describe('private circle joins (NIP-CW §Private Join)', () => {
-  let nwc: FakeNwcWallet
-  let node: FakeHub
-  let identity: string | undefined
-  const sealed = (to: string) => ({ encrypted_details: nip44.encrypt(JSON.stringify({ wallet_pubkey: '9b'.repeat(32), relays: ['wss://c1'], max_amount: 5000, expires_at: 1, fees_ppm: 0, budget_renewal: 'monthly' }), nip44.getConversationKey(nwc.key, to)) })
-  const standardJoins = () => nwc.seen.filter((x) => x.method === 'create_circle_wallet').length
-
-  beforeEach(async () => {
-    nwc = new FakeNwcWallet(h.pool, 0x85)
-    node = new FakeHub(h.pool, [NWC_RELAY], 0x5a)
-    node.handler = (_m, info) => (info.signer === info.params['pubkey'] && info.item.target === nwc.pubkey ? { result: sealed(info.params['pubkey'] as string) } : 'omit')
-    await node.start()
-    identity = node.node
-    nwc.handler = (m, p) => {
-      if (m === 'get_info') return { result: { circle_wallet: { available_millis: 5000, max_exp_secs: 0, fees_ppm: 0, circle_policy: 'allowlist', ...(identity !== undefined && { identity }) } } }
-      return { result: sealed(p['pubkey'] as string) }
-    }
-  })
-
-  test('joins privately when get_info reports an identity, and adds the connection', async () => {
-    const r = await h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n })
-    expect(r).toMatchObject({ name: 'circle', walletPubkey: '9b'.repeat(32), private: true })
-    expect(r).not.toHaveProperty('fallbackReason')
-    expect(standardJoins()).toBe(0)
-    expect(h.wallet.state.pendingJoins).toHaveLength(0)
-    expect((await h.wallet.connections.list())[0]).toMatchObject({ name: 'circle', kind: 'circle', walletPubkey: '9b'.repeat(32) })
-  })
-  test('falls back to the standard transport when no announcement verifies, and says why', async () => {
-    identity = getPublicKey(new Uint8Array(32).fill(0x5c))
-    const r = await h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n })
-    expect(r.private).toBe(false)
-    expect(r.fallbackReason).toMatch(/announcement/)
-    expect(standardJoins()).toBe(1)
-  })
-  test('a Hub that refuses get_info fails the join with its code, and nothing is sent or parked', async () => {
-    nwc.handler = (m) => ({ error: { code: 'NOT_IMPLEMENTED', message: m } })
-    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
-    expect([e?.code, e?.nwcCode]).toEqual(['internal', 'NOT_IMPLEMENTED'])
-    expect(nwc.seen.map((x) => x.method)).toEqual(['get_info'])
-    expect(h.wallet.state.pendingJoins).toHaveLength(0)
-  })
-  test('a fallback that is refused keeps the code and says the join was not private', async () => {
-    identity = getPublicKey(new Uint8Array(32).fill(0x5c))
-    nwc.handler = (m) => (m === 'get_info' ? { result: { circle_wallet: { identity } } } : { error: { code: 'RESTRICTED', message: 'not a member' } })
-    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
-    expect([e?.code, e?.nwcCode]).toEqual(['auth', 'RESTRICTED'])
-    expect(e?.fallbackReason).toMatch(/announcement/)
-    expect(toJSON(e)).toContain('"fallback_reason"')
-    expect(h.wallet.state.pendingJoins).toHaveLength(0)
-  })
-  test('a private refusal carries no fallback reason', async () => {
-    node.handler = () => ({ error: { code: 'RESTRICTED', message: 'no' } })
-    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
-    expect(e?.fallbackReason).toBeUndefined()
-  })
-  test('requirePrivate without an identity is not_found, and nothing is sent or parked', async () => {
-    identity = undefined
-    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n, requirePrivate: true }))
-    expect(e?.code).toBe('not_found')
-    expect(standardJoins()).toBe(0)
-    expect(h.wallet.state.pendingJoins).toHaveLength(0)
-  })
-  test.each([
-    ['WALLET_EXISTS', 'exists'],
-    ['RESTRICTED', 'auth'],
-    ['NOT_READY', 'network'],
-    ['RATE_LIMITED', 'conflict'],
-  ])('a private refusal %s maps as on the standard path (%s), and forgets the key', async (code, want) => {
-    node.handler = () => ({ error: { code, message: 'no' } })
-    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
-    expect([e?.code, e?.nwcCode]).toEqual([want, code])
-    expect(standardJoins()).toBe(0)
-    expect(h.wallet.state.pendingJoins).toHaveLength(0)
-  })
-  test('a private join with no reply is indeterminate and keeps the pending join', async () => {
-    node.faults = { drop: true }
-    const e = await err(h.wallet.joinCircle({ hub: nwc.uri, maxAmount: 5000n }))
-    expect(e?.code).toBe('indeterminate')
-    expect(standardJoins()).toBe(0)
-    expect(h.wallet.state.pendingJoins).toHaveLength(1)
-  })
-})
-
 describe('connections, identity, settings', () => {
   test('connections: first is default; names are unique; setDefault and remove', async () => {
     const a = new FakeNwcWallet(h.pool, 0x91)
@@ -567,7 +503,7 @@ describe('connections, identity, settings', () => {
   })
   test('settings update and read back', async () => {
     expect((await h.wallet.settings.get()).autoProtect).toBe(true)
-    expect((await h.wallet.settings.update({ fallbackRelays: ['wss://f'] })).fallbackRelays).toEqual(['wss://f'])
+    expect((await h.wallet.settings.update({ autoProtect: false })).autoProtect).toBe(false)
   })
 })
 

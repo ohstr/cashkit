@@ -1,7 +1,7 @@
 {
-  "description": "NIP-47: pairing URIs, info events, and nip44_v2 request and response events as nmilat builds and parses them.",
-  "source": "nip47/{pairing,events,methods}.go; nip47/{pairing,events,events_response_fallback}_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "description": "NIP-47: pairing URIs, info events, nip44_v2 request and response events as nmilat builds and parses them, a request's expiration tag (K-N47-1), notification events, and get_info's network, chain and circle_wallet block.",
+  "source": "nip47/{pairing,events,methods}.go; nip47/{pairing,events,events_response_fallback,methods}_test.go",
+  "nmilat": "github.com/ohstr/nmilat devel",
   "pairingBuild": [
     {
       "walletPubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
@@ -545,6 +545,37 @@
         "sig": "8cb8df998fc37b774a65b32bfd55d4196112d63fba5743c7d011f63cdd5d9941db8b3d3dd2d69374f2363525974bd290638654aa82d3b7a470cf0b6529b5e4ca"
       },
       "plaintext": "{\"method\":\"list_transactions\",\"params\":{\"limit\":10,\"unpaid\":true}}"
+    },
+    {
+      "id": "K-N47-1",
+      "name": "mint_cash with an expiration",
+      "method": "mint_cash",
+      "params": {
+        "a": 1
+      },
+      "event": {
+        "id": "d412c7541263817655e7595ae00ef3c666eaa666573f22d308d9e4aee8c6a609",
+        "pubkey": "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b",
+        "created_at": 1760000000,
+        "kind": 23194,
+        "tags": [
+          [
+            "p",
+            "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
+          ],
+          [
+            "encryption",
+            "nip44_v2"
+          ],
+          [
+            "expiration",
+            "1720000060"
+          ]
+        ],
+        "content": "Aot2/yT/Zx6ElV+Jfbb4DIsRdH3W4rzTdMDydfc6Lkc7IAev25uvBnWaQ2Abc+ROjyxhcdvWY3w4Q1hTw0VbQ3o7vjGNkdWVAIy68icPpv96pKw1C3cP8X9KI78xIluu6O0C5BaGYW4OxwVMDXW7U0J8lKfLsSfkjlfXZx3tA4vQ1Sk=",
+        "sig": "fb4ed0a4c3aba7178cead956d738b7d47b9681962c1e0f4fd9bf9ffe2a8c430f86f312db8758339f10a3a83df08f13bf43ca59b81570fd5c5f4e914798c07113"
+      },
+      "plaintext": "{\"method\":\"mint_cash\",\"params\":{\"a\":1}}"
     }
   ],
   "responses": [
@@ -883,6 +914,395 @@
       },
       "fallback": "nip44_v2",
       "error": "decrypt response: unsupported encryption \"rot13\", must be \"nip04\" or \"nip44_v2\""
+    }
+  ],
+  "requestExpiration": [
+    {
+      "name": "K-N47-1: one expiration",
+      "tags": [
+        [
+          "p",
+          "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+        ],
+        [
+          "expiration",
+          "1720000060"
+        ]
+      ],
+      "unix": 1720000060,
+      "present": true
+    },
+    {
+      "name": "none",
+      "tags": [
+        [
+          "p",
+          "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+        ]
+      ],
+      "unix": 0,
+      "present": false
+    },
+    {
+      "name": "two",
+      "tags": [
+        [
+          "expiration",
+          "1720000060"
+        ],
+        [
+          "expiration",
+          "1720000061"
+        ]
+      ],
+      "unix": 0,
+      "present": true,
+      "error": "2 expiration tags"
+    },
+    {
+      "name": "not a number",
+      "tags": [
+        [
+          "expiration",
+          "soon"
+        ]
+      ],
+      "unix": 0,
+      "present": true,
+      "error": "expiration \"soon\" is not unsigned decimal"
+    },
+    {
+      "name": "leading zero",
+      "tags": [
+        [
+          "expiration",
+          "01720000060"
+        ]
+      ],
+      "unix": 0,
+      "present": true,
+      "error": "expiration \"01720000060\" is not unsigned decimal"
+    },
+    {
+      "name": "zero",
+      "tags": [
+        [
+          "expiration",
+          "0"
+        ]
+      ],
+      "unix": 0,
+      "present": true
+    },
+    {
+      "name": "no value",
+      "tags": [
+        [
+          "expiration"
+        ]
+      ],
+      "unix": 0,
+      "present": false
+    }
+  ],
+  "notifications": [
+    {
+      "name": "payment_received, nip44 (kind 23197)",
+      "event": {
+        "id": "b458591242fcefa02c8bcce5a5c9292654593047643bb628cfa026271b03f9f0",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23197,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ]
+        ],
+        "content": "AiYwwmuQD4xkPM89IFSsUyuzg7YMv2dmz6YiYk+fjCqPPzqBa5s2s8CKfTi/Zil/kaB8Ss/LRVE69sArRC5mvq734cQOxD5j7GlVx5kdGldgPhwcKWXILEf2xHKUE+fcXcSAouiVOMqF1QS4L/sO+jDU79bxN5sg7vCQpLHZia75ckOyefGklVGL8YVaZjgzi5bniw6T3BTWC04Oh5SkEaQhL/rGfnu8TzVjK+AkiZUZp5ccS2XlHv7b35sfz2anodI/UwfeMwu7B6SXdHM+dVfqacQgmOcpQ1zIF7u3EnDxJDKmCUHD6RRAjiF6SgnwMOgNejPtQvbQtP6YLhc7nYqHxM4g66JOqxq+bjgSgV7ucGTzumqYIh5YeaZ+wU9Nf4u0",
+        "sig": "bfd7c7d11f272600fc1043c0125d99694004c2db8209ba648b3765c9df3125224c2eccbbbd8fa8b972d338e5b0ce916c57461d809ee8fc4175abfdb5467db88c"
+      },
+      "type": "payment_received",
+      "payload": {
+        "amount": 21000,
+        "created_at": 1760000000,
+        "payment_hash": "abababababababababababababababababababababababababababababababab",
+        "settled_at": 1760000000,
+        "type": "incoming"
+      }
+    },
+    {
+      "name": "payment_sent, nip04 (kind 23196)",
+      "event": {
+        "id": "30c3124ef5e6a760ea067e040faf01d7dad762611a6b6057f96e026f53018d9e",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23196,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ]
+        ],
+        "content": "pRvCIFJqlzUJfpqq3FBW1xJEBYPwox0vR8cAT3XQDsdOiUYFEyl8iOcuFj68taFtCf/3YHbD/F6mEu7mrqF1/x/3EXXjHlCkSP5fXhvZOvz+44759FWa1P8kyRNHOPr4IgR71lER8PABf1jANcNf4dbhegiNvH2TwWORf50gGObFl7G/KTSDMrWM/aNvulq6/6sNCX2FyFY6QhPknlk4vyl88Y7pj95It9H/0J+fW4gvTGrdo6tU4gawZLZctgb7Rc+ZX9r5XanMVEJUzXHVT/61zupxSqfw52YQAbEUU3o=?iv=Q15ZK5frplnUinwUKWrSpQ==",
+        "sig": "0d9fd013b193dcc79a6a1f9f2e58ef379b10358437738381991ad6d6a7b007a57ce980238a82ff7a0e7bf3e73a044330e0dd0b4dd3856ee44933d519f8afc0d5"
+      },
+      "type": "payment_sent",
+      "payload": {
+        "amount": 21000,
+        "created_at": 1760000000,
+        "payment_hash": "abababababababababababababababababababababababababababababababab",
+        "settled_at": 1760000000,
+        "type": "incoming"
+      }
+    },
+    {
+      "name": "hold_invoice_accepted",
+      "event": {
+        "id": "2e0c77fdfde6694b004e65ba35d5ae17da7ae1f4ab0e18f9935c0e7fbdd549b0",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23197,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ]
+        ],
+        "content": "AnsLAwuHaalCbXPTKV9rlNzSo8k0Xj106m113+qmUlRVk5T5n7C1OJJuO1FbRITLLWg8Mt+G7+ooj0qTBDAqla10qc4HsLYjRJzaAeR7c8XbGSSZN3JlsrrPAciz9Hktzr0VMiV8w87sxMRk83GVhJaWbBdweqgY/GLtPP6CcJ+q2PkgXBtP9a5A18S+WZBGKhhugzDdVha1rS1SzAbYP43wE19OC1ROUhX0uvZezqE5jicUw1Plnx1Tv18YypKD0FRWspD6THnRURkmtH7BQsnRoPDVk0BNSMNesdJmmOs+2ZyMtZFBh/P4f0ogZ9dEB2ELKDKwXLxpnP1zYlfE935zm80s/Sa0pbsvfayF7PR4Gk/WscwDHK8U/bK0B8Kvq1cSjX9Sc7ftl8jtCA9CiCu3dptWpV4LA5j4EcNBw/RG1hA=",
+        "sig": "0cdb6e3dce43cc8014c137f0fd889b7ef8d9ccf3eac1d7b7d15d4c83015bbd77593cc433cc1977ab5fb01c36f639ebfdc71d201de3f2fdb5173d9ae32e2d7883"
+      },
+      "type": "hold_invoice_accepted",
+      "payload": {
+        "amount": 21000,
+        "created_at": 1760000000,
+        "payment_hash": "abababababababababababababababababababababababababababababababab",
+        "settled_at": 1760000000,
+        "type": "incoming"
+      }
+    },
+    {
+      "name": "rotation_pending",
+      "event": {
+        "id": "db4b3d6222bfafa17080b5ec489e72c817d4d3e982791b6ea49286bd7d1324ae",
+        "pubkey": "62c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7",
+        "created_at": 1760000000,
+        "kind": 23197,
+        "tags": [
+          [
+            "p",
+            "462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
+          ]
+        ],
+        "content": "AuCDwmIE5Kj92tYbsgJYRabdJawkB/jxNQtFukSdwEyy2t6TNuFRM9xJDWgf6w5gzK9AfcjrZp6G2cE12TTcP5nn2L3yIO0LXpGTmi9U479K6A418OfMo5FNdIxzOK8S3FB79oKytla2By2rbhKQqCirn+ZxJRkmHjsfvC4Ht6XQBEATwAjIonkh7NbnHmOmhdOPm4iN9CfyWGs4dT3+rOy7pmBTtRaq3SX6EG2ea03z1pg0ReLF3P77L1AmyRkM3CoqWIokkPgMzziJGOBJQvZ0Mhv5NAQBBqNOt0QwbzIU/E4htbIh7BZzzXWFqpdOa2CJ3vyTsojzIT6oMTWMkqPLxw==",
+        "sig": "904cf0d0271929dcef4ff9bb364db4685d2a622a18d587059d03c8af64a4781bbfdf5198240560838fe4e9d9d8b3cb58739d96757f5d209b6f4c7d7d1215622d"
+      },
+      "type": "rotation_pending",
+      "payload": {
+        "completes_at": 1760086400,
+        "connection_pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+      }
+    }
+  ],
+  "getInfo": [
+    {
+      "name": "network and chain",
+      "result": "{\"pubkey\":\"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798\",\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\",\"mint_cash\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info",
+          "mint_cash"
+        ],
+        "network": "mainnet",
+        "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": true
+    },
+    {
+      "name": "network testnet",
+      "result": "{\"network\":\"testnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info"
+        ],
+        "network": "testnet"
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": true
+    },
+    {
+      "name": "network signet",
+      "result": "{\"network\":\"signet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info"
+        ],
+        "network": "signet"
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": true
+    },
+    {
+      "name": "network regtest",
+      "result": "{\"network\":\"regtest\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info"
+        ],
+        "network": "regtest"
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": true
+    },
+    {
+      "name": "network Mainnet",
+      "result": "{\"network\":\"Mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info"
+        ],
+        "network": "Mainnet"
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": false
+    },
+    {
+      "name": "network ",
+      "result": "{\"network\":\"\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info"
+        ]
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": false
+    },
+    {
+      "name": "no chain",
+      "result": "{\"network\":\"mainnet\",\"methods\":[\"get_info\"]}",
+      "want": {
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": true
+    },
+    {
+      "name": "circle_wallet accepting",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":0,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"allowlist\",\"fee_reserve\":{\"ppm\":5000,\"min_millis\":10000},\"dust_threshold_millis\":1000,\"accepting\":true}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "accepting": true,
+          "available_millis": 0,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": 1000,
+          "fee_reserve": {
+            "min_millis": 10000,
+            "ppm": 5000
+          },
+          "fees_ppm": 0,
+          "max_exp_secs": 0
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [
+        "identity"
+      ],
+      "accepting": true,
+      "validNetwork": true
+    },
+    {
+      "name": "circle_wallet not accepting",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":0,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"allowlist\",\"fee_reserve\":{\"ppm\":5000,\"min_millis\":10000},\"dust_threshold_millis\":1000,\"accepting\":false}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "accepting": false,
+          "available_millis": 0,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": 1000,
+          "fee_reserve": {
+            "min_millis": 10000,
+            "ppm": 5000
+          },
+          "fees_ppm": 0,
+          "max_exp_secs": 0
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [
+        "identity"
+      ],
+      "accepting": false,
+      "validNetwork": true
+    },
+    {
+      "name": "circle_wallet without accepting",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"circle_wallet\":{\"available_millis\":0,\"max_exp_secs\":0,\"fees_ppm\":0,\"circle_policy\":\"allowlist\"}}",
+      "want": {
+        "chain": "bitcoin",
+        "circle_wallet": {
+          "available_millis": 0,
+          "circle_policy": "allowlist",
+          "dust_threshold_millis": null,
+          "fee_reserve": null,
+          "fees_ppm": 0,
+          "max_exp_secs": 0
+        },
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet"
+      },
+      "missingAlways": [
+        "fee_reserve",
+        "dust_threshold_millis",
+        "identity",
+        "accepting"
+      ],
+      "accepting": null,
+      "validNetwork": true
+    },
+    {
+      "name": "private_methods",
+      "result": "{\"network\":\"mainnet\",\"chain\":\"bitcoin\",\"methods\":[\"get_info\"],\"private_methods\":[\"cash_status\",\"cash_redeem\"]}",
+      "want": {
+        "chain": "bitcoin",
+        "methods": [
+          "get_info"
+        ],
+        "network": "mainnet",
+        "private_methods": [
+          "cash_status",
+          "cash_redeem"
+        ]
+      },
+      "missingAlways": [],
+      "accepting": null,
+      "validNetwork": true
     }
   ]
 }

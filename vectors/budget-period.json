@@ -1,0 +1,112 @@
+{
+  "description": "NIP-CW budget periods: the start of the k-th period of a wallet created at created, in UTC. Monthly and yearly stay anchored to the creation day, clamped to the month's last day, counted from the creation.",
+  "source": "nipcw/budget_period.go BudgetPeriodStart; nipcw/budget_period_test.go (K-BP-1..8)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "start": [
+    {
+      "id": "K-BP-1",
+      "created": 1706695200,
+      "renewal": "monthly",
+      "k": 1,
+      "start": 1709200800
+    },
+    {
+      "id": "K-BP-2",
+      "created": 1706695200,
+      "renewal": "monthly",
+      "k": 2,
+      "start": 1711879200
+    },
+    {
+      "id": "K-BP-3",
+      "created": 1706695200,
+      "renewal": "monthly",
+      "k": 3,
+      "start": 1714471200
+    },
+    {
+      "id": "K-BP-4",
+      "created": 1709200800,
+      "renewal": "yearly",
+      "k": 1,
+      "start": 1740736800
+    },
+    {
+      "id": "K-BP-5",
+      "created": 1709200800,
+      "renewal": "yearly",
+      "k": 2,
+      "start": 1772272800
+    },
+    {
+      "id": "K-BP-6",
+      "created": 1709200800,
+      "renewal": "yearly",
+      "k": 3,
+      "start": 1803808800
+    },
+    {
+      "id": "K-BP-7",
+      "created": 1709200800,
+      "renewal": "yearly",
+      "k": 4,
+      "start": 1835431200
+    },
+    {
+      "id": "K-BP-8",
+      "created": 1706695200,
+      "renewal": "daily",
+      "k": 1,
+      "start": 1706781600
+    },
+    {
+      "id": "K-BP-8",
+      "created": 1706695200,
+      "renewal": "weekly",
+      "k": 1,
+      "start": 1707300000
+    },
+    {
+      "created": 1706695200,
+      "renewal": "monthly",
+      "k": 0,
+      "start": 1706695200
+    },
+    {
+      "created": 1706695200,
+      "renewal": "monthly",
+      "k": 12,
+      "start": 1738317600
+    },
+    {
+      "created": 1706695200,
+      "renewal": "never",
+      "k": 0,
+      "start": 1706695200
+    },
+    {
+      "created": 1706695200,
+      "renewal": "never",
+      "k": 1,
+      "error": "nipcw: a never renewal has one period"
+    },
+    {
+      "created": 1706695200,
+      "renewal": "",
+      "k": 0,
+      "start": 1706695200
+    },
+    {
+      "created": 1706695200,
+      "renewal": "monthly",
+      "k": -1,
+      "error": "nipcw: budget period -1 is negative"
+    },
+    {
+      "created": 1706695200,
+      "renewal": "Monthly",
+      "k": 1,
+      "error": "nipcw: malformed terms: budget_renewal \"Monthly\""
+    }
+  ]
+}

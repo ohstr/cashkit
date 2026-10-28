@@ -1,5 +1,6 @@
 // Client errors. Each is a distinct class because a caller must act on the
 // difference, not parse a message.
+import type { Tombstone } from '../core/index.js'
 
 export type ClientErrorCode =
   | 'no_announcement'
@@ -11,22 +12,55 @@ export type ClientErrorCode =
   | 'bad_input'
   | 'not_served'
   | 'wallet_error'
-  | 'partial_progress'
   | 'claim_not_found'
+  /**
+   * A connection-key holder's `cash_status` was answered `NOT_FOUND`: a spec
+   * Hub never shows such a holder its row (NIP-CASH §Scoping the Roster), so
+   * the status cannot be read. Not a statement that the bill is gone or not
+   * the holder's.
+   */
+  | 'status_unreadable'
   | 'spent'
   /** The Hub answered with a success this client could not decode: it ran. */
   | 'undecodable_result'
   /** Signing one item took the whole not_after window (design §3). Nothing was sent. */
   | 'signer_too_slow'
-  /** A join that required the private transport could not use it. Nothing was sent. */
-  | 'private_join_unavailable'
+  /** The Circle Wallet Hub's announcement could not be found or verified, so no join was sent (NIP-CW §Finding the Private Transport). */
+  | 'join_unavailable'
+  /** The Circle Wallet Hub is not taking joins (`accepting` false). Nothing was signed. */
+  | 'not_accepting'
+  /** The Order connection sells nothing (a retired one answers `{}`). Nothing was written or sent. */
+  | 'order_not_sold'
+  /** The Order connection does not list `cash_order` on the private transport. Nothing was written or sent. */
+  | 'order_unavailable'
+  /** A zap bill's provenance needs its Cash Zap's fields, which were not given. Nothing was sent. */
+  | 'no_zap_event'
+  /** The token carries no mint signature that verifies, so its Hub cannot be identified. Nothing was sent. */
+  | 'no_provenance'
+  /** The Hub announces no usable max_request_age, so it takes no bill-creating call. Nothing was sent. */
+  | 'hub_unusable'
+  /** Too little time was left before the deadline after the write-ahead. Nothing was sent. */
+  | 'deadline_too_close'
+  /** The items do not fit the one envelope the caller required. Nothing was sent. */
+  | 'single_envelope_required'
+  /** Not a connection string of the expected kind, or a malformed one. Nothing was dialled. */
+  /** Proof of work the relays ask for exceeds the mining budget. Nothing was sent. */
+  | 'pow_too_hard'
+  | 'connection_invalid'
+  /** `get_info` names another Hub identity or chain than the connection string. */
+  | 'connection_mismatch'
+  /** The string's signature does not verify, and the user did not confirm it. Nothing was sent. */
+  | 'connection_unverified'
 
 export class ClientError extends Error {
   override readonly name: string = 'ClientError'
   readonly code: ClientErrorCode
-  constructor(code: ClientErrorCode, message: string, options?: { cause?: unknown }) {
+  /** With `spent`: the Hub's tombstone, when it sent one. */
+  readonly tombstone?: Tombstone
+  constructor(code: ClientErrorCode, message: string, options?: { cause?: unknown; tombstone?: Tombstone }) {
     super(`client: ${message}`, options)
     this.code = code
+    if (options?.tombstone !== undefined) this.tombstone = options.tombstone
   }
 }
 
@@ -41,54 +75,6 @@ export class NotServedError extends ClientError {
     super('not_served', `the hub returned no answer for this ${method}; it may or may not have been applied, so ask before retrying`, options)
     this.method = method
   }
-}
-
-/**
- * The first step of a two-step flow landed and the second did not. Holds the
- * landed result: for a consolidate it is the only copy of the new bill.
- */
-export class PartialProgressError extends ClientError {
-  override readonly name = 'PartialProgressError'
-  readonly transferred?: unknown
-  readonly consolidated?: unknown
-  constructor(landed: { transferred?: unknown; consolidated?: unknown }, cause: unknown) {
-    super(
-      'partial_progress',
-      landed.transferred !== undefined
-        ? 'interim transfer landed, but the following consolidate failed'
-        : 'interim consolidate landed, but the following transfer failed',
-      { cause },
-    )
-    if (landed.transferred !== undefined) this.transferred = landed.transferred
-    if (landed.consolidated !== undefined) this.consolidated = landed.consolidated
-  }
-}
-
-/**
- * `requirePrivate` was set and the join could not travel over the private
- * transport, so nothing was sent.
- */
-export class PrivateJoinUnavailableError extends ClientError {
-  override readonly name = 'PrivateJoinUnavailableError'
-  constructor(reason: string, options?: { cause?: unknown }) {
-    super('private_join_unavailable', `private join is unavailable: ${reason}`, options)
-  }
-}
-
-const fallbackReasons = new WeakMap<object, Error>()
-
-/**
- * Why a failed join went over the standard transport although the Hub
- * offers Private Join: the error came from the fallback, so the member's
- * pubkey was on the shared connection. The error itself keeps its class and
- * code; undefined for any other error.
- */
-export const fallbackReasonOf = (err: unknown): Error | undefined => (typeof err === 'object' && err !== null ? fallbackReasons.get(err) : undefined)
-
-/** Records `reason` against `err` for fallbackReasonOf, and returns `err`. */
-export function withFallbackReason<E>(err: E, reason: Error): E {
-  if (typeof err === 'object' && err !== null) fallbackReasons.set(err, reason)
-  return err
 }
 
 /** The Hub (or wallet) answered with a refusal and a reason. */

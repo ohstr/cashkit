@@ -46,6 +46,12 @@ const EVIDENCE_FIELDS = {
 
 function parseEvidence(text: string): Evidence {
   const e = decodeGoStruct(parseGoJSON(text, 'attestation evidence'), EVIDENCE_FIELDS, 'attestation evidence')
+  if (e['version'] !== 1) throw fail('evidence version must be 1')
+  const authType = (e['auth_type'] as string | undefined) ?? ''
+  if (authType === '') throw fail('evidence auth_type is empty')
+  if (authType === 'public_post' && (!e['evidence_url'] || !e['challenge'] || !e['pre_auth_code'])) {
+    throw fail('public_post evidence needs evidence_url, challenge and pre_auth_code')
+  }
   return {
     userId: (e['user_id'] as string | undefined) ?? '',
     username: (e['username'] as string | undefined) ?? '',
@@ -56,42 +62,80 @@ function parseEvidence(text: string): Evidence {
   }
 }
 
-/** Go's strconv.ParseInt(s, 10, 64), or undefined. */
-function parseInt64(s: string): number | undefined {
-  if (!/^[+-]?[0-9]+$/.test(s)) return undefined
+/** Go's strconv.ParseUint(s, 10, 63), or undefined. */
+function parseUint63(s: string): number | undefined {
+  if (!/^[0-9]+$/.test(s)) return undefined
   const v = BigInt(s)
-  if (v < -(1n << 63n) || v >= 1n << 63n) return undefined
-  return Number(v)
+  return v < 1n << 63n ? Number(v) : undefined
 }
 
+const HEX64 = /^[0-9a-f]{64}$/
+const PLATFORM_NAME = /^[a-z0-9._-]+$/
+const ATTESTATION_TAGS = new Set(['d', 'p', 'platform', 'evidence', 'expiration'])
+
 /**
- * Parses and validates an attestation: kind 35522, a valid event, non-empty
- * `d` (not platform-prefixed), `p`, `platform` and `evidence` tags. For a
- * repeated tag the last one wins. An expired attestation still parses;
- * callers decide what to do with it.
+ * Parses and validates an attestation as nmilat does: kind 35522, a valid
+ * event, empty content, each of `d`, `p`, `platform`, `evidence` and
+ * `expiration` at most once (a repeated one is refused), `d` a bare 64-hex
+ * ConnectionKey (never platform-prefixed), `p` 64 lowercase hex, `platform`
+ * a valid name, v1 evidence with an `auth_type` (`public_post` evidence
+ * carries `evidence_url`, `challenge` and `pre_auth_code`), and a decimal
+ * `expiration` when present (a malformed one is refused, never read as no
+ * expiry). An expired attestation still parses; callers decide.
  */
 export function parseAttestation(event: NostrEvent): Attestation {
   if (event.kind !== KIND_ATTESTATION) throw fail(`expected kind ${KIND_ATTESTATION}, got ${event.kind}`)
   if (!verifyEvent(event)) throw fail('invalid event signature')
+  if (event.content !== '') throw fail("a 35522's content is empty")
 
-  const values: Record<string, string> = { d: '', p: '', platform: '', evidence: '', expiration: '' }
+  const values = new Map<string, string>()
   for (const tag of event.tags) {
-    if (tag.length < 2) continue
-    if (Object.hasOwn(values, tag[0]!)) values[tag[0]!] = tag[1]!
+    if (tag.length < 2 || !ATTESTATION_TAGS.has(tag[0]!)) continue
+    if (values.has(tag[0]!)) throw fail(`#${tag[0]} tag repeated`)
+    values.set(tag[0]!, tag[1]!)
   }
   for (const name of ['d', 'p', 'platform', 'evidence']) {
-    if (values[name] === '') throw fail(`#${name} tag is required`)
+    if (!values.get(name)) throw fail(`#${name} tag is required`)
   }
-  if (values['d']!.includes(':')) throw fail('#d tag must be a bare ConnectionKey, not platform-prefixed')
+  const d = values.get('d')!
+  if (d.includes(':')) throw fail('#d tag must be a bare ConnectionKey, not platform-prefixed')
+  if (!HEX64.test(d)) throw fail('#d tag is not a ConnectionKey')
+  const p = values.get('p')!
+  if (!HEX64.test(p)) throw fail('#p tag is not a pubkey')
+  const platform = values.get('platform')!
+  if (!PLATFORM_NAME.test(platform)) throw fail('platform name must match [a-z0-9._-]+')
 
-  const evidence = parseEvidence(values['evidence']!)
-  const expiresAt = values['expiration'] === '' ? undefined : parseInt64(values['expiration']!)
+  const evidence = parseEvidence(values.get('evidence')!)
+  let expiresAt: number | undefined
+  const exp = values.get('expiration')
+  if (exp !== undefined) {
+    expiresAt = parseUint63(exp)
+    if (expiresAt === undefined) throw fail(`invalid expiration ${JSON.stringify(exp)}`)
+  }
   return {
     event,
-    connectionKey: values['d']!,
-    userPubkey: values['p']!,
-    platform: values['platform']!,
+    connectionKey: d,
+    userPubkey: p,
+    platform,
     evidence,
     ...(expiresAt !== undefined && { expiresAt }),
   }
+}
+
+/**
+ * The checks NIP-CASH §Claim Proofs applies to the attestation behind a
+ * `connection_key` slice's claim proof, run before sending one: kind 35522,
+ * id and signature, author = the IA recorded on the slice, `d` = the
+ * slice's identity value, `p` = the claim-proof signer, `platform`,
+ * `evidence` and an `expiration` not yet passed. Throws `CoreError` naming
+ * the failed check.
+ */
+export function checkAttestationForClaim(event: NostrEvent, p: { readonly identityValue: string; readonly iaPubkey: string; readonly signer: string; readonly now: number }): Attestation {
+  const att = parseAttestation(event)
+  if (event.pubkey !== p.iaPubkey) throw fail('signed by another key than the Identity Authority recorded on the slice')
+  if (att.connectionKey !== p.identityValue) throw fail("#d tag is not the slice's identity value")
+  if (att.userPubkey !== p.signer) throw fail('#p tag is not the claim-proof signer')
+  if (att.expiresAt === undefined) throw fail('#expiration tag is required')
+  if (p.now > att.expiresAt) throw fail('has expired')
+  return att
 }

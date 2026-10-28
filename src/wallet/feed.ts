@@ -1,16 +1,17 @@
 // Balance, activity and handoffs (design §6.5, §6.6). Port of cashctl
 // cmd/wallet_balance.go and cmd/handoffs.go (refreshHandoffs, checkHandoff,
 // maskedHandoff, outstandingCashNotes).
-import { bySecret, splitCashString } from '../core/index.js'
-import { ClientError, NwcClient, WalletError } from '../client/index.js'
+import { bySecret, cashCommitment, decodeToken, splitCashString } from '../core/index.js'
+import { billFor, WalletError } from '../client/index.js'
 import type { Ctx } from './context.js'
 import { CashkitError, classifyReadError, codeForNwc, fromWalletError } from './errors.js'
+import { isLightning, nwcFor } from './circle.js'
 import { heldHoldings } from './ledger.js'
-import type { Activity, Handoff, HandoffStatus } from './model.js'
+import type { Activity, ConnectionKind, Handoff, HandoffStatus } from './model.js'
 
 export interface WalletBalance {
   readonly name: string
-  readonly kind: 'nwc' | 'circle'
+  readonly kind: ConnectionKind
   readonly balance?: bigint
   /** An auth-class decline with a cached figure: shown, still counted, as cashctl does. */
   readonly stranded?: boolean
@@ -30,7 +31,8 @@ export interface Balance {
 
 export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<Balance> {
   const refresh = o.refresh ?? true
-  const conns = await ctx.read((t) => t.list('connections'))
+  // Lightning wallets only: a Cash Hub connection holds no balance of its own.
+  const conns = (await ctx.read((t) => t.list('connections'))).filter(isLightning)
   const wallets: WalletBalance[] = []
   let total = 0n
   let stranded = 0n
@@ -41,7 +43,7 @@ export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<
       continue
     }
     try {
-      const r = await new NwcClient(ctx.clientDeps, await ctx.open(c.uri)).getBalance()
+      const r = await (await nwcFor(ctx, c)).getBalance()
       const millis = BigInt(r.balance)
       total += millis
       wallets.push({ name: c.id, kind: c.kind, balance: millis })
@@ -62,7 +64,7 @@ export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<
   let count = 0
   let pendingMerge = 0
   for (const h of await ctx.read(heldHoldings)) {
-    if (h.throwawayKey !== undefined || h.pendingThrowawayKey !== undefined) pendingMerge++
+    if (h.throwawayKey !== undefined) pendingMerge++
     if (h.amount === undefined) continue
     count++
     if (h.expiresAt !== undefined && h.expiresAt <= now) expired += h.amount
@@ -115,15 +117,25 @@ export async function handoffView(ctx: Ctx, h: Handoff, includeSecrets: boolean)
 
 /** `checkHandoff`: what the note's Hub says now, or undefined when it can't tell. */
 async function checkNote(ctx: Ctx, note: string): Promise<HandoffStatus | undefined> {
+  // A cash note is read with its bearer credential, the secret never sent: the row alone says whether it was claimed.
   const { token, cashSecret } = splitCashString(note)
   if (cashSecret === '') return undefined
   try {
-    await ctx.client(token).checkClaim(bySecret(cashSecret), '')
-    return 'unclaimed'
-  } catch (err) {
-    if (err instanceof ClientError && (err.code === 'spent' || err.code === 'claim_not_found')) return 'claimed'
-    if (err instanceof WalletError && err.walletCode === 'EXPIRED') return 'expired'
-    if (err instanceof WalletError && err.walletCode === 'BAD_REQUEST' && err.walletMessage.includes('matches this cash secret')) return 'claimed'
+    const r = await ctx.client(token).statusMany([{ id: '1', bill: billFor(decodeToken(token)), credential: bySecret(cashSecret), scope: 'mine' }])
+    const o = r.outcomes[0]
+    if (o?.state === 'tombstone' || (o?.state === 'result' && o.tombstone !== undefined)) return 'claimed'
+    if (o?.state === 'result' && o.value !== undefined) {
+      if (o.value.tombstone !== undefined) return 'claimed'
+      const row = o.value.recipients[0]
+      if (row === undefined) return undefined
+      // Claimed, or moved to another identity: the note no longer pays its holder.
+      if (row.claimed || row.identity_type !== 'cash' || row.identity_value !== cashCommitment(cashSecret)) return 'claimed'
+      if (row.expires_at !== undefined && row.expires_at <= ctx.nowSeconds()) return 'expired'
+      return 'unclaimed'
+    }
+    if (o?.state === 'error' && o.error?.code === 'EXPIRED') return 'expired'
+    return undefined
+  } catch {
     return undefined
   }
 }

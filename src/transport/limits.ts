@@ -68,15 +68,16 @@ export function validateAnnouncedLimits(l: Limits): void {
   }
 }
 
-/** The smallest bucket multiple that holds `n` bytes; too large throws. */
+/**
+ * T: the smallest bucket multiple that holds `n` bytes, or `max_bytes` when
+ * that multiple is larger (NIP-CASH §Envelopes). Only `n` above
+ * `max_bytes` throws.
+ */
 export function paddedSize(l: Limits, n: number): number {
   if (n < 0) throw new TransportError('envelope_malformed', 'negative size')
+  if (n > l.maxEnvelopeBytes) throw new TransportError('envelope_too_large', `${n} bytes, limit ${l.maxEnvelopeBytes}`)
   const buckets = Math.max(Math.ceil(n / l.padBucketBytes), 1)
-  const padded = buckets * l.padBucketBytes
-  if (padded > l.maxEnvelopeBytes) {
-    throw new TransportError('envelope_too_large', `${n} bytes pads to ${padded}, limit ${l.maxEnvelopeBytes}`)
-  }
-  return padded
+  return Math.min(buckets * l.padBucketBytes, l.maxEnvelopeBytes)
 }
 
 /** Roughly how large a full envelope is as base64 in an event's content. */

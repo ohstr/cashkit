@@ -2,8 +2,8 @@
 // NWC mapping are cashctl's table (internal/output/errors.go, nwc_errors.go),
 // so an app and an agent driving cashctl branch the same way. Classification
 // of Hub answers ports cmd/nwc_errors.go.
-import { CoreError, redact, sanitize } from '../core/index.js'
-import { ClientError, NotServedError, PartialProgressError, WalletError } from '../client/index.js'
+import { CoreError, redact, sanitize, type NotClaimableReason } from '../core/index.js'
+import { ClientError, NotServedError, WalletError } from '../client/index.js'
 
 export type ErrorCode =
   | 'usage'
@@ -44,8 +44,10 @@ export interface CashkitErrorOptions {
   /** Verbatim handoffs for a confirmed Hub mutation the local commit missed. */
   readonly recovery?: string
   readonly recoveryHandoffs?: readonly string[]
-  /** Why a failed circle join went over the standard transport, not the private one. */
-  readonly fallbackReason?: string
+  /** The pending call this failure left open (looked up by `settle`). */
+  readonly pendingCallId?: string
+  /** A stable, machine-readable reason within the code (e.g. `connection_unverified`). */
+  readonly reason?: string
   readonly cause?: unknown
 }
 
@@ -59,11 +61,9 @@ export class CashkitError extends Error {
   /** Deliberately never redacted or truncated (§10): it is the only copy. */
   readonly recovery?: string
   readonly recoveryHandoffs?: readonly string[]
-  /**
-   * Set when a circle join failed after falling back to the standard
-   * transport: the member's pubkey was on the shared Hub connection.
-   */
-  readonly fallbackReason?: string
+  /** The pending call this failure left open: `settle()` looks it up; `pendingCalls.list()` shows it. */
+  readonly pendingCallId?: string
+  readonly reason?: string
 
   constructor(code: ErrorCode, message: string, o: CashkitErrorOptions = {}) {
     super(message, o.cause !== undefined ? { cause: o.cause } : undefined)
@@ -74,7 +74,8 @@ export class CashkitError extends Error {
     if (o.hint !== undefined) this.hint = o.hint
     if (o.recovery !== undefined) this.recovery = o.recovery
     if (o.recoveryHandoffs !== undefined) this.recoveryHandoffs = [...o.recoveryHandoffs]
-    if (o.fallbackReason !== undefined) this.fallbackReason = sanitize(o.fallbackReason)
+    if (o.pendingCallId !== undefined) this.pendingCallId = o.pendingCallId
+    if (o.reason !== undefined) this.reason = o.reason
   }
 
   /** Only a conflict or a network failure is worth retrying as is. */
@@ -95,24 +96,10 @@ export class CashkitError extends Error {
       ...(this.input !== undefined && this.input !== '' && { input: this.input }),
       ...(this.hint !== undefined && { hint: this.hint }),
       ...(this.recovery !== undefined && { recovery: this.recovery }),
-      ...(this.fallbackReason !== undefined && { fallback_reason: this.fallbackReason }),
+      ...(this.pendingCallId !== undefined && { pending_call: this.pendingCallId }),
+      ...(this.reason !== undefined && { reason: this.reason }),
     }
   }
-}
-
-/** `e` with `fallbackReason` set; `e` itself when there is none. */
-export function withJoinFallback(e: CashkitError, fallbackReason: string | undefined): CashkitError {
-  if (fallbackReason === undefined) return e
-  return new CashkitError(e.code, e.message, {
-    ...(e.input !== undefined && { input: e.input }),
-    ...(e.nwcCode !== undefined && { nwcCode: e.nwcCode }),
-    ...(e.rawMessage !== undefined && { rawMessage: e.rawMessage }),
-    ...(e.hint !== undefined && { hint: e.hint }),
-    ...(e.recovery !== undefined && { recovery: e.recovery }),
-    ...(e.recoveryHandoffs !== undefined && { recoveryHandoffs: e.recoveryHandoffs }),
-    fallbackReason,
-    cause: e.cause,
-  })
 }
 
 export const isCashkitError = (e: unknown): e is CashkitError => e instanceof CashkitError
@@ -127,8 +114,15 @@ export function codeForNwc(nwcCode: string): ErrorCode {
     case 'RESTRICTED':
     case 'UNAUTHORIZED':
     case 'EXPIRED':
+    case 'FROZEN':
       return 'auth'
+    case 'LIMIT_EXCEEDED':
+      return 'invalid_input'
+    case 'INSUFFICIENT_CAPACITY':
+    case 'ROTATION_PENDING':
+      return 'conflict'
     case 'RATE_LIMITED':
+    case 'QUOTA_EXCEEDED': // a size or count limit: retry smaller or later
       return 'conflict'
     case 'NOT_SENT': // the client never sent it (design §3): retrying is safe
     case 'NOT_READY':
@@ -221,8 +215,6 @@ export function classifyReadError(err: unknown, holdingId?: string): CashkitErro
   if (err instanceof CashkitError) return err
   const withInput = holdingId !== undefined ? { input: holdingId } : {}
   if (err instanceof WalletError) {
-    const refusal = explainCashSecretRefusal(err)
-    if (refusal !== undefined) return new CashkitError('invalid_input', refusal, { cause: err, nwcCode: err.walletCode, rawMessage: err.walletMessage, ...withInput })
     return fromWalletError(err, { cashToken: true, ...withInput })
   }
   if (err instanceof NotServedError) {
@@ -240,36 +232,44 @@ export function classifyReadError(err: unknown, holdingId?: string): CashkitErro
   return new CashkitError('network', messageOf(err), { cause: err, ...withInput })
 }
 
-/**
- * cashctl `explainCashSecretRefusal`, matched on the message whatever the
- * code: lokihub answers a wrong cash secret with NOT_FOUND "no slice of this
- * bill matches this cash secret" for every method (nip47/private_dispatch.go),
- * where cashctl expects BAD_REQUEST.
- */
-export function explainCashSecretRefusal(err: WalletError): string | undefined {
-  if (err.walletCode !== 'BAD_REQUEST' && err.walletCode !== 'NOT_FOUND') return undefined
-  if (err.walletMessage.includes('neither a slice proof nor a cash secret')) {
-    return 'this is a cash-mode bill, and its Hub answers about it only with its cash secret: pass it as <token>#<secret>'
-  }
-  if (err.walletMessage.includes('matches this cash secret')) {
-    return "the cash secret does not match this bill: check the part after '#' in <token>#<secret>"
-  }
-  return undefined
-}
-
-/** A Hub "different Hubs" decline (`isCrossHubSourcesDecline`). */
-export function isCrossHubDecline(err: unknown): boolean {
-  const msg = err instanceof WalletError ? err.walletMessage : err instanceof CashkitError ? (err.rawMessage ?? err.message) : ''
-  return msg.toLowerCase().includes('same cash hub')
-}
-
 export const isExpiredDecline = (err: unknown): boolean => err instanceof WalletError && err.walletCode === 'EXPIRED'
 
-export { PartialProgressError }
 
 const statusHint = (ids: readonly string[]) =>
   ids.length === 0 ? 'wallet.status()' : `wallet.status({ holdings: [${ids.map((i) => JSON.stringify(i)).join(', ')}] })`
 
 function messageOf(err: unknown): string {
   return redact(err instanceof Error ? err.message : String(err))
+}
+
+/**
+ * The error for a row the Hub shows but that cannot be spent: `claimed` (a
+ * claim on it is in flight or done) and `withdrawn` (a cash_withdraw ended
+ * it) are `spent`; `expired` is `invalid_input`. `reason` carries which.
+ */
+/**
+ * A connection-key bill whose status this Hub will not show (NIP-CASH
+ * §Scoping the Roster answers a connection-key holder `NOT_FOUND`), asked
+ * for something that needs it: a quote, a redeem, a withdrawal. Nothing was
+ * spent and the holding is unchanged; moving the whole bill to the wallet's
+ * own pubkey gives a slice whose status can be read.
+ */
+export function statusUnreadableError(input: string): CashkitError {
+  return new CashkitError('usage', "this Hub does not show a connection-key holder its bill's status, so this bill cannot be quoted, redeemed or withdrawn as it is; nothing was spent", {
+    input,
+    reason: 'status_unreadable',
+    hint: `send the whole bill to your own pubkey first: wallet.send({ to: <your pubkey>, holdings: [${JSON.stringify(input)}] })`,
+  })
+}
+
+export function notClaimableError(reason: NotClaimableReason, input?: string): CashkitError {
+  const o = { reason, ...(input !== undefined && { input }) }
+  switch (reason) {
+    case 'claimed':
+      return new CashkitError('spent', "this bill's slice has already been claimed", o)
+    case 'withdrawn':
+      return new CashkitError('spent', "this bill's slice was ended by an on-chain withdrawal", o)
+    default:
+      return new CashkitError('invalid_input', 'this bill has expired and can no longer be spent', o)
+  }
 }

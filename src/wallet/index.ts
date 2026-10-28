@@ -9,7 +9,7 @@ export {
   type ErrorCode,
 } from './errors.js'
 export type { OperationEvent, OperationPhase } from './context.js'
-export type { Fetch, Lock, LogRecord, Logger, Query, SecretVault, Storage, StorageTx, SyncChannel, SyncMessage, WalletDeps } from './ports.js'
+export type { Fetch, Lock, LogRecord, Logger, Pocket, Query, SecretVault, Storage, StorageTx, SyncChannel, SyncMessage, WalletDeps } from './ports.js'
 export { ConcurrentUpdateError } from './ports.js'
 export type {
   Activity,
@@ -27,6 +27,21 @@ export type {
   IdentityRow,
   Meta,
   NewRow,
+  CallAuthorizer,
+  CallMethod,
+  CallNeedsUser,
+  CallOutcome,
+  CallOutput,
+  CallState,
+  DerivedIdRow,
+  DiscoverBookRow,
+  DiscoverEventRow,
+  DiscoverOutboxRow,
+  DiscoverSettings,
+  DeviceRow,
+  HoldingOrigin,
+  HubRow,
+  PendingCall,
   PendingJoin,
   Protection,
   Row,
@@ -36,18 +51,28 @@ export type {
   SettingsRow,
   TargetDisplay,
 } from './model.js'
-export { COLLECTIONS, DEFAULT_SETTINGS, SCHEMA_VERSION } from './model.js'
-export { holdingView, toJSON, type HoldingView } from './views.js'
+export { COLLECTIONS, DEFAULT_SETTINGS, LOCAL_ONLY, SCHEMA_VERSION } from './model.js'
+export { holdingView, pendingCallView, toJSON, type HoldingView, type PendingCallView } from './views.js'
+export { MAX_ATTEMPTS, type SettleCallsReport } from './runner.js'
 export type { Outcome, Report } from './report.js'
-export type { ReceiveResult, Secured, TokenReport } from './receive.js'
+export type { ReceiveOptions, ReceiveResult, Secured, TokenReport } from './receive.js'
 export type { PlannedSource, SendInput, SendPlan, SendResult } from './send.js'
+export type { MintInput, MintResult } from './mint.js'
+export type { CuratorsView, DiscoverOptions, DiscoverView, OfferCard, OutboxItem, RecommendPreview, ReportPreview, TapView } from './discover.js'
+export type { PocketSyncReport } from './pocket.js'
+export type { ZapInput, ZapSent, ZapView } from './zap.js'
+export { isNotice, type ConfirmHandler, type ConfirmNotice, type ConfirmQuestion, type ConfirmRequest, type ConfirmWithdrawData, type PublishNotice } from './confirm.js'
+export type { WithdrawalView, WithdrawPhase, WithdrawPrivacy, WithdrawQuoteField, WithdrawQuoteView, WithdrawTermsView } from './withdraw.js'
+export type { OrderQuote, OrderTo, OrderView, OrderWarning, PlaceOrderInput } from './orders.js'
 export type { RedeemInput, RedeemOutcome, RedeemPlan, RedeemPlanItem } from './redeem.js'
 export type { ConsolidateOutcome, ConsolidateReport } from './consolidate.js'
 export type { StatusOutcome } from './status.js'
-export type { SettleReport } from './settle.js'
+export type { SettleReport } from './wallet.js'
+export type { RedeemingReport } from './redeem.js'
 export type { ActivityItem, Balance, HandoffView, WalletBalance } from './feed.js'
-export type { JoinInput, JoinResult } from './circle.js'
+export type { CircleAlert, CircleNotification, CircleView, JoinOptions, JoinResult, JoinTermsInput, MemberRequestForResult, RecoverOptions, RecoverResult, RefreshCircleOptions, SettleJoinsReport, WatchCircleOptions } from './circle.js'
 export { looksLikeTarget, parseTarget, resolveNip05, type ParseTargetOptions, type ResolvedTarget, type TargetKind } from './target.js'
 export { selectForAmount, FundsFragmentedError, InsufficientFundsError, type SelectionPlan, type Selectable } from './select.js'
 export { BACKUP_FORMAT, BACKUP_VERSION, SEALED_FIELDS, type BackupFile, type ImportSummary } from './backup.js'
 export { decodeRow, encodeRow } from './codec.js'
+export type { GoneStatus } from './billState.js'

@@ -1,0 +1,103 @@
+{
+  "description": "NIP-CW fees and caps: the fees_ppm skim (rounded down), the routing-fee reserve (the larger of min_millis and amount x ppm, rounded down), and the most a payment may cost (amount + skim + reserve), counted against the send cap.",
+  "source": "nipcw/fees.go FeeSkim, RoutingFeeReserve, MaxCost; nipcw/fees_test.go (K-CWFEE-1..6)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "feeReserve": {
+    "ppm": 5000,
+    "min_millis": 10000
+  },
+  "feesPpm": 2500,
+  "feeSkim": [
+    {
+      "id": "K-CWFEE-1",
+      "amount": 399,
+      "want": 0
+    },
+    {
+      "id": "K-CWFEE-1",
+      "amount": 400,
+      "want": 1
+    },
+    {
+      "id": "K-CWFEE-1",
+      "amount": 100000000,
+      "want": 250000
+    }
+  ],
+  "routingFeeReserve": [
+    {
+      "id": "K-CWFEE-4",
+      "amount": 4962781,
+      "want": 24813
+    },
+    {
+      "id": "K-CWFEE-5",
+      "amount": 4962782,
+      "want": 24813
+    },
+    {
+      "id": "K-CWFEE-6",
+      "amount": 100000,
+      "want": 10000
+    },
+    {
+      "id": "K-CWFEE-6",
+      "amount": 1000000,
+      "want": 10000
+    },
+    {
+      "amount": 0,
+      "want": 10000
+    }
+  ],
+  "maxCost": [
+    {
+      "id": "K-CWFEE-2",
+      "amount": 10000000,
+      "want": 10075000
+    },
+    {
+      "id": "K-CWFEE-3",
+      "amount": 9900000,
+      "want": 9974250
+    },
+    {
+      "id": "K-CWFEE-4",
+      "amount": 4962781,
+      "want": 5000000
+    },
+    {
+      "id": "K-CWFEE-5",
+      "amount": 4962782,
+      "want": 5000001
+    },
+    {
+      "id": "K-CWFEE-6",
+      "amount": 100000,
+      "want": 110250
+    },
+    {
+      "id": "K-CWFEE-6",
+      "amount": 1000000,
+      "want": 1012500
+    }
+  ],
+  "sendCap": [
+    {
+      "id": "K-CWFEE-4",
+      "used": 15000000,
+      "cap": 20000000,
+      "amount": 4962781,
+      "maxCost": 5000000,
+      "allowed": true
+    },
+    {
+      "id": "K-CWFEE-5",
+      "used": 15000000,
+      "cap": 20000000,
+      "amount": 4962782,
+      "maxCost": 5000001,
+      "allowed": false
+    }
+  ]
+}

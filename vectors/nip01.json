@@ -1,7 +1,7 @@
 {
   "description": "NIP-01 events as nmilat serializes, hashes, signs and verifies them, including its JSON escaping and NIP-13 nonce check.",
   "source": "nip01/event.go, utils/event.go MarshalTags/EscapeJSONString, nip13/nip13.go ValidatePow; nip01/event_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "nmilat": "github.com/ohstr/nmilat devel",
   "serialize": [
     {
       "name": "empty",

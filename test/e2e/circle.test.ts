@@ -52,19 +52,18 @@ describe.skipIf(admin === undefined)('live hub: private circle join', () => {
     }
   }, 120_000)
 
-  test('joins over the private transport, then a second join is WALLET_EXISTS', async () => {
+  test('joins over the private transport; a second join to the same circle is refused', async () => {
     expect(hub.circleHubToken).toMatch(/^circlehub1/)
-    const joined = await wallet.joinCircle({ hub: hub.circleHubToken!, maxAmount: MAX, requirePrivate: true })
-    expect(joined).toMatchObject({ private: true, maxAmount: MAX })
-    expect(joined).not.toHaveProperty('fallbackReason')
+    const joined = await wallet.circles.join(hub.circleHubToken!, { maxAmount: MAX, maxReceive: MAX }, { confirmNoRecovery: () => Promise.resolve(true), confirmUnverified: () => Promise.resolve(true) })
+    expect(joined).toMatchObject({ maxAmount: MAX })
     expect(joined.walletPubkey).toMatch(/^[0-9a-f]{64}$/)
 
-    // The wallet it pairs over answers on its own connection.
+    // The wallet answers on its own connection, from its fields and the member's secret.
     const ln = await wallet.lightning(joined.name)
     expect((await ln.getBalance()).balance).toBeGreaterThanOrEqual(0)
 
-    const again = await wallet.joinCircle({ hub: hub.circleHubToken!, maxAmount: MAX, name: 'again', requirePrivate: true }).catch((e: unknown) => e)
+    const again = await wallet.circles.join(hub.circleHubToken!, { maxAmount: MAX, maxReceive: MAX }, { name: 'again', confirmNoRecovery: () => Promise.resolve(true) }).catch((e: unknown) => e)
     expect(again).toBeInstanceOf(CashkitError)
-    expect([(again as CashkitError).code, (again as CashkitError).nwcCode]).toEqual(['exists', 'WALLET_EXISTS'])
+    expect((again as CashkitError).code).toBe('exists')
   }, 300_000)
 })

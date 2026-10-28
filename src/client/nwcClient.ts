@@ -5,22 +5,30 @@ import {
   ENCRYPTION_NIP44_V2,
   fromHex,
   KIND_NWC_INFO,
+  KIND_NWC_NOTIFICATION,
+  KIND_NWC_NOTIFICATION_NIP04,
   KIND_NWC_RESPONSE,
   finalizeEvent,
   nwcRequestEvent,
   parseInfoEvent,
+  parseNotificationEvent,
+  getPublicKey,
   parsePairingURI,
   parseCircleWalletInfo,
   parseResponseEvent,
   verifyEvent,
   type CircleWalletInfo,
   type NWCEncryption,
+  type NWCNotification,
   type NWCResponse,
   type PairingInfo,
 } from '../core/index.js'
 import { ClientError, WalletError } from './errors.js'
 import { nowMs, nowSeconds, randomOf, type ClientDeps } from './ports.js'
-import { EventQueue, readEvents } from './relayIO.js'
+import { EventQueue, readEvents, sleep } from './relayIO.js'
+
+/** How long a call waits for its relays' EOSE before publishing. */
+const SUBSCRIPTION_EOSE_WAIT_MS = 2000
 
 /** How long to look for the wallet's info event before assuming nip44_v2. */
 export const NWC_INFO_WAIT_MS = 3000
@@ -38,6 +46,12 @@ export interface MakeInvoiceParams {
 /** A `get_info` result, with the Circle Hub block (NIP-CW) typed. */
 export interface GetInfoResult {
   readonly [field: string]: unknown
+  /** The Hub identity on a Cash Hub, Order or bill connection (x-only, or a 66-hex compressed key). */
+  readonly pubkey?: unknown
+  /** NIP-47 `network` (mainnet, testnet, signet, regtest); read with `readNetworkChain`. */
+  readonly network?: unknown
+  /** The chain's name, e.g. `bitcoin`. */
+  readonly chain?: unknown
   /** Present only on a Circle Hub's own connection. */
   readonly circle_wallet?: CircleWalletInfo
 }
@@ -89,9 +103,14 @@ export class NwcClient {
   /**
    * Sends one request and waits for its response. Only a response authored
    * by the wallet itself and correctly signed is accepted: anyone can tag an
-   * event with the request id and encrypt it to this connection.
+   * event with the request id and encrypt it to this connection. Every
+   * relay's subscription is opened (and its EOSE awaited, bounded) before
+   * the first publish, and kept until the response. `expiration` adds the
+   * NIP-40 tag a deadline-bearing call (`mint_cash`) needs.
    */
-  async call(method: string, params?: unknown, timeoutMs = this.deps.nwcTimeoutMs ?? NWC_CALL_TIMEOUT_MS): Promise<NWCResponse> {
+  async call(method: string, params?: unknown, opts: number | { readonly timeoutMs?: number; readonly expiration?: number } = {}): Promise<NWCResponse> {
+    const o = typeof opts === 'number' ? { timeoutMs: opts } : opts
+    const timeoutMs = o.timeoutMs ?? this.deps.nwcTimeoutMs ?? NWC_CALL_TIMEOUT_MS
     const encryption = await this.encryption()
     const unsigned = nwcRequestEvent({
       connectionSecret: this.secret,
@@ -101,15 +120,25 @@ export class NwcClient {
       createdAt: nowSeconds(this.deps),
       nonce: randomOf(this.deps)(encryption === ENCRYPTION_NIP44_V2 ? 32 : 16),
       encryption,
+      ...(o.expiration !== undefined && { expiration: o.expiration }),
     })
     const request = finalizeEvent(unsigned, this.secret)
     const relays = this.pairing.relays.filter((r) => r.trim() !== '')
     const queue = new EventQueue()
     queue.opened()
+    const eose = new Set<string>()
+    let allEose!: () => void
+    const ready = new Promise<void>((r) => (allEose = r))
+    const seen = (relay: string) => {
+      eose.add(relay)
+      if (eose.size >= relays.length) allEose()
+    }
     const stop = this.deps.relays.subscribe(relays, { kinds: [KIND_NWC_RESPONSE], '#e': [request.id] }, {
       onEvent: (e) => queue.push(e),
-      onEose: () => {},
+      onEose: seen,
+      onClose: seen,
     })
+    await Promise.race([ready, sleep(SUBSCRIPTION_EOSE_WAIT_MS)])
     try {
       let sent = false
       const failures: string[] = []
@@ -152,6 +181,34 @@ export class NwcClient {
     return resp.result as T
   }
 
+  /**
+   * The wallet's notifications to this connection (NIP-47 kinds 23197 and,
+   * when the wallet speaks NIP-04, 23196): only events authored by the
+   * wallet with a valid signature, each once. Returns the unsubscribe.
+   */
+  notifications(handler: (n: NWCNotification) => void): () => void {
+    const relays = this.pairing.relays.filter((r) => r.trim() !== '')
+    const seen = new Set<string>()
+    let nip04Allowed = false
+    void this.encryption().then(
+      (e) => (nip04Allowed = e !== ENCRYPTION_NIP44_V2),
+      () => undefined,
+    )
+    return this.deps.relays.subscribe(relays, { kinds: [KIND_NWC_NOTIFICATION, KIND_NWC_NOTIFICATION_NIP04], authors: [this.walletPubkey], '#p': [getPublicKey(this.secret)] }, {
+      onEvent: (e) => {
+        if (seen.has(e.id) || e.pubkey !== this.walletPubkey || !verifyEvent(e)) return
+        if (e.kind === KIND_NWC_NOTIFICATION_NIP04 && !nip04Allowed) return
+        seen.add(e.id)
+        try {
+          handler(parseNotificationEvent(e, this.secret))
+        } catch {
+          // not a notification this connection can read
+        }
+      },
+      onEose: () => {},
+    })
+  }
+
   /** Refuses a malformed `circle_wallet` block, as nmilat's decoder does. */
   async getInfo(): Promise<GetInfoResult> {
     const raw = await this.request('get_info')
@@ -173,6 +230,10 @@ export class NwcClient {
   }
   payInvoice(invoice: string, amount?: bigint): Promise<{ preimage: string; fees_paid?: number }> {
     return this.request('pay_invoice', { invoice, ...(amount !== undefined && { amount }) })
+  }
+  /** NIP-47 `lookup_invoice` by invoice: `settled_at` set once it was paid. */
+  lookupInvoice(invoice: string): Promise<{ settled_at?: number; state?: string; expires_at?: number }> {
+    return this.request('lookup_invoice', { invoice })
   }
   listTransactions(p: { from?: number; until?: number; limit?: number; offset?: number; unpaid?: boolean; type?: string } = {}): Promise<{ transactions: unknown[] }> {
     return this.request('list_transactions', p)

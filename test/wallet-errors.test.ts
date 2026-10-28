@@ -10,7 +10,6 @@ import {
   codeForNwc,
   exitCode,
   fromWalletError,
-  isCrossHubDecline,
   isDefiniteRefusal,
   type ErrorCode,
 } from '../src/wallet/errors.js'
@@ -34,16 +33,17 @@ describe('codes', () => {
     expect(codeForNwc('RATE_LIMITED')).toBe('conflict')
     expect(codeForNwc('NOT_READY')).toBe('network')
     expect(codeForNwc('WALLET_EXISTS')).toBe('exists')
-    for (const c of ['INSUFFICIENT_BALANCE', 'QUOTA_EXCEEDED', 'NOT_IMPLEMENTED', 'PAYMENT_FAILED', 'INTERNAL', 'OTHER', 'SOME_FUTURE_CODE']) expect(codeForNwc(c)).toBe('internal')
+    for (const c of ['INSUFFICIENT_BALANCE', 'NOT_IMPLEMENTED', 'PAYMENT_FAILED', 'INTERNAL', 'OTHER', 'SOME_FUTURE_CODE']) expect(codeForNwc(c)).toBe('internal')
   })
 })
 
 describe('fromWalletError', () => {
   test('a known code translates and keeps the raw message (TestNWCError_KnownCodeMapsAndTranslates, …TranslatedCodeStillPreservesRawMessage)', () => {
+    expect(codeForNwc('QUOTA_EXCEEDED')).toBe('conflict')
     const e = fromWalletError(new WalletError('pay_invoice', 'QUOTA_EXCEEDED', 'raw wallet message'))
-    expect(e).toMatchObject({ code: 'internal', nwcCode: 'QUOTA_EXCEEDED', rawMessage: 'raw wallet message' })
+    expect(e).toMatchObject({ code: 'conflict', nwcCode: 'QUOTA_EXCEEDED', rawMessage: 'raw wallet message' })
     expect(e.message).toMatch(/spending limit/)
-    expect(e.toJSON()).toMatchObject({ error: 'raw wallet message', code: 'internal', nwc_code: 'QUOTA_EXCEEDED' })
+    expect(e.toJSON()).toMatchObject({ code: 'conflict', nwc_code: 'QUOTA_EXCEEDED' })
   })
   test('EXPIRED is auth, exit 7 (TestNWCError_ExpiredMapsToAuth)', () => {
     const e = fromWalletError(new WalletError('m', 'EXPIRED', '...'))
@@ -106,15 +106,11 @@ describe('classifyReadError', () => {
     expect(e.code).toBe('network')
     expect(e.message).toMatch(/deliberately does not distinguish/)
   })
-  test('a wrong cash secret is invalid_input with a plain explanation (explainCashSecretRefusal)', () => {
-    // lokihub's exact answer (nip47/private_dispatch.go): NOT_FOUND, not BAD_REQUEST.
-    for (const code of ['NOT_FOUND', 'BAD_REQUEST']) {
-      const e = classifyReadError(new WalletError('cash_status', code, 'no slice of this bill matches this cash secret'))
-      expect(e.code).toBe('invalid_input')
-      expect(e.message).toMatch(/does not match this bill/)
+  test('a refusal is read by its code, never its message (NIP-CASH §Errors)', () => {
+    for (const msg of ['no slice of this bill matches this cash secret', 'neither a slice proof nor a cash secret', 'anything at all']) {
+      expect(classifyReadError(new WalletError('cash_status', 'NOT_FOUND', msg)).code).toBe('not_found')
+      expect(classifyReadError(new WalletError('cash_status', 'BAD_REQUEST', msg)).code).toBe('invalid_input')
     }
-    const needs = classifyReadError(new WalletError('cash_status', 'BAD_REQUEST', 'neither a slice proof nor a cash secret'))
-    expect(needs.message).toMatch(/only with its cash secret/)
   })
   test('other wallet refusals map through the table', () => {
     expect(classifyReadError(new WalletError('cash_status', 'NOT_FOUND', 'no slice of this bill is registered for the identity that signed this item')).code).toBe('not_found')
@@ -135,7 +131,3 @@ describe('CashkitError', () => {
   })
 })
 
-test('isCrossHubDecline matches "same cash hub" in any case (isCrossHubSourcesDecline)', () => {
-  expect(isCrossHubDecline(new WalletError('cash_consolidate', 'BAD_REQUEST', 'sources must share the Same Cash Hub'))).toBe(true)
-  expect(isCrossHubDecline(new WalletError('cash_consolidate', 'BAD_REQUEST', 'other'))).toBe(false)
-})

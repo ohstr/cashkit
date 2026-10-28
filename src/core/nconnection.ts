@@ -1,11 +1,15 @@
-// nconnection1 (NIP-IC): 0 connection key, 1 relay, 2 platform. Port of
-// nmilat nipIC/nconnection.go, including its leniency: no duplicate checks
-// (the last key or platform wins), and a truncated tail is ignored rather
-// than refused.
+// nconnection1 (NIP-IC): 0 connection key (exactly one, 32 bytes), 1 relay
+// (ASCII, repeatable), 2 platform (at most one, [a-z0-9._-]+). Port of nmilat
+// nipIC/nconnection.go: a duplicate key or platform, a bad platform name and
+// a truncated or overrunning TLV are refused; unknown types are ignored.
 import { bech32Encode, toWords } from './bech32.js'
 import { concatBytes, fromUtf8, toHex, utf8 } from './bytes.js'
 import { CoreError } from './errors.js'
+import { validPlatformName } from './idna.js'
 import { decodeBech32TLV, keyFromHex } from './tlv.js'
+
+const PLATFORM_NAME = 'nipIC: platform name must match [a-z0-9._-]+'
+const HEX64 = /^[0-9a-f]{64}$/
 
 export const NCONNECTION_HRP = 'nconnection'
 
@@ -24,45 +28,53 @@ export function decodeNConnection(s: string): NConnection {
   let connectionKey = ''
   let platform = ''
   const relays: string[] = []
-  let pos = 0
-  while (pos + 2 <= data.length) {
+  let havePlatform = false
+  for (let pos = 0; pos < data.length; ) {
+    if (pos + 2 > data.length) throw new CoreError('invalid_tlv', `nipIC: truncated TLV at offset ${pos}`)
     const type = data[pos]!
     const len = data[pos + 1]!
     pos += 2
-    if (pos + len > data.length) break
+    if (pos + len > data.length) throw new CoreError('invalid_tlv', `nipIC: TLV at offset ${pos - 2} runs past the end`)
     const value = data.subarray(pos, pos + len)
     pos += len
     switch (type) {
       case 0:
-        if (len !== 32) throw new CoreError('invalid_tlv', `nconnection: connection key must be 32 bytes, got ${len}`)
+        if (connectionKey !== '') throw new CoreError('invalid_tlv', 'nipIC: more than one ConnectionKey')
+        if (len !== 32) throw new CoreError('invalid_tlv', `nipIC: ConnectionKey must be 32 bytes, got ${len}`)
         connectionKey = toHex(value)
         break
       case 1:
         relays.push(fromUtf8(value))
         break
       case 2:
+        if (havePlatform) throw new CoreError('invalid_tlv', 'nipIC: more than one platform')
+        havePlatform = true
         platform = fromUtf8(value)
+        if (!validPlatformName(platform)) throw new CoreError('invalid_tlv', PLATFORM_NAME)
         break
       default:
     }
   }
-  if (connectionKey === '') throw new CoreError('invalid_tlv', 'nconnection: missing connection key')
+  if (connectionKey === '') throw new CoreError('invalid_tlv', 'nipIC: nconnection missing ConnectionKey')
   return { connectionKey, relays, platform }
 }
 
 /**
- * Encodes an nconnection1 string. Like nmilat it writes every relay, blank
- * ones included; unlike nmilat it refuses a value too long for its length
- * byte instead of silently truncating the length.
+ * Encodes an nconnection1 string. Refuses a key that is not 64 lowercase hex,
+ * a relay that is not ASCII or exceeds 255 bytes (blank relays are written as
+ * given), and a platform outside [a-z0-9._-]+.
  */
 export function encodeNConnection(c: NConnection): string {
-  const parts: Uint8Array[] = []
-  const put = (type: number, value: Uint8Array) => {
-    if (value.length > 255) throw new CoreError('invalid_field', `nconnection: TLV ${type} value exceeds 255 bytes`)
-    parts.push(Uint8Array.of(type, value.length), value)
+  if (!HEX64.test(c.connectionKey)) throw new CoreError('invalid_field', 'nipIC: a ConnectionKey is 64 lowercase hex characters')
+  const parts: Uint8Array[] = [Uint8Array.of(0, 32), keyFromHex(c.connectionKey, 'connection key')]
+  for (const r of c.relays) {
+    // oxlint-disable-next-line no-control-regex
+    if (r.length > 255 || !/^[\x00-\x7f]*$/.test(r)) throw new CoreError('invalid_field', `nipIC: relay ${JSON.stringify(r)} is not an ASCII URL of at most 255 bytes`)
+    parts.push(Uint8Array.of(1, r.length), utf8(r))
   }
-  put(0, keyFromHex(c.connectionKey, 'connection key'))
-  for (const r of c.relays) put(1, utf8(r))
-  if (c.platform !== '') put(2, utf8(c.platform))
+  if (c.platform !== '') {
+    if (!validPlatformName(c.platform) || c.platform.length > 255) throw new CoreError('invalid_field', PLATFORM_NAME)
+    parts.push(Uint8Array.of(2, c.platform.length), utf8(c.platform))
+  }
   return bech32Encode(NCONNECTION_HRP, toWords(concatBytes(...parts)))
 }

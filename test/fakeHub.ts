@@ -1,17 +1,19 @@
 // An in-memory relay pool and a Hub that serves the private transport over
 // it, with failure injection (design §11.2). Test support only.
-import { secp256k1 } from '@noble/curves/secp256k1.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { encodeToken, finalizeEvent, getPublicKey, mintPayload, signedMessagePrefix, toHex, type NostrEvent } from '../src/core/index.js'
+import { finalizeEvent, getPublicKey, powDifficulty, toHex, type NostrEvent } from '../src/core/index.js'
+import { signedToken, zapSignedToken } from './helpers.js'
 import type { Filter, RelayPool, SubscriptionHandlers } from '../src/client/index.js'
 import {
   checkFreshness,
   conversationKeyFor,
   decodeEnvelope,
+  servableItems,
   DEFAULT_LIMITS,
   encodeResponse,
   goEventJSON,
-  isBearer,
+  announcementTags,
+  hasProof,
+  TransportError,
   KIND_HUB_ANNOUNCEMENT,
   KIND_PRIVATE_REQUEST,
   KIND_PRIVATE_RESPONSE,
@@ -38,6 +40,14 @@ interface RelayState {
   down: boolean
   refuse: boolean
   eose: boolean
+  /** NIP-13 minimum for kind 23190, advertised in NIP-11 and enforced with `OK false "pow: …"`; 0 = off. */
+  powMinimum: number
+  /** Refuse with this difficulty even when NIP-11 says less (a stale or missing document). */
+  powRequired?: number
+  /** NIP-11 unreadable. */
+  noInfo?: boolean
+  /** Accepted 23190 ids, dropped as repeats until their expiration. */
+  seen: Map<string, number>
 }
 
 export function matches(f: Filter, e: NostrEvent): boolean {
@@ -46,14 +56,34 @@ export function matches(f: Filter, e: NostrEvent): boolean {
   if (f.ids && !f.ids.includes(e.id)) return false
   if (f.since !== undefined && e.created_at < f.since) return false
   if (f.until !== undefined && e.created_at > f.until) return false
-  for (const k of ['p', 'e'] as const) {
-    const want = f[`#${k}`]
-    if (want && !e.tags.some((t) => t[0] === k && want.includes(t[1]!))) return false
+  for (const [key, want] of Object.entries(f)) {
+    if (!key.startsWith('#') || !Array.isArray(want)) continue
+    const k = key.slice(1)
+    if (!e.tags.some((t) => t[0] === k && (want as string[]).includes(t[1]!))) return false
   }
   return true
 }
 
 const isEphemeral = (k: number) => k >= 20000 && k < 30000
+
+/**
+ * The PoW relay rule (NIP-CASH §Proof of Work) for kind 23190: below the
+ * minimum ⇒ `pow: difficulty <n> required`; no `expiration`, a past one, or
+ * one more than a day ahead ⇒ refused; a repeat of an accepted id is
+ * dropped until its expiration.
+ */
+function powCheck(r: RelayState, e: NostrEvent, nowMs: number): { ok: boolean; message?: string } | undefined {
+  const required = Math.max(r.powMinimum, r.powRequired ?? 0)
+  if (e.kind !== 23190 || required === 0) return undefined
+  const now = Math.floor(nowMs / 1000)
+  for (const [id, exp] of r.seen) if (exp < now) r.seen.delete(id)
+  if (r.seen.has(e.id)) return { ok: true, message: 'duplicate: already have this event' }
+  if (powDifficulty(e.id) < required) return { ok: false, message: `pow: difficulty ${required} required` }
+  const exp = Number(e.tags.find((t) => t[0] === 'expiration')?.[1] ?? NaN)
+  if (!Number.isInteger(exp) || exp < now || exp > now + 86400) return { ok: false, message: 'invalid: expiration missing or out of range' }
+  r.seen.set(e.id, exp)
+  return undefined
+}
 
 export class MemoryRelayPool implements RelayPool {
   readonly relays = new Map<string, RelayState>()
@@ -62,7 +92,7 @@ export class MemoryRelayPool implements RelayPool {
   relay(url: string): RelayState {
     let r = this.relays.get(url)
     if (!r) {
-      r = { stored: [], subs: new Set(), down: false, refuse: false, eose: true }
+      r = { stored: [], subs: new Set(), down: false, refuse: false, eose: true, powMinimum: 0, seen: new Map() }
       this.relays.set(url, r)
     }
     return r
@@ -89,10 +119,23 @@ export class MemoryRelayPool implements RelayPool {
   }
 
   async publish(url: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
+    const res = await this.publishInner(url, e)
+    this.attempts.push({ relay: url, event: e, ...res })
+    return res
+  }
+
+  private async publishInner(url: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
     const r = this.relay(url)
     if (r.down) throw new Error('connection refused')
     if (r.refuse) return { ok: false, message: 'blocked: test' }
+    const pow = powCheck(r, e, this.clock())
+    if (pow !== undefined) return pow
     this.published.push({ relay: url, event: e })
+    // NIP-09: a deletion removes the events it names that its author signed.
+    if (e.kind === 5) {
+      const ids = new Set(e.tags.filter((t) => t[0] === 'e').map((t) => t[1]))
+      r.stored = r.stored.filter((x) => !(ids.has(x.id) && x.pubkey === e.pubkey))
+    }
     if (!isEphemeral(e.kind)) {
       // Replaceable kinds keep only the newest per author.
       if (e.kind >= 10000 && e.kind < 20000) r.stored = r.stored.filter((x) => !(x.kind === e.kind && x.pubkey === e.pubkey))
@@ -100,6 +143,17 @@ export class MemoryRelayPool implements RelayPool {
     }
     for (const s of Array.from(r.subs)) if (matches(s.filter, e)) queueMicrotask(() => s.h.onEvent(e, url))
     return { ok: true }
+  }
+
+  /** Unix ms, for the PoW relay's expiration rule. */
+  clock: () => number = () => Date.now()
+  /** Every publish attempt and its answer, accepted or not. */
+  readonly attempts: { relay: string; event: NostrEvent; ok: boolean; message?: string }[] = []
+
+  async relayInfo(url: string): Promise<unknown> {
+    const r = this.relay(url)
+    if (r.noInfo === true) throw new Error('NIP-11 unreachable')
+    return { name: url, supported_nips: [1, 11, 13, 40], limitation: { min_pow_difficulty: r.powMinimum } }
   }
 
   /** Puts an event on a relay without anything noticing (a stale replay, say). */
@@ -110,7 +164,7 @@ export class MemoryRelayPool implements RelayPool {
 
 // ---- hub
 
-export type Answer = { result: unknown } | { error: { code: string; message?: string } } | 'omit'
+export type Answer = { result: unknown } | { error: { code: string; message?: string; detail?: string } } | 'omit'
 
 export interface RequestInfo {
   readonly item: Item
@@ -119,6 +173,8 @@ export interface RequestInfo {
   readonly signer: string | undefined
   /** The bill proof's signer: the bill's connection pubkey. */
   readonly billSigner: string
+  /** The envelope's not_after: the call's deadline. */
+  readonly notAfter: number
 }
 
 export interface Faults {
@@ -140,6 +196,12 @@ export interface Faults {
   replyOnAllRelays?: boolean
   /** Declare this total instead of the real chunk count. */
   declaredTotal?: number
+  /** Per-chunk declared totals (chunks disagreeing about the total). */
+  chunkTotals?: number[]
+  /** Send the first chunk a second time as another event with the same seq. */
+  repeatFirstChunk?: boolean
+  /** Answer this item id again in the last chunk. */
+  answerTwice?: string
 }
 
 export class FakeHub {
@@ -148,12 +210,16 @@ export class FakeHub {
   readonly node: string
   readonly inbox: string
   limits: Limits = DEFAULT_LIMITS
+  /** The announced `max_request_age` (H); undefined announces none. */
+  maxRequestAge: number | undefined = 300
   faults: Faults = {}
   /** Handles one served item. Default: cash_status says every bill is available. */
   handler: (method: string, info: RequestInfo) => Answer = () => ({ result: { recipients: [] } })
   readonly requests: RequestInfo[] = []
   /** Bill wallet pubkey -> its connection pubkey, as the Hub's records hold it. */
   readonly bills = new Map<string, string>()
+  /** Target -> every connection pubkey whose bill proof verifies for it (several live connections of one Hub); takes precedence over `bills`. */
+  readonly billKeys = new Map<string, Set<string>>()
   clock: () => number = () => Date.now()
 
   constructor(
@@ -176,18 +242,13 @@ export class FakeHub {
     })
   }
 
-  announcementEvent(p: { relays: readonly string[]; createdAt: number; limits?: Limits; inbox?: string }): NostrEvent {
-    const l = p.limits ?? this.limits
-    const content = JSON.stringify({
-      v: 1,
-      inbox: p.inbox ?? this.inbox,
-      limits: { max_bytes: l.maxEnvelopeBytes, max_items: l.maxItems, max_consolidate_sources: l.maxConsolidateSources, pad_bucket_bytes: l.padBucketBytes, max_verify_budget: l.maxVerifyBudget },
-      relays: p.relays,
-    })
-    return finalizeEvent({ kind: KIND_HUB_ANNOUNCEMENT, created_at: p.createdAt, tags: [], content }, this.nodeKey)
+  announcementEvent(p: { relays: readonly string[]; createdAt: number; limits?: Limits; inbox?: string; maxRequestAge?: number | null; addrs?: readonly string[] }): NostrEvent {
+    const h = p.maxRequestAge === null ? undefined : (p.maxRequestAge ?? this.maxRequestAge)
+    const tags = announcementTags({ inbox: p.inbox ?? this.inbox, limits: p.limits ?? this.limits, ...(h !== undefined && { maxRequestAge: h }), relays: p.relays, ...(p.addrs !== undefined && { addrs: p.addrs }) })
+    return finalizeEvent({ kind: KIND_HUB_ANNOUNCEMENT, created_at: p.createdAt, tags, content: '' }, this.nodeKey)
   }
 
-  async announce(p: { relays: readonly string[]; createdAt: number; limits?: Limits }): Promise<void> {
+  async announce(p: { relays: readonly string[]; createdAt: number; limits?: Limits; maxRequestAge?: number | null }): Promise<void> {
     const e = this.announcementEvent(p)
     for (const r of this.relayUrls) await this.pool.publish(r, e).catch(() => undefined)
   }
@@ -195,19 +256,33 @@ export class FakeHub {
   private async serve(e: NostrEvent, relay: string): Promise<void> {
     const f = this.faults
     const ck = conversationKeyFor(e.pubkey, this.inboxKey)
-    const { envelope } = decodeEnvelope(nip44.decrypt(e.content, ck), this.limits)
+    const decoded = decodeEnvelope(nip44.decrypt(e.content, ck), this.limits).envelope
+    const envelope = { ...decoded, items: servableItems(decoded, this.limits).kept }
     const now = Math.floor(this.clock() / 1000)
-    checkFreshness(envelope, now)
+    let tooFar = false
+    try {
+      checkFreshness(envelope, now, this.maxRequestAge ?? 0)
+    } catch (err) {
+      if (!(err instanceof TransportError) || err.code !== 'envelope_too_far_ahead') return // past not_after: dropped, no reply
+      tooFar = true
+    }
     const results: ItemResult[] = []
+    if (tooFar) {
+      const plaintext = encodeResponse({ reqNonce: envelope.nonce, error: { code: 'BAD_REQUEST', message: 'not_after is too far ahead' }, results: [], seq: 1, total: 1 }, this.limits)
+      const reply = finalizeEvent({ kind: KIND_PRIVATE_RESPONSE, created_at: now, tags: [['p', envelope.replyTo]], content: sealReply(plaintext, ck, envelope.replyTo) }, crypto.getRandomValues(new Uint8Array(32)))
+      await this.pool.publish(relay, reply).catch(() => undefined)
+      return
+    }
     for (const item of envelope.items) {
       const binding = { target: item.target, hub: this.node, method: item.method, paramsHash: paramsHash(item.params ?? ''), nonce: envelope.nonce, notAfter: envelope.notAfter }
       let info: RequestInfo
       try {
         const billSigner = verifyBillProof(item.billProof ?? '', binding, now)
+        const keys = this.billKeys.get(item.target)
         const known = this.bills.get(item.target)
-        if (known !== undefined && known !== billSigner) continue // not the bill's key: omit
-        const signer = isBearer(item) ? undefined : verifyItemProof(item.proof ?? '', binding, now)
-        info = { item, params: JSON.parse(item.params ?? '{}'), signer, billSigner }
+        if (keys !== undefined ? !keys.has(billSigner) : known !== undefined && known !== billSigner) continue // not the bill's key: omit
+        const signer = hasProof(item) ? verifyItemProof(item.proof ?? '', binding, now) : undefined
+        info = { item, params: JSON.parse(item.params ?? '{}'), signer, billSigner, notAfter: envelope.notAfter }
       } catch {
         continue // an unverifiable item is omitted
       }
@@ -232,9 +307,12 @@ export class FakeHub {
     results.forEach((r, i) => parts[i % chunks]!.push(r))
     const send = f.sendChunks ?? chunks
     const relays = f.replyOnAllRelays ? this.relayUrls : [relay]
-    for (let i = 0; i < send; i++) {
+    const twice = f.answerTwice !== undefined ? results.find((r) => r.id === f.answerTwice) : undefined
+    if (twice !== undefined) parts[chunks - 1]!.push({ ...twice, result: '{"recipients":[]}' })
+    const order = f.repeatFirstChunk === true ? [0, ...Array.from({ length: send }, (_, i) => i)] : Array.from({ length: send }, (_, i) => i)
+    for (const i of order) {
       const plaintext = encodeResponse(
-        { v: 1, reqNonce: envelope.nonce, ...(f.envelopeError && { error: f.envelopeError }), results: f.envelopeError ? [] : parts[i]!, seq: i + 1, total },
+        { reqNonce: envelope.nonce, ...(f.envelopeError && { error: f.envelopeError }), results: f.envelopeError ? [] : parts[i]!, seq: i + 1, total: f.chunkTotals?.[i] ?? total },
         this.limits,
       )
       const reply = finalizeEvent({ kind: KIND_PRIVATE_RESPONSE, created_at: now, tags: [['p', envelope.replyTo]], content: sealReply(plaintext, ck, envelope.replyTo) }, crypto.getRandomValues(new Uint8Array(32)))
@@ -250,22 +328,26 @@ export class FakeHub {
     relays?: readonly string[]
     hubGroup?: Uint8Array
     identityRequired?: boolean
+    /** Signs a zap bill (`cash-zap:v1`) instead of a mint one. */
+    zap?: { recipient: string; sender: string; zapTarget: string; issuedAt: number; expiresAt: number }
   }): string {
     const wallet = getPublicKey(p.walletKey)
-    const digest = sha256(sha256(new TextEncoder().encode(signedMessagePrefix('lokicash')! + mintPayload('lokicash', wallet, p.amount))))
-    const sig = secp256k1.sign(digest, this.nodeKey, { prehash: false, format: 'recovered' })
-    const mintSignature = Uint8Array.of(31 + sig[0]!, ...sig.subarray(1))
     this.bills.set(wallet, getPublicKey(p.connSecret))
-    return encodeToken({
-      hrp: 'lokicash',
-      walletPubkey: wallet,
-      secret: toHex(p.connSecret),
-      relays: p.relays ?? this.relayUrls,
-      mintSignature,
-      attestedAmountMillis: p.amount,
-      ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }),
-      ...(p.identityRequired !== undefined && { identityRequired: p.identityRequired }),
-    })
+    if (p.zap !== undefined) {
+      return zapSignedToken({ hrp: 'lokicash', walletPubkey: wallet, secret: toHex(p.connSecret), relays: p.relays ?? this.relayUrls, amount: p.amount, ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }), identityRequired: true }, p.zap, this.nodeKey)
+    }
+    return signedToken(
+      {
+        hrp: 'lokicash',
+        walletPubkey: wallet,
+        secret: toHex(p.connSecret),
+        relays: p.relays ?? this.relayUrls,
+        amount: p.amount,
+        ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }),
+        ...(p.identityRequired !== undefined && { identityRequired: p.identityRequired }),
+      },
+      this.nodeKey,
+    )
   }
 }
 

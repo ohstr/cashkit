@@ -1,0 +1,468 @@
+{
+  "description": "Deadlines and cash_lookup: CheckDeadline against the Hub's horizon H, DecideLookup (pending with retry_after, unknown, expired, done; a join lookup's window), retention, lookup params, and done results (a tombstone, an order's current state, a withdrawal's current payout).",
+  "source": "nipcash/{lookup_decision,cash_lookup,expiry,tombstone,withdraw_payout}.go; nipcash/deadline_lookup_test.go (K-DL-1, K-LK-1..7, K-JLK-1)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "deadline": [
+    {
+      "id": "K-DL-1",
+      "deadline": 1720000300,
+      "now": 1720000000,
+      "horizon": 300
+    },
+    {
+      "id": "K-DL-1",
+      "deadline": 1720000301,
+      "now": 1720000000,
+      "horizon": 300,
+      "error": "nipcash: the call's deadline lies more than H past its arrival"
+    },
+    {
+      "id": "K-DL-1",
+      "deadline": 1719999999,
+      "now": 1720000000,
+      "horizon": 300,
+      "error": "nipcash: the call's deadline has passed"
+    },
+    {
+      "id": "K-DL-1",
+      "deadline": 1720000000,
+      "now": 1720000000,
+      "horizon": 300
+    },
+    {
+      "deadline": 0,
+      "now": 1720000000,
+      "horizon": 300,
+      "error": "nipcash: the call has no deadline"
+    },
+    {
+      "deadline": 1720000010,
+      "now": 1720000000,
+      "horizon": 59,
+      "error": "nipcash: the hub's max_request_age is below 60 seconds: 59"
+    },
+    {
+      "deadline": 1720000600,
+      "now": 1720000000,
+      "horizon": 600
+    }
+  ],
+  "decideLookup": [
+    {
+      "id": "K-LK-1",
+      "now": 1720000000,
+      "deadline": 1720000000,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": false,
+      "status": "pending",
+      "retryAfter": 1720000001
+    },
+    {
+      "id": "K-LK-2",
+      "now": 1720000001,
+      "deadline": 1720000000,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": false,
+      "status": "unknown",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-LK-3",
+      "now": 1720000300,
+      "deadline": 1720000000,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": false,
+      "status": "unknown",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-LK-4",
+      "now": 1720000301,
+      "deadline": 1720000000,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": false,
+      "status": "expired",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-LK-5",
+      "now": 1720009999,
+      "deadline": 1720000000,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": true,
+      "status": "done",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-LK-6",
+      "now": 1720000000,
+      "deadline": 1720010000,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": false,
+      "status": "pending",
+      "retryAfter": 1720000301
+    },
+    {
+      "id": "K-LK-7",
+      "now": 1720000450,
+      "deadline": 1720000000,
+      "horizon": 600,
+      "join": false,
+      "haveRecord": false,
+      "status": "unknown",
+      "retryAfter": 0
+    },
+    {
+      "id": "a lookup naming a used id is answered (I7)",
+      "now": 1720000100,
+      "deadline": 1720000000,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": true,
+      "status": "done",
+      "retryAfter": 0
+    },
+    {
+      "now": 1719999900,
+      "deadline": 1719999800,
+      "horizon": 300,
+      "join": false,
+      "haveRecord": false,
+      "status": "unknown",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-JLK-1",
+      "now": 1720000000,
+      "deadline": 1720000300,
+      "horizon": 300,
+      "join": true,
+      "haveRecord": false,
+      "status": "pending",
+      "retryAfter": 1720000301
+    },
+    {
+      "id": "K-JLK-1",
+      "now": 1720000300,
+      "deadline": 1720000300,
+      "horizon": 300,
+      "join": true,
+      "haveRecord": false,
+      "status": "pending",
+      "retryAfter": 1720000301
+    },
+    {
+      "id": "K-JLK-1",
+      "now": 1720000301,
+      "deadline": 1720000300,
+      "horizon": 300,
+      "join": true,
+      "haveRecord": false,
+      "status": "unknown",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-JLK-1",
+      "now": 1720000660,
+      "deadline": 1720000300,
+      "horizon": 300,
+      "join": true,
+      "haveRecord": false,
+      "status": "unknown",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-JLK-1",
+      "now": 1720000661,
+      "deadline": 1720000300,
+      "horizon": 300,
+      "join": true,
+      "haveRecord": false,
+      "status": "expired",
+      "retryAfter": 0
+    },
+    {
+      "id": "K-JLK-1",
+      "now": 1720000000,
+      "deadline": 1720001000,
+      "horizon": 0,
+      "join": true,
+      "haveRecord": false,
+      "status": "pending",
+      "retryAfter": 1720000361
+    }
+  ],
+  "deadlineWindow": [
+    {
+      "horizon": 60,
+      "window": 30
+    },
+    {
+      "horizon": 120,
+      "window": 60
+    },
+    {
+      "horizon": 300,
+      "window": 60
+    },
+    {
+      "horizon": 86401,
+      "window": 60
+    }
+  ],
+  "recordRetained": [
+    {
+      "now": 1720000300,
+      "until": 1720000000,
+      "horizon": 300,
+      "retained": true
+    },
+    {
+      "now": 1720000301,
+      "until": 1720000000,
+      "horizon": 300,
+      "retained": false
+    }
+  ],
+  "tombstoneAnswerable": [
+    {
+      "now": 1720000000,
+      "until": 1720000000,
+      "retained": true
+    },
+    {
+      "now": 1720000001,
+      "until": 1720000000,
+      "retained": false
+    }
+  ],
+  "params": [
+    {
+      "name": "by request_id",
+      "params": {
+        "request_id": "00112233445566778899aabbccddeeff",
+        "deadline": 1720000000
+      }
+    },
+    {
+      "name": "by connection_pubkey (a join)",
+      "params": {
+        "connection_pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "deadline": 1720000000
+      }
+    },
+    {
+      "name": "a cash-authorized call",
+      "params": {
+        "request_id": "00112233445566778899aabbccddeeff",
+        "deadline": 1720000000,
+        "cash_secret": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1"
+      }
+    },
+    {
+      "name": "both keys",
+      "params": {
+        "request_id": "00112233445566778899aabbccddeeff",
+        "connection_pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "deadline": 1720000000
+      },
+      "error": "nipcash: a lookup names exactly one of request_id and connection_pubkey"
+    },
+    {
+      "name": "neither key",
+      "params": {
+        "deadline": 1720000000
+      },
+      "error": "nipcash: a lookup names exactly one of request_id and connection_pubkey"
+    },
+    {
+      "name": "no deadline",
+      "params": {
+        "request_id": "00112233445566778899aabbccddeeff",
+        "deadline": 0
+      },
+      "error": "nipcash: a lookup needs the call's deadline"
+    },
+    {
+      "name": "invalid request_id",
+      "params": {
+        "request_id": "XYZ",
+        "deadline": 1720000000
+      },
+      "error": "nipcash: a lookup names exactly one of request_id and connection_pubkey: request_id"
+    }
+  ],
+  "results": [
+    {
+      "name": "pending",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"pending\",\"retry_after\":1720000301}",
+      "status": "pending",
+      "retryAfter": 1720000301
+    },
+    {
+      "name": "unknown",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"unknown\"}",
+      "status": "unknown"
+    },
+    {
+      "name": "expired",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"expired\"}",
+      "status": "expired"
+    },
+    {
+      "name": "done with the method's result",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"done\",\"result\":{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"new_wallet_token\":\"\"}}",
+      "status": "done",
+      "inner": {
+        "amount_millis": 21000,
+        "identity_type": "pubkey",
+        "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "new_wallet_token": ""
+      }
+    },
+    {
+      "name": "done with a tombstone",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"done\",\"result\":{\"status\":\"spent\",\"reason\":\"transferred\",\"retained_until\":1722592000}}",
+      "status": "done",
+      "gone": {
+        "status": "spent",
+        "reason": "transferred",
+        "retained_until": 1722592000
+      }
+    },
+    {
+      "name": "done with a written-off tombstone",
+      "method": "cash_redeem",
+      "result": "{\"status\":\"done\",\"result\":{\"status\":\"spent\"}}",
+      "status": "done",
+      "gone": {
+        "status": "spent"
+      }
+    },
+    {
+      "name": "order done: the current state",
+      "method": "cash_order",
+      "result": "{\"status\":\"done\",\"result\":{\"state\":\"paid\",\"order_id\":\"00112233445566778899aabbccddeeff\"}}",
+      "status": "done",
+      "inner": {
+        "order_id": "00112233445566778899aabbccddeeff",
+        "state": "paid"
+      }
+    },
+    {
+      "name": "withdraw done: the current payout",
+      "method": "cash_withdraw",
+      "result": "{\"status\":\"done\",\"result\":{\"state\":\"broadcast\",\"address\":\"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4\",\"amount_millis\":21000000,\"fee_millis\":1742000,\"payout_millis\":19258000,\"sent_by\":1720003600,\"final_depth\":1,\"signed\":true,\"receipt\":\"{}\",\"txid\":\"abababababababababababababababababababababababababababababababab\",\"vout\":0,\"depth\":0}}",
+      "status": "done",
+      "inner": {
+        "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "amount_millis": 21000000,
+        "depth": 0,
+        "fee_millis": 1742000,
+        "final_depth": 1,
+        "payout_millis": 19258000,
+        "receipt": "{}",
+        "sent_by": 1720003600,
+        "signed": true,
+        "state": "broadcast",
+        "txid": "abababababababababababababababababababababababababababababababab",
+        "vout": 0
+      }
+    },
+    {
+      "name": "withdraw done: a tombstone",
+      "method": "cash_withdraw",
+      "result": "{\"status\":\"done\",\"result\":{\"status\":\"spent\",\"withdraw_request_id\":\"00112233445566778899aabbccddeeff\"}}",
+      "status": "done",
+      "gone": {
+        "status": "spent",
+        "withdraw_request_id": "00112233445566778899aabbccddeeff"
+      }
+    },
+    {
+      "name": "unknown status",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"maybe\"}",
+      "error": "nipcash: malformed cash_lookup answer: status \"maybe\""
+    },
+    {
+      "name": "pending without retry_after",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"pending\"}",
+      "error": "nipcash: malformed cash_lookup answer: pending needs retry_after and no result"
+    },
+    {
+      "name": "done without a result",
+      "method": "cash_transfer",
+      "result": "{\"status\":\"done\"}",
+      "error": "nipcash: malformed cash_lookup answer: done without a result"
+    },
+    {
+      "name": "not JSON",
+      "method": "cash_transfer",
+      "result": "[",
+      "error": "nipcash: malformed cash_lookup answer: unexpected end of JSON input"
+    }
+  ],
+  "answersWithTombstone": [
+    {
+      "method": "mint_cash",
+      "value": false
+    },
+    {
+      "method": "cash_redeem",
+      "value": true
+    },
+    {
+      "method": "cash_transfer",
+      "value": true
+    },
+    {
+      "method": "cash_consolidate",
+      "value": true
+    },
+    {
+      "method": "cash_status",
+      "value": true
+    },
+    {
+      "method": "cash_lookup",
+      "value": false
+    },
+    {
+      "method": "cash_order",
+      "value": false
+    },
+    {
+      "method": "cash_withdraw_quote",
+      "value": true
+    },
+    {
+      "method": "cash_withdraw",
+      "value": true
+    },
+    {
+      "method": "create_circle_wallet",
+      "value": false
+    },
+    {
+      "method": "pay_invoice",
+      "value": false
+    },
+    {
+      "method": "",
+      "value": false
+    }
+  ]
+}

@@ -1,46 +1,139 @@
 {
-  "description": "Kind 11190 Hub announcements: author must be the node identity, signature valid, inbox a valid key other than the node's, announced limits safe to adopt.",
+  "description": "Kind 11190 Hub announcements in tag form: inbox, one limit tag per name (max_request_age included), r and addr tags, empty content. Author must be the node identity and the signature valid; rejected: no or two inbox, two limit tags of one name, a malformed inbox, limit or r; ignored: unknown tags, unknown limits, a malformed addr, JSON content. ValidateForBillCalls needs a max_request_age of at least 60.",
   "source": "nipcash/transport/announcement.go; announcement_test.go, auditC_seca_policy_floor_test.go",
-  "nmilat": "v0.5.0-rc.31",
+  "nmilat": "github.com/ohstr/nmilat devel",
   "parse": [
     {
-      "name": "valid",
+      "name": "the NIP example",
       "event": {
-        "id": "c091f809fa3b3c74ab272a1a3d87de0d3ac05921fade3aef7a4bab813e4b2812",
+        "id": "40728475ca9b186f2b2d0ee98662e197edd207399c06e2fbea657b1eaaed810e",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
         "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "d845ec450efe51f014a4302650693d64ce3fb23971fcb071ed8c563be8c4b4cb2a7cb05ba9cbd60508cf3294fd24e0749cf7b7db6a4b5cfed7e6089ed1a677fd"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "0fa880aeebca9125b8da8a3479d04ad25188f9f7b7f250b273e73f096e9ed3b29ee38e2921c193e6fb8740e89ae961d5ae0e07b4826663d3358815895d1fe17c"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
       "want": {
         "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
         "limits": {
-          "maxEnvelopeBytes": 57344,
-          "maxItems": 32,
-          "padBucketBytes": 8192,
-          "maxVerifyBudget": 200,
-          "maxConsolidateSources": 48
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
         },
+        "maxRequestAge": 300,
         "relays": [
-          "wss://r1.example",
-          "wss://r2.example"
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
         ],
         "createdAt": 1760000000
       }
     },
     {
-      "name": "no relays",
+      "name": "NewAnnouncement with the default limits",
       "event": {
-        "id": "1b888d3ba918e6e0edf5b0b58b4209be48244f0fea510e7d0cf1b654133c7ec5",
+        "id": "68a33da2642ddf85ca5a4166a9297f484a61420f30443093fbe38f632fb06a8f",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
         "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200}}",
-        "sig": "0bceb28c6a84a5aa63fe4fbb0dbd8fa3974bde269988361559fabbc6af3522e866be667e73c6b93e22ffd6e67320139e242a9d47e67b6dd5f74cec83f5105b84"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "57344"
+          ],
+          [
+            "limit",
+            "max_items",
+            "32"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "48"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "8192"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "200"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://r1.example"
+          ],
+          [
+            "r",
+            "wss://r2.example"
+          ],
+          [
+            "addr",
+            "1.2.3.4:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "d383a69ec206e2c9caf699eb6142a52e4a22d8c3423d7208581f6f35c6dab03606e65b68adc77702b707483dc358bce7fdf5821dbf27bd2d022a912f50896ae9"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
       "want": {
@@ -52,34 +145,201 @@
           "maxVerifyBudget": 200,
           "maxConsolidateSources": 48
         },
-        "relays": [],
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://r1.example",
+          "wss://r2.example"
+        ],
+        "addrs": [
+          "1.2.3.4:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "tags in another order",
+      "event": {
+        "id": "5bae77f593156ba45241e54534c424c02d2c8c374d19958495791bf5bdd95994",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ]
+        ],
+        "content": "",
+        "sig": "40eb87577dcf59a813493f581e4bf240e3040d3f62bebf04942b7656d94148c4361daa41d23c913c69ead0cbdcf31f5e770def1c84e71e1370ec1f8452b1f0f5"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
         "createdAt": 1760000000
       }
     },
     {
       "name": "signed by someone else",
       "event": {
-        "id": "b4584e0d9f591aaf1e51a07063f9ad16827c33848fccdfd6135b53c15568bf4d",
+        "id": "72782fc1073540218a4275e55735150aa7c3af33c5b7a002648b97625e4f5d03",
         "pubkey": "0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177",
         "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "9c0b731e44c5c5d98890b7b00a2864e39a57e2d0d415c2d18fa7ecf9ed4b8bc2b40d7141f6e8d3d609de1d19c10345c10302fba692f9f003aae6ef694320261d"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "4ae708b8dff5fbe2b14c57e70139d9d4ad4c0d90d95425e0995f63135b3a690fac35497b7486bc5ba0fbaac2dd7b43eec8f38f8897e1d04fb84b57045b85699d"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
       "error": "transport: hub announcement was not signed by the expected node identity: signed by \"0f0fb9a244ad31a369ee02b7abfbbb0bfa3812b9a39ed93346d03d67d412d177\""
     },
     {
-      "name": "expected node given compressed is malformed",
+      "name": "expected node given compressed",
       "event": {
-        "id": "c091f809fa3b3c74ab272a1a3d87de0d3ac05921fade3aef7a4bab813e4b2812",
+        "id": "40728475ca9b186f2b2d0ee98662e197edd207399c06e2fbea657b1eaaed810e",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
         "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "d845ec450efe51f014a4302650693d64ce3fb23971fcb071ed8c563be8c4b4cb2a7cb05ba9cbd60508cf3294fd24e0749cf7b7db6a4b5cfed7e6089ed1a677fd"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "0fa880aeebca9125b8da8a3479d04ad25188f9f7b7f250b273e73f096e9ed3b29ee38e2921c193e6fb8740e89ae961d5ae0e07b4826663d3358815895d1fe17c"
       },
       "expectedNode": "02f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
       "error": "transport: hub announcement is malformed: expected node pubkey must be 64 lowercase hex characters"
@@ -87,13 +347,56 @@
     {
       "name": "expected node uppercase",
       "event": {
-        "id": "c091f809fa3b3c74ab272a1a3d87de0d3ac05921fade3aef7a4bab813e4b2812",
+        "id": "40728475ca9b186f2b2d0ee98662e197edd207399c06e2fbea657b1eaaed810e",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
         "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "d845ec450efe51f014a4302650693d64ce3fb23971fcb071ed8c563be8c4b4cb2a7cb05ba9cbd60508cf3294fd24e0749cf7b7db6a4b5cfed7e6089ed1a677fd"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "0fa880aeebca9125b8da8a3479d04ad25188f9f7b7f250b273e73f096e9ed3b29ee38e2921c193e6fb8740e89ae961d5ae0e07b4826663d3358815895d1fe17c"
       },
       "expectedNode": "F76A39D05686E34A4420897E359371836145DD3973E3982568B60F8433ADDE6E",
       "error": "transport: hub announcement is malformed: expected node pubkey must be 64 lowercase hex characters"
@@ -101,13 +404,56 @@
     {
       "name": "wrong kind",
       "event": {
-        "id": "2751c71cab901df8e1de81a30fb83cb2ffe2a48c9eebd1510ff948635f2e3b15",
+        "id": "84c88bdcdfdc3d36f92a86a2ed6b0b555a4716ba1c7ac8843738298826a78005",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
         "created_at": 1760000000,
         "kind": 10002,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "c9b517816c76a4df985c3b79a2f2cbe8d7ebff30c4540dabae5ce9ff550bdaa43078f49ba8669a345b4457091847b1f86216ec283016283f21330d7fe921ea3c"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "4b1a3d78802848520ed61ec297791095d3d33c656fe9541fd59ee7453c799cc8052ca5c1bb1e62e7fd596f6c20a203cbecbdfd77bda4e02c9d6917ba3321aa2b"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
       "error": "transport: hub announcement is malformed: kind 10002, want 11190"
@@ -115,155 +461,2005 @@
     {
       "name": "bad signature",
       "event": {
-        "id": "c091f809fa3b3c74ab272a1a3d87de0d3ac05921fade3aef7a4bab813e4b2812",
+        "id": "40728475ca9b186f2b2d0ee98662e197edd207399c06e2fbea657b1eaaed810e",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
         "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "d845ec450efe51f014a4302650693d64ce3fb23971fcb071ed8c563be8c4b4cb2a7cb05ba9cbd60508cf3294fd24e0749cf7b7db6a4b5cfed7e6089ed1a677f0"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "0fa880aeebca9125b8da8a3479d04ad25188f9f7b7f250b273e73f096e9ed3b29ee38e2921c193e6fb8740e89ae961d5ae0e07b4826663d3358815895d1fe170"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
       "error": "transport: hub announcement signature is invalid: invalid signature"
     },
     {
-      "name": "inbox is the node key",
+      "name": "no inbox",
       "event": {
-        "id": "ec513522e34e3ef0b5c480aff528ca4647627fb206101be0b3b0e528908638fb",
+        "id": "b6bb7078e1d8af64a90f106a17f76615aaf5cf96d7dadff016a6e5a927a016d8",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "7c1c31d0911fcb60a89f7c6506b0e4389d1c33ce34b23813a5b9cf83d1ee39ed22645d19c0d93e6a20ba43a1ce350d953663e85ae395f440171f4a68a78f4518"
+        "tags": [
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "4ab2d03780f0998015fd4929506c11fea8b8ac761301822c39ed01abac34c2914b02588c3148e0b41561cc7426b0ad82e7bf168f8481ded2f28b17b5759b2080"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: hub announcement is malformed: inbox must not be the node identity key"
+      "error": "transport: hub announcement is malformed: 0 inbox tags, want exactly 1"
     },
     {
-      "name": "inbox not on the curve",
+      "name": "two inbox tags",
       "event": {
-        "id": "41da7f1132b54d9b202a1d7cae2342489cca73f417127abb0752ec8d488c1d51",
+        "id": "3a8ac2e84a00d6f6ee098d9b43a22d6b8c73efd668a895d441d582a9e6a4d464",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "45d246cb5c4b77cbbd069bd5fc9f6ea04126bc69db4e583c393b5d1c4b2ea6302a4b08f949ffbacc853bf2d63ea6f6943bad4dbf57285338c16ab35078cf3052"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ]
+        ],
+        "content": "",
+        "sig": "466ec52a0968f3c390da1550ad51892ec9f2632c635001c9d55a26eb9232de583ae3aee626d761787b5f3ff97249fb9154f13e6527282eaeba9af6fe48d9bc2b"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: hub announcement is malformed: inbox is not a valid x-only pubkey: invalid public key: x >= field prime"
+      "error": "transport: hub announcement is malformed: 2 inbox tags, want exactly 1"
     },
     {
       "name": "inbox uppercase",
       "event": {
-        "id": "2419cd531e8a865a4001cb610d8ef7506a226376fe990e4d12d09faaed88fb2f",
+        "id": "c685b09430f2161e1f131b39219cddf820ee273e97d752ed18804f4f7fe8d2a2",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552C630B64B54BF50210C9E253D38BD4949C72E22873500F6285C2BEDE312A84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "8c0af4de40a48477cdb383ffa2f186423cf1266320e62a4e772772b21b725802121de8e17e0096c9d3a61661fc64988060c1c5a9f75cd7f03e821f898c0d162b"
+        "tags": [
+          [
+            "inbox",
+            "552C630B64B54BF50210C9E253D38BD4949C72E22873500F6285C2BEDE312A84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "8f6fa483be652567168c1d904a8aa6a4b08834a318d13025bf62129c3578c162df559e86aa35bc44956ae65f5b177cac792fd5740e3e4e7ad07414d8e4309dca"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: hub announcement is malformed: inbox pubkey must be 64 lowercase hex characters"
+      "error": "transport: hub announcement is malformed: malformed inbox"
     },
     {
-      "name": "version 2",
+      "name": "inbox not on the curve",
       "event": {
-        "id": "2826b426ac8b268c7228e8392d70ed0db7c9df862185f6b63314998778a4ca63",
+        "id": "078be8e8af4201c1c69b4e2600f84b4da1010f419107191fd92decb382d23e27",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":2,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "7ff75e40b913c29d79161c69fd74071fb68f6899b2e21e9a737f83f360404aadc10a4493e2c51a1b8e105438173c08fe584947f76a7d3499e0890f9c1591185c"
+        "tags": [
+          [
+            "inbox",
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "34f1de1c1f21a99d25fea3c6b8eaf8c3f010153fd733732b1c1bf18102f4a218590f839d3158557d5497aa95c4b18373faae48532937fd6f60f62042b0d600cd"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: unsupported hub announcement version: 2"
+      "error": "transport: hub announcement is malformed: malformed inbox"
     },
     {
-      "name": "content not JSON",
+      "name": "inbox short",
       "event": {
-        "id": "133ee1f0509c4a3e5adc9a1e32f82967458b7abc87aea665290cb6d3e54dddbb",
+        "id": "6366098f324d26f10fe4f26529e495a8d9f190b1476219c7b8b7671f079b380c",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{",
-        "sig": "6cf94fe07f1ed7ef5ac7cc87a3f3c1861a090ca5f848d1527ac8c5a724dda88641655d1de20830ff06a2d9cfaf7021e397f739733250f2a425a2b45fd957ff96"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "3fa0cca5d3a9ee709a46e8715516738edb231394958795276f8eedbaa64dcd0447776b47865a3b5033c4ae60e58191248b3bf4665b170546bd2510f092d687f8"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: hub announcement is malformed: unexpected end of JSON input"
+      "error": "transport: hub announcement is malformed: malformed inbox"
     },
     {
-      "name": "bucket below the announce floor",
+      "name": "two max_items",
       "event": {
-        "id": "1e817589e2e3ddd89ad636822fbf507d7a29a31e223c7c8fd10d4a9b9a52c73b",
+        "id": "c45bd926cf0b40d2a029eaf283535a310de3174d07466bb1bae7cedc78edb85a",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_consolidate_sources\":48,\"max_items\":32,\"max_verify_budget\":200,\"pad_bucket_bytes\":1},\"v\":1}",
-        "sig": "74b79a7865f8b451f22ff0039b18e0bfa9412df4689581c868afb4ed43e27600aa4d54657d02fecc66e097f3a580de7c304cf151eda5eec395c55971fdf2f7c7"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "limit",
+            "max_items",
+            "4"
+          ]
+        ],
+        "content": "",
+        "sig": "ef585ee257a3e9efeec9b693178e8dc03c3bc5eb4182c78274af64b0e2d9a0765b2ffd03264c575f9e6dbd706ce1d32db5bff4500299b0713922377e54264345"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: hub announcement is malformed: announced limits are unusable: transport: every envelope limit must be positive: announced pad_bucket_bytes 1 is below the 2048 floor, which would defeat padding"
+      "error": "transport: hub announcement is malformed: two \"max_items\" limits"
     },
     {
-      "name": "envelope above the NIP-44 ceiling",
+      "name": "limit with a leading zero",
       "event": {
-        "id": "3106b3d75b2aa3bdb94cd56afbfb65df97a0e9cdeee45b0e0860dc9c66b630aa",
+        "id": "b0f80acdc700fb4dff97193b32258a7d91b86029cb6a61a681f455986e62f823",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":70000,\"max_consolidate_sources\":48,\"max_items\":32,\"max_verify_budget\":200,\"pad_bucket_bytes\":8192},\"v\":1}",
-        "sig": "19705b5696bc857a8af36c4a56dfb50136b525e5596f541504a4a33ae65e0d94b47d2a8e2f93fd7cdeae5befb8ac35adb724d2ac63f7979d9fbc792d05c73281"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "016"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "226d553ba36efc62d0a3faf8d0037bc75969536452924e9e11bb9a8a0c62cca363764d024f2dc79143e88ef7d985817f4ce6c0fa238777280c12b95c8d6fcde6"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: hub announcement is malformed: announced limits are unusable: transport: MaxEnvelopeBytes exceeds NIP-44's plaintext ceiling: 70000 > 65535"
+      "error": "transport: hub announcement is malformed: limit \"max_items\" value \"016\" is not unsigned decimal"
     },
     {
-      "name": "limits missing",
+      "name": "limit with a sign",
       "event": {
-        "id": "07dec8da5649f99f5e8f984775bd7677c30d55bf791fb418aaff2664a78bb686",
+        "id": "f380ea86ae2a76cae7300c8218d70a7d9d2f7987ec537d9fecc03d2e8508d4b4",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\"}",
-        "sig": "012b81d78585340932807f2049877d5c22d6ce9ceac5ccdd96b720604907dc10afe3d47984916a9b0c85e2c0a6cd33946310674075f01428fd13105c7014443e"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "+16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "5e9ff00248eacb1e92731b6d59a4a5fd1c8a3e94823b3ded2deb3800fcefbca86238b5f6d7b00f024a2c3d42c431a4f09b6d8cd1d542ce550659d69222bcfd1b"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-      "error": "transport: hub announcement is malformed: announced limits are unusable: transport: every envelope limit must be positive: {MaxEnvelopeBytes:0 MaxItems:0 PadBucketBytes:0 MaxVerifyBudget:0 MaxConsolidateSources:0}"
+      "error": "transport: hub announcement is malformed: limit \"max_items\" value \"+16\" is not unsigned decimal"
     },
     {
-      "name": "unknown fields ignored",
+      "name": "limit without a value",
       "event": {
-        "id": "969397e55d481951fcf1c2ed239aa848fecbbd3aacb1dd0a992bcc374ffc1bf2",
+        "id": "29ee6ab2a11244a4c345a6c823896a3ef0de2305ae01ffd5ce16a9db1bcc29a5",
         "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
-        "created_at": 1,
+        "created_at": 1760000000,
         "kind": 11190,
-        "tags": null,
-        "content": "{\"v\":1,\"extra\":true,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":57344,\"max_items\":32,\"max_consolidate_sources\":48,\"pad_bucket_bytes\":8192,\"max_verify_budget\":200},\"relays\":[\"wss://r1.example\",\"wss://r2.example\"]}",
-        "sig": "84d4a67299a2c0f43a386af64b30781051a39c41a59a99682e6703278b7551ac7a4c5cfac6677a119ed1fa7c57039311879d1fd86af88b2c5d2bdadb72a3d9c7"
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "limit",
+            "max_bytes"
+          ]
+        ],
+        "content": "",
+        "sig": "f2d8858c434de92b2f9d48c0933432dd1b9007c7752746e0df6b2298514baa0af18e16a05bfdad3a8eaa9017c07a8c7bb702a5e839714a80d12929f89548d02b"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: malformed limit tag"
+    },
+    {
+      "name": "limit not a number",
+      "event": {
+        "id": "9c0cc17be9e5998304737ae20fb8676dd34401aaf6935a9a0f14bd97915f7549",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "big"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "7cdb54fbfa06334245142a9fd50448fbe51b4c0a3b26d53c1c729db45290b3e2b338a126f0cdac4fb437f2f5c634826a3ba50433e1762f9cdff5a5ed9a7966ae"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: limit \"max_bytes\" value \"big\" is not unsigned decimal"
+    },
+    {
+      "name": "r not a websocket URL",
+      "event": {
+        "id": "d6da0a4eaba11d09f784d97f4bee2fcb6e6763ae6d12fca408b4978bb1d36fa7",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "r",
+            "https://x.example"
+          ]
+        ],
+        "content": "",
+        "sig": "4040853fd416205de97ad4bf348a52845cd91dd92b1f57b8917433c964d3a59848c08bdc62392497cacdfd0af730895dfda4d43abb0ee79f6fdf2990beef9951"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: malformed r tag"
+    },
+    {
+      "name": "r empty",
+      "event": {
+        "id": "b5eedc246f9d891613d43109118a0e3b51a614e9da2d69ae2868d4952b708867",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "r",
+            ""
+          ]
+        ],
+        "content": "",
+        "sig": "fbfd1c8745deb4b503f2517e8b3f8fe27571b3690ebdca05ebb388fb718efba8152048b5aa6141b888062ac0090542a25cf7d398d13e2cf192525255f052602d"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: malformed r tag"
+    },
+    {
+      "name": "unknown tag ignored",
+      "event": {
+        "id": "db6557aca94aef2740309f939d4a6ed86046c9342d12f09b259553f5ec213873",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "x",
+            "y"
+          ]
+        ],
+        "content": "",
+        "sig": "bdb8ead6f0e6deb8709293ea3861318c2bdfb7cc17f11b24dbd11eb62470c1b4b02d53525802ae761bb7b4b07253a6d78d0ad7d7bd13f655648ab71d54834006"
       },
       "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
       "want": {
         "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
         "limits": {
-          "maxEnvelopeBytes": 57344,
-          "maxItems": 32,
-          "padBucketBytes": 8192,
-          "maxVerifyBudget": 200,
-          "maxConsolidateSources": 48
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
         },
+        "maxRequestAge": 300,
         "relays": [
-          "wss://r1.example",
-          "wss://r2.example"
+          "wss://relay.example.com"
         ],
-        "createdAt": 1
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "unknown limit ignored",
+      "event": {
+        "id": "1958376d29b927ea32404371b91a5cbe0b06733b05005d509a5898c1075747a7",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "limit",
+            "future_limit",
+            "7"
+          ]
+        ],
+        "content": "",
+        "sig": "ec0f3522d01a50b7fe83a91783878a90a8fcddd30d02045ddb79ae3d9f53ca82225d71d79bc9f6374592521ee1f4888d25f7b13c301d462f6a8d988f3e4ace2d"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "malformed addr ignored",
+      "event": {
+        "id": "ea16b64b3043d63fe5e4c3a9aacf6dcb52b897a244564b4619b90fb51398e676",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "addr",
+            "not an addr"
+          ]
+        ],
+        "content": "",
+        "sig": "b82b70352cb408dc7c758cb7133f21511df9beaf5d981b6212d602e177844fa36e3ab7a71a620d3583911d8f7900544acb7a8dfd0971b6d50c00de7a2f1f4be2"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "addr with a DNS name ignored",
+      "event": {
+        "id": "29d562d70a82f3f25e0c4cea2e107b5aaf97360353c77e243c425d8e7d1d90fa",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "addr",
+            "example.com:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "7701fe6a9b80de961a9e20f21077d226ac28f760e1bf573f49e9311717e93891a68634d017b84ba1c4a2322bcef30d821cd26b8b86165df78ccfc61c1f85f4ec"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "ipv4 and ipv6 addr",
+      "event": {
+        "id": "8a74d659d593d582a706013b7b373330a053f8410f32367891b67cfdbbffe172",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ],
+          [
+            "addr",
+            "1.2.3.4:9735"
+          ],
+          [
+            "addr",
+            "[2001:db8::1]:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "45e27d0de15ebf846649da04b321831f390f759223d0b388da83cf5d8c76e7339eeea3d12ba1f38fc84d10e4a5927af9c25526fccce634ece8050e1ff450fd42"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735",
+          "1.2.3.4:9735",
+          "[2001:db8::1]:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "JSON content is not read",
+      "event": {
+        "id": "70b65fef0df8d4e83cd9c4c9034ae9cd23a2b113baa447300a6fad1866746c8d",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "{\"v\":1,\"inbox\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
+        "sig": "909fe82cc399e525ae7fdf8daa148feb6d0a1c27152a1958a306b1c9538104dfd8763a268a998ceece35178154d579dab456ee777ebb892491c0bcbcc852d30b"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "JSON content only, no tags",
+      "event": {
+        "id": "8ab0c23e9875fe46ef22040b339c925ac671c0457efd4effaff5f1a9a29641f5",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": null,
+        "content": "{\"v\":1,\"inbox\":\"552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84\",\"limits\":{\"max_bytes\":16384}}",
+        "sig": "b8c6149ec3f2e8a2882be9c7a5d4d7ea995cb28be01cbbfdbf6e035a5b86577f3bed72f780ebad040327513a68ba3ce78fda9aefb63767cd247018ebdedfcc01"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: 0 inbox tags, want exactly 1"
+    },
+    {
+      "name": "max_request_age absent",
+      "event": {
+        "id": "3a0745c7ea840cdedfcc817ccb9107c452a3c63890c726fe8ad64d424742cb2d",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "8e848d6d64d4a392b6727c8edf544fb4ef56c33bac0a682fdc882158074f58372808955221efd1724378fee03854d3d954374f2f1fc7c072070b8c7e02a2843f"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 0,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      },
+      "billCalls": "transport: the hub is unusable for calls carrying a request_id: max_request_age 0, want at least 60"
+    },
+    {
+      "name": "max_request_age 0",
+      "event": {
+        "id": "8e122a6b75d1fe2433d281c79af916e38905dcab854d8c1edae9d577f1c4ab3a",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "0"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "1a42e35f693b5b96a06d7ed4a48dae1adaf6390fae96b6ccb2e402b3282ec0d3f8020daa6ac99630f5e5f53e85dd13c734ee9dce67cccc850bc064d8a15fb525"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 0,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      },
+      "billCalls": "transport: the hub is unusable for calls carrying a request_id: max_request_age 0, want at least 60"
+    },
+    {
+      "name": "max_request_age 59",
+      "event": {
+        "id": "7fc75b823f94fc074245ff049dc9c88c8623361d0f42af8296feeab831ec783c",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "59"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "f6a2e98d06f3277044aef8f70d782de45e5884a3924422d1b343b94f4cb81da42cc3d7acb02360de0311ec01cb5f274292124f1137810f71945d1eaaf919570f"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 59,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      },
+      "billCalls": "transport: the hub is unusable for calls carrying a request_id: max_request_age 59, want at least 60"
+    },
+    {
+      "name": "max_request_age 60",
+      "event": {
+        "id": "ae0e7e7cbc1606962229c87cf3ff76b55b76227cce9ff0f3af7c1c4fa1cd2392",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "60"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "454f88e9488ff0c1a3fe0f9d1f0f0d82f2d103fcb50278532876eb47fd744ccf3196a8bd93fcfd3cbcf91eb69ae0d0ee12e303a6a6947b991b803afb756b0b2d"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 60,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "max_request_age 86401",
+      "event": {
+        "id": "2a0c6416348a8286d512ea9ab80042033543c6b816a02259dd1a4b8d3003edf7",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "86401"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "c69c355b697a4573463cd2625bdb0d9bfdc54acf9d21e779983e5c681caa061b2a11d8352b91766f3dc020f6598e57deb76408ba8d34d5f162d2ef245ff6bdb1"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 86401,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "max_request_age \"300\"",
+      "event": {
+        "id": "2e892fd9b2318c7ef2f79eb4adb89be4ad0c8a68d092734d84215b14e53b533a",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "\"300\""
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "13c1f3e76c3bbf0c3fc82b904cb1cdc5331ecb9e5195a9a47f8cd22d2105e75bd6e8a8146cb004f6465e4412a508efe908def263c1bcac2c079aec6f0488ceff"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: limit \"max_request_age\" value \"\\\"300\\\"\" is not unsigned decimal"
+    },
+    {
+      "name": "max_request_age 300s",
+      "event": {
+        "id": "fa80481a1da92a6def10098fa3bff5a5d6250e7c0bf2615dc57d79bb5fc811cc",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300s"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "43db34aa012921c975f0a5f24970ffa5b1c43c2ea58a466f95f6bc8c935686ba0168a54704fb9fbc725436a92e9e0105867b42143332a2af615a2d8cb0c1eed8"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: limit \"max_request_age\" value \"300s\" is not unsigned decimal"
+    },
+    {
+      "name": "pad_bucket_bytes 2047",
+      "event": {
+        "id": "56870b74b66cb7f4264cbe228ee00b9be1db550fd87a4bfab53ca4142ac2417f",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2047"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "3a3c42d57d94f66600d9dd3bc919490cb59784f45694e7a402b7ff40954a698e66e16736b8d462404523498a6d8d33cbd236d54237326e869c6356e5b286cda9"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "error": "transport: hub announcement is malformed: announced limits are unusable: transport: every envelope limit must be positive: announced pad_bucket_bytes 2047 is below the 2048 floor, which would defeat padding"
+    },
+    {
+      "name": "pad_bucket_bytes 2048",
+      "event": {
+        "id": "40728475ca9b186f2b2d0ee98662e197edd207399c06e2fbea657b1eaaed810e",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "0fa880aeebca9125b8da8a3479d04ad25188f9f7b7f250b273e73f096e9ed3b29ee38e2921c193e6fb8740e89ae961d5ae0e07b4826663d3358815895d1fe17c"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "max_bytes above the NIP-44 ceiling",
+      "event": {
+        "id": "fba32d3347f1375bcecea862fc918d802f67aac7a2b4669418dde9b2b3992b75",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "70000"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "f4de05adde80539fad4fd474cd74159d910306cf1eafe67f1b284783a5df0d70aa670ab4d248ed72ceea00dff682f31552814ad3be5705d950dbf626e63de0ac"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "552c630b64b54bf50210c9e253d38bd4949c72e22873500f6285c2bede312a84",
+        "limits": {
+          "maxEnvelopeBytes": 70000,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
+      }
+    },
+    {
+      "name": "inbox is the node identity",
+      "event": {
+        "id": "87c1e2dedc3a9a72ff770200fef263adff3ea5874b30472a075bf2f871704066",
+        "pubkey": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "created_at": 1760000000,
+        "kind": 11190,
+        "tags": [
+          [
+            "inbox",
+            "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e"
+          ],
+          [
+            "limit",
+            "max_bytes",
+            "16384"
+          ],
+          [
+            "limit",
+            "max_items",
+            "16"
+          ],
+          [
+            "limit",
+            "max_consolidate_sources",
+            "8"
+          ],
+          [
+            "limit",
+            "pad_bucket_bytes",
+            "2048"
+          ],
+          [
+            "limit",
+            "max_verify_budget",
+            "64"
+          ],
+          [
+            "limit",
+            "max_request_age",
+            "300"
+          ],
+          [
+            "r",
+            "wss://relay.example.com"
+          ],
+          [
+            "addr",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+          ]
+        ],
+        "content": "",
+        "sig": "cc752378fb9100f5b8548c8c07f8fcfc4f9fff34996d7df4eb4051d94b1cf09883f100b137e6620dc09454dc23e34f500842702e84165d37c0f170c0a32dddce"
+      },
+      "expectedNode": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+      "want": {
+        "inbox": "f76a39d05686e34a4420897e359371836145dd3973e3982568b60f8433adde6e",
+        "limits": {
+          "maxEnvelopeBytes": 16384,
+          "maxItems": 16,
+          "padBucketBytes": 2048,
+          "maxVerifyBudget": 64,
+          "maxConsolidateSources": 8
+        },
+        "maxRequestAge": 300,
+        "relays": [
+          "wss://relay.example.com"
+        ],
+        "addrs": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion:9735"
+        ],
+        "createdAt": 1760000000
       }
     }
   ]

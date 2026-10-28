@@ -23,6 +23,17 @@ export function parseGoJSON(text: string, what: string): unknown {
   }
 }
 
+/**
+ * JSON.parse, except that an integral number written with a fraction or an
+ * exponent ("1.0", "1e3") is read as a marker no integer field accepts, as
+ * Go refuses it for an integer field. Every other number is a plain number.
+ */
+export function parseJSONStrictIntegers(text: string): unknown {
+  return JSON.parse(text, (_key, value, ctx?: { source?: string }) =>
+    typeof value === 'number' && Number.isInteger(value) && ctx?.source !== undefined && /[.eE]/.test(ctx.source) ? NOT_AN_INT : value,
+  )
+}
+
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v)
 
 function check(v: unknown, type: GoFieldType): boolean {

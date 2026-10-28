@@ -41,6 +41,10 @@
       "types": "./dist/wallet/index.d.ts",
       "import": "./dist/wallet/index.js"
     },
+    "./adapters/sync-pocket": {
+      "types": "./dist/adapters/sync-pocket.d.ts",
+      "import": "./dist/adapters/sync-pocket.js"
+    },
     "./adapters/storage-memory": {
       "types": "./dist/adapters/storage-memory.d.ts",
       "import": "./dist/adapters/storage-memory.js"
@@ -85,6 +89,10 @@
       "types": "./dist/adapters/signer-nip46.d.ts",
       "import": "./dist/adapters/signer-nip46.js"
     },
+    "./adapters/signer-unix": {
+      "types": "./dist/adapters/signer-unix.d.ts",
+      "import": "./dist/adapters/signer-unix.js"
+    },
     "./adapters/relay-nostr-tools": {
       "types": "./dist/adapters/relay-nostr-tools.d.ts",
       "import": "./dist/adapters/relay-nostr-tools.js"
@@ -102,7 +110,7 @@
     "build": "tsup",
     "prepare": "tsup",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --deny-warnings src test && depcruise src",
+    "lint": "oxlint --deny-warnings src test && depcruise src && node tools/lint-no-message-match.mjs src",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.ts"
   },

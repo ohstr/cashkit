@@ -19,7 +19,8 @@ build:
 browser:
     pnpm test:browser
 
-# Regenerate vectors/*.json from nmilat (pinned in tools/export-vectors/go.mod).
+# Regenerate vectors/*.json from nmilat's vectors package (pinned in
+# tools/export-vectors/go.mod).
 vectors:
     GOWORK=off go -C tools/export-vectors run . -out ../../vectors
 
@@ -28,6 +29,11 @@ vectors-check:
     just vectors
     git diff --exit-code -- vectors
     test -z "$(git status --porcelain -- vectors)"
+
+# Regenerate src/core/idnaData.ts from the pinned Unicode 15.0.0 files
+# (downloaded, or read from `dir`).
+idna-tables dir="":
+    node tools/gen-idna-tables.mjs {{dir}}
 
 # Decode parity with `cashctl decode --json`, built from a cashctl checkout.
 parity cashctl="../cashctl":

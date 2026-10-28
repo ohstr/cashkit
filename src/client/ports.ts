@@ -1,6 +1,6 @@
 // The side-effecting interfaces the client layer runs over (design §3). The
 // client never opens a socket itself; an adapter implements RelayPool.
-import type { NostrEvent } from '../core/index.js'
+import type { EventTemplate, NostrEvent } from '../core/index.js'
 
 /** A NIP-01 subscription filter. Tag filters use `#<letter>` keys. */
 export interface Filter {
@@ -12,6 +12,17 @@ export interface Filter {
   readonly limit?: number
   readonly '#p'?: readonly string[]
   readonly '#e'?: readonly string[]
+  readonly '#P'?: readonly string[]
+  readonly '#w'?: readonly string[]
+  readonly '#a'?: readonly string[]
+  readonly '#k'?: readonly string[]
+  readonly '#d'?: readonly string[]
+  readonly '#t'?: readonly string[]
+  readonly '#n'?: readonly string[]
+  readonly '#l'?: readonly string[]
+  readonly '#g'?: readonly string[]
+  /** NIP-50; sent only to relays that list 50. */
+  readonly search?: string
 }
 
 export interface SubscriptionHandlers {
@@ -25,9 +36,35 @@ export interface SubscriptionHandlers {
 export interface RelayPool {
   /** Subscribes on every relay; returns a function that unsubscribes. */
   subscribe(relays: readonly string[], filter: Filter, h: SubscriptionHandlers): () => void
-  /** Publishes to one relay and resolves with its OK. */
+  /**
+   * Publishes to one relay and resolves with its OK. A refusal's `message`
+   * is the relay's own text, verbatim (a `pow: …` refusal is re-mined), or
+   * undefined when the adapter cannot see it.
+   */
   publish(relay: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }>
+  /** The relay's NIP-11 document, when the adapter can read it. */
+  relayInfo?(relay: string): Promise<unknown>
+  /**
+   * NIP-42: from now on, when a relay refuses a REQ or EVENT
+   * `auth-required:`, answer its AUTH challenge with the event `sign`
+   * returns for the kind-22242 template, then try once more (undefined
+   * stops answering). A challenge alone is never answered, and a `sign`
+   * that throws declines that relay. Adapters that cannot authenticate
+   * leave this out.
+   */
+  setAuth?(sign: AuthSigner | undefined): void
+  /**
+   * A new pool with its own connections, sharing no socket with this one.
+   * Authenticated traffic (the Cash Pocket's, signed in as the user) runs on
+   * it, so a Hub inbox, listing, order or zap read on the same relay URL
+   * never rides a connection that knows the user. Adapters that cannot open
+   * separate connections leave this out.
+   */
+  isolated?(): RelayPool
 }
+
+/** Signs a NIP-42 kind-22242 template as the user. */
+export type AuthSigner = (t: EventTemplate) => Promise<NostrEvent>
 
 export interface ClientDeps {
   readonly relays: RelayPool
@@ -36,12 +73,25 @@ export interface ClientDeps {
   /** Default crypto.getRandomValues. */
   readonly random?: (n: number) => Uint8Array
   /**
-   * How long a batch envelope stays valid, and so how long a send waits for
-   * its reply. Default 60 s; a Hub refuses more than 120 s.
+   * The longest a send waits for its reply, in ms. The wait never outlasts
+   * the envelope's own deadline, which comes from the Hub's
+   * `max_request_age` and is never an app setting.
    */
-  readonly notAfterSeconds?: number
+  readonly replyWaitMs?: number
   /** How long an NWC call waits for the wallet's response. Default 60 s. */
   readonly nwcTimeoutMs?: number
+  /**
+   * A relay's NIP-11 document, for its proof-of-work minimum. Default: the
+   * pool's `relayInfo`, else an HTTP(S) fetch of the relay URL.
+   */
+  readonly relayInfo?: (relay: string) => Promise<unknown>
+  /**
+   * Bounds on proof-of-work mining before the first publish: a difficulty
+   * above `maxDifficulty`, or mining longer than `maxMs` (default: the time
+   * left before the deadline minus 20 s), is refused as `pow_too_hard`,
+   * nothing sent.
+   */
+  readonly powBudget?: { readonly maxDifficulty?: number; readonly maxMs?: number }
 }
 
 export const nowMs = (d: Pick<ClientDeps, 'clock'>): number => (d.clock ?? Date.now)()

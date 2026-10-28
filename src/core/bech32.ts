@@ -1,12 +1,13 @@
 // bech32 framing as nmilat sees it (go-flokicoin chainutil/bech32):
 // - no 90-character limit (DecodeNoLimit), since tokens run to hundreds;
-// - a bech32 OR bech32m checksum is accepted on decode, and encode always
-//   writes bech32;
+// - a bech32 or bech32m checksum passes the framing check and `bech32Decode`
+//   reports which one it was; credential decoders (tokens, Hub connection
+//   strings, nconnection) refuse bech32m; encode always writes bech32;
 // - every character must be printable ASCII (33..126), case must not mix,
 //   and an all-uppercase string is read as lowercase;
 // - 8<->5 bit regrouping refuses non-zero or excess padding (BIP-173).
-// It is written out rather than taken from @scure/base because scure's
-// bech32 decoder refuses a bech32m checksum, and Go accepts one.
+// It is written out rather than taken from @scure/base for the unlimited
+// length and the checksum report.
 import { CoreError } from './errors.js'
 
 const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
@@ -36,8 +37,8 @@ function hrpExpand(hrp: string): number[] {
 
 const bad = (msg: string) => new CoreError('invalid_bech32', `bech32: ${msg}`)
 
-/** Splits a bech32 string into its lowercase HRP and 5-bit words. */
-export function bech32Decode(s: string): { hrp: string; words: Uint8Array } {
+/** Splits a bech32 string into its lowercase HRP and 5-bit words, saying whether the checksum was bech32m. */
+export function bech32Decode(s: string): { hrp: string; words: Uint8Array; bech32m: boolean } {
   if (s.length < 8) throw bad('string shorter than 8 characters')
   let hasLower = false
   let hasUpper = false
@@ -47,7 +48,7 @@ export function bech32Decode(s: string): { hrp: string; words: Uint8Array } {
     hasLower ||= c >= 97 && c <= 122
     hasUpper ||= c >= 65 && c <= 90
   }
-  if (hasLower && hasUpper) throw bad('mixed case')
+  if (hasLower && hasUpper) throw new CoreError('mixed_case', 'bech32: mixed case (a string is either all lowercase or all uppercase)')
   const lower = hasUpper ? s.toLowerCase() : s
 
   const one = lower.lastIndexOf('1')
@@ -61,7 +62,7 @@ export function bech32Decode(s: string): { hrp: string; words: Uint8Array } {
   }
   const check = polymod([...hrpExpand(hrp), ...data])
   if (check !== BECH32_CONST && check !== BECH32M_CONST) throw bad('invalid checksum')
-  return { hrp, words: Uint8Array.from(data.slice(0, -6)) }
+  return { hrp, words: Uint8Array.from(data.slice(0, -6)), bech32m: check === BECH32M_CONST }
 }
 
 /** Builds a bech32 (not bech32m) string; the HRP is lowercased. */

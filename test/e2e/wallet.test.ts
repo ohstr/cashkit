@@ -13,17 +13,11 @@
 // it provisions a throwaway self-funded cash_hub, mints a cash bill on it,
 // and deletes every child wallet and then the hub when it is done.
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-import { NwcClient } from '../../src/client/index.js'
 import { RelayWs } from '../../src/adapters/relay-ws.js'
 import { MemoryStorage } from '../../src/adapters/storage-memory.js'
 import { NoneVault } from '../../src/adapters/vault-none.js'
 import { Wallet } from '../../src/wallet/index.js'
 import { admin, api, type CreatedApp } from './admin.js'
-
-interface MintResult {
-  readonly cash_token: string
-  readonly recipients: readonly { readonly cash_secret?: string }[]
-}
 
 const MINT = 50_000n // millis
 const SEND = 20_000n
@@ -65,21 +59,25 @@ describe.skipIf(admin === undefined)('live hub: wallet engine', () => {
         await api('DELETE', `/api/apps/${hub.id}/cash-wallets/${id}`).catch(() => undefined)
       }
     } finally {
-      await api('DELETE', `/api/apps/${hub.id}`)
+      // A Hub keeps its call records for their retention window and refuses
+      // its own delete until then; the stack is wiped instead.
+      await api('DELETE', `/api/apps/${hub.id}`).catch(() => undefined)
     }
   }, 120_000)
 
   test('mint, receive, status, send as cash, receive the note, redeem everything back', async () => {
-    // cashctl integration/campaign_helpers_test.go mintCashGift.
-    const minter = new NwcClient({ relays: pool }, hub.pairingUri)
-    const res = await minter.call('mint_cash', { recipients: [{ identity_type: 'cash', amount_millis: Number(MINT) }] })
-    expect(res.error).toBeUndefined()
-    const minted = res.result as MintResult
-    const secret = minted.recipients[0]?.cash_secret
-    expect(secret).toMatch(/^[0-9a-f]{64}$/)
+    // A cash note minted over the hub's signed cashhub1 string by a third
+    // wallet (a raw mint_cash would have to build the cash commitment and the
+    // request_id itself).
+    const minter = await Wallet.open({ storage: new MemoryStorage(), vault: new NoneVault(), relays: pool })
+    wallets.push(minter)
+    await minter.identity.generate()
+    await minter.connections.add('cashhub', hub.cashHubToken!, { confirmUnverified: async () => false })
+    const minted = await minter.mint({ hub: 'cashhub', amount: MINT, to: 'cash' })
+    expect(minted.cashNote).toMatch(/#[0-9a-f]{64}$/)
 
     const alice = await openWallet()
-    const got = await alice.receive(`${minted.cash_token}#${secret}`)
+    const got = await alice.receive(minted.cashNote!)
     expect(got.received).toBe(true)
     if (!got.received) return
     expect(got.holding.amount).toBe(MINT)

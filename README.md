@@ -15,8 +15,11 @@ Use it to:
 
 - **Build a cash wallet** in a browser, a PWA, Node ≥ 22 or Bun: receive,
   send, consolidate and redeem bills, with cashctl's behaviour and error codes
-- **Join a Circle**, privately when the Hub offers it, and use its wallet
+- **Join a Circle** over the Hub's private transport, and use its wallet
   over Nostr Wallet Connect
+- **Mint, order, zap and withdraw on-chain**: mint on a Cash Hub, order
+  cash from a seller, send Cash Zaps, pay a bill out to an address, and keep
+  everything in flight in a Cash Pocket
 - **Talk to a Hub directly**, one bill or one batch at a time
 
 A library only: no UI code, apart from the optional React bindings.
@@ -61,7 +64,8 @@ One package, in layers; each subpath imports only from the ones before it:
     `vault-none` (plaintext; choose it explicitly)
   - relays: `relay-ws` (the global `WebSocket`), `relay-nostr-tools` and
     `relay-ndk` (bring your own SimplePool or NDK)
-  - signers: `signer-nip07` (browser extensions), `signer-nip46` (bunkers)
+  - signers: `signer-nip07` (browser extensions), `signer-nip46` (bunkers),
+    `signer-unix` (a local signer on a unix socket, Node only)
   - tabs: `lock-weblocks` and `sync-broadcast` (one tab moves money at a
     time, every tab sees the changes); `lock-memory` per process
 
@@ -115,10 +119,10 @@ const wallet = await Wallet.open({
 While the vault is locked (`vault.lock()`), the wallet reads but won't move
 money.
 
-### Sign with an extension or a bunker
+### Sign with an extension, a bunker or a local signer
 
-Both adapters check every event they get back: signer, content and
-signature:
+Every adapter checks each event it gets back: signer, content and
+signature. A signer's refusal is a `SignerError` with code `denied`.
 
 ```ts
 import { nip07Signer } from '@ohstr/cashkit/adapters/signer-nip07'
@@ -132,6 +136,15 @@ const fromBunker = await nip46Signer({
 })
 
 const w = await openWallet({ vault: await DeviceVault.open(), signer: fromBunker })
+```
+
+On a server, a signer process on the same host answers over a unix socket
+(NIP-LS). `signerFromUri` takes that address or a `bunker://` one:
+
+```ts
+import { signerFromUri } from '@ohstr/cashkit/adapters/signer-unix' // Node only
+
+const local = await signerFromUri('bunker+unix:///run/signer/signer.sock')
 ```
 
 A slow signer, such as a phone bunker, just gets smaller batches.
@@ -204,18 +217,161 @@ await wallet.protect() // re-key every cash note still shared with its sender
 
 ### Join a Circle
 
-The connection key is generated locally; the Hub only sees its pubkey. When
-the Hub reports `circle_wallet.identity`, the join goes over the private
-transport, and a fallback to the shared connection is reported in
-`fallbackReason` (`requirePrivate: true` refuses instead):
+The connection key is generated locally; the Hub only sees its pubkey. The
+join goes over the Hub's private transport only, and a lost reply is
+settled by `settle()`:
 
 ```ts
-const joined = await wallet.joinCircle({ hub: 'circlehub1…', maxAmount: 100_000_000n })
+const joined = await wallet.circles.join('circlehub1…', { maxAmount: 100_000_000n, maxReceive: 100_000_000n }, {
+  // Asked when the circle cannot move a wallet to a new key: back up the secret.
+  confirmNoRecovery: async () => window.confirm('Losing this device loses the wallet. Continue?'),
+})
 console.log('joined', joined.name, 'wallet', joined.walletPubkey)
-if (joined.fallbackReason !== undefined) console.warn('joined without the private transport:', joined.fallbackReason)
 
 const ln = await wallet.lightning(joined.name)
 console.log(await ln.getBalance())
+```
+
+### Mint from a Cash Hub
+
+With a Cash Hub that lets you mint, add its `cashhub1` string, then mint
+a cash note to hand over or a bill to keep:
+
+<!-- example: examples/mint.ts -->
+```ts
+// A Cash Hub connection is its signed cashhub1 string, never a URI. It is
+// checked online (get_info must name the same node and chain) before it is stored.
+await wallet.connections.add('hub', cashhub, {
+  confirmUnverified: async (view) => window.confirm(`Not confirmed: ${view.hubFingerprint}. Use it anyway?`),
+})
+
+const note = await wallet.mint({ hub: 'hub', amount: 50_000n }) // to: 'cash' by default
+console.log('hand this over:', note.cashNote)
+
+const kept = await wallet.mint({ hub: 'hub', amount: 20_000n, to: 'self' })
+console.log('kept as holding', kept.holdingId)
+```
+
+### Settle what a crash left open
+
+Opening a wallet settles first; `settle()` can be called any time:
+
+<!-- example: examples/settle.ts -->
+```ts
+// Every bill-creating call is written ahead with its request id; a lost
+// reply is looked up, never resent. settle() runs on open and on demand.
+const report = await wallet.settle()
+console.log('applied', report.applied.length, 'still open', report.open.length)
+
+for (const call of await wallet.pendingCalls.list()) {
+  // The Hub never saw it: placing it again is a new call the user decides on.
+  if (call.needsUser === 'confirm_replace' && (await askTheUser(`Place the ${call.op} of ${call.amount} again?`))) {
+    await wallet.pendingCalls.confirmReplace(call.id)
+  }
+}
+
+const stop = wallet.autoSettle() // settles again when the app is idle; call stop() on exit
+```
+
+### Order cash
+
+A Hub that sells cash publishes a `cashorder1` string. Quote, place, show
+the invoice (or address) with its pay-by time, and watch the order:
+
+<!-- example: examples/order.ts -->
+```ts
+// Quote: nothing is written or sent.
+const q = await wallet.orders.quote(cashorder, { amountMillis: 21_000_000n, payment: 'lightning' })
+console.log(`pay ${q.payMillis} (fee ${q.feeMillis}); the bill will carry a redeem fee of ${q.billRedeemFeeMillis}`)
+
+// Place: written ahead, then sent. The reply opens the order.
+const order = await wallet.orders.place({ connection: cashorder, amountMillis: 21_000_000n, payment: 'lightning' })
+if (order.invoice !== undefined) show(`Pay before ${new Date(order.payBy * 1000).toLocaleString()}: ${order.invoice}`)
+
+// Watch until it is finished: each new bill becomes a holding.
+const ac = new AbortController()
+await wallet.orders.watch(order.id, {
+  signal: ac.signal,
+  onUpdate: (v) => {
+    if (v.finished) ac.abort()
+    console.log(v.state, v.bills.length, 'bills')
+  },
+})
+
+// A closed order can be read again at any time.
+console.log(await wallet.orders.refresh(order.id))
+```
+
+### Withdraw on-chain
+
+A Hub that offers on-chain withdrawals pays a bill out to an address.
+The confirmation is the caller's: nothing is sent until it resolves true:
+
+<!-- example: examples/withdraw.ts -->
+```ts
+const terms = await wallet.withdraw.terms(holdingId)
+if (!terms.offered || terms.inRange !== 'ok') throw new Error('this bill cannot be withdrawn on-chain')
+
+// The quote is checked against what was asked and held in memory only.
+const quote = await wallet.withdraw.quote(holdingId, address)
+const view = await wallet.withdraw.send(quote, {
+  // Irreversible: show the exact payout, the fees and the privacy warnings.
+  confirm: async (v) => askTheUser(`Send ${v.payoutMillis} to ${v.addressGroups.join(' ')} (fee ${v.feeMillis})?`),
+})
+
+const stop = await wallet.withdraw.watch(view.id, {
+  onUpdate: (v) => {
+    if (v.phase === 'final') console.log('paid in', v.txid)
+    if (v.phase === 'cancelled') console.log('returned as holding', v.remintHoldingId)
+    if (v.phase === 'final' || v.phase === 'cancelled') stop()
+  },
+})
+
+// Still broadcast 7 days after sent_by: it may be cancelled, and the
+// amount comes back as a new bill.
+const late = await wallet.withdraw.get(view.id)
+if (late?.cancelAvailableAt !== undefined && late.cancelAvailableAt <= Date.now() / 1000) await wallet.withdraw.cancel(view.id)
+```
+
+### Zap
+
+Cash Zaps (kind 9522) carry a bill to a pubkey, for an event or a profile:
+
+<!-- example: examples/zap.ts -->
+```ts
+// A zap on a note: a bill signed over the note, published as a 9522 to the
+// recipient's 10522 relays and yours.
+const sent = await wallet.zaps.send({ to: note.pubkey, amountMillis: 21_000n, target: { e: note.id, k: '1' }, relays })
+if (!sent.countable) console.log('valid, but never counted:', sent.reason)
+
+// Incoming zaps are shown as issued until claimed; a claim checks the
+// bill with its Hub first.
+for (const z of await wallet.zaps.list({ relays })) console.log(z.status, z.amountMillis, z.trusted)
+const holding = await wallet.zaps.claim(incoming)
+console.log('claimed', holding.amount)
+```
+
+### Keep a Cash Pocket
+
+Give the wallet a Cash Pocket and it keeps every bill and call in flight
+on the user's own relays, so another device can pick them up:
+
+<!-- example: examples/pocket.ts -->
+```ts
+const relays = new RelayWs()
+const wallet = await Wallet.open({
+  storage,
+  vault,
+  relays,
+  // The user's inbox relays: each call's entry is stored and read back
+  // before the call goes out.
+  pocket: syncPocket({ pool: relays, relays: ['wss://inbox.example', 'wss://inbox2.example'] }),
+})
+
+// On another device with the same identity: bring in what it holds.
+const r = await wallet.pocket.sync()
+console.log('imported', r.imported.length, 'conflicts', r.conflicts.length)
+console.log(await wallet.pocket.balance()) // per chain
 ```
 
 ### Handle errors
@@ -271,7 +427,7 @@ await restored.importBackup(text, backupPassphrase)
 ### Watch state
 
 ```ts
-const stop = wallet.subscribe((s) => render(s.holdings, s.balance, s.unfinishedCashSends))
+const stop = wallet.subscribe((s) => render(s.holdings, s.balance, s.pendingCalls))
 wallet.on('operation', (e) => console.log(e.op, e.phase)) // planned, sent, committed, failed
 ```
 
@@ -286,7 +442,7 @@ commit in any tab, and action hooks track `pending`, `result` and `error`:
 ```tsx
 import { openWallet } from '@ohstr/cashkit'
 import { DeviceVault } from '@ohstr/cashkit/adapters/vault-device'
-import { WalletProvider, useActivity, useSend, useWalletState } from '@ohstr/cashkit/react'
+import { WalletProvider, useActivity, useConfirmations, useSend, useWalletState } from '@ohstr/cashkit/react'
 
 export function App() {
   return (
@@ -324,6 +480,25 @@ function History() {
 }
 ```
 
+When the wallet needs the user (an unverified Hub, an on-chain withdrawal,
+placing a lost call again), it raises a request; `useConfirmations` queues
+them for your UI. With no handler every request is answered no:
+
+```tsx
+function Confirmations() {
+  const queue = useConfirmations()
+  return queue.map(({ key, request, answer }) => (
+    <dialog key={key} open>
+      {request.type}
+      <button onClick={() => answer(true)}>Yes</button>
+      <button onClick={() => answer(false)}>No</button>
+    </dialog>
+  ))
+}
+```
+
+Outside React: `wallet.on('confirm', async (request) => askTheUser(request))`.
+
 ### Decode offline
 
 `core` reads every string a user might paste, with no network:
@@ -334,7 +509,7 @@ import { decodeToken, sniff, splitCashString, verifyProvenance } from '@ohstr/ca
 const { token, cashSecret } = splitCashString(pasted)
 if (sniff(token) === 'cash_token') {
   const t = decodeToken(token)
-  console.log(t.walletPubkey, t.relays, 'minted by', verifyProvenance(t) ?? 'unknown')
+  console.log(t.walletPubkey, t.relays, 'minted by', verifyProvenance(t)?.minter ?? 'unknown')
 }
 ```
 
@@ -348,9 +523,14 @@ import NDK, { NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk'
 import { NostrToolsPool } from '@ohstr/cashkit/adapters/relay-nostr-tools'
 import { NdkPool } from '@ohstr/cashkit/adapters/relay-ndk'
 
-const viaNostrTools = new NostrToolsPool(new SimplePool())
+// newPool lets a Cash Pocket sign in to its relays on a SimplePool of its own.
+const viaNostrTools = new NostrToolsPool(new SimplePool(), { newPool: () => new SimplePool() })
 const viaNdk = new NdkPool(ndk, { NDKEvent, NDKRelaySet })
 ```
+
+A Cash Pocket with `auth` signs in (NIP-42) only on a pool of its own
+(`authPool`, or the pool's `isolated()`), never on the one the rest of the
+wallet uses; a pool that cannot be isolated leaves the pocket signed out.
 
 ### Talk to a Hub directly
 
@@ -363,8 +543,8 @@ import { CashClient } from '@ohstr/cashkit/client'
 import { RelayWs } from '@ohstr/cashkit/adapters/relay-ws'
 
 const bill = new CashClient({ relays: new RelayWs() }, decodeToken(token))
-const claim = await bill.checkClaim(bySecret(secret), '')
-console.log(claim.amountMillis, 'millis, net', claim.netRedeemableMillis)
+const claim = await bill.checkClaim(bySecret(secret))
+console.log(claim.amountMillis, 'millis, net', claim.netRedeemableMillis, claim.claimable ? '' : claim.reason)
 ```
 
 ## Development

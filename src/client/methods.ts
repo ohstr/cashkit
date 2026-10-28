@@ -3,11 +3,13 @@
 import {
   cashConsolidateRequest,
   cashRedeemRequest,
+  cashStatusRequest,
   cashTransferRequest,
   parseCashConsolidateResult,
   parseCashRedeemResult,
   parseCashStatusResult,
   parseCashTransferResult,
+  parseTombstone,
   type CashConsolidateResult,
   type CashRedeemResult,
   type CashStatusResult,
@@ -15,6 +17,7 @@ import {
   type ConsolidateSource,
   type Credential,
   type Target,
+  type Tombstone,
 } from '../core/index.js'
 import {
   buildBillProof,
@@ -29,7 +32,7 @@ import {
 import { checkBill, type Bill } from './bill.js'
 import { ClientError } from './errors.js'
 import { succeeded, type ItemOutcome } from './outcome.js'
-import type { BatchSession, ItemBinding, ItemBuilder } from './session.js'
+import type { BatchSession, ItemBinding, ItemBuilder, SendOptions } from './session.js'
 
 /**
  * One transport item: params as JSON text, the bill proof signed with the
@@ -47,12 +50,22 @@ export async function buildItem(id: string, bill: Bill, method: string, wirePara
   return { id, target: bill.target, method, params, proof, billProof }
 }
 
+/** No bill-creating call leaves the client without the caller's request_id. */
+function requireId(id: string | undefined, item: string): string {
+  if (id === undefined || id === '') throw new ClientError('bad_input', `item ${item} creates a bill and needs the caller's request_id`)
+  return id
+}
+
 const itemId = (given: string | undefined, i: number) => (given !== undefined && given !== '' ? given : `#${i}`)
 
-/** An outcome with its decoded result, or `undecodable` if the body did not parse. */
-export type TypedOutcome<R> = ItemOutcome & { readonly value?: R }
+/**
+ * An outcome with its decoded result, or `undecodable` if the body did not
+ * parse. A destroyed bill's answer is its `tombstone`, with no `value`
+ * (`cash_status` carries it in its own result instead).
+ */
+export type TypedOutcome<R> = ItemOutcome & { readonly value?: R; readonly tombstone?: Tombstone }
 
-async function decodeOutcomes<R>(outcomes: readonly ItemOutcome[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R): Promise<TypedOutcome<R>[]> {
+async function decodeOutcomes<R>(outcomes: readonly ItemOutcome[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R, tombstones: boolean): Promise<TypedOutcome<R>[]> {
   const out: TypedOutcome<R>[] = []
   for (const o of outcomes) {
     if (!succeeded(o)) {
@@ -60,7 +73,13 @@ async function decodeOutcomes<R>(outcomes: readonly ItemOutcome[], parse: (o: It
       continue
     }
     try {
-      out.push({ ...o, value: await parse(o, parseJSONValue(o.result ?? 'null')) })
+      const v = parseJSONValue(o.result ?? 'null')
+      const tombstone = tombstones ? parseTombstone(v) : undefined
+      if (tombstone !== undefined) {
+        out.push({ ...o, state: 'tombstone', tombstone })
+        continue
+      }
+      out.push({ ...o, value: await parse(o, v) })
     } catch {
       out.push({ ...o, state: 'error', error: { code: 'INTERNAL', message: `hub answered item ${o.id} with a body this client could not decode` }, undecodable: true })
     }
@@ -71,14 +90,17 @@ async function decodeOutcomes<R>(outcomes: readonly ItemOutcome[], parse: (o: It
 export interface BatchResult<R> {
   readonly outcomes: TypedOutcome<R>[]
   readonly error?: Error
+  /** The relays that accepted a request event. */
+  readonly acceptedRelays?: readonly string[]
 }
 
 /** Sends the builders and decodes each answered item with `parse`. */
-export async function run<R>(session: BatchSession, builders: ItemBuilder[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R): Promise<BatchResult<R>> {
-  const r = await session.send(builders)
+export async function run<R>(session: BatchSession, builders: ItemBuilder[], parse: (o: ItemOutcome, value: unknown) => Promise<R> | R, o: { tombstones?: boolean; send?: SendOptions } = {}): Promise<BatchResult<R>> {
+  const r = await session.send(builders, o.send)
   if (r.error && r.outcomes.length === 0) throw r.error
-  const outcomes = await decodeOutcomes(r.outcomes, parse)
-  return r.error ? { outcomes, error: r.error } : { outcomes }
+  const outcomes = await decodeOutcomes(r.outcomes, parse, o.tombstones ?? true)
+  const accepted = r.acceptedRelays !== undefined ? { acceptedRelays: r.acceptedRelays } : {}
+  return r.error ? { outcomes, error: r.error, ...accepted } : { outcomes, ...accepted }
 }
 
 
@@ -95,17 +117,15 @@ export interface BatchStatus {
 export function statusMany(session: BatchSession, items: readonly BatchStatus[], now: () => number): Promise<BatchResult<CashStatusResult>> {
   const builders = items.map((it, i): ItemBuilder => ({
     id: itemId(it.id, i),
+    method: 'cash_status',
     build: (id, b) => {
       checkBill(it.bill, id, session.hub)
-      const params = {
-        ...(it.scope && { scope: it.scope }),
-        ...(it.credential.kind === 'secret' && { cash_secret: it.credential.secret }),
-        ...(it.attestationEvent && { attestation_event: it.attestationEvent }),
-      }
+      // A cash-mode status item carries neither proof nor secret: the bill proof names its one row.
+      const params = cashStatusRequest({ ...(it.scope && { scope: it.scope }), ...(it.attestationEvent && { attestationEvent: it.attestationEvent }) })
       return buildItem(id, it.bill, 'cash_status', params, it.credential, b, now())
     },
   }))
-  return run(session, builders, (_o, v) => parseCashStatusResult(v))
+  return run(session, builders, (_o, v) => parseCashStatusResult(v), { tombstones: false })
 }
 
 export interface BatchRedeem {
@@ -119,6 +139,7 @@ export interface BatchRedeem {
 export function redeemMany(session: BatchSession, items: readonly BatchRedeem[], now: () => number): Promise<BatchResult<CashRedeemResult>> {
   const builders = items.map((it, i): ItemBuilder => ({
     id: itemId(it.id, i),
+    method: 'cash_redeem',
     build: async (id, b) => {
       checkBill(it.bill, id, session.hub)
       const req = await cashRedeemRequest({
@@ -141,15 +162,22 @@ export interface BatchTransfer {
   readonly to: Target
   readonly currentAmount: bigint
   readonly splitAmount?: bigint
+  readonly zapTarget?: string
+  /** Required for a partial split of a cash source: a fresh commitment the caller wrote ahead. */
+  readonly remainderCommitment?: string
+  /** The call's id, saved by the caller before sending so the call can be looked up; required. */
+  readonly requestId: string
 }
 
-export function transferMany(session: BatchSession, items: readonly BatchTransfer[], now: () => number): Promise<BatchResult<CashTransferResult>> {
+/** `send` carries the caller's deadline and write-ahead hook (`BatchSession.send`). */
+export function transferMany(session: BatchSession, items: readonly BatchTransfer[], now: () => number, send?: SendOptions): Promise<BatchResult<CashTransferResult>> {
   const byId = new Map<string, BatchTransfer>()
   const builders = items.map((it, i): ItemBuilder => {
     const id = itemId(it.id, i)
     byId.set(id, it)
     return {
       id,
+      method: 'cash_transfer',
       build: async (itemIdArg, b) => {
         checkBill(it.bill, itemIdArg, session.hub)
         const req = await cashTransferRequest({
@@ -158,13 +186,16 @@ export function transferMany(session: BatchSession, items: readonly BatchTransfe
           to: it.to,
           currentAmount: it.currentAmount,
           ...(it.splitAmount !== undefined && { splitAmount: it.splitAmount }),
+          ...(it.zapTarget !== undefined && { zapTarget: it.zapTarget }),
+          ...(it.remainderCommitment !== undefined && { remainderCommitment: it.remainderCommitment }),
+          requestId: requireId(it.requestId, itemIdArg),
           now: now(),
         })
         return buildItem(itemIdArg, it.bill, 'cash_transfer', req, it.credential, b, now())
       },
     }
   })
-  return run(session, builders, (o, v) => parseCashTransferResult(v, byId.get(o.id)!.credential))
+  return run(session, builders, (o, v) => parseCashTransferResult(v, byId.get(o.id)!.credential), send !== undefined ? { send } : {})
 }
 
 export interface BatchConsolidate {
@@ -175,18 +206,21 @@ export interface BatchConsolidate {
   readonly credential: Credential
   readonly sources: readonly ConsolidateSource[]
   readonly to: Target
+  /** The call's id, saved by the caller before sending; required. */
+  readonly requestId: string
 }
 
-export function consolidateMany(session: BatchSession, items: readonly BatchConsolidate[], now: () => number): Promise<BatchResult<CashConsolidateResult>> {
+export function consolidateMany(session: BatchSession, items: readonly BatchConsolidate[], now: () => number, send?: SendOptions): Promise<BatchResult<CashConsolidateResult>> {
   const byId = new Map<string, BatchConsolidate>()
   const builders = items.map((it, i): ItemBuilder => {
     const id = itemId(it.id, i)
     byId.set(id, it)
     return {
       id,
+      method: 'cash_consolidate',
       build: async (itemIdArg, b) => {
         checkBill(it.bill, itemIdArg, session.hub)
-        const req = await cashConsolidateRequest({ sources: it.sources, to: it.to, now: now() })
+        const req = await cashConsolidateRequest({ sources: it.sources, to: it.to, requestId: requireId(it.requestId, itemIdArg), now: now() })
         return buildItem(itemIdArg, it.bill, 'cash_consolidate', req, it.credential, b, now())
       },
     }
@@ -194,5 +228,5 @@ export function consolidateMany(session: BatchSession, items: readonly BatchCons
   return run(session, builders, (o, v) => {
     const it = byId.get(o.id)!
     return parseCashConsolidateResult(v, { sources: it.sources, to: it.to })
-  })
+  }, send !== undefined ? { send } : {})
 }

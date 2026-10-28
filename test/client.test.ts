@@ -1,12 +1,13 @@
 // Client behaviour against FakeHub. Cases follow nmilat nipcash/client
 // tests: batch_session, batch_pack, batch_send (chunking, failover, relay
 // close), batch_outcome, bill_state, client (oneItemOutcome), check_claim,
-// transfer_from_sources and rekey_cash_slice.
+// and the per-call request_id rule.
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
+  newRequestId,
   bySecret,
   bySigning,
-  cashTargetFromSecret,
+  cashCommitment,
   decodeToken,
   getPublicKey,
   localSigner,
@@ -19,7 +20,6 @@ import {
   CashClient,
   ClientError,
   NotServedError,
-  PartialProgressError,
   safeToResend,
   NOT_SENT,
   statusMany,
@@ -63,6 +63,7 @@ function slowSetup(stepMs: number, fail?: number) {
       return holder.signEvent(t)
     },
     nip44Decrypt: holder.nip44Decrypt,
+    nip44Encrypt: holder.nip44Encrypt,
   }
   const d = { relays: pool, clock: () => clock.t }
   return { signer, d, requests: () => pool.published.filter((x) => x.event.kind === 23190).length }
@@ -115,11 +116,11 @@ describe('BatchSession (batch_session.go)', () => {
   test('the newest announcement wins and a replayed older one never rolls it back', async () => {
     const s = await BatchSession.open(deps(), hub.node, [R1])
     const newer = hub.announcementEvent({ relays: [R2], createdAt: now() + 100, limits: { ...DEFAULT_LIMITS, padBucketBytes: 4096 } })
-    await pool.publish(R2, newer)
+    await pool.publish(R1, newer)
     await s.refresh()
     expect(s.limits.padBucketBytes).toBe(4096)
-    pool.store(R1, hub.announcementEvent({ relays: [R1], createdAt: now() - 1000 }))
-    pool.relay(R2).stored = []
+    // Only an older one is left to read: the session keeps the newer.
+    pool.relay(R1).stored = [hub.announcementEvent({ relays: [R1], createdAt: now() - 1000 })]
     await s.refresh()
     expect(s.limits.padBucketBytes).toBe(4096)
   })
@@ -139,11 +140,11 @@ describe('sending (batch_send.go)', () => {
     expect(req.billSigner).toBe(getPublicKey(fill(0x61, 32)))
     expect(req.params).toEqual({ scope: 'mine' })
   })
-  test('a cash credential sends its secret and no slice proof', async () => {
+  test('a cash-mode status carries neither its secret nor a slice proof', async () => {
     const c = new CashClient(deps(), bill(1))
     await c.cashStatus(bySecret('5e'.repeat(32)))
     expect(hub.requests[0]!.signer).toBeUndefined()
-    expect(hub.requests[0]!.params).toEqual({ scope: 'mine', cash_secret: '5e'.repeat(32) })
+    expect(hub.requests[0]!.params).toEqual({ scope: 'mine' })
   })
   test('fails over to the next relay when the first is down', async () => {
     pool.relay(R1).down = true
@@ -184,7 +185,7 @@ describe('sending (batch_send.go)', () => {
   })
   test('a partial reply keeps what arrived and says it is incomplete, at not_after', async () => {
     hub.faults = { chunks: 2, sendChunks: 1 }
-    const s = await new CashClient({ relays: pool, notAfterSeconds: 2 }, bill(1)).session()
+    const s = await new CashClient({ relays: pool, replyWaitMs: 2000 }, bill(1)).session()
     const r = await statusMany(s, [1, 2].map((i) => ({ id: `s${i}`, bill: billFor(decodeToken(bill(i))), credential: bySigning(holder) })), now)
     expect(r.error).toMatchObject({ code: 'incomplete_reply' })
     expect(r.outcomes).toHaveLength(2)
@@ -192,7 +193,7 @@ describe('sending (batch_send.go)', () => {
   }, 10_000)
   test('no reply at all: every item not_served, with a timeout error', async () => {
     hub.faults = { drop: true }
-    const s = await new CashClient({ relays: pool, notAfterSeconds: 1 }, bill(1)).session()
+    const s = await new CashClient({ relays: pool, replyWaitMs: 1000 }, bill(1)).session()
     const r = await statusMany(s, [{ id: 'a', bill: billFor(decodeToken(bill(1))), credential: bySigning(holder) }], now)
     expect(r.outcomes).toMatchObject([{ id: 'a', state: 'not_served' }])
     expect(r.error).toMatchObject({ code: 'timeout' })
@@ -263,79 +264,50 @@ describe('bill state and claims (bill_state.go, check_claim.go)', () => {
   test('a roster is available, an explicit spent is spent', async () => {
     const c = new CashClient(deps(), bill(1))
     expect((await c.state(bySigning(holder))).state).toBe('available')
-    hub.handler = () => ({ result: { error: 'spent', retained_until: 5 } })
+    hub.handler = () => ({ result: { status: 'spent', reason: 'redeemed', retained_until: 5 } })
     expect((await c.state(bySigning(holder))).state).toBe('spent')
+  })
+  test('a tombstone answering a transfer is spent, never a decode failure', async () => {
+    const c = new CashClient(deps(), bill(1))
+    hub.handler = () => ({ result: { status: 'spent', reason: 'consolidated' } })
+    const err = await c.cashTransfer({ requestId: newRequestId(), credential: bySigning(holder), to: pubkeyTarget(holder.pubkey), currentAmount: 21000n }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ClientError)
+    expect((err as ClientError).code).toBe('spent')
   })
   test('silence is indeterminate, never spent', async () => {
     hub.faults = { drop: true }
-    const st = await new CashClient({ relays: pool, notAfterSeconds: 1 }, bill(1)).state(bySigning(holder))
+    const st = await new CashClient({ relays: pool, replyWaitMs: 1000 }, bill(1)).state(bySigning(holder))
     expect(st.state).toBe('indeterminate')
     expect(st.error).toBeDefined()
   }, 10_000)
   test('checkClaim reports the matching row and the minter', async () => {
-    hub.handler = () => ({ result: { recipients: [{ identity_type: 'cash', amount_millis: 5000, claimed: false, redeem_fee_millis: 10, net_redeemable_millis: 4990 }] } })
-    const r = await new CashClient(deps(), bill(1)).checkClaim(bySecret('ab'), '')
-    expect(r).toMatchObject({ isCash: true, amountMillis: 5000n, redeemFeeMillis: 10n, netRedeemableMillis: 4990n })
+    const secret = 'ab'.repeat(32)
+    hub.handler = () => ({ result: { recipients: [{ identity_type: 'cash', identity_value: cashCommitment(secret), amount_millis: 5000, claimed: false, redeem_fee_millis: 10, net_redeemable_millis: 4990 }] } })
+    const r = await new CashClient(deps(), bill(1)).checkClaim(bySecret(secret))
+    expect(r).toMatchObject({ isCash: true, amountMillis: 5000n, redeemFeeMillis: 10n, netRedeemableMillis: 4990n, claimable: true, reason: '' })
     expect(r.minterPubkey!.slice(2)).toBe(hub.node)
+  })
+  test.each([
+    ['claimed', { claimed: true }],
+    ['withdrawn', { withdraw_request_id: 'cd'.repeat(32) }],
+    ['expired', { expires_at: 1 }],
+  ])('checkClaim: a %s row is shown, not claimable, never not found', async (reason, extra) => {
+    hub.handler = () => ({ result: { recipients: [{ identity_type: 'pubkey', identity_value: holder.pubkey, amount_millis: 7000, claimed: false, ...extra }] } })
+    const r = await new CashClient(deps(), bill(1)).checkClaim(bySigning(holder))
+    expect(r).toMatchObject({ amountMillis: 7000n, claimable: false, reason })
+  })
+  test('checkClaim: a widened answer is claim_not_found', async () => {
+    hub.handler = () => ({ result: { recipients: [{ identity_type: 'pubkey', identity_value: holder.pubkey, amount_millis: 1, claimed: false }, { identity_type: 'pubkey', identity_value: 'ab'.repeat(32), amount_millis: 1, claimed: false }] } })
+    await expect(new CashClient(deps(), bill(1)).checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'claim_not_found' })
   })
   test('checkClaim: NOT_FOUND and no matching row are claim_not_found; spent is spent', async () => {
     const c = new CashClient(deps(), bill(1))
     hub.handler = () => ({ error: { code: 'NOT_FOUND' } })
-    await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
+    await expect(c.checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'claim_not_found' })
     hub.handler = () => ({ result: { recipients: [{ identity_type: 'pubkey', identity_value: 'ab'.repeat(32), amount_millis: 1, claimed: false }] } })
-    await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'claim_not_found' })
-    hub.handler = () => ({ result: { error: 'spent' } })
-    await expect(c.checkClaim(bySigning(holder), holder.pubkey)).rejects.toMatchObject({ code: 'spent' })
-  })
-})
-
-describe('composite flows (transfer_from_sources.go, rekey_cash_slice.go)', () => {
-  const merged = fill(0x70, 32)
-  test('one source: a single split transfer', async () => {
-    hub.handler = (m) => (m === 'cash_transfer' ? { result: { amount_millis: 500, identity_type: 'pubkey', identity_value: 'cd'.repeat(32) } } : 'omit')
-    const c = new CashClient(deps(), bill(1))
-    const r = await c.transferFromSources({
-      sources: [{ walletPubkey: c.walletPubkey, amount: 21000n, credential: bySigning(holder) }],
-      amount: 500n,
-      to: pubkeyTarget('cd'.repeat(32)),
-      interimIdentity: pubkeyTarget(holder.pubkey),
-      interimCredential: bySigning(holder),
-    })
-    expect(r.consolidatedFirst).toBeUndefined()
-    expect(hub.requests[0]!.params['amount_millis']).toBe(500)
-  })
-  test('several sources: consolidate, reconnect, split; a failed split is PartialProgressError holding the new bill', async () => {
-    const newToken = hub.mintBill({ walletKey: merged, connSecret: fill(0x71, 32), amount: 3000n })
-    const c = new CashClient(deps(), bill(1))
-    const sources = [1, 2].map((i) => ({ walletPubkey: decodeToken(bill(i)).walletPubkey, amount: 1500n, credential: bySigning(holder) }))
-    // A cash interim target receives the new token as delivered (not encrypted).
-    hub.handler = (m) =>
-      m === 'cash_consolidate'
-        ? { result: { amount_millis: 3000, new_wallet_pubkey: getPublicKey(merged), new_wallet_token: newToken } }
-        : { error: { code: 'INTERNAL' } }
-    const err = await c
-      .transferFromSources({ sources, amount: 1000n, to: pubkeyTarget('cd'.repeat(32)), interimIdentity: cashTargetFromSecret('11'.repeat(32)), interimCredential: bySecret('11'.repeat(32)) })
-      .catch((e: unknown) => e)
-    expect(err).toBeInstanceOf(PartialProgressError)
-    expect((err as PartialProgressError).consolidated).toMatchObject({ amountMillis: 3000n, newWalletToken: newToken })
-  })
-  test('rekeying a lone cash slice is one in-place transfer to the new secret', async () => {
-    hub.handler = () => ({ result: { amount_millis: 21000, identity_type: 'cash' } })
-    const c = new CashClient(deps(), bill(1))
-    const target = cashTargetFromSecret('22'.repeat(32))
-    const r = await c.rekeyCashSlice({ cashSlice: { walletPubkey: c.walletPubkey, amount: 21000n, credential: bySecret('ab') }, newTarget: target })
-    expect(r).toEqual({ newSecret: target.secret, newWalletPubkey: c.walletPubkey, newToken: '', amountMillis: 21000n })
-    expect(hub.requests[0]!.params['new_identity']).toEqual({ identity_type: 'cash', identity_value: target.identityValue })
-  })
-  test('rekey with other bills needs a pubkey interim', async () => {
-    const c = new CashClient(deps(), bill(1))
-    await expect(
-      c.rekeyCashSlice({
-        cashSlice: { walletPubkey: c.walletPubkey, amount: 1n, credential: bySecret('ab') },
-        consolidateWith: [{ walletPubkey: 'cd'.repeat(32), amount: 1n, credential: bySigning(holder) }],
-        newTarget: cashTargetFromSecret('22'.repeat(32)),
-      }),
-    ).rejects.toThrow(ClientError)
+    await expect(c.checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'claim_not_found' })
+    hub.handler = () => ({ result: { status: 'spent' } })
+    await expect(c.checkClaim(bySigning(holder))).rejects.toMatchObject({ code: 'spent' })
   })
 })
 

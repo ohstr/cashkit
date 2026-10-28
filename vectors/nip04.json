@@ -1,7 +1,7 @@
 {
   "description": "NIP-04 encrypt/decrypt as nmilat does it: AES-256-CBC over the shared x-coordinate, PKCS#7, base64 ciphertext ?iv= base64 IV.",
   "source": "nip04/nip04.go",
-  "nmilat": "v0.5.0-rc.31",
+  "nmilat": "github.com/ohstr/nmilat devel",
   "valid": [
     {
       "name": "short",

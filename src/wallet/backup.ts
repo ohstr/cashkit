@@ -10,24 +10,45 @@ import { toHex, utf8 } from '../core/index.js'
 import { decodeRow, encodeRow } from './codec.js'
 import type { Ctx } from './context.js'
 import { CashkitError } from './errors.js'
-import { COLLECTIONS, type Collection, type Rows, type Sealed } from './model.js'
+import { COLLECTIONS, LOCAL_ONLY, type Collection, type Rows, type Sealed } from './model.js'
 
 export const BACKUP_FORMAT = 'cashkit-backup'
-export const BACKUP_VERSION = 1
+export const BACKUP_VERSION = 2
 const AAD = utf8('cashkit/backup/v1')
 const CHECK = 'cashkit backup key check'
 
-/** The secret-bearing fields of each collection: every one is re-sealed, none travels in the clear. */
+/**
+ * The secret-bearing fields of each collection: every one is re-sealed, none
+ * travels in the clear. A dotted path reaches into a nested object; `[]`
+ * applies to every element of an array.
+ */
 export const SEALED_FIELDS: Readonly<Partial<Record<Collection, readonly string[]>>> = {
-  holdings: ['cashSecret', 'pendingCashSecret', 'pendingDestinationCashSecret', 'pendingThrowawayKey', 'throwawayKey'],
+  holdings: ['cashSecret', 'throwawayKey'],
   handoffs: ['handoff'],
-  connections: ['uri'],
+  connections: ['uri', 'connection', 'secret', 'circle.hubConnection', 'rotation.newSecret'],
   identity: ['priv'],
-  pendingJoins: ['connectionSecret'],
+  pendingJoins: ['connectionSecret', 'hubConnection'],
+  pendingCalls: ['authorizer.authorizerKey', 'authorizer.buyerKey', 'outputs[].destination.secret', 'outputs[].destination.key'],
+  pendingRecoveries: ['newSecret'],
 }
 
 /** Collections that carry value or a way to reach it: what makes a backup stale. */
-const VALUE_BEARING: readonly Collection[] = ['holdings', 'handoffs', 'connections', 'identity', 'pendingJoins']
+const VALUE_BEARING: readonly Collection[] = ['holdings', 'handoffs', 'connections', 'identity', 'pendingJoins', 'pendingCalls', 'pendingRecoveries']
+
+/** The collections a backup carries: everything but this store's local ones (device, derived ids, hubs). */
+const EXPORTED: readonly Collection[] = COLLECTIONS.filter((c) => !LOCAL_ONLY.includes(c))
+
+/** Applies `f` to every value at a dotted path (with `[]` for arrays) in a copy of `row`. */
+async function mapPath(row: Record<string, unknown>, path: string, f: (v: unknown) => Promise<unknown>): Promise<Record<string, unknown>> {
+  const [head, ...rest] = path.split('.')
+  const arr = head!.endsWith('[]')
+  const key = arr ? head!.slice(0, -2) : head!
+  const v = row[key]
+  if (v === undefined || v === null) return row
+  const step = async (x: unknown) => (rest.length === 0 ? f(x) : x !== null && typeof x === 'object' ? mapPath({ ...(x as Record<string, unknown>) }, rest.join('.'), f) : x)
+  if (arr) return Array.isArray(v) ? { ...row, [key]: await Promise.all(v.map(step)) } : row
+  return { ...row, [key]: await step(v) }
+}
 
 export interface BackupFile {
   readonly format: typeof BACKUP_FORMAT
@@ -78,19 +99,16 @@ export async function exportBackup(ctx: Ctx, passphrase: string, o: { logN?: num
   const key = deriveKey(passphrase, salt, logN)
   const snapshot = await ctx.read(async (t) => {
     const out: Partial<Record<Collection, unknown[]>> = {}
-    for (const c of COLLECTIONS) out[c] = await t.list(c)
+    for (const c of EXPORTED) out[c] = await t.list(c)
     return out
   })
   const collections: Partial<Record<Collection, unknown[]>> = {}
-  for (const c of COLLECTIONS) {
+  for (const c of EXPORTED) {
     const fields = SEALED_FIELDS[c] ?? []
     const rows: unknown[] = []
     for (const r of snapshot[c] ?? []) {
-      const row = { ...(r as Record<string, unknown>) }
-      for (const f of fields) {
-        const v = row[f] as Sealed | undefined
-        if (v !== undefined) row[f] = { sealed: seal(key, await ctx.deps.vault.open(v), ctx.random) }
-      }
+      let row = { ...(r as Record<string, unknown>) }
+      for (const f of fields) row = await mapPath(row, f, async (v) => ({ sealed: seal(key, await ctx.deps.vault.open(v as Sealed), ctx.random) }))
       rows.push(row)
     }
     collections[c] = rows
@@ -138,6 +156,7 @@ export async function importBackup(ctx: Ctx, text: string, passphrase: string): 
   }
   if (file?.format !== BACKUP_FORMAT) throw new CashkitError('invalid_input', 'this is not a cashkit backup')
   if (file.version > BACKUP_VERSION) throw new CashkitError('usage', `this backup was written by a newer cashkit (version ${file.version}); upgrade to import it`)
+  if (file.version < BACKUP_VERSION) throw new CashkitError('usage', `this backup was written by an older cashkit (version ${file.version}), whose wallet format this one does not read`)
   if (file.kdf?.name !== 'scrypt' || typeof file.kdf.salt !== 'string') throw new CashkitError('invalid_input', 'this backup has no usable key parameters')
   const key = deriveKey(passphrase, base64.decode(file.kdf.salt), file.kdf.logN)
   try {
@@ -146,22 +165,23 @@ export async function importBackup(ctx: Ctx, text: string, passphrase: string): 
     throw new CashkitError('auth', 'wrong passphrase for this backup')
   }
   const rows: Partial<Record<Collection, Record<string, unknown>[]>> = {}
-  for (const c of COLLECTIONS) {
+  for (const c of EXPORTED) {
     const fields = SEALED_FIELDS[c] ?? []
     const out: Record<string, unknown>[] = []
     for (const r of file.collections[c] ?? []) {
-      const row = { ...(r as Record<string, unknown>) }
+      let row = { ...(r as Record<string, unknown>) }
       for (const f of fields) {
-        const v = row[f] as { sealed?: string } | undefined
-        if (v === undefined) continue
-        if (typeof v.sealed !== 'string') throw new CashkitError('invalid_input', `backup: ${c}.${f} is not sealed`)
-        let plain: Uint8Array
-        try {
-          plain = open(key, v.sealed)
-        } catch (err) {
-          throw new CashkitError('invalid_input', `backup: ${c}.${f} of ${String(row['id'])} is damaged`, { cause: err })
-        }
-        row[f] = await ctx.deps.vault.seal(plain)
+        row = await mapPath(row, f, async (raw) => {
+          const v = raw as { sealed?: string }
+          if (typeof v.sealed !== 'string') throw new CashkitError('invalid_input', `backup: ${c}.${f} is not sealed`)
+          let plain: Uint8Array
+          try {
+            plain = open(key, v.sealed)
+          } catch (err) {
+            throw new CashkitError('invalid_input', `backup: ${c}.${f} of ${String(row['id'])} is damaged`, { cause: err })
+          }
+          return ctx.deps.vault.seal(plain)
+        })
       }
       out.push(row)
     }
@@ -171,7 +191,7 @@ export async function importBackup(ctx: Ctx, text: string, passphrase: string): 
     for (const c of VALUE_BEARING) {
       if ((await t.list(c)).length > 0) throw new CashkitError('exists', 'this wallet is not empty; restore a backup into a fresh wallet')
     }
-    for (const c of COLLECTIONS) {
+    for (const c of EXPORTED) {
       if (c === 'meta') continue
       for (const r of rows[c] ?? []) {
         if (c === 'settings') {

@@ -1,9 +1,12 @@
-// The bolt11 fields a wallet needs: currency and amount from the HRP, plus
-// the payment hash a redeem claim proof binds. Port of nmilat
-// nip57/bolt11.go. The node signature is not checked, as in nmilat; the
-// Hub pays the invoice and is the one that has to trust it.
+// The bolt11 fields a wallet needs: currency and amount from the HRP, the
+// payment hash a redeem claim proof binds, the creation time and expiry,
+// and the payee. Port of nmilat nip57/bolt11.go, plus the payee and expiry.
+// The node signature is not checked; the payee is the `n` field when the
+// invoice carries one, else the key its signature recovers to.
+import { secp256k1 } from '@noble/curves/secp256k1.js'
+import { sha256 } from '@noble/hashes/sha2.js'
 import { bech32Decode, convertBits } from './bech32.js'
-import { fromUtf8, toHex } from './bytes.js'
+import { concatBytes, fromUtf8, toHex, utf8 } from './bytes.js'
 import { CoreError } from './errors.js'
 
 export interface Bolt11Invoice {
@@ -17,9 +20,20 @@ export interface Bolt11Invoice {
   readonly descriptionHash: string
   /** The `p` field (hex). Always present. */
   readonly paymentHash: string
+  /** Creation time, unix seconds. */
+  readonly timestamp: number
+  /** The `x` field, seconds; 3600 when absent (BOLT 11). */
+  readonly expirySeconds: number
+  /** The payee node's compressed key (66 hex): the `n` field, else recovered from the signature; undefined when neither works. */
+  readonly payee?: string
 }
 
+/** When the invoice expires, unix seconds. */
+export const invoiceExpiresAt = (i: Pick<Bolt11Invoice, 'timestamp' | 'expirySeconds'>): number => i.timestamp + i.expirySeconds
+
 const TIMESTAMP_WORDS = 7
+const DEFAULT_EXPIRY = 3600
+const PAYEE_FIELD_WORDS = 53
 const SIGNATURE_WORDS = 104
 const HASH_FIELD_WORDS = 52
 const MAX_INT64 = (1n << 63n) - 1n
@@ -50,6 +64,35 @@ function amountFromHrp(amountPart: string): bigint {
   // nmilat multiplies in int64 and wraps; cashkit refuses instead.
   if (millis > MAX_INT64) throw fail('amount too large')
   return millis
+}
+
+/** A big-endian number of 5-bit words. */
+function wordsInt(words: Uint8Array): number {
+  let n = 0
+  for (const w of words) n = n * 32 + w
+  return n
+}
+
+function payeeField(words: Uint8Array): string | undefined {
+  if (words.length !== PAYEE_FIELD_WORDS) return undefined
+  try {
+    const b = convertBits(words, 5, 8, false)
+    return b.length === 33 && (b[0] === 2 || b[0] === 3) ? toHex(b) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** The key the signature recovers to over sha256(hrp ‖ data), else undefined. */
+function recoverPayee(hrp: string, data: Uint8Array, sigWords: Uint8Array): string | undefined {
+  try {
+    const sig = convertBits(sigWords, 5, 8, false)
+    if (sig.length !== 65 || sig[64]! > 3) return undefined
+    const digest = sha256(concatBytes(utf8(hrp), convertBits(data, 5, 8, true)))
+    return toHex(secp256k1.recoverPublicKey(concatBytes(Uint8Array.of(sig[64]!), sig.subarray(0, 64)), digest, { prehash: false }))
+  } catch {
+    return undefined
+  }
 }
 
 function hashHex(words: Uint8Array): string | undefined {
@@ -83,6 +126,8 @@ export function decodeBolt11(invoice: string): Bolt11Invoice {
   let paymentHash = ''
   let description = ''
   let descriptionHash = ''
+  let expirySeconds = DEFAULT_EXPIRY
+  let payee: string | undefined
   for (let i = 0; i + 3 <= fields.length; ) {
     const type = fields[i]!
     const len = fields[i + 1]! * 32 + fields[i + 2]!
@@ -104,9 +149,17 @@ export function decodeBolt11(invoice: string): Bolt11Invoice {
       case 23:
         descriptionHash = hashHex(data) ?? descriptionHash
         break
+      case 6:
+        expirySeconds = wordsInt(data)
+        break
+      case 19:
+        payee = payeeField(data) ?? payee
+        break
       default:
     }
   }
   if (paymentHash === '') throw fail('no payment hash')
-  return { currency, amountMillis, description, descriptionHash, paymentHash }
+  const timestamp = wordsInt(words.subarray(0, TIMESTAMP_WORDS))
+  payee ??= recoverPayee(hrp, words.subarray(0, words.length - SIGNATURE_WORDS), words.subarray(words.length - SIGNATURE_WORDS))
+  return { currency, amountMillis, description, descriptionHash, paymentHash, timestamp, expirySeconds, ...(payee !== undefined && { payee }) }
 }

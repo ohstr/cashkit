@@ -3,6 +3,7 @@
 // auditD_cli_occ_crossprocess_test.go where they cover the same behaviour.
 import { describe, expect, test } from 'vitest'
 import { ConcurrentUpdateError, type Storage } from '../src/wallet/index.js'
+import { COLLECTIONS } from '../src/wallet/model.js'
 
 export interface StorageFactory {
   readonly name: string
@@ -22,6 +23,19 @@ const list = (s: Storage) => s.tx('r', (t) => t.list('holdings')) as unknown as 
 
 export function storageContract(f: StorageFactory): void {
   describe(`Storage contract: ${f.name}`, () => {
+    test('every collection of the schema keeps its own rows (T-516)', async () => {
+      const s = await f.open()
+      for (const c of COLLECTIONS) {
+        if (c === 'activity') continue
+        await s.tx('rw', (t) => t.put(c, { id: 'same', version: 1, coll: c, amount: 1n } as never, 0))
+      }
+      for (const c of COLLECTIONS) {
+        if (c === 'activity') continue
+        const rows = (await s.tx('r', (t) => t.list(c))) as unknown as { coll: string; amount: bigint }[]
+        expect(rows).toEqual([{ id: 'same', version: 1, coll: c, amount: 1n }])
+      }
+      await f.close?.(s)
+    })
     test('put then get round-trips bigint, nested objects, arrays and sealed values', async () => {
       const s = await f.open()
       const r = row('h-1', 1, { amount: 9007199254740993n, sealed: { alg: 'none', data: 'ab' }, relayUrls: ['wss://a', 'wss://b'], nested: { at: 1, flag: true, none: null } })

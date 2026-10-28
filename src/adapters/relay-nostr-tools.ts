@@ -8,8 +8,8 @@
 // One SimplePool subscription per relay, so EOSE and CLOSED are reported per
 // relay, as the batch session needs (it publishes to a relay only after that
 // relay's EOSE, SD-34).
-import type { NostrEvent } from '../core/index.js'
-import type { Filter, RelayPool, SubscriptionHandlers } from '../client/index.js'
+import type { EventTemplate, NostrEvent } from '../core/index.js'
+import { fetchRelayInfo, type AuthSigner, type Filter, type RelayPool, type SubscriptionHandlers } from '../client/index.js'
 
 /** The slice of nostr-tools' SimplePool this needs (2.x). */
 export interface SimplePoolLike {
@@ -20,13 +20,43 @@ export interface SimplePoolLike {
       onevent?: (e: NostrEvent) => void
       oneose?: () => void
       onclose?: (reasons: { url: string; reason: string }[] | string[]) => void
+      onauth?: (t: EventTemplate) => Promise<NostrEvent>
     },
   ): { close(reason?: string): void }
-  publish(relays: string[], event: NostrEvent): Promise<string>[]
+  publish(relays: string[], event: NostrEvent, params?: { onauth?: (t: EventTemplate) => Promise<NostrEvent> }): Promise<string>[]
+}
+
+export interface NostrToolsPoolOptions {
+  /**
+   * Makes another SimplePool (`() => new SimplePool()`): with it, `isolated()`
+   * gives a pool with connections of its own, so the Cash Pocket can sign in
+   * to its relays without the app's other traffic riding that connection.
+   * Without it, the pocket does not authenticate.
+   */
+  readonly newPool?: () => SimplePoolLike
 }
 
 export class NostrToolsPool implements RelayPool {
-  constructor(private readonly pool: SimplePoolLike) {}
+  private signer: AuthSigner | undefined
+  /** A pool on a SimplePool of its own; present only with `newPool`. */
+  readonly isolated?: () => RelayPool
+  constructor(
+    private readonly pool: SimplePoolLike,
+    opts: NostrToolsPoolOptions = {},
+  ) {
+    const make = opts.newPool
+    if (make !== undefined) this.isolated = () => new NostrToolsPool(make(), opts)
+  }
+
+  /** NIP-42: nostr-tools answers a relay's AUTH challenge with `sign` (passed as `onauth`). */
+  setAuth(sign: AuthSigner | undefined): void {
+    this.signer = sign
+  }
+
+  private get auth(): { onauth?: (t: EventTemplate) => Promise<NostrEvent> } {
+    const sign = this.signer
+    return sign !== undefined ? { onauth: (t) => sign(t) } : {}
+  }
 
   subscribe(relays: readonly string[], filter: Filter, h: SubscriptionHandlers): () => void {
     const subs = relays.map((relay) =>
@@ -37,17 +67,25 @@ export class NostrToolsPool implements RelayPool {
           const first = reasons[0]
           h.onClose?.(relay, typeof first === 'string' ? first : (first?.reason ?? 'closed'))
         },
+        ...this.auth,
       }),
     )
     return () => subs.forEach((s) => s.close())
   }
 
+  /** The relay's NIP-11 document over HTTP(S), or undefined. */
+  relayInfo(relay: string): Promise<unknown> {
+    return fetchRelayInfo(relay)
+  }
+
+  /** A refusal keeps the relay's own OK message verbatim (nostr-tools rejects with it as the error's message). */
   async publish(relay: string, e: NostrEvent): Promise<{ ok: boolean; message?: string }> {
     try {
-      const reason = await this.pool.publish([relay], e)[0]
+      const reason = await this.pool.publish([relay], e, this.auth)[0]
       return { ok: true, ...(reason !== undefined && reason !== '' && { message: reason }) }
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : String(err) }
+      const m = err instanceof Error ? err.message : typeof err === 'string' ? err : undefined
+      return { ok: false, ...(m !== undefined && m !== '' && { message: m }) }
     }
   }
 }

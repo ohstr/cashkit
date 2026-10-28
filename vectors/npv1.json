@@ -1,0 +1,59 @@
+{
+  "description": "NIP-IC npv1 challenge tokens: TLV 0 = sha256 over the pubkey and the pre-auth code, bech32 under npv1.",
+  "source": "nipIC/challenge.go NewChallengeToken, ChallengeToken.Verify; nipIC/evaluate_test.go (K-NPV-1)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "token": [
+    {
+      "id": "K-NPV-1",
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "code": "123456",
+      "hash": "b577731d8cea3eade64af38643bddd9c17d13718b1421dc7618ea3d74cdb629a",
+      "token": "npv11qqst2amnrkxw504due908pjrhhwec973xuvtzssacascag7hfndk9xsn78h2f"
+    },
+    {
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "code": "000000",
+      "hash": "e24f9bfb3ff25dfaa7a06cc624f96e07a84200a13563866b1cebf5546d84362e",
+      "token": "npv11qqswynumlvllyh0657sxe33yl9hq02zzqzsn2cuxdvwwha25dkzrvtsf29erq"
+    },
+    {
+      "pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "code": "123456",
+      "hash": "4116736e97d503b770920f2edb5388000754bd23b2050d03e5ed5164e5060b30",
+      "token": "npv11qqsyz9nnd6ta2qahwzfq7tkm2wyqqp65h53mypgdq0j765tyu5rqkvqmaa9d9"
+    },
+    {
+      "pubkey": "zz",
+      "code": "123456",
+      "error": "nipIC: decode pubkey: encoding/hex: invalid byte: U+007A 'z'"
+    }
+  ],
+  "verify": [
+    {
+      "name": "K-NPV-1",
+      "token": "npv11qqst2amnrkxw504due908pjrhhwec973xuvtzssacascag7hfndk9xsn78h2f",
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "code": "123456"
+    },
+    {
+      "name": "changed code",
+      "token": "npv11qqst2amnrkxw504due908pjrhhwec973xuvtzssacascag7hfndk9xsn78h2f",
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "code": "123456 ",
+      "error": "nipIC: challenge does not match pubkey/pre-auth code"
+    },
+    {
+      "name": "another pubkey",
+      "token": "npv11qqst2amnrkxw504due908pjrhhwec973xuvtzssacascag7hfndk9xsn78h2f",
+      "pubkey": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "code": "123456",
+      "error": "nipIC: challenge does not match pubkey/pre-auth code"
+    },
+    {
+      "name": "uppercase token",
+      "token": "NPV11QQST2AMNRKXW504DUE908PJRHHWEC973XUVTZSSACASCAG7HFNDK9XSN78H2F",
+      "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "code": "123456"
+    }
+  ]
+}

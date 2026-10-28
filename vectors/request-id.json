@@ -1,0 +1,112 @@
+{
+  "description": "request_id: 32 to 64 lowercase hex characters of even length; the derived id of a re-placed call is sha256(\"retry:\" || replaced id).",
+  "source": "nipcash/request_id.go; nipcash/deadline_lookup_test.go (K-RID-1, K-DID-1..2)",
+  "nmilat": "github.com/ohstr/nmilat devel",
+  "valid": [
+    {
+      "id": "K-RID-1",
+      "input": "00112233445566778899aabbccddeeff",
+      "valid": true
+    },
+    {
+      "id": "K-RID-1 (31 chars)",
+      "input": "00112233445566778899aabbccddeef",
+      "valid": false
+    },
+    {
+      "id": "K-RID-1 (uppercase)",
+      "input": "00112233445566778899AABBCCDDEEFF",
+      "valid": false
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false
+    },
+    {
+      "input": "gggggggggggggggggggggggggggggggg",
+      "valid": false
+    },
+    {
+      "input": "",
+      "valid": false
+    }
+  ],
+  "derived": [
+    {
+      "id": "K-DID-1",
+      "replaced": "00112233445566778899aabbccddeeff",
+      "derived": "1f0d61013abef39098ffb0a7c72008a17099c52aca3d5ee8d6ce8de065db5d37"
+    },
+    {
+      "id": "K-DID-2",
+      "replaced": "1f0d61013abef39098ffb0a7c72008a17099c52aca3d5ee8d6ce8de065db5d37",
+      "derived": "c4c6d6c4893cca6283c95ea32a0b6bef6be796804e62e21e30113b63c676457e"
+    },
+    {
+      "replaced": "XYZ",
+      "error": "nipcash: \"XYZ\" is not a request_id"
+    }
+  ],
+  "requiresRequestId": [
+    {
+      "method": "mint_cash",
+      "value": false
+    },
+    {
+      "method": "cash_redeem",
+      "value": false
+    },
+    {
+      "method": "cash_transfer",
+      "value": true
+    },
+    {
+      "method": "cash_consolidate",
+      "value": true
+    },
+    {
+      "method": "cash_status",
+      "value": false
+    },
+    {
+      "method": "cash_lookup",
+      "value": false
+    },
+    {
+      "method": "cash_order",
+      "value": true
+    },
+    {
+      "method": "cash_withdraw_quote",
+      "value": false
+    },
+    {
+      "method": "cash_withdraw",
+      "value": true
+    },
+    {
+      "method": "create_circle_wallet",
+      "value": false
+    },
+    {
+      "method": "pay_invoice",
+      "value": false
+    },
+    {
+      "method": "",
+      "value": false
+    }
+  ]
+}

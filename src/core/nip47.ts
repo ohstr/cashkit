@@ -4,7 +4,7 @@
 // is reported as such rather than spoken to.
 import { fromUtf8, goFields, utf8 } from './bytes.js'
 import { CoreError } from './errors.js'
-import { decodeGoStruct } from './gojson.js'
+import { decodeGoStruct, parseJSONStrictIntegers } from './gojson.js'
 import { toJSONText } from './json.js'
 import { getPublicKey, type NostrEvent, type UnsignedEvent } from './nip01.js'
 import { decrypt, encrypt, getConversationKey } from './nip44.js'
@@ -14,6 +14,10 @@ export const PAIRING_URI_SCHEME = 'nostr+walletconnect'
 export const KIND_NWC_INFO = 13194
 export const KIND_NWC_REQUEST = 23194
 export const KIND_NWC_RESPONSE = 23195
+/** A wallet's notification, NIP-04 encrypted. */
+export const KIND_NWC_NOTIFICATION_NIP04 = 23196
+/** A wallet's notification, NIP-44 encrypted. */
+export const KIND_NWC_NOTIFICATION = 23197
 export const ENCRYPTION_NIP04 = 'nip04'
 export const ENCRYPTION_NIP44_V2 = 'nip44_v2'
 
@@ -199,7 +203,10 @@ export function nwcRequestEvent(p: {
   /** nip44_v2: the 32-byte nonce; nip04: the 16-byte IV. For vectors only. */
   nonce?: Uint8Array
   encryption?: NWCEncryption
+  /** NIP-40 `expiration` (unix seconds): the call's deadline, which `mint_cash` requires. */
+  expiration?: number
 }): UnsignedEvent {
+  if (p.expiration !== undefined && (!Number.isSafeInteger(p.expiration) || p.expiration < 0)) throw new CoreError('invalid_request', 'expiration must be unix seconds')
   const plaintext = toJSONText(p.params === undefined || p.params === null ? { method: p.method } : { method: p.method, params: p.params })
   const encryption = p.encryption ?? ENCRYPTION_NIP44_V2
   let content: string
@@ -216,8 +223,34 @@ export function nwcRequestEvent(p: {
     tags: [
       ['p', p.walletPubkey],
       ['encryption', encryption],
+      ...(p.expiration !== undefined ? [['expiration', String(p.expiration)]] : []),
     ],
     content,
+  }
+}
+
+/** NIP-47's `network` values (NIP-CASH §Network and Chain). */
+export const NETWORKS = ['mainnet', 'testnet', 'signet', 'regtest'] as const
+export type Network = (typeof NETWORKS)[number]
+
+export const validNetwork = (s: unknown): s is Network => typeof s === 'string' && (NETWORKS as readonly string[]).includes(s)
+
+/**
+ * `network` and `chain` from a `get_info` result. An unknown or non-string
+ * `network` is kept raw and flagged (`networkUnknown`), never thrown: a test
+ * network only warns, it blocks nothing by itself.
+ */
+export function readNetworkChain(info: unknown): { readonly network?: Network; readonly networkRaw?: unknown; readonly networkUnknown: boolean; readonly testNetwork: boolean; readonly chain?: string } {
+  const o = info !== null && typeof info === 'object' && !Array.isArray(info) ? (info as Record<string, unknown>) : {}
+  const raw = o['network']
+  const chain = typeof o['chain'] === 'string' && o['chain'] !== '' ? (o['chain'] as string) : undefined
+  const known = validNetwork(raw)
+  return {
+    ...(known && { network: raw }),
+    ...(raw !== undefined && !known && { networkRaw: raw }),
+    networkUnknown: raw !== undefined && !known,
+    testNetwork: known && raw !== 'mainnet',
+    ...(chain !== undefined && { chain }),
   }
 }
 
@@ -238,6 +271,40 @@ export interface NWCResponse {
  * that do not re-tag (pass the scheme the request used). Exactly one `e`
  * tag is required, and at most one `d` tag.
  */
+export interface NWCNotification {
+  /** e.g. `payment_received`, or a NIP-CW `rotation_pending`, `wallet_frozen`. */
+  readonly type: string
+  readonly notification: Readonly<Record<string, unknown>>
+}
+
+/**
+ * Decrypts a wallet notification (kind 23197 under NIP-44, 23196 under
+ * NIP-04) sent to this connection. The caller checks the author is the
+ * wallet and the signature is valid.
+ */
+export function parseNotificationEvent(e: NostrEvent, connectionSecret: Uint8Array): NWCNotification {
+  if (e.kind !== KIND_NWC_NOTIFICATION && e.kind !== KIND_NWC_NOTIFICATION_NIP04) throw fail(`invalid kind ${e.kind}, expected a notification`)
+  let plaintext: string
+  try {
+    plaintext = e.kind === KIND_NWC_NOTIFICATION_NIP04 ? nip04.decrypt(e.content, connectionSecret, e.pubkey) : decrypt(e.content, getConversationKey(connectionSecret, e.pubkey))
+  } catch {
+    throw fail('decrypt notification failed')
+  }
+  let body: unknown
+  try {
+    body = JSON.parse(plaintext)
+  } catch {
+    throw fail('notification is not JSON')
+  }
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw fail('notification is not an object')
+  const o = body as Record<string, unknown>
+  const type = o['notification_type']
+  const n = o['notification']
+  if (typeof type !== 'string' || type === '') throw fail('notification_type is required')
+  if (n === null || typeof n !== 'object' || Array.isArray(n)) throw fail('notification must be an object')
+  return { type, notification: n as Record<string, unknown> }
+}
+
 export function parseResponseEvent(e: NostrEvent, connectionSecret: Uint8Array, fallbackEncryption = ENCRYPTION_NIP44_V2): NWCResponse {
   if (e.kind !== KIND_NWC_RESPONSE) throw fail(`invalid kind ${e.kind}, expected ${KIND_NWC_RESPONSE}`)
   const eTag = uniqueTag(e, 'e')
@@ -256,7 +323,7 @@ export function parseResponseEvent(e: NostrEvent, connectionSecret: Uint8Array, 
   }
   let body: unknown
   try {
-    body = JSON.parse(plaintext)
+    body = parseJSONStrictIntegers(plaintext)
   } catch {
     throw fail('response is not JSON')
   }
