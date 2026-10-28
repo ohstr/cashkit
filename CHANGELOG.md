@@ -289,7 +289,8 @@
   `cash_lookup`) and refuses a malformed one; `bearerShapeOK` judges the
   served method.
 - A proof verifies only with an `expiration` equal to the envelope's
-  `not_after`, empty content and hex `d`, `h` and `ph`.
+  `not_after`, empty content, hex `d`, `h` and `ph`, and one string in each
+  binding tag.
 - Breaking: an announced `max_bytes` above 65535 is kept as announced;
   `effectiveLimits` reads it as 65535, and envelopes are sized against that.
 - `parsePowRejection` reads the difficulty from any `pow:` refusal naming a

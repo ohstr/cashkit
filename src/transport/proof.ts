@@ -65,7 +65,9 @@ function verify(wantKind: number, proof: string, want: ProofBinding, now: number
 
   const got = new Map<string, string>()
   for (const tag of ev.tags) {
-    if (tag.length < 2 || !(REQUIRED as readonly string[]).includes(tag[0]!)) continue
+    if (tag.length === 0 || !(REQUIRED as readonly string[]).includes(tag[0]!)) continue
+    // Each binding tag's value is one string (NIP-CASH §Item Proofs).
+    if (tag.length !== 2) throw new TransportError('proof_malformed', `${tag[0]} tag is not one string`)
     if (got.has(tag[0]!)) throw new TransportError('proof_malformed', `duplicate ${tag[0]} tag`)
     if (HEX_TAGS.has(tag[0]!) && !/^[0-9a-f]{64}$/.test(tag[1]!)) throw new TransportError('proof_malformed', `${tag[0]} must be 64 lowercase hex characters`)
     got.set(tag[0]!, tag[1]!)
