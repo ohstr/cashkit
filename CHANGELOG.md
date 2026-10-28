@@ -4,35 +4,35 @@
 
 - Adds the holding statuses `expired` and `reclaimed` to the exported
   `HoldingStatus`, and `StatusOutcome.ends`; code that switches on a status
-  must accept the new values.
+  must accept the new values. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - Fixes a bill whose slice its sender removed staying held and counted: a
   `NOT_FOUND` to the holding's own key or cash secret, from any method, now
   ends it `reclaimed`, and a tombstone ends it by its reason. Another
   device's final pocket state is adopted on a matching recheck instead of
-  being reported as a conflict.
+  being reported as a conflict. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - Places a lost withdrawal again automatically on the device that placed
   it, under the derived id with the same quote, while no call of it was
   refused `quote_expired` or `quote_invalid`; after `REQUEST_REUSED` it
-  still asks `confirmWithdrawReplace`.
+  still asks `confirmWithdrawReplace`. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - A presumed-paid redeem is re-read by every `settle()` and goes back to
-  held when its row reads unclaimed again.
+  held when its row reads unclaimed again. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - A cancelled payout whose re-mint was already gone is recorded as
   `remintGone` and told once in the `withdrawCancelled` notice; nothing waits
-  for an answer.
+  for an answer. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - `settle()` turns bills a merge left on its one-time key back into cash
-  notes (`report.unmerged`); such a bill is still never withdrawn.
+  notes (`report.unmerged`); such a bill is still never withdrawn. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - A Cash Pocket with `auth` signs in on a pool of its own (`authPool`, or the
   new `RelayPool.isolated()`), never on the shared one; `NostrToolsPool`
-  takes a `newPool` option for it.
+  takes a `newPool` option for it. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - The pocket sync records the rev another device wrote for a bill held here,
-  so this device's spend is written above it.
+  so this device's spend is written above it. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - A queued recommendation or report is published only by the identity that
-  queued it (`author`).
+  queued it (`author`). ([#44](https://github.com/ohstr/cashkit/pull/44))
 - `circles.memberRequestFor` stores a rotate's new key, sealed, and
   `circles.recover(hub)` finds it without the secret; it asks the
   `confirmUnverified` handler; a `rotation_cancelled` for another key leaves
   the pending rotation alone; another device's unsent join is looked up once
-  nothing can still arrive.
+  nothing can still arrive. ([#44](https://github.com/ohstr/cashkit/pull/44))
 
 
 - Reads and writes the token's signature scheme (TLV 8) and verifies mint
@@ -284,28 +284,28 @@
   `servableItems` applies the per-item serving checks. `decodeResponse` is
   now the strict single-event reading; the lenient chunk reading the session
   uses is `decodeResponseChunk`. Responses write `results` last (`[]` for a
-  reply of omissions) and pad under the 65535 ceiling.
+  reply of omissions) and pad under the 65535 ceiling. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - `servingMethod` classifies a `cash_withdraw` cancel (served as
   `cash_lookup`) and refuses a malformed one; `bearerShapeOK` judges the
-  served method.
+  served method. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - A proof verifies only with an `expiration` equal to the envelope's
   `not_after`, empty content, hex `d`, `h` and `ph`, and one string in each
-  binding tag.
+  binding tag. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - `validateEnvelope` also checks every item's bill proof against the item,
-  and refuses an item without one.
+  and refuses an item without one. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - Breaking: an announced `max_bytes` above 65535 is kept as announced;
-  `effectiveLimits` reads it as 65535, and envelopes are sized against that.
+  `effectiveLimits` reads it as 65535, and envelopes are sized against that. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - `parsePowRejection` reads the difficulty from any `pow:` refusal naming a
-  positive integer (`pow:20`).
-- `cashLookupParams` refuses a deadline of 0.
+  positive integer (`pow:20`). ([#44](https://github.com/ohstr/cashkit/pull/44))
+- `cashLookupParams` refuses a deadline of 0. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - A prepared join builds one item only (`claimPreparedJoin`,
-  `preparedJoinUsed`).
+  `preparedJoinUsed`). ([#44](https://github.com/ohstr/cashkit/pull/44))
 - `parseAttestation` is strict: repeated tags, non-empty content, non-hex
   `d` or `p`, an invalid platform name, a malformed `expiration` and evidence
   that is not version 1 with an `auth_type` (and, for `public_post`, its
-  proof fields) are refused.
+  proof fields) are refused. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - A `cash_transfer` or `cash_consolidate` reply carrying a secret is
-  refused.
+  refused. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - Adds `ownRow` (the caller's row, taken from the credential, a widened
   scope-mine answer refused) and `claimable` (claimed, withdrawn or expired).
   ([#33](https://github.com/ohstr/cashkit/pull/33))
@@ -459,7 +459,7 @@
   `checkClaim` throws `status_unreadable`; a redeem or withdrawal is refused
   before anything is sent (`usage`/`status_unreadable`), a send still works,
   and `settle()` never settles a redeeming bill on that answer. Adds
-  `statusUnreadable`.
+  `statusUnreadable`. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - Circles: `circles.watch(name)` listens for the wallet's NIP-CW
   notifications and applies each, on the current key and, while a rotation
   this device asked for is pending, on the new key, which alone receives
@@ -468,11 +468,11 @@
   passes its `completes_at`. `circles.refresh(name)` asks the Hub over the
   current key whether the wallet is frozen and lifts the local mark after an
   unfreeze, which has no notification; it is refused while this device's
-  rotation is pending unless `cancelRotation` is set.
+  rotation is pending unless `cancelRotation` is set. ([#44](https://github.com/ohstr/cashkit/pull/44))
 - Circles: `circles.memberRequestFor(circlehub1, walletPubkey, action)`
   signs a member request for a wallet this device does not hold, for a
   member who lost the device that did; a rotate returns the new key's
-  secret for `circles.recover`.
+  secret for `circles.recover`. ([#44](https://github.com/ohstr/cashkit/pull/44))
 
 ## [0.1.0-rc.2]
 
