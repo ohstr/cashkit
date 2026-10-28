@@ -291,6 +291,8 @@
 - A proof verifies only with an `expiration` equal to the envelope's
   `not_after`, empty content, hex `d`, `h` and `ph`, and one string in each
   binding tag.
+- `validateEnvelope` also checks every item's bill proof against the item,
+  and refuses an item without one.
 - Breaking: an announced `max_bytes` above 65535 is kept as announced;
   `effectiveLimits` reads it as 65535, and envelopes are sized against that.
 - `parsePowRejection` reads the difficulty from any `pow:` refusal naming a
