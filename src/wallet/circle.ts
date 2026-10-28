@@ -491,6 +491,7 @@ export async function recoverCircle(ctx: Ctx, hubString: string, newConnectionSe
   if (newConnectionSecret !== undefined) return recoverWithKey(ctx, hubString, newConnectionSecret, o)
   // No secret given: every rotate key memberRequestFor stored for a wallet of this circle, newest first.
   const hubPubkey = decodeCircleHubPubkey(hubString)
+  // oxlint-disable-next-line unicorn/no-array-sort -- sorts the fresh array filter returned
   const stored = (await ctx.read((t) => t.list('pendingRecoveries'))).filter((r) => r.hubPubkey === hubPubkey).sort((a, b) => b.requestedAt - a.requestedAt)
   if (stored.length === 0) throw new CashkitError('usage', 'no rotate key is stored for this circle on this device: pass the new connection secret', { reason: 'no_recovery_key' })
   let pending: RecoverResult | undefined
