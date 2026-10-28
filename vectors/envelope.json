@@ -1628,11 +1628,54 @@
             "method": "cash_redeem",
             "params": "{\"cash_secret\":\"ab\"}",
             "proof": null,
-            "bill_proof": "{\"id\":\"bb\",\"kind\":23193,\"tags\":[]}"
+            "bill_proof": "{\"id\":\"0573cb4edf538f87b67781c3ea67082c697017a6ad7a7272c0a57cdbd06f49f7\",\"pubkey\":\"56b328b30c8bf5839e24058747879408bdb36241dc9c2e7c619faa12b2920967\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"6e287d72d1fa23edc3ce13bec8a4342e156cfcaca7781803b1216b0c8c4647be\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"e3ff4518c01f5dd4188b1ac0ecd286488e83299ea18a3959578add26d4a82b9fd80c69f66824a7fb41a48bd7a92ecf9d29e3102a8294c8ff8ce7013724f0854f\"}"
           }
         ],
         "pad": ""
       }
+    },
+    {
+      "name": "proofless cash_status on its bill proof",
+      "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+      "now": 1760000000,
+      "envelope": {
+        "not_after": 1760000060,
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "reply_to": "2222222222222222222222222222222222222222222222222222222222222222",
+        "items": [
+          {
+            "id": "b",
+            "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "method": "cash_status",
+            "params": "{}",
+            "proof": null,
+            "bill_proof": "{\"id\":\"95c9350a688805de643b47804c7d5a40298dab43a3324b6bebc6bc7bbb212342\",\"pubkey\":\"56b328b30c8bf5839e24058747879408bdb36241dc9c2e7c619faa12b2920967\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_status\"],[\"ph\",\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"e74c8371fd3229e05fc4b4266f6504fdfa4d6a10e32df29c24e2b9b477f1025d9782497668027b6cd76ae86c1f78adbe25735b39854fa096feced1aad42d5949\"}"
+          }
+        ],
+        "pad": ""
+      }
+    },
+    {
+      "name": "bill proof for other params",
+      "hub": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+      "now": 1760000000,
+      "envelope": {
+        "not_after": 1760000060,
+        "nonce": "1111111111111111111111111111111111111111111111111111111111111111",
+        "reply_to": "2222222222222222222222222222222222222222222222222222222222222222",
+        "items": [
+          {
+            "id": "b",
+            "target": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "method": "cash_status",
+            "params": "{\"scope\":\"all\"}",
+            "proof": null,
+            "bill_proof": "{\"id\":\"95c9350a688805de643b47804c7d5a40298dab43a3324b6bebc6bc7bbb212342\",\"pubkey\":\"56b328b30c8bf5839e24058747879408bdb36241dc9c2e7c619faa12b2920967\",\"created_at\":1760000000,\"kind\":23193,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_status\"],[\"ph\",\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"e74c8371fd3229e05fc4b4266f6504fdfa4d6a10e32df29c24e2b9b477f1025d9782497668027b6cd76ae86c1f78adbe25735b39854fa096feced1aad42d5949\"}"
+          }
+        ],
+        "pad": ""
+      },
+      "error": "item \"b\": bill proof: transport: item proof is bound to different params"
     },
     {
       "name": "bearer item with a proof",
