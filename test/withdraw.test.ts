@@ -319,14 +319,24 @@ describe('wallet.withdraw: a cancelled payout', () => {
     expect(() => parsePayout(base)).toThrow(expect.objectContaining({ code: 'invalid_payload' }))
     expect(() => parsePayout({ ...base, new_wallet_pubkey: 'ab'.repeat(32) })).toThrow(expect.objectContaining({ code: 'invalid_payload' }))
   })
-  test('whose re-minted bill is a tombstone closes with a notice for the user', async () => {
+  test('whose re-minted bill is a tombstone closes and tells the user once, asking nothing', async () => {
     const { h, hub, id } = await setup()
     const v = await h.wallet.withdraw.send(await h.wallet.withdraw.quote(id, PAYTO), { confirm: yes })
     const p = hub.only()
     hub.cancel(p)
-    p.newWallet = { pubkey: p.newWallet!.pubkey, token: { status: 'spent' } as unknown as string }
-    expect((await h.wallet.withdraw.refresh(v.id)).phase).toBe('cancelled')
+    p.newWallet = { pubkey: p.newWallet!.pubkey, token: { status: 'spent', reason: 'redeemed' } as unknown as string }
+    const seen: unknown[] = []
+    h.wallet.on('confirm', (r) => {
+      seen.push(r)
+      return false
+    })
+    const after = await h.wallet.withdraw.refresh(v.id)
+    expect(after.phase).toBe('cancelled')
+    expect(after.remintGone).toEqual({ reason: 'redeemed' })
     expect(await h.wallet.holdings()).toEqual([])
-    expect(await h.wallet.pendingCalls.list()).toEqual([expect.objectContaining({ id: v.id, needsUser: 'remint_gone' })])
+    // A notice, told once; nothing waits for the user.
+    expect(await h.wallet.pendingCalls.list()).toEqual([])
+    await h.wallet.withdraw.refresh(v.id)
+    expect(seen).toEqual([expect.objectContaining({ type: 'withdrawCancelled', id: v.id, remintGone: { reason: 'redeemed' } })])
   })
 })

@@ -152,6 +152,13 @@ export interface WithdrawalView {
   readonly returnsBy?: number
   readonly remintHoldingId?: string
   readonly txCheck?: 'ok' | 'mismatch'
+  /**
+   * `remint_gone`: the payout was cancelled, but its re-minted bill was
+   * already destroyed (a tombstone, with its reason when the Hub gave one)
+   * when this wallet learned of it, so nothing came back. Informational: the
+   * call is closed and needs no answer.
+   */
+  readonly remintGone?: { readonly reason?: string }
 }
 
 const quotes = new Map<string, { view: WithdrawQuoteView; quote: WithdrawQuote; holding: Holding; terms: WithdrawTerms; used: boolean; sendBefore?: number }>()
@@ -451,13 +458,16 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
     sawConfirmed: (prev.sawConfirmed ?? false) || p.state === 'confirmed' || p.state === 'final',
     ...(txCheck !== undefined && { txCheck }),
     ...((remintId ?? prev.remintHoldingId) !== undefined && { remintHoldingId: (remintId ?? prev.remintHoldingId)! }),
+    // A cancelled payout whose re-minted bill is already a tombstone brought nothing back: kept on the record, and the user is told once (a notice, no question).
+    ...(p.state === 'cancelled' && typeof p.newWalletToken === 'object' && { remintGone: { ...(p.newWalletToken.reason !== undefined && { reason: p.newWalletToken.reason }) } }),
+    ...(prev.remintGone !== undefined && { remintGone: prev.remintGone }),
     checkedAt: ctx.nowSeconds(),
   }
   await t.put('pendingCalls', { ...cur, withdrawal: record, state: 'open_withdraw', version: cur.version + 1 }, cur.version)
   if (finishedNow) {
     const done = await finishCall(t, call.id, 'applied')
     // A cancelled payout whose re-minted bill is already a tombstone brought nothing back: the user is told, not left with a silent close.
-    if (p.state === 'cancelled' && typeof p.newWalletToken !== 'string') await t.put('pendingCalls', { ...done, needsUser: 'remint_gone', version: done.version + 1 }, done.version)
+    void done
   }
   return remintId !== undefined ? { holdingIds: [remintId] } : {}
 }
@@ -532,6 +542,11 @@ const withdrawKind: CallKind = {
     const { holding } = await credentialOfCall(ctx, call)
     return { bill: billOf(holding), authorizer: await lookupAuth(ctx, call, holding) }
   },
+  async afterApply(ctx, callId) {
+    // A payout settled by a lookup (not by refresh) is noticed here: a cancel, and a re-mint that was already gone, are told once.
+    const c = await ctx.read((t) => t.get('pendingCalls', callId))
+    if (c !== undefined && c.withdrawal?.state === 'cancelled') noticeWithdrawal(ctx, withdrawalView(c))
+  },
 }
 
 registerCallKind('withdraw', withdrawKind)
@@ -604,7 +619,7 @@ function noticeWithdrawal(ctx: Ctx, v: WithdrawalView): WithdrawalView {
   const key = `${v.id}:${v.phase}`
   if (seen.has(key)) return v
   seen.add(key)
-  if (v.phase === 'cancelled') ctx.confirmations.notify({ type: 'withdrawCancelled', id: v.id, amountMillis: v.amountMillis, ...(v.remintHoldingId !== undefined && { remintHoldingId: v.remintHoldingId }) })
+  if (v.phase === 'cancelled') ctx.confirmations.notify({ type: 'withdrawCancelled', id: v.id, amountMillis: v.amountMillis, ...(v.remintHoldingId !== undefined && { remintHoldingId: v.remintHoldingId }), ...(v.remintGone !== undefined && { remintGone: v.remintGone }) })
   else if (v.phase === 'late_unsigned') ctx.confirmations.notify({ type: 'withdrawLate', id: v.id, signed: false, returnsBy: v.sentBy + CANCEL_GRACE })
   else ctx.confirmations.notify({ type: 'withdrawLate', id: v.id, signed: true, owed: true, cancelAvailableAt: v.sentBy + CANCEL_REQUEST_AFTER, canSendItMyself: true })
   return v
@@ -705,6 +720,7 @@ export function withdrawalView(call: PendingCall): WithdrawalView {
     ...(phase === 'late_unsigned' && { returnsBy: sentBy + CANCEL_GRACE }),
     ...(r?.remintHoldingId !== undefined && { remintHoldingId: r.remintHoldingId }),
     ...(r?.txCheck !== undefined && { txCheck: r.txCheck }),
+    ...(r?.remintGone !== undefined && { remintGone: r.remintGone }),
   }
 }
 

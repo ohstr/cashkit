@@ -360,12 +360,19 @@ export interface WithdrawalRecord {
   readonly sawConfirmed: boolean
   readonly txCheck?: 'ok' | 'mismatch'
   readonly remintHoldingId?: string
+  /** A cancelled payout whose re-minted bill was already a tombstone: nothing came back (`remint_gone`, a notice, never a question). */
+  readonly remintGone?: { readonly reason?: string }
   readonly checkedAt: number
 }
 
 export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
 export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced'
-/** `remint_gone`: a cancelled payout's re-minted bill was already destroyed when the wallet learned of it; nothing came back. */
+/**
+ * `remint_gone` is only read from rows stored by an earlier version: a
+ * cancelled payout whose re-mint is gone is now recorded on the withdrawal
+ * (`WithdrawalRecord.remintGone`) and told as a notice, never left waiting
+ * for the user.
+ */
 export type CallNeedsUser = 'confirm_replace' | 'replace_cap' | 'lookup_expired' | 'lookup_unanswered' | 'foreign_device' | 'refused' | 'receipt_invalid' | 'remint_gone'
 
 /**

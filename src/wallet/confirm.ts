@@ -67,8 +67,15 @@ export type ConfirmNotice =
   | { readonly type: 'expiringSoon'; readonly holdingId: string; readonly expiresAt: number }
   /** A withdrawal not broadcast by its send-by time. */
   | { readonly type: 'withdrawLate'; readonly id: string; readonly signed: boolean; readonly returnsBy?: number; readonly owed?: true; readonly cancelAvailableAt?: number; readonly canSendItMyself?: boolean }
-  /** A withdrawal cancelled by the Hub; its value came back as a new bill. */
-  | { readonly type: 'withdrawCancelled'; readonly id: string; readonly remintHoldingId?: string; readonly amountMillis: bigint }
+  /** A withdrawal cancelled by the Hub; its value came back as a new bill, unless `remintGone` says that bill was already gone. */
+  | {
+      readonly type: 'withdrawCancelled'
+      readonly id: string
+      readonly remintHoldingId?: string
+      readonly amountMillis: bigint
+      /** The re-minted bill was already gone (a tombstone, its reason when given): nothing came back. */
+      readonly remintGone?: { readonly reason?: string }
+    }
 
 export type ConfirmRequest = ConfirmQuestion | ConfirmNotice
 
