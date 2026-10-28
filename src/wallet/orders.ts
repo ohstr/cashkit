@@ -30,7 +30,8 @@ import { ClientError, connectOrder, deadlineFor, WalletError, type ConnectOrderO
 import { prepareCall, finishCall, type PlainOutput } from './calls.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError, fromWalletError } from './errors.js'
-import { addHolding, appendActivity, updateHolding } from './ledger.js'
+import { addHolding, appendActivity } from './ledger.js'
+import { endHolding, tombstoneStatus } from './billState.js'
 import type { CallCreated, OrderRecord, OrderRecordBill, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
 import { executeCall, pocketHooks, registerCallKind, type CallKind } from './runner.js'
@@ -306,8 +307,8 @@ function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet:
 
 /**
  * Applies an order as it stands: each live bill this wallet keeps becomes an
- * ordered holding (once, by its wallet pubkey); a tombstoned bill marks its
- * holding spent; the record replaces the last one. The call stays
+ * ordered holding (once, by its wallet pubkey); a tombstoned bill ends its
+ * holding by the tombstone's reason (NIP-CP §Balance); the record replaces the last one. The call stays
  * `open_order` until the order is finished.
  */
 /** What a bill's own row said before it was kept: as ordered, another recipient's, carrying an expiry, or no answer. */
@@ -355,10 +356,7 @@ async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Orde
     const existing = all.find((h) => h.walletPubkey === b.walletPubkey)
     if (existing !== undefined) {
       byWallet.set(b.walletPubkey, existing.id)
-      if (typeof b.token !== 'string' && existing.status === 'held') {
-        await updateHolding(t, existing.id, (x) => ({ ...x, status: 'spent' }))
-        await appendActivity(t, ctx.now(), { action: 'spent', holdingId: existing.id })
-      }
+      if (typeof b.token !== 'string') await endHolding(t, ctx.now(), existing.id, tombstoneStatus(b.token))
       continue
     }
     const check = checks.get(b.walletPubkey) ?? 'unknown'

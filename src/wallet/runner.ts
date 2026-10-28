@@ -18,7 +18,7 @@ import {
 import { finishCall, isOwnCall, markSent, recordDerivedId } from './calls.js'
 import type { Ctx } from './context.js'
 import { CashkitError, codeForNwc } from './errors.js'
-import { appendActivity, updateHolding } from './ledger.js'
+import { credentialKindOf, endHolding, goneError, notFoundByEntryKey, tombstoneStatus, type GoneStatus } from './billState.js'
 import type { CallCreated, CallNeedsUser, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
 import { pendingCallView } from './views.js'
@@ -165,18 +165,27 @@ async function applyResult(ctx: Ctx, call: PendingCall, result: unknown, from: '
  * (NIP-CASH §What Can Be Consolidated Together), so the tombstone says
  * nothing about the others: they stay held and are released by the close.
  */
-async function applyTombstone(ctx: Ctx, call: PendingCall): Promise<void> {
-  const named = call.method === 'cash_consolidate' ? call.sources.slice(0, 1) : call.sources
+async function applyTombstone(ctx: Ctx, call: PendingCall, ends: GoneStatus, code = 'TOMBSTONE'): Promise<void> {
   await ctx.commit(async (t) => {
-    for (const id of named) {
-      const h = await t.get('holdings', id)
-      if (h?.status !== 'held') continue
-      await updateHolding(t, id, (x) => ({ ...x, status: 'spent' }))
-      await appendActivity(t, ctx.now(), { action: 'spent', holdingId: id })
-    }
+    for (const id of namedSources(call)) await endHolding(t, ctx.now(), id, ends)
     const cur = await t.get('pendingCalls', call.id)
-    if (cur !== undefined && cur.state !== 'done') await finishCall(t, call.id, 'not_applied', { code: 'TOMBSTONE' })
+    if (cur !== undefined && cur.state !== 'done') await finishCall(t, call.id, 'not_applied', { code })
   })
+}
+
+const namedSources = (call: PendingCall): readonly string[] => (call.method === 'cash_consolidate' ? call.sources.slice(0, 1) : call.sources)
+
+/**
+ * `NOT_FOUND` for an item proof signed by the named bill's identity key or
+ * made with its cash secret: the sender removed the slice, so the bill is
+ * `reclaimed` and the call never ran (NIP-CP §Balance). A connection-key
+ * holder's `NOT_FOUND` says nothing and leaves the call open.
+ */
+async function reclaimedByRefusal(ctx: Ctx, call: PendingCall, code: string | undefined): Promise<boolean> {
+  if (code !== 'NOT_FOUND') return false
+  const h = await ctx.read((t) => t.get('holdings', namedSources(call)[0] ?? ''))
+  if (h === undefined || h.status !== 'held') return false
+  return notFoundByEntryKey({ kind: credentialKindOf(h) }, { code })
 }
 
 /**
@@ -207,13 +216,19 @@ export async function executeCall(ctx: Ctx, call: PendingCall): Promise<CallCrea
     case 'final_not_applied':
       await close(ctx, call.id, 'not_applied', { code: c.code, ...(c.detail !== undefined && { detail: c.detail }) })
       throw new CashkitError('invalid_input', `the Hub refused this ${call.method} as malformed, so it was not applied`, { nwcCode: c.code, ...(o?.error?.message !== undefined && { rawMessage: o.error.message }) })
-    case 'tombstone':
-      await applyTombstone(ctx, call)
-      throw new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone')
+    case 'tombstone': {
+      const ends = tombstoneStatus(o!.tombstone)
+      await applyTombstone(ctx, call, ends)
+      throw goneError(ends)
+    }
     case 'not_sent':
       await close(ctx, call.id, 'not_sent')
       throw new CashkitError('network', `this ${call.method} was not sent; nothing moved`, ...(placed.error !== undefined ? [{ cause: placed.error }] : []))
     case 'open': {
+      if (c.reason === 'refused' && (await reclaimedByRefusal(ctx, call, c.code))) {
+        await applyTombstone(ctx, call, 'reclaimed', 'NOT_FOUND')
+        throw goneError('reclaimed')
+      }
       if (c.reason === 'refused' && c.code !== 'REQUEST_REUSED') await update(ctx, call.id, (x) => ({ ...x, lastCode: c.code!, ...(c.detail !== undefined && { lastDetail: c.detail }) }))
       if (c.reason === 'refused' && c.code === 'REQUEST_REUSED') await update(ctx, call.id, (x) => ({ ...x, sawReused: true }))
       ctx.emit({ op: call.kind, phase: 'pending', id: call.id, pendingCallId: call.id })

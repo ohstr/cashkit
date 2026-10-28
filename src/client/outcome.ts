@@ -1,6 +1,6 @@
 // One outcome per batched item. Port of nmilat nipcash/client/batch_outcome.go
 // and bill_state.go.
-import type { Credential } from '../core/index.js'
+import type { Credential, Tombstone } from '../core/index.js'
 import type { ResponseEnvelope, ResultError } from '../transport/index.js'
 import { ClientError, NotServedError, WalletError } from './errors.js'
 
@@ -56,13 +56,15 @@ export function joinOutcomes(requestedIds: readonly string[], resp: Pick<Respons
 export const notServedOutcomes = (ids: readonly string[], envelope: number): ItemOutcome[] =>
   ids.map((id) => ({ id, state: 'not_served', undecodable: false, envelope }))
 
+const isTombstone = (x: unknown): x is Tombstone => typeof x === 'object' && x !== null && (x as { status?: unknown }).status === 'spent'
+
 /**
  * A single-item batch as a single call's answer: nothing for a result, the
  * Hub's refusal, the send error, or NotServedError. A decided outcome wins
  * over a send error that arrived with it.
  */
 export function oneItemError(o: (Pick<ItemOutcome, 'state' | 'error'> & { readonly undecodable?: boolean; readonly tombstone?: unknown }) | undefined, sendError: unknown, method: string): Error | undefined {
-  if (o?.state === 'tombstone' || (o?.state === 'result' && o.tombstone !== undefined)) return new ClientError('spent', `the hub says this bill is gone, so the ${method} did not run`)
+  if (o?.state === 'tombstone' || (o?.state === 'result' && o.tombstone !== undefined)) return new ClientError('spent', `the hub says this bill is gone, so the ${method} did not run`, isTombstone(o.tombstone) ? { tombstone: o.tombstone } : undefined)
   if (o?.state === 'result') return undefined
   // It ran: a success whose body did not decode is never a refusal.
   if (o?.undecodable) return new ClientError('undecodable_result', `the hub applied this ${method}, but its answer could not be read`)

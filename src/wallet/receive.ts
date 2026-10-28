@@ -8,6 +8,7 @@ import { getHeld, lockedHoldings } from './bills.js'
 import { runTransfer } from './kinds.js'
 import { connectionKeyCredential, tokenFacts, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
+import { goneError, tombstoneStatus } from './billState.js'
 import { addHolding, appendActivity, findByToken, updateHolding } from './ledger.js'
 import type { ConnectionKeyBinding, Holding } from './model.js'
 import { holdingView, type HoldingView } from './views.js'
@@ -133,7 +134,7 @@ export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}
     r = await ctx.client(tok).checkClaim(cred)
   } catch (err) {
     if (ck !== undefined && err instanceof ClientError && err.code === 'status_unreadable') return receiveUnreadable(ctx, input, tok, facts, ck.binding)
-    if (err instanceof ClientError && err.code === 'spent') throw new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone', { input })
+    if (err instanceof ClientError && err.code === 'spent') throw goneError(tombstoneStatus(err.tombstone), input)
     if (err instanceof ClientError && err.code === 'claim_not_found') {
       throw new CashkitError(
         'invalid_input',

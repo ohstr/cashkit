@@ -10,7 +10,8 @@ import { ClientError } from '../client/index.js'
 import { validateQuote, type Quote } from './amounts.js'
 import type { Ctx } from './context.js'
 import { CashkitError, classifyReadError, notClaimableError, statusUnreadableError } from './errors.js'
-import { appendActivity, notHeldError, updateHolding } from './ledger.js'
+import { goneError, markGone, notFoundByEntryKey, tombstoneStatus, type GoneStatus } from './billState.js'
+import { notHeldError, updateHolding } from './ledger.js'
 import { runTransfer } from './kinds.js'
 import type { Holding } from './model.js'
 
@@ -26,17 +27,10 @@ export async function getHeld(ctx: Ctx, id: string): Promise<Holding> {
   return h
 }
 
-/** Records the Hub's tombstone (`markSpent`). */
-export async function markSpent(ctx: Ctx, id: string): Promise<void> {
-  await ctx.commit(async (t) => {
-    const h = await t.get('holdings', id)
-    if (h?.status !== 'held') return
-    await updateHolding(t, id, (x) => ({ ...x, status: 'spent' }))
-    await appendActivity(t, ctx.now(), { action: 'spent', holdingId: id })
-  })
+/** Records the Hub's tombstone (`markSpent`), by its reason (NIP-CP §Balance). */
+export async function markSpent(ctx: Ctx, id: string, ends: GoneStatus = 'spent'): Promise<void> {
+  await markGone(ctx, id, ends)
 }
-
-const spentError = (id: string) => new CashkitError('spent', 'the Hub says this bill is spent: its value has already moved and the bill is gone', { input: id })
 
 /**
  * A live quote for a holding (`resolveRedeemQuote`): checks the claim,
@@ -50,8 +44,14 @@ export async function quoteHolding(ctx: Ctx, h: Holding): Promise<{ holding: Hol
     r = await ctx.clientFor(h).checkClaim(cred)
   } catch (err) {
     if (err instanceof ClientError && err.code === 'spent') {
-      await markSpent(ctx, h.id)
-      throw spentError(h.id)
+      const ends = tombstoneStatus(err.tombstone)
+      await markSpent(ctx, h.id, ends)
+      throw goneError(ends, h.id)
+    }
+    // NOT_FOUND to the holding's own identity key or cash secret: its slice was removed.
+    if (err instanceof ClientError && err.code === 'claim_not_found' && notFoundByEntryKey(cred, err.cause)) {
+      await markSpent(ctx, h.id, 'reclaimed')
+      throw goneError('reclaimed', h.id)
     }
     if (err instanceof ClientError && err.code === 'claim_not_found') {
       throw new CashkitError('not_found', "couldn't determine this token's amount: check that it is still valid", { input: h.id })

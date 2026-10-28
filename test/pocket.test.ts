@@ -206,6 +206,55 @@ describe('the pocket engine: revs across devices', () => {
     expect((await a.wallet.pocket.entries()).find((x) => x.w === w)?.state).toBe('spent')
     expect(await a.wallet.holdings()).toEqual([])
   })
+  test('another device wrote reclaimed and the recheck agrees: adopted here, no conflict, nothing live written', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const row = await heldRow(a)
+    await writeElsewhere(a, await liveEntry(a, 3, 'reclaimed'))
+    a.bank.wallets.get(row.walletPubkey)!.removed = true
+    const before = wraps(a).length
+    const rep = await a.wallet.pocket.sync()
+    expect(rep.conflicts).toEqual([])
+    expect(rep.published).toEqual([])
+    expect(wraps(a).length).toBe(before)
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === row.walletPubkey)?.state).toBe('reclaimed')
+    expect((await a.wallet.holdings({ includeSpent: true }))[0]!.status).toBe('reclaimed')
+    expect(await a.wallet.pocket.balance()).toEqual(new Map())
+  })
+  test('another device wrote reclaimed but the Hub shows the bill available: reported as a conflict', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const row = await heldRow(a)
+    await writeElsewhere(a, await liveEntry(a, 3, 'reclaimed'))
+    const rep = await a.wallet.pocket.sync()
+    expect(rep.conflicts).toContain(row.walletPubkey)
+    expect((await a.wallet.holdings())[0]!.status).toBe('held')
+  })
+  test('no answer to the recheck writes nothing: no final state, no live entry', async () => {
+    const a = await withPocket()
+    await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
+    await a.wallet.pocket.sync()
+    const row = await heldRow(a)
+    await writeElsewhere(a, await liveEntry(a, 3, 'reclaimed'))
+    a.bank.override = (m) => (m === 'cash_status' ? 'omit' : undefined)
+    const before = wraps(a).length
+    const rep = await a.wallet.pocket.sync()
+    expect(rep.published).toEqual([])
+    expect(wraps(a).length).toBe(before)
+    expect((await a.wallet.holdings())[0]!.status).toBe('held')
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === row.walletPubkey)?.state).toBe('reclaimed')
+  })
+  test('a bill held here and gone at the Hub is written with its final state from the table', async () => {
+    const a = await withPocket()
+    const { holding } = await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token).then((r) => (r.received ? r : Promise.reject(new Error('not received'))))
+    await a.wallet.pocket.sync()
+    a.bank.wallets.get(holding.walletPubkey)!.removed = true
+    await a.wallet.status()
+    await a.wallet.pocket.sync()
+    expect((await a.wallet.pocket.entries()).find((x) => x.w === holding.walletPubkey)?.state).toBe('reclaimed')
+  })
 })
 
 describe('the pocket engine: withdrawals', () => {

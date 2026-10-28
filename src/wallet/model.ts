@@ -8,8 +8,12 @@ export interface Sealed {
   readonly data: string
 }
 
-/** `redeeming`: a redeem whose outcome is unclear left the row claimed; it is in no balance and no plan until a re-read settles it. */
-export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 'consolidated' | 'spent'
+/**
+ * `redeeming`: a redeem whose outcome is unclear left the row claimed; it is in no balance and no plan until a re-read settles it.
+ * `spent`, `expired`, `reclaimed`: the Hub said the bill is gone (NIP-CP §Balance); `reclaimed` is a slice its
+ * sender removed, `expired` a bill that ran out. Only `held` counts toward a balance.
+ */
+export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 'consolidated' | 'spent' | 'expired' | 'reclaimed'
 export type HoldingMode = 'pubkey' | 'cash' | 'connection_key'
 export type Protection = 'none' | 'shared' | 'protected'
 

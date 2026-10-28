@@ -35,7 +35,8 @@ import {
 } from '../core/index.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
-import { addHolding, appendActivity, updateHolding } from './ledger.js'
+import { goneStatus, endHolding, pocketStateOf } from './billState.js'
+import { addHolding } from './ledger.js'
 import type { Holding, PendingCall } from './model.js'
 import { pocketHooks } from './runner.js'
 import { status, statusByNode, type NodeStatus } from './status.js'
@@ -209,14 +210,15 @@ async function afterCall(ctx: Ctx, callId: string): Promise<void> {
   if (call.outcome === 'applied') await sourcesSpent(ctx, call)
 }
 
-/** Writes a call's sources `spent` (not a bill moved in place), once each. */
+/** Writes a call's sources `spent`, the wallet's own spend (not a bill moved in place), once each. */
 async function sourcesSpent(ctx: Ctx, call: PendingCall): Promise<void> {
+  const state = goneStatus({ result: 'own_spend' })!
   for (const id of call.sources) {
     if (id === call.created?.movedHoldingId) continue
     const h = await ctx.read((t) => t.get('holdings', id))
     if (h === undefined) continue
-    if ((await ctx.read((t) => t.get('pocket', h.walletPubkey)))?.state === 'spent') continue
-    await writeEntry(ctx, await heldEntry(ctx, h, 'spent'))
+    if ((await ctx.read((t) => t.get('pocket', h.walletPubkey)))?.state === state) continue
+    await writeEntry(ctx, await heldEntry(ctx, h, state))
   }
 }
 
@@ -405,25 +407,28 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
     const e = entries.get(h.walletPubkey)
     return h.status === 'held' && e !== undefined && e.state !== 'live' && e.state !== 'pending'
   })
+  // Another device's final state is rechecked and read with the same table (NIP-CP §Balance): a definitive
+  // answer that the bill is gone is adopted here; the Hub showing it available is written live, and against a
+  // final entry also reported as a conflict; no answer (or an unreadable status) writes nothing.
   const recheck = finalElsewhere.length > 0 ? await statusByNode(ctx, finalElsewhere) : new Map<string, NodeStatus>()
-  const spentHere = finalElsewhere.filter((h) => { const r = recheck.get(h.id); return r !== undefined && 'state' in r && r.state === 'spent' })
-  if (spentHere.length > 0) {
-    await ctx.commit(async (t) => {
-      for (const h of spentHere) {
-        await updateHolding(t, h.id, (x) => ({ ...x, status: 'spent' }))
-        await appendActivity(t, ctx.now(), { action: 'spent', holdingId: h.id })
-      }
-    })
-  }
+  const goneHere = finalElsewhere.flatMap((h) => {
+    const r = recheck.get(h.id)
+    return r !== undefined && 'state' in r && r.state === 'spent' ? [{ id: h.id, ends: r.ends }] : []
+  })
+  if (goneHere.length > 0) await ctx.commit(async (t) => { for (const g of goneHere) await endHolding(t, ctx.now(), g.id, g.ends) })
   for (const h of local) {
     const e = entries.get(h.walletPubkey)
     if (h.status === 'held') {
       if (e !== undefined && finalElsewhere.includes(h)) {
         const r = recheck.get(h.id)
-        if (r === undefined || !('state' in r) || r.state !== 'available') {
-          if (!spentHere.includes(h)) conflicts.push(h.walletPubkey)
-          continue
+        const available = r !== undefined && 'state' in r && r.state === 'available'
+        if (available && isFinalState(e.state)) conflicts.push(h.walletPubkey)
+        // An `unknown` entry the recheck answers definitively gets that final state.
+        if (r !== undefined && 'state' in r && r.state === 'spent' && !isFinalState(e.state)) {
+          await writeEntry(ctx, await heldEntry(ctx, h, r.ends), at(h.walletPubkey))
+          published.push(h.walletPubkey)
         }
+        if (!available) continue
       }
       if (e === undefined || e.state !== 'live') {
         await writeEntry(ctx, await heldEntry(ctx, h), at(h.walletPubkey))
@@ -431,7 +436,7 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
       }
     } else if (e !== undefined && e.state === 'live' && h.status !== 'redeeming' && !(h.status === 'redeemed' && h.redeem?.presumedAt !== undefined)) {
       // A redeem still in flight, or only presumed paid (a timeout), writes no final state (NIP-CP §Balance).
-      await writeEntry(ctx, await heldEntry(ctx, h, 'spent'), at(h.walletPubkey))
+      await writeEntry(ctx, await heldEntry(ctx, h, pocketStateOf(h)), at(h.walletPubkey))
       published.push(h.walletPubkey)
     }
   }

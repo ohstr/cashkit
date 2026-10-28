@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Adds the holding statuses `expired` and `reclaimed` to the exported
+  `HoldingStatus`, and `StatusOutcome.ends`; code that switches on a status
+  must accept the new values.
+- Fixes a bill whose slice its sender removed staying held and counted: a
+  `NOT_FOUND` to the holding's own key or cash secret, from any method, now
+  ends it `reclaimed`, and a tombstone ends it by its reason. Another
+  device's final pocket state is adopted on a matching recheck instead of
+  being reported as a conflict.
 - Places a lost withdrawal again automatically on the device that placed
   it, under the derived id with the same quote, while no call of it was
   refused `quote_expired` or `quote_invalid`; after `REQUEST_REUSED` it

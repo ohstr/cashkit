@@ -4,7 +4,8 @@
 // writes an entry is the wallet's (src/wallet/pocket.ts) and is not run here:
 // only the entries those sections give.
 import { describe, expect, test } from 'vitest'
-import { checkPendingEntry, createRumor, eventJSON, KIND_POCKET_ENTRY, parsePocketEntry, parseTombstone, pocketBalance, pocketEntryTags, resolveEntries, stateForResult, verifyWithdrawReceipt, type BillAnswer, type PocketEntry } from '../../src/core/index.js'
+import { checkPendingEntry, createRumor, eventJSON, KIND_POCKET_ENTRY, parsePocketEntry, parseTombstone, pocketBalance, pocketEntryTags, resolveEntries, stateForResult, verifyWithdrawReceipt, type BillAnswer, type Credential, type PocketEntry } from '../../src/core/index.js'
+import { goneStatus, notFoundByEntryKey, tombstoneStatus } from '../../src/wallet/billState.js'
 import { load, named, type Json } from './helpers.js'
 
 const v = load('pocket.json')
@@ -102,7 +103,9 @@ describe('pocket.json withdrawal entries', () => {
   })
 })
 
-// K-POCKET-7: NIP-CP §Balance's result to state table (core stateForResult).
+// K-POCKET-7: NIP-CP §Balance's result to state table, through the wallet's one mapping (core
+// stateForResult; the wallet's NOT_FOUND reading by credential, and the holding status it sets).
+const CREDENTIAL_KIND: Record<string, Credential['kind'] | undefined> = { identity_key: 'signing', cash_secret: 'secret', connection_key: 'connection_key' }
 const answerOf = (c: Json): BillAnswer => {
   switch (c.result) {
     case 'tombstone': {
@@ -111,7 +114,8 @@ const answerOf = (c: Json): BillAnswer => {
       return { result: 'tombstone', ...(t!.reason !== undefined && { reason: t!.reason }) }
     }
     case 'not_found': {
-      return { result: 'not_found', byEntryKey: c.proof === 'identity_key' || c.proof === 'cash_secret' }
+      const kind = CREDENTIAL_KIND[c.proof]
+      return { result: 'not_found', byEntryKey: kind !== undefined && notFoundByEntryKey({ kind }, { code: 'NOT_FOUND' }) }
     }
     default:
       return { result: c.result }
@@ -125,5 +129,7 @@ describe('pocket.json result to state (K-POCKET-7)', () => {
   test.each((v.resultToState as Json[]).map((c) => [c.name, c] as const))('%s', (_, c) => {
     const a = answerOf(c)
     expect(stateForResult(a)).toEqual({ state: c.state, definitive: c.definitive })
+    expect(goneStatus(a)).toBe(c.definitive ? c.state : undefined)
+    if (c.result === 'tombstone') expect(tombstoneStatus(parseTombstone(c.tombstone))).toBe(c.state)
   })
 })

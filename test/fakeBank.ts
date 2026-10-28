@@ -24,6 +24,10 @@ export interface BankWallet {
   expiresAt?: number
   /** Set once a cash_withdraw has ended the slice. */
   withdrawRequestId?: string
+  /** The tombstone's `reason` once spent (default `transferred`; null sends none). */
+  spentReason?: string | null
+  /** The sender removed this holder's slice (NIP-CASH): its holder is answered NOT_FOUND. */
+  removed?: boolean
 }
 
 /** The cash commitment for a hex secret: hex(sha256(secret bytes)). */
@@ -149,8 +153,9 @@ export class FakeBank {
     if (method === 'cash_lookup') return this.lookup(info)
     const w = this.wallets.get(info.item.target)
     if (w === undefined) return 'omit'
-    if (w.spent && method === 'cash_status') return { result: { status: 'spent', reason: 'transferred', ...(w.withdrawRequestId !== undefined && { withdraw_request_id: w.withdrawRequestId }) } }
+    if (w.spent && method === 'cash_status') return { result: { status: 'spent', ...(w.spentReason !== null && { reason: w.spentReason ?? 'transferred' }), ...(w.withdrawRequestId !== undefined && { withdraw_request_id: w.withdrawRequestId }) } }
     if (w.spent) return { error: { code: 'NOT_FOUND', message: 'this slice has already been claimed' } }
+    if (w.removed) return { error: { code: 'NOT_FOUND', message: 'no slice of this bill is registered for the identity that signed this item' } }
     if (w.expiresAt !== undefined && w.expiresAt <= this.now()) return { error: { code: 'EXPIRED', message: 'this cash wallet has expired' } }
     const idBearing = method === 'cash_transfer' || method === 'cash_consolidate'
     const rid = info.params['request_id']

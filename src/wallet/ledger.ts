@@ -108,6 +108,10 @@ export function statusDescription(s: HoldingStatus): string {
       return 'consolidated into another token'
     case 'spent':
       return 'reported spent by its Hub'
+    case 'expired':
+      return 'reported expired by its Hub'
+    case 'reclaimed':
+      return 'removed by its sender (reclaimed)'
     default:
       return ''
   }

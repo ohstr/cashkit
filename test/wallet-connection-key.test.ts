@@ -179,6 +179,16 @@ describe('connection-key slices, on a spec Hub: the status is not readable', () 
     expect(rep.outcomes[0]).not.toHaveProperty('amount')
     expect((await h.storage.tx('r', (t) => t.get('holdings', holding.id)))!).toMatchObject({ status: 'held', amount: 5000n, verified: false })
   })
+  test('NOT_FOUND to a connection key is never read as reclaimed: status unreadable, a refused send leaves it held', async () => {
+    const { w, holding } = await receiveCk(5000n)
+    w.removed = true
+    expect((await h.wallet.status({ holdings: [holding.id] })).outcomes[0]).toMatchObject({ ok: true, state: 'unreadable' })
+    h.bank.ckStatusAll = true
+    const e = await err(h.wallet.send({ amount: 5000n, to: getPublicKey(fill(0x66, 32)) }))
+    expect(e).toMatchObject({ nwcCode: 'NOT_FOUND' })
+    expect(e?.reason).not.toBe('reclaimed')
+    expect((await h.storage.tx('r', (t) => t.get('holdings', holding.id)))!.status).toBe('held')
+  })
   test('the client reads NOT_FOUND for a connection key as unreadable, never as gone or not found', async () => {
     const w = h.bank.mintToConnectionKey(5000n, KEY, IA)
     const signer = localSigner(fill(0x44, 32))

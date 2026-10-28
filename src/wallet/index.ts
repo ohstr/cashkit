@@ -75,3 +75,4 @@ export { looksLikeTarget, parseTarget, resolveNip05, type ParseTargetOptions, ty
 export { selectForAmount, FundsFragmentedError, InsufficientFundsError, type SelectionPlan, type Selectable } from './select.js'
 export { BACKUP_FORMAT, BACKUP_VERSION, SEALED_FIELDS, type BackupFile, type ImportSummary } from './backup.js'
 export { decodeRow, encodeRow } from './codec.js'
+export type { GoneStatus } from './billState.js'

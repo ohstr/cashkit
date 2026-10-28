@@ -10,6 +10,7 @@ import { isLightning, nwcFor } from './circle.js'
 import { billOf, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, classifySpendError, fromWalletError } from './errors.js'
 import { appendActivity, heldHoldings, updateHolding } from './ledger.js'
+import { endHolding, goneError, markGone, notFoundByEntryKey, tombstoneStatus, type GoneStatus } from './billState.js'
 import type { Connection, Holding } from './model.js'
 import { report, type Outcome, type Report } from './report.js'
 import { exactSameHubSum } from './select.js'
@@ -256,7 +257,7 @@ const INVOICE_EXPIRY = 3600
 /** How long past its invoice's expiry a row still claimed is read as paid. */
 const CLAIMED_GRACE = 24 * 3600
 
-type Placed = { readonly kind: 'done'; readonly r: Ready; readonly value: CashRedeemResult } | { readonly kind: 'failed'; readonly r: Ready; readonly error: CashkitError; readonly nwcCode?: string } | { readonly kind: 'unclear'; readonly r: Ready; readonly error: CashkitError }
+type Placed = { readonly kind: 'done'; readonly r: Ready; readonly value: CashRedeemResult } | { readonly kind: 'gone'; readonly r: Ready; readonly ends: GoneStatus } | { readonly kind: 'failed'; readonly r: Ready; readonly error: CashkitError; readonly nwcCode?: string } | { readonly kind: 'unclear'; readonly r: Ready; readonly error: CashkitError }
 
 /** One request for these redeems: each item done, refused, or unclear (an `INTERNAL`, an omission or a timeout). */
 async function placeRedeems(ctx: Ctx, group: readonly Ready[], invoiceAmount: bigint | undefined): Promise<Placed[]> {
@@ -278,6 +279,8 @@ async function placeRedeems(ctx: Ctx, group: readonly Ready[], invoiceAmount: bi
     const id = r.holding.id
     const o = results.get(id)
     if (o?.state === 'result' && o.value !== undefined) return { kind: 'done', r, value: o.value }
+    if (o?.state === 'tombstone') return { kind: 'gone', r, ends: tombstoneStatus(o.tombstone) }
+    if (o?.state === 'error' && notFoundByEntryKey(items.find((x) => x.id === id)!.credential, o.error)) return { kind: 'gone', r, ends: 'reclaimed' }
     if (o?.state === 'error' && o.undecodable) return { kind: 'unclear', r, error: classifySpendError(new NotServedError('cash_redeem'), 'redeem', [id]) }
     if (o?.state === 'error' && o.error !== undefined) {
       const error = fromWalletError(new WalletError('cash_redeem', o.error.code, o.error.message ?? ''), { cashToken: true, input: id })
@@ -302,6 +305,10 @@ async function redeemGroup(ctx: Ctx, group: readonly Ready[], into: string, invo
     for (const p of await placeRedeems(ctx, pending, invoiceAmount)) {
       const id = p.r.holding.id
       if (p.kind === 'done') done.push({ id, amount: p.r.holding.amount ?? p.r.item.amount, value: p.value, invoice: p.r.invoice })
+      else if (p.kind === 'gone') {
+        await markGone(ctx, id, p.ends)
+        out.push({ ok: false, error: goneError(p.ends, id), holdingIds: [id] })
+      }
       else if (p.kind === 'unclear') unclear.push({ r: p.r, error: p.error })
       else if (p.nwcCode === 'PAYMENT_FAILED' && freshInvoice !== undefined && attempt === 0) {
         try {
@@ -338,7 +345,7 @@ async function redeemGroup(ctx: Ctx, group: readonly Ready[], into: string, invo
 
 /**
  * The one `cash_status` read after an unclear redeem: unclaimed ⇒ live
- * (nothing was paid); a tombstone ⇒ spent; claimed, or no answer ⇒
+ * (nothing was paid); gone ⇒ its final status (NIP-CP §Balance); claimed, or no answer ⇒
  * `redeeming`, re-read by every `settle()`.
  */
 async function readUnclear(ctx: Ctx, unclear: readonly { r: Ready; error: CashkitError }[], into: string): Promise<Outcome<RedeemOutcome>[]> {
@@ -350,11 +357,9 @@ async function readUnclear(ctx: Ctx, unclear: readonly { r: Ready; error: Cashki
     const id = r.holding.id
     const s = st.get(id)
     if (s !== undefined && 'state' in s && s.state === 'spent') {
-      await ctx.commit(async (t) => {
-        await updateHolding(t, id, (x) => ({ ...x, status: 'spent' }))
-        await appendActivity(t, ctx.now(), { action: 'spent', holdingId: id })
-      })
-      out.push({ ok: false, error: new CashkitError('spent', 'the Hub says this bill is gone: its value has already moved', { input: id }), holdingIds: [id] })
+      const ends = s.ends
+      await ctx.commit((t) => endHolding(t, ctx.now(), id, ends, ['held', 'redeeming']))
+      out.push({ ok: false, error: goneError(ends, id), holdingIds: [id] })
       continue
     }
     if (s !== undefined && 'state' in s && s.state === 'available' && !s.result.recipients.some((x) => x.claimed)) {
@@ -377,7 +382,7 @@ export interface RedeemingReport {
   readonly released: readonly string[]
   /** Paid: the invoice settled, or the row stayed claimed a day past the invoice's expiry. */
   readonly redeemed: readonly string[]
-  /** Gone: the Hub answered with a tombstone. */
+  /** Gone: the Hub said the bill is gone (its holding ends `spent`, `expired` or `reclaimed`). */
   readonly spent: readonly string[]
   readonly stillRedeeming: readonly string[]
 }
@@ -404,9 +409,9 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
   for (const h of rows) {
     const s = st.get(h.id)
     const info = h.redeem
-    let next: 'held' | 'redeemed' | 'spent' | undefined
+    let next: 'held' | 'redeemed' | GoneStatus | undefined
     let presumedNow = false
-    if (s !== undefined && 'state' in s && s.state === 'spent') next = 'spent'
+    if (s !== undefined && 'state' in s && s.state === 'spent') next = s.ends
     else if (s !== undefined && 'state' in s && s.state === 'available' && !s.result.recipients.some((x) => x.claimed)) next = 'held'
     else if (info !== undefined) {
       if (info.into !== 'invoice' && (await invoiceSettled(ctx, info.into, info.invoice))) next = 'redeemed'
@@ -427,7 +432,7 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
         // Presumed paid keeps its redeem record, marked, so later settles keep reading it.
         return (presumedNow && r !== undefined ? { ...rest, status, redeem: { ...r, presumedAt: now } } : { ...rest, status }) as Holding
       })
-      if (status === 'spent') await appendActivity(t, ctx.now(), { action: 'spent', holdingId: h.id })
+      if (status === 'spent' || status === 'expired' || status === 'reclaimed') await appendActivity(t, ctx.now(), { action: 'spent', holdingId: h.id })
       if (status === 'redeemed') await appendActivity(t, ctx.now(), { action: 'redeem', amount: h.amount ?? 0n, feesPaid: 0n, into: info?.into ?? 'invoice', holdingIds: [h.id] })
     })
     ;(status === 'held' ? rep.released : status === 'redeemed' ? rep.redeemed : rep.spent).push(h.id)
@@ -447,8 +452,9 @@ async function recheckPresumed(ctx: Ctx, presumed: readonly Holding[]): Promise<
   for (const h of presumed) {
     const s = st.get(h.id)
     const info = h.redeem!
-    let next: 'held' | 'final' | undefined
-    if (s !== undefined && 'state' in s && s.state === 'spent') next = 'final'
+    let next: 'held' | 'final' | GoneStatus | undefined
+    // The wallet's own redeem ended it unless the Hub says it expired or was reclaimed.
+    if (s !== undefined && 'state' in s && s.state === 'spent') next = s.ends === 'spent' ? 'final' : s.ends
     else if (s !== undefined && 'state' in s && s.state === 'available' && !s.result.recipients.some((x) => x.claimed)) next = 'held'
     else if (info.into !== 'invoice' && (await invoiceSettled(ctx, info.into, info.invoice))) next = 'final'
     if (next === undefined) continue
@@ -458,7 +464,7 @@ async function recheckPresumed(ctx: Ctx, presumed: readonly Holding[]): Promise<
       if (cur === undefined || !presumedPaid(cur)) return
       await updateHolding(t, h.id, (x) => {
         const { redeem: _r, ...rest } = x
-        return { ...rest, status: to === 'held' ? 'held' : 'redeemed' } as Holding
+        return { ...rest, status: to === 'held' ? 'held' : to === 'final' ? 'redeemed' : to } as Holding
       })
     })
     if (to === 'held') reopened.push(h.id)

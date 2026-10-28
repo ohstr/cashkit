@@ -1,5 +1,6 @@
 // Client errors. Each is a distinct class because a caller must act on the
 // difference, not parse a message.
+import type { Tombstone } from '../core/index.js'
 
 export type ClientErrorCode =
   | 'no_announcement'
@@ -54,9 +55,12 @@ export type ClientErrorCode =
 export class ClientError extends Error {
   override readonly name: string = 'ClientError'
   readonly code: ClientErrorCode
-  constructor(code: ClientErrorCode, message: string, options?: { cause?: unknown }) {
+  /** With `spent`: the Hub's tombstone, when it sent one. */
+  readonly tombstone?: Tombstone
+  constructor(code: ClientErrorCode, message: string, options?: { cause?: unknown; tombstone?: Tombstone }) {
     super(`client: ${message}`, options)
     this.code = code
+    if (options?.tombstone !== undefined) this.tombstone = options.tombstone
   }
 }
 

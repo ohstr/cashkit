@@ -168,10 +168,10 @@ export class CashClient {
       result = await this.cashStatus(credential, ownScope(credential))
     } catch (err) {
       if (statusUnreadable(credential, err)) throw new ClientError('status_unreadable', "this Hub does not show a connection-key holder its bill's status", { cause: err })
-      if (err instanceof WalletError && err.walletCode === 'NOT_FOUND') throw new ClientError('claim_not_found', 'no matching, unclaimed recipient on this hub')
+      if (err instanceof WalletError && err.walletCode === 'NOT_FOUND') throw new ClientError('claim_not_found', 'no matching, unclaimed recipient on this hub', { cause: err })
       throw err
     }
-    if (isSpent(result)) throw new ClientError('spent', 'this bill has been spent')
+    if (isSpent(result)) throw new ClientError('spent', 'this bill has been spent', { tombstone: result.tombstone! })
     let own
     try {
       own = ownClaim(result.recipients, credential, this.now())
