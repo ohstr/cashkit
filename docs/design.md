@@ -651,6 +651,7 @@ JSON-serialisable through the public `toJSON` (§10).
 | `activity` | `at`, `action`, structured `detail` (§4.2) | `history` |
 | `handoffs` | `kind` (`cash_note` / `gift`), sealed `handoff`, `amount`, `target`, `walletPubkey`, `expiresAt`, `status`, `checkedAt` | `handoffs` |
 | `pendingJoins` | `connectionPubkey`, sealed `connectionSecret`, `hubPubkey`, `hubLabel`, `at` | `pending_joins` |
+| `pendingRecoveries` | `walletPubkey` (key), `hubPubkey`, `newConnectionPubkey`, sealed `newSecret`, `requestedAt` | — |
 | `settings` | §6.9 | config |
 | `meta` | `schemaVersion` (2), `walletId`, `storeFingerprint` | — |
 | `pendingCalls` | `requestId`, `method`, `target`, `node`, `relays`, exact `deadline`, `hAtSend`, `device`, `attempts`, `derivedFrom?`, `amount`, `sources`, `authorizer` (sealed `authorizerKey` / `buyerKey` where it is a key), `outputs` (a cash destination's sealed `secret`), `state`, `outcome?`, `lookup?`, `needsUser?` | — |
@@ -782,8 +783,9 @@ deadline, signed by its authorizer (a cash one without its secret first):
 | `pending` | `retryAfter` kept; `state.nextSettleAt` is the earliest |
 | `unknown`, another device's call | `needsUser: 'foreign_device'`, never placed again from here |
 | `unknown` after a coded refusal | closed `not_applied`, `needsUser: 'refused'` with the code |
-| `unknown`, a kind that asks first (mint, order) | `needsUser: 'confirm_replace'`; `pendingCalls.confirmReplace(id)` |
-| `unknown`, otherwise | placed again under the derived id (recorded first), at most 3 attempts (`replace_cap`) |
+| `unknown`, a kind that asks first (mint, order; a withdrawal once answered `REQUEST_REUSED`) | `needsUser: 'confirm_replace'`; `pendingCalls.confirmReplace(id)` |
+| `unknown`, a withdrawal whose chain was refused `quote_expired` or `quote_invalid` | closed `not_applied`, `needsUser: 'refused'` |
+| `unknown`, otherwise | placed again under the derived id (recorded first), at most 3 attempts (`replace_cap`); a withdrawal keeps its quote, `notify` and remint secret |
 | `expired` | closed `lookup_expired`; its written-ahead secrets in `unreconciledSecrets` |
 | omitted, refused, or `REQUEST_REUSED` | `omissions + 1`, never `unknown`; past deadline + H, `lookup_unanswered` |
 
@@ -964,7 +966,10 @@ redeem(...same): Promise<Report<RedeemOutcome>>
   Every `settle()` re-reads it (`report.redeems`): unclaimed ⇒ `held` again;
   a tombstone ⇒ `spent`; the NWC wallet reporting the invoice settled
   (`lookup_invoice`), or the row still claimed a day past the invoice's
-  expiry ⇒ `redeemed`.
+  expiry ⇒ `redeemed`. The last is "presumed paid" (`redeem.presumedAt`):
+  later settles keep reading it, a read showing the row unclaimed puts it
+  back to `held` (`report.redeems.released`), a tombstone or a settled
+  invoice makes it final, and the Cash Pocket gets no final state for it.
 
 ### 6.4 Consolidate, protect, status
 
@@ -1042,7 +1047,7 @@ circles.list(), circles.client(name), circles.memberRequest(name, action), circl
 circles.watch(name, o?: { onAlert? }): Promise<() => void>, circles.refresh(name, o?: { cancelRotation? }),
 circles.memberRequestFor(hub: string /* circlehub1… */, walletPubkey, action, o?: { confirmUnverified? }): Promise<{ event; newConnectionSecret? }>,
 circles.delete(name, confirmDelete), circles.exportConnectionSecret(nameOrJoin), circles.forgetJoin(id),
-circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name?; makeDefault?; confirmUnverified? }): Promise<RecoverResult>
+circles.recover(hub: string /* circlehub1… */, newConnectionSecret?, o?: { name?; makeDefault?; confirmUnverified? }): Promise<RecoverResult>
 ```
 
 - `hub` is a `circlehub1` string only; a `cashhub1`, `cashorder1` or a URI is
@@ -1062,6 +1067,8 @@ circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name
   waits, `unknown` asks the member (`needsUser: 'join_not_made'`), `expired`
   is shown and never rejoined with that key, `UNAUTHORIZED` is final for the
   lookup, and omissions past deadline + 360 s are `lookup_unanswered`.
+  This device's unsent join is dropped; another device's (a restored
+  backup taken mid-join) is looked up once past deadline + 360 s.
 - A lookup goes through the string the join used. A circle may have several
   `circlehub1` strings (one Hub pubkey, each its own secret) and the join's
   may have been revoked: past deadline + 360 s, before `lookup_unanswered`,
@@ -1102,8 +1109,14 @@ circles.recover(hub: string /* circlehub1… */, newConnectionSecret, o?: { name
   lost the device that held the wallet: on a new device with the same
   identity it checks the `circlehub1` online and signs the request for the
   wallet by its pubkey; a rotate returns the new key's secret
-  (secret-bearing) for `circles.recover` once the rotation completes. A
+  (secret-bearing) for `circles.recover` once the rotation completes, and
+  stores it first, sealed, as a pending recovery keyed by `wallet_pubkey`
+  (in backups too): `circles.recover(hub)` without a secret tries the
+  stored keys of that circle, newest first, and drops the one that took the
+  wallet. An unverified string goes to the `confirmUnverified` handler. A
   wallet held here goes through `memberRequest`, and no secret is returned.
+- `rotation_cancelled` drops the pending rotation only when it names that
+  rotation's new key; a late one for an earlier rotation is ignored.
 - `circles.refresh(name)` sends one `get_balance` over the current key past
   the local frozen gate: `FROZEN` marks the wallet frozen, an answer lifts
   the mark (an `unfreeze` has no notification). Any request by the old key
@@ -1171,7 +1184,8 @@ withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), 
   address (`address_invalid`, with `malformed`, `mixed_case`,
   `no_witness`, `network` or `script_type_not_paid`), one of this wallet's
   own order addresses (`own_order_address`), a bill an open call holds, a
-  cash note still shared (`protect_first`). The answer is checked against
+  cash note still shared (`protect_first`), a bill held under a merge key
+  (`mid_merge`; `settle()` turns it back into a cash note). The answer is checked against
   what was asked (signed by the Hub identity, its tags equal to its fields,
   the bill, slice and address asked about, `sent_by` within `send_before`,
   fee = amount − payout, whole base units, the committed amount, at least
@@ -1200,7 +1214,12 @@ withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), 
   a warning, never a payout failure); `final` closes the call and drops the
   address, receipt and transaction; `cancelled` imports the re-minted bill
   (the whole amount, `origin: 'reminted'`, under the remint secret for a
-  cash note) and closes it.
+  cash note) and closes it. A re-minted bill that is already a tombstone
+  brings nothing back: the call closes, the withdrawal keeps `remintGone`
+  (with the tombstone's reason) and the `withdrawCancelled` notice carries
+  it, once; nothing waits for an answer.
+- A lost withdrawal (no answer, then `unknown`) is placed again
+  automatically, as §5.3 says.
 - `cancel` is offered only for a payout still `broadcast` 7 days after
   `sent_by` (`cancel_not_due` before, nothing sent). `signedTx` is offered
   only when the payout is late, signed and its transaction checked; the SDK
@@ -1347,7 +1366,10 @@ discover.curators.list() / add(pubkey) / remove(pubkey) / setDefaults({ pubkeys,
   refresh; `publishDue` runs at open and from `autoSettle`, never early.
   One recommendation per node: a second replaces the first.
   `withdrawRecommendation` publishes the NIP-09 deletion at once and
-  cancels a queued one. The outbox lists items without their text.
+  cancels a queued one. The outbox lists items without their text. Each
+  item keeps the identity that queued it (`author`); only that identity's
+  signer publishes it, and an item stored without one is dropped
+  unpublished.
 - **Curators** live in `settings.discover` (backed up). An app may set
   defaults, shown as curated by its name; any edit by the user makes the
   list the user's, and the app's defaults no longer apply. `publish` writes
@@ -1451,6 +1473,21 @@ Data hooks: `usePendingCalls`, `useUnreconciled`, `useCircles`,
 `useTestNetworkBanner`. Hooks return data only, never a secret unless
 asked (`includeSecrets`). It sits above `wallet` and never imports an
 adapter (lint-enforced), and React is an optional peer.
+
+### 6.12 Shared client rules
+
+cashkit and cashctl follow the same rule where the spec leaves a client a
+choice; cashctl documents the same rules in its `docs/client-rules.md`.
+
+| rule | spec | cashkit |
+|---|---|---|
+| A bill held under a one-time merge key is never withdrawn (nor zapped). Its lookups and cancel would need that key, the cancelled payout's re-mint is delivered to it, and no other device could follow the withdrawal. | NIP-CASH §Redeeming On-chain; NIP-CP §Writing (Withdrawals) | `withdraw.quote`/`send` refuse `mid_merge`; `settle()` turns held merge-key bills with no open call back into cash notes (`report.unmerged`) |
+| A cancelled payout whose re-minted bill is already a tombstone: the source stays spent, nothing is added, the call closes applied, and the user is told once. No question. | NIP-CASH §Redeeming On-chain | `WithdrawalView.remintGone`, the `withdrawCancelled` notice |
+| A redeem presumed paid (row still claimed a day past the invoice's expiry) is re-read, and re-opened by a later read that shows its row unclaimed. It never writes a final pocket state. | NIP-CASH §Redeeming a Slice; NIP-CP §Balance; plan §10.3 Redeem outcome | `settle()`, `report.redeems.released` |
+| A lost `cash_withdraw` is placed again automatically on the owning device after no answer and an `unknown` lookup, under the derived id, with the same quote, `notify` and remint secret, at most 3 attempts. With no chain view, the quote counts as valid until a call of the withdrawal was refused `quote_expired` (or `quote_invalid`). After `REQUEST_REUSED` the user confirms first. A recovered withdrawal is never placed again. | NIP-CP §Writing (lookups); NIP-CASH §Lost Replies | §5.3 |
+| NIP-42 AUTH is answered only as the user, only on the user's pocket relays, only after an `auth-required:` refusal, and only on connections no other traffic uses. Hub, order, listing, zap and discovery relays are never signed in to. | NIP-CP §Wrapping | `syncPocket({ auth, authPool })`, `RelayPool.isolated()` |
+| A connection-key holder answered `NOT_FOUND` by `cash_status` reads the status as unreadable, never as spent. Quote, redeem and withdraw are refused before anything is sent. | NIP-CASH §Scoping the Roster | `status_unreadable` |
+| A connection-key bill's split remainder and a cancelled payout's re-mint stay bound to that ConnectionKey: the Hub binds them to the slice's identity, and the request names no other. | NIP-CASH §Transferring and Splitting a Slice, §Redeeming On-chain | the remainder keeps the source's account and attestation |
 
 ## 7. Algorithms
 
@@ -1603,7 +1640,7 @@ This lets cashkit and cashctl share fixtures.
       "holdings": [ { "id": "h-…", "token": "lokicash1…", "amount": {"$bigint":"5000"},
                       "cashSecret": { "sealed": "<base64 nonce‖ciphertext>" }, … } ],
       "handoffs": […], "connections": […], "identity": […], "pendingJoins": […],
-      "activity": […], "settings": […], "meta": […], "pendingCalls": […]
+      "activity": […], "settings": […], "meta": […], "pendingCalls": […], "pendingRecoveries": […]
     }                                                    // never device, derivedIds or hubs
   }
   ```
@@ -1615,7 +1652,7 @@ This lets cashkit and cashctl share fixtures.
     `throwawayKey`; handoffs `handoff`; connections `uri`; identity `priv`;
     pendingJoins `connectionSecret`; pendingCalls `authorizer.authorizerKey`,
     `authorizer.buyerKey`, `outputs[].destination.secret` and
-    `outputs[].destination.key`. Each is `{ "sealed": … }` in the file and
+    `outputs[].destination.key`; pendingRecoveries `newSecret`. Each is `{ "sealed": … }` in the file and
     nothing else is secret. A version-1 backup is refused.
   - `importBackup` restores into an empty wallet only (merging two ledgers is
     not a restore), re-seals every secret under the new wallet's vault,

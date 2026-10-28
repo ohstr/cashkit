@@ -156,7 +156,7 @@ export interface TransferInput {
 /**
  * A remainder kept by this wallet, under a fresh secret for a cash source,
  * else the source's own key. A connection-key source's remainder stays
- * bound to that ConnectionKey (and its attestation): NIP-CASH §cash_transfer
+ * bound to that ConnectionKey (and its attestation): NIP-CASH §Transferring and Splitting a Slice
  * gives a split's remainder to "the caller's own unchanged identity" and
  * lets the caller name only a cash source's (`remainder_commitment`), so a
  * client cannot bind it to its signer's pubkey (R2-K2).
@@ -304,7 +304,7 @@ async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashT
       {
         ...identityFields(remOut.destination),
         // A connection-key source's remainder stays with the same account and attestation: the Hub binds it to the
-        // source's unchanged identity (NIP-CASH §cash_transfer), never to the signer.
+        // source's unchanged identity (NIP-CASH §Transferring and Splitting a Slice), never to the signer.
         ...(remOut.destination.kind === 'connection_key' && src.connectionKey !== undefined && { connectionKey: src.connectionKey }),
         token: r.remainderWalletToken,
         walletPubkey: r.remainderWalletPubkey,

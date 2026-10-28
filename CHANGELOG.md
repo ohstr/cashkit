@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+- Places a lost withdrawal again automatically on the device that placed
+  it, under the derived id with the same quote, while no call of it was
+  refused `quote_expired` or `quote_invalid`; after `REQUEST_REUSED` it
+  still asks `confirmWithdrawReplace`.
+- A presumed-paid redeem is re-read by every `settle()` and goes back to
+  held when its row reads unclaimed again.
+- A cancelled payout whose re-mint was already gone is recorded as
+  `remintGone` and told once in the `withdrawCancelled` notice; nothing waits
+  for an answer.
+- `settle()` turns bills a merge left on its one-time key back into cash
+  notes (`report.unmerged`); such a bill is still never withdrawn.
+- A Cash Pocket with `auth` signs in on a pool of its own (`authPool`, or the
+  new `RelayPool.isolated()`), never on the shared one; `NostrToolsPool`
+  takes a `newPool` option for it.
+- The pocket sync records the rev another device wrote for a bill held here,
+  so this device's spend is written above it.
+- A queued recommendation or report is published only by the identity that
+  queued it (`author`).
+- `circles.memberRequestFor` stores a rotate's new key, sealed, and
+  `circles.recover(hub)` finds it without the secret; it asks the
+  `confirmUnverified` handler; a `rotation_cancelled` for another key leaves
+  the pending rotation alone; another device's unsent join is looked up once
+  nothing can still arrive.
+
 ## [0.2.0-rc.1]
 
 - Reads and writes the token's signature scheme (TLV 8) and verifies mint
