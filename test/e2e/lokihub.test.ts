@@ -17,6 +17,7 @@ import { MemoryStorage } from '../../src/adapters/storage-memory.js'
 import { NoneVault } from '../../src/adapters/vault-none.js'
 import { syncPocket } from '../../src/adapters/sync-pocket.js'
 import { localSigner } from '../../src/core/index.js'
+import { readEvents } from '../../src/client/index.js'
 import { Wallet, CashkitError } from '../../src/wallet/index.js'
 import type { WalletDeps } from '../../src/wallet/ports.js'
 import { admin, api, createCashHub, deleteCashHub, hooks, relayUrl, until, type CreatedApp } from './admin.js'
@@ -307,6 +308,17 @@ describe.skipIf(admin === undefined || relayUrl === undefined)('lokihub: zaps, p
       return zaps.length > 0
     })
     expect(zaps.length).toBeGreaterThanOrEqual(1)
+    // Rule 9 against the Hub: approve the minter, then claim; the bill becomes Bob's holding.
+    const zap = zaps.find((z) => z.amountMillis === 10_000n && z.status === 'issued') ?? zaps[0]!
+    expect(zap.minter).toBeDefined()
+    expect(zap.chain).toBeDefined()
+    await bob.zaps.approveMinter(zap.minter!, zap.chain!)
+    const [event] = await readEvents(pool, [relayUrl!], { ids: [zap.id] }, 5_000)
+    expect(event).toBeDefined()
+    const held = await bob.zaps.claim(event!, { relays: [relayUrl!] })
+    expect(held.amount).toBe(10_000n)
+    expect((await bob.balance()).holdings.held).toBe(10_000n)
+    expect((await bob.zaps.list({ relays: [relayUrl!] })).find((z) => z.id === zap.id)?.status).toBe('claimed')
   }, 300_000)
 
   test('a second device with the same key reads the bill from the Cash Pocket', async () => {
