@@ -343,6 +343,9 @@ export async function sendWithdrawal(ctx: Ctx, view: WithdrawQuoteView, o: { con
   if (!session.usableForBills) throw new CashkitError('internal', "this bill's Hub announces no usable max_request_age; nothing was sent", { reason: 'hub_unusable' })
   const slice = await sliceIdentity(ctx, h)
   const remint = slice.credential.kind === 'secret' ? newCashTarget(ctx.random) : undefined
+  // The re-mint of a cancelled payout is bound by the Hub to the slice's registered identity (a ConnectionKey slice's
+  // stays that ConnectionKey) or, for a cash slice, to remint_commitment (NIP-CASH §Redeeming On-chain): the request
+  // names no other identity, so this records what the Hub will make, not a choice (R2-K2).
   const remintOut: PlainOutput['destination'] =
     remint !== undefined
       ? { kind: 'cash', secret: remint.secret }
