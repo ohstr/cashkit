@@ -519,7 +519,7 @@ async function checkPayout(ctx: Ctx, call: PendingCall, raw: unknown, from: 'rep
 const QUOTE_ENDED: ReadonlySet<string> = new Set(['quote_expired', 'quote_invalid'])
 
 const withdrawKind: CallKind = {
-  // NIP-CP §Lookups: placed again automatically only after no answer and an `unknown` lookup, while its quote is
+  // NIP-CP §Writing (lookups): placed again automatically only after no answer and an `unknown` lookup, while its quote is
   // valid; after REQUEST_REUSED only once the user confirms (confirmWithdrawReplace, default no).
   autoReplace: (call) => call.sawReused !== true,
   replaceRequest: 'confirmWithdrawReplace',

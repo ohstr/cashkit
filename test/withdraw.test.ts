@@ -359,7 +359,7 @@ describe('wallet.withdraw: a cancelled payout', () => {
   })
 })
 
-describe('wallet.withdraw: a lost withdrawal is placed again (NIP-CP §Lookups)', () => {
+describe('wallet.withdraw: a lost withdrawal is placed again (NIP-CP §Writing)', () => {
   let skew = 0
   const clock = () => Date.now() + skew
   async function lost(o: { reused?: boolean; refusedDetail?: string } = {}) {
