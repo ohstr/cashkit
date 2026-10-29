@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Refuses a bolt11 invoice carrying two 32-byte payment hash fields, as
+  readers disagree on which one counts; a field of another length is still
+  skipped.
 - Refuses the platform name `nostr` (`validPlatformName`): no ConnectionKey,
   nconnection, attestation or `connection:` target is built or read on it, as
   it names a native pubkey.

@@ -124,6 +124,7 @@ export function decodeBolt11(invoice: string): Bolt11Invoice {
   const fields = words.subarray(TIMESTAMP_WORDS, words.length - SIGNATURE_WORDS)
 
   let paymentHash = ''
+  let seenPaymentHash = false
   let description = ''
   let descriptionHash = ''
   let expirySeconds = DEFAULT_EXPIRY
@@ -137,6 +138,10 @@ export function decodeBolt11(invoice: string): Bolt11Invoice {
     i += len
     switch (type) {
       case 1:
+        // A p field of another length is skipped; a second 32-byte one is refused, since readers disagree on which counts.
+        if (data.length !== HASH_FIELD_WORDS) break
+        if (seenPaymentHash) throw fail('more than one payment hash')
+        seenPaymentHash = true
         paymentHash = hashHex(data) ?? paymentHash
         break
       case 13:

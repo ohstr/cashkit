@@ -53,10 +53,18 @@ describe('decodeBolt11', () => {
     expect(inv.description).toBe('coffee ☕')
     expect(inv.descriptionHash).toBe('dd'.repeat(32))
   })
-  test('skips unknown fields and malformed hashes; the last valid payment hash wins', () => {
+  test('skips unknown fields and payment hash fields of another length', () => {
     expect(decodeBolt11(invoice('lnfc1u', [9, Uint8Array.of(1, 2, 3)], PH)).paymentHash).toBe('aa'.repeat(32))
-    expect(decodeBolt11(invoice('lnfc1u', PH, hashField(1, fill(0xbb, 32)))).paymentHash).toBe('bb'.repeat(32))
     expect(decodeBolt11(invoice('lnfc1u', [1, toWords(fill(0xaa, 31))], PH)).paymentHash).toBe('aa'.repeat(32))
+    expect(decodeBolt11(invoice('lnfc1u', PH, [1, toWords(fill(0xbb, 33))])).paymentHash).toBe('aa'.repeat(32))
+  })
+  const badPadding: Field = [1, Uint8Array.from([...toWords(fill(0xaa, 32)).subarray(0, 51), 1])]
+  test.each<[string, Field[]]>([
+    ['two different payment hashes', [PH, hashField(1, fill(0xbb, 32))]],
+    ['the same payment hash twice', [PH, PH]],
+    ['a payment hash with non-zero padding then a good one', [badPadding, PH]],
+  ])('refuses %s', (_, fields) => {
+    expect(() => decodeBolt11(invoice('lnfc1u', ...fields))).toThrow(/more than one payment hash/)
   })
   test.each<[string, string]>([
     ['no payment hash', invoice('lnfc1u', [13, toWords(new TextEncoder().encode('x'))])],
