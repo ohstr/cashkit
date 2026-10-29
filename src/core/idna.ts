@@ -237,7 +237,8 @@ export function canonicalUserId(platform: string, typed: string): string {
     case 'email': {
       const s = asciiLower(trimAscii(typed))
       const at = s.lastIndexOf('@')
-      if (at <= 0) throw notCanonical()
+      // No value carries a leading '@' (a handle-style paste): refused, never repaired.
+      if (at <= 0 || s.startsWith('@')) throw notCanonical()
       const local = s.slice(0, at)
       if (local.normalize('NFC') !== local) throw notCanonical()
       return `${local}@${canonicalDomain(s.slice(at + 1))}`

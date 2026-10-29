@@ -2,6 +2,8 @@
 
 ## [0.2.0-rc.2]
 
+- Refuses an email user id with a leading `@` (`@alice@example.com`) as not
+  canonical, instead of deriving a ConnectionKey no IA attests.
 - Checks, in `resolveConnection`, that an attestation is current and not
   deleted on the IA's own relays (the write relays of its NIP-65 list, or the
   new `iaRelays` option), never on the claimant's relay hint; with none
