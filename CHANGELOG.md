@@ -2,6 +2,8 @@
 
 ## [0.2.0-rc.2]
 
+- Ranks `discover.list()` offers on the signals each card shows, so a
+  recommended offer is no longer placed below a newer one with no signal.
 - Refuses a Hub connection string whose TLV 3 label is not well-formed UTF-8,
   as the spec requires, instead of decoding it with replacement characters.
 - Sends an NWC request to the next relay hint, as the same event, when the

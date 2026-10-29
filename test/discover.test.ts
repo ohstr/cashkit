@@ -153,6 +153,33 @@ describe('wallet.discover', () => {
   })
 })
 
+describe('ranking (§Wallet Rules "Signals")', () => {
+  test('a recommended listing ranks above a newer listing with no signal', async () => {
+    const h = await harness({ deps: { nwcTimeoutMs: 2000 } })
+    const friend = fill(0x48, 32)
+    const recommended = new FakeOrder(h.bank)
+    const unsignalled = new FakeOrder(h.bank)
+    await h.pool.publish(R, listingEvent(h.bank.hub.nodeKey, { d: recommended.pubkey, connection: recommended.string, created_at: NOW - 100 }))
+    await h.pool.publish(R, listingEvent(h.bank.hub.nodeKey, { d: unsignalled.pubkey, connection: unsignalled.string, created_at: NOW - 2 }))
+    await h.pool.publish(R, finalizeEvent({ ...newRecommendation(h.bank.hub.node, R, [`31190:${h.bank.hub.node}:${recommended.pubkey}`], 'fast'), created_at: NOW - 5 }, friend))
+    await h.wallet.discover.refresh({ relays: [R], follows: [getPublicKey(friend)] })
+    const cards = h.wallet.discover.list().sections.buyCash
+    expect(cards.map((c) => c.address.endsWith(recommended.pubkey))).toEqual([true, false])
+    expect(cards[0]!.signals.recommendations).toHaveLength(1)
+  })
+  test('listings with no signal rank newest first', async () => {
+    const h = await harness({ deps: { nwcTimeoutMs: 2000 } })
+    const older = new FakeOrder(h.bank)
+    const newer = new FakeOrder(h.bank)
+    await h.pool.publish(R, listingEvent(h.bank.hub.nodeKey, { d: older.pubkey, connection: older.string, created_at: NOW - 100 }))
+    await h.pool.publish(R, listingEvent(h.bank.hub.nodeKey, { d: newer.pubkey, connection: newer.string, created_at: NOW - 2 }))
+    await h.wallet.discover.refresh({ relays: [R], follows: [getPublicKey(fill(0x48, 32))], includeUnreviewed: true })
+    const v = h.wallet.discover.list()
+    const all = [...v.sections.buyCash, ...(v.sections.unreviewed ?? [])]
+    expect(all.map((c) => c.address.endsWith(newer.pubkey))).toEqual([true, false])
+  })
+})
+
 describe('the listing’s connection string', () => {
   test('all uppercase is read; mixed case is step 2', async () => {
     const { bank, order } = await shop()

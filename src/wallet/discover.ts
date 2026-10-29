@@ -281,11 +281,16 @@ function operatorOf(s: State): (addr: string) => string | undefined {
   }
 }
 
-function card(ctx: Ctx, s: State, l: Listing): OfferCard {
+/** A listing's signals: its recommendations (one naming another offer of its node included), reports and operator's followers. */
+function signalsOf(s: State, l: Listing): ReturnType<typeof signalsFor> {
+  const op = operatorOf(s)(listingAddress(l))
+  const offersOfNode = [...s.listings.values()].filter((x) => x.nodeIdentity === l.nodeIdentity).map(listingAddress)
+  return signalsFor(l, s.trust, s.recs, s.reports, op !== undefined ? (s.operatorFollowers.get(op) ?? []) : [], operatorOf(s), offersOfNode)
+}
+
+function card(ctx: Ctx, s: State, l: Listing, sig: ReturnType<typeof signalsFor>): OfferCard {
   const addr = listingAddress(l)
   const op = operatorOf(s)(addr)
-  const offersOfNode = [...s.listings.values()].filter((x) => x.nodeIdentity === l.nodeIdentity).map(listingAddress)
-  const sig = signalsFor(l, s.trust, s.recs, s.reports, op !== undefined ? (s.operatorFollowers.get(op) ?? []) : [], operatorOf(s), offersOfNode)
   const last = s.taps.last(l)
   const now = ctx.nowSeconds()
   return {
@@ -335,13 +340,12 @@ export function listDiscover(ctx: Ctx): DiscoverView {
       else contested.push({ d, addresses: ls.map(listingAddress) })
     }
   }
-  const cards = shown.map((l) => ({ l, c: card(ctx, s, l) }))
-  const key = (x: (typeof cards)[number]) => rankKey(x.l, signalsFor(x.l, s.trust, s.recs, s.reports, [], operatorOf(s), []), now)
-  const cmp = (a: (typeof cards)[number], b: (typeof cards)[number]) => {
-    const ka = key(a)
-    const kb = key(b)
-    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2]
-  }
+  // Ranked on the same signals the card shows, so a recommended offer is never below an unsignalled one.
+  const cards = shown.map((l) => {
+    const sig = signalsOf(s, l)
+    return { l, c: card(ctx, s, l, sig), k: rankKey(l, sig, now) }
+  })
+  const cmp = (a: (typeof cards)[number], b: (typeof cards)[number]) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2]
   const ordered = [...cards]
   // oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy
   ordered.sort(cmp)
