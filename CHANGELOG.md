@@ -4,61 +4,61 @@
 
 - Picks, from a scope-all roster that lists claimed history, the caller's
   unclaimed row wherever it is listed (two are refused as ambiguous), else
-  its most recently claimed row, instead of the first row that matches.
+  its most recently claimed row, instead of the first row that matches. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Refuses a bolt11 invoice carrying two 32-byte payment hash fields, as
   readers disagree on which one counts; a field of another length is still
-  skipped.
+  skipped. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Refuses the platform name `nostr` (`validPlatformName`): no ConnectionKey,
   nconnection, attestation or `connection:` target is built or read on it, as
-  it names a native pubkey.
+  it names a native pubkey. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Refuses a NIP-LSP announcement dated more than 15 minutes ahead (step 4),
   and `LspSeen` no longer counts one as seen, so it cannot hide the node's
-  later announcements.
+  later announcements. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Sends a private-transport envelope on to the next relay, as the same
   envelope, when the relay that took it gives no reply within its share of
-  the wait, so a relay the Hub has left no longer holds a call until `not_after`.
+  the wait, so a relay the Hub has left no longer holds a call until `not_after`. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Closes a call whose Cash Pocket entry another device made final as
   `closed_elsewhere` (a new `CallOutcome`), not `not_applied`, and reads its
-  sources first, so a bill that device spent no longer shows as held.
+  sources first, so a bill that device spent no longer shows as held. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Reads a lookup `done` whose created bill is already a tombstone as that
   bill gone: a spin-off is no longer taken for a move in place or handed off
-  as the source's token, and such a mint closes instead of being looked up again.
+  as the source's token, and such a mint closes instead of being looked up again. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Refuses an email user id with a leading `@` (`@alice@example.com`) as not
-  canonical, instead of deriving a ConnectionKey no IA attests.
+  canonical, instead of deriving a ConnectionKey no IA attests. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Checks, in `resolveConnection`, that an attestation is current and not
   deleted on the IA's own relays (the write relays of its NIP-65 list, or the
   new `iaRelays` option), never on the claimant's relay hint; with none
-  reachable it does not count.
+  reachable it does not count. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Reads an operator's offer list (kind 11191) from the operator's own NIP-65
   write relays as well as the discovery relays, so an operator that keeps it
-  only there is no longer shown as unverified.
+  only there is no longer shown as unverified. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Ranks `discover.list()` offers on the signals each card shows, so a
-  recommended offer is no longer placed below a newer one with no signal.
+  recommended offer is no longer placed below a newer one with no signal. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Refuses a Hub connection string whose TLV 3 label is not well-formed UTF-8,
-  as the spec requires, instead of decoding it with replacement characters.
+  as the spec requires, instead of decoding it with replacement characters. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Sends an NWC request to the next relay hint, as the same event, when the
   relay that took it gives no answer within the wait, instead of giving up
-  while a hint is still untried; a request past its `expiration` is not resent.
+  while a hint is still untried; a request past its `expiration` is not resent. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Keys holdings by the bill's wallet pubkey and stores each token in its
   canonical spelling (new `canonicalToken`), so a bill re-spelled with its
   entries reordered or an unknown TLV added is refused as already held
   instead of being counted twice. `Wallet.open` rewrites stored tokens and
   marks every second held copy an older version stored with the new holding
-  status `duplicate`, kept for its secrets but never counted or spent.
+  status `duplicate`, kept for its secrets but never counted or spent. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Adds the item outcome state `unanswered` for an item an incomplete reply
   (or no reply) left out, and waits for every chunk up to `total` before a
-  reply is complete; `not_served` now means only a complete reply's omission.
+  reply is complete; `not_served` now means only a complete reply's omission. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Refuses every call to a Hub whose newest signed announcement is rejected
   (`hub_unusable`), at `open()` and on refresh, instead of using an older
-  announcement and its inbox; a valid newer announcement makes it usable again.
+  announcement and its inbox; a valid newer announcement makes it usable again. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Follows an on-chain payout by lookups as well as notices: `withdraw.watch`
   polls it until `final` or `cancelled`, `settle()` reads every open payout
   (`report.withdrawals`), and `autoSettle()` reads one hourly and at each
   milestone (`state.nextWithdrawReadAt`), so a lost notice no longer leaves a
-  re-minted bill unimported.
+  re-minted bill unimported. ([#46](https://github.com/ohstr/cashkit/pull/46))
 - Sorts canonical params keys by UTF-16 code units, as RFC 8785 does; the
   params hash changes only where keys mix characters above U+FFFF with ones
-  from U+E000 to U+FFFF.
+  from U+E000 to U+FFFF. ([#46](https://github.com/ohstr/cashkit/pull/46))
 
 ## [0.2.0-rc.1]
 
