@@ -48,6 +48,37 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:browser
 
+  # Decode parity with `cashctl decode --json` (design §11), against a pinned cashctl release.
+  parity:
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: "off"
+      CASHCTL_REF: v0.7.0-rc.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ohstr/cashctl
+          ref: ${{ env.CASHCTL_REF }}
+          path: cashctl
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cashctl/go.mod
+          cache-dependency-path: cashctl/go.sum
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: go -C cashctl build -buildvcs=false -o "$RUNNER_TEMP/cashctl" .
+      - run: CASHCTL_BIN="$RUNNER_TEMP/cashctl" pnpm vitest run test/parity
+
   # vectors/ must be exactly what nmilat produces (design §11.1).
   vectors:
     runs-on: ubuntu-latest
