@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Refuses the platform name `nostr` (`validPlatformName`): no ConnectionKey,
+  nconnection, attestation or `connection:` target is built or read on it, as
+  it names a native pubkey.
 - Refuses a NIP-LSP announcement dated more than 15 minutes ahead (step 4),
   and `LspSeen` no longer counts one as seen, so it cannot hide the node's
   later announcements.

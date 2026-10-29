@@ -9,16 +9,21 @@ import {
   connectionKeyFromNConnection,
   connectionKeyRefFromTyped,
   connectionTarget,
+  decodeNConnection,
+  encodeNConnection,
   evaluateConnection,
   finalizeEvent,
   getPublicKey,
   newIdentityHash,
   parseAttestation,
   parseIdentityConnection,
+  validPlatformName,
+  fromHex,
   type AttestationSource,
   type NostrEvent,
   toHex,
 } from '../src/core/index.js'
+import { bech32Encode, toWords } from '../src/core/bech32.js'
 import { MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
 
@@ -102,9 +107,31 @@ describe('ConnectionKey refs (T-205, T-206, T-208)', () => {
   })
   test('typed input is hashed only on x, discord, email and dns; nostr and platform names outside [a-z0-9._-]+ are refused', () => {
     expect(connectionKeyRefFromTyped('discord', UID, IA).key).toBe('22ced17fc7b3a6f7262d2dbe00b42d302948595468e025f4392b0a5022b8319d')
-    expect(() => connectionKeyRefFromTyped('nostr', USER, IA)).toThrow(/no canonical form/)
+    expect(() => connectionKeyRefFromTyped('nostr', USER, IA)).toThrow(/platform name/)
     expect(() => connectionKeyRefFromTyped('github', '12345', IA)).toThrow(/no canonical form/)
     for (const p of ['Discord', 'git:hub', 'git hub', '']) expect(() => connectionKeyRefFromTyped(p, '1', IA)).toThrow(/platform name/)
+  })
+})
+
+describe('nostr is no platform (NIP-IC §Platform names): a native pubkey is never hashed', () => {
+  const KEY = 'ab'.repeat(32)
+  test('no ConnectionKey, nconnection, attestation or claim is built or read on nostr', () => {
+    expect(() => connectionKeyFromAttested('nostr', USER)).toThrow(/platform name/)
+    expect(() => connectionKeyFromNConnection({ connectionKey: KEY, relays: [], platform: 'nostr' }, IA)).toThrow(/platform name/)
+    expect(() => encodeNConnection({ connectionKey: KEY, relays: ['wss://r.test'], platform: 'nostr' })).toThrow(/platform name/)
+    const encoded = encodeNConnection({ connectionKey: KEY, relays: ['wss://r.test'], platform: 'nostrx' })
+    // The same string with the platform TLV spelled nostr.
+    const asNostr = bech32Encode('nconnection', toWords(Uint8Array.from([0, 32, ...fromHex(KEY), 1, 12, ...new TextEncoder().encode('wss://r.test'), 2, 5, ...new TextEncoder().encode('nostr')])))
+    expect(decodeNConnection(encoded).platform).toBe('nostrx')
+    expect(() => decodeNConnection(asNostr)).toThrow(/platform name/)
+    expect(() => connectionKeyFromAttestation(parseAttestation(att({ platform: 'nostr' })))).toThrow(/platform name/)
+  })
+  test.each(['nostrx', 'nostr.example', 'nostr-relay', 'github', 'n'])('%s is a platform name', (p) => {
+    expect(validPlatformName(p)).toBe(true)
+    expect(connectionKeyFromAttested(p, 'id')).toMatch(/^[0-9a-f]{64}$/)
+  })
+  test.each(['nostr', 'Nostr', '', 'nos tr'])('%j is not', (p) => {
+    expect(validPlatformName(p)).toBe(false)
   })
 })
 

@@ -40,6 +40,8 @@ describe('parseTarget', () => {
     // Typed input is hashed only in a canonical platform's canonical form.
     expect(await code(parseTarget(`connection:discord:alice:${IA}`))).toBe('invalid_input')
     expect(await code(parseTarget(`connection:github:12345:${IA}`))).toBe('invalid_input')
+    // nostr names a native pubkey: never a ConnectionKey platform.
+    expect(await code(parseTarget(`connection:nostr:${'ab'.repeat(32)}:${IA}`))).toBe('invalid_input')
   })
   test('T-1808 a typed connection is hashed only in its canonical form, on a canonical platform', async () => {
     const dns = await parseTarget(`connection:dns:BüCHER.example:${IA}`)

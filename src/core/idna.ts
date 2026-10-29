@@ -215,8 +215,8 @@ export function canonicalDomain(input: string): string {
 
 const NUMERIC = /^[1-9][0-9]{0,19}$/
 
-/** A platform name: one or more of a–z, 0–9, `.`, `_` and `-`. */
-export const validPlatformName = (p: string): boolean => /^[a-z0-9._-]+$/.test(p)
+/** A platform name: `[a-z0-9._-]+`, never `nostr`, which names a native pubkey and is never hashed into a ConnectionKey. */
+export const validPlatformName = (p: string): boolean => p !== 'nostr' && /^[a-z0-9._-]+$/.test(p)
 
 /** Whether a sender may derive a ConnectionKey from typed input on this platform. */
 export const hasCanonicalForm = (p: string): boolean => p === 'x' || p === 'discord' || p === 'email' || p === 'dns'
