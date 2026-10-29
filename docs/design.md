@@ -356,7 +356,10 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
 
 - **`BatchSession(hub, relays)`.**
   - Fetches the announcement from the relay hints only and refreshes it,
-    keeping the newest by `created_at` (rollback guard).
+    keeping the newest by `created_at` (rollback guard). The newest event
+    the Hub validly signed is its policy: when it is rejected, the session
+    refuses every call (`hub_unusable`) until a valid newer one is seen,
+    and never uses an older one instead.
   - Publishes to the announcement's `r` relays first, then the hints in
     encoded order, each once, blanks skipped.
   - Packs items greedily into envelopes with a fresh nonce and `reply_to`

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import { bySigning, decodeToken, localSigner, pubkeyTarget } from '../src/core/index.js'
 import { newRequestId } from '../src/core/index.js'
 import { BatchSession, billFor, CashClient, classifyCall, ClientError, deadlineFor, MIN_PUBLISH_MARGIN, statusMany, type ItemOutcome } from '../src/client/index.js'
+import { DEFAULT_LIMITS } from '../src/transport/index.js'
 import { FakeHub, MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
 
@@ -45,6 +46,52 @@ describe('T-401 / T-402 relay order and failover', () => {
     expect(r.outcomes[0]!.state).toBe('result')
     expect(r.acceptedRelays).toEqual([R2])
     expect(pool.published.filter((p) => p.event.kind === 23190).map((p) => p.relay)).toEqual([R2])
+  })
+})
+
+const requests = () => pool.published.filter((p) => p.event.kind === 23190).length
+
+describe('a rejected newest announcement (§The Hub Announcement)', () => {
+  const below = { ...DEFAULT_LIMITS, padBucketBytes: 1024 }
+  test('open() refuses the Hub, never falling back to the older valid one another relay serves', async () => {
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(BatchSession.open(deps(), hub.node, [R1, R2])).rejects.toMatchObject({ code: 'hub_unusable' })
+  })
+  test('a session holding an older one refuses every call once a newer one is rejected', async () => {
+    const s = await BatchSession.open(deps(), hub.node, [R1])
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    expect(() => s.inbox).toThrow(expect.objectContaining({ code: 'hub_unusable' }))
+    expect(() => s.limits).toThrow(expect.objectContaining({ code: 'hub_unusable' }))
+    const before = requests()
+    await expect(statusMany(s, statusItems(1), now)).rejects.toMatchObject({ code: 'hub_unusable' })
+    expect(requests()).toBe(before)
+  })
+  test('stays unusable when the relays serve only the older one again', async () => {
+    const old = hub.announcementEvent({ relays: [R1], createdAt: now() })
+    const s = await BatchSession.open(deps(), hub.node, [R1])
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    pool.relay(R1).stored = [old]
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    expect(() => s.inbox).toThrow(expect.objectContaining({ code: 'hub_unusable' }))
+  })
+  test('a valid newer announcement makes the Hub usable again', async () => {
+    const s = await BatchSession.open(deps(), hub.node, [R1])
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 11, limits: { ...DEFAULT_LIMITS, padBucketBytes: 2048 } }))
+    await s.refresh()
+    expect(s.inbox).toBe(hub.inbox)
+    expect(s.limits.padBucketBytes).toBe(2048)
+    const r = await statusMany(s, statusItems(1), now)
+    expect(r.outcomes[0]!.state).toBe('result')
+  })
+  test('a newer event with a bad signature is not the Hub announcement and changes nothing', async () => {
+    const forged = { ...hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }), sig: '00'.repeat(64) }
+    await pool.publish(R1, forged)
+    const s = await BatchSession.open(deps(), hub.node, [R1, R2])
+    expect(s.inbox).toBe(hub.inbox)
   })
 })
 

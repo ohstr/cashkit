@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Refuses every call to a Hub whose newest signed announcement is rejected
+  (`hub_unusable`), at `open()` and on refresh, instead of using an older
+  announcement and its inbox; a valid newer announcement makes it usable again.
 - Follows an on-chain payout by lookups as well as notices: `withdraw.watch`
   polls it until `final` or `cancelled`, `settle()` reads every open payout
   (`report.withdrawals`), and `autoSettle()` reads one hourly and at each

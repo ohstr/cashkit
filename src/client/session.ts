@@ -1,7 +1,7 @@
 // One Hub's private transport: its announcement, packing, sending and reply
 // collection. Port of nmilat nipcash/client/{batch_session,batch_pack,
 // batch_send}.go.
-import { nip44, requiresRequestId } from '../core/index.js'
+import { nip44, requiresRequestId, verifyEvent } from '../core/index.js'
 import {
   decodeResponseChunk,
   effectiveLimits,
@@ -101,6 +101,10 @@ export class BatchSession {
   /** The token's (or connection's) relay hints, in encoded order, blanks skipped. */
   private readonly hints: readonly string[]
   private announcement: Announcement | undefined
+  /** Set while the newest validly signed announcement is one this client rejects: no call goes to the Hub, and no older one stands in. */
+  private unusable: ClientError | undefined
+  /** The created_at of that rejected announcement: only a valid one newer than it makes the Hub usable again. */
+  private rejectedAt = -1
 
   private constructor(
     private readonly deps: ClientDeps,
@@ -124,46 +128,63 @@ export class BatchSession {
   }
 
   /**
-   * Re-fetches the announcement from the relay hints and keeps the newest
-   * valid one, never moving back to an older one already held.
+   * Re-fetches the announcement from the relay hints. The newest event the
+   * Hub validly signed is its current policy: it is adopted if it parses,
+   * and if it does not, the Hub is unusable (every call refused) until a
+   * valid newer one is seen. An older one is never adopted, neither in place
+   * of a rejected newest one nor over the one already held.
    */
   async refresh(): Promise<void> {
     const events = await readEvents(this.deps.relays, this.hints, { kinds: [KIND_HUB_ANNOUNCEMENT], authors: [this.hub], limit: 1 }, ANNOUNCEMENT_FETCH_MS)
-    let newest: Announcement | undefined
+    // Only the author and signature decide which event is newest; its tags are judged afterwards, on it alone.
+    let newest: (typeof events)[number] | undefined
     for (const e of events) {
-      try {
-        const a = parseAnnouncement(e, this.hub)
-        if (newest === undefined || a.createdAt > newest.createdAt) newest = a
-      } catch {
-        // A relay can serve any bytes; only a verified announcement counts.
-      }
+      if (e.kind !== KIND_HUB_ANNOUNCEMENT || e.pubkey !== this.hub || !verifyEvent(e, { checkPow: false })) continue
+      if (newest === undefined || e.created_at > newest.created_at) newest = e
     }
     if (newest === undefined) throw new ClientError('no_announcement', 'hub publishes no private-transport announcement')
-    if (this.announcement === undefined || newest.createdAt >= this.announcement.createdAt) this.announcement = newest
+    if (this.unusable !== undefined && newest.created_at <= this.rejectedAt) throw this.unusable
+    if (this.announcement !== undefined && newest.created_at < this.announcement.createdAt) return
+    let a: Announcement
+    try {
+      a = parseAnnouncement(newest, this.hub)
+    } catch (err) {
+      this.rejectedAt = newest.created_at
+      this.unusable = new ClientError('hub_unusable', `the hub's newest announcement is rejected, and no older one is used: ${(err as Error).message}`, { cause: err })
+      throw this.unusable
+    }
+    this.unusable = undefined
+    this.announcement = a
+  }
+
+  /** The held announcement, unless the newest one was rejected. */
+  private current(): Announcement {
+    if (this.unusable !== undefined) throw this.unusable
+    return this.announcement!
   }
 
   get limits(): Limits {
-    return effectiveLimits(this.announcement!)
+    return effectiveLimits(this.current())
   }
 
   /** The key envelopes are encrypted and p-tagged to. Not the Hub identity. */
   get inbox(): string {
-    return this.announcement!.inbox
+    return this.current().inbox
   }
 
   /** The Hub's announced `max_request_age` (H), if any. */
   get maxRequestAge(): number | undefined {
-    return this.announcement!.maxRequestAge
+    return this.current().maxRequestAge
   }
 
   /** Whether bill-creating calls may go to this Hub (H announced and at least 60). */
   get usableForBills(): boolean {
-    return hubUsableForBills(this.announcement!)
+    return hubUsableForBills(this.current())
   }
 
   /** The announcement's `r` relays first, then the hints in encoded order, each once. */
   get relays(): readonly string[] {
-    return dedupe([...this.announcement!.relays, ...this.hints])
+    return dedupe([...this.current().relays, ...this.hints])
   }
 
   /**
@@ -221,6 +242,7 @@ export class BatchSession {
    */
   async send(builders: readonly ItemBuilder[], o: SendOptions = {}): Promise<SendResult> {
     if (builders.length === 0) return { outcomes: [] }
+    if (this.unusable !== undefined) throw this.unusable
     if (!this.usableForBills && builders.some((b) => b.method !== undefined && requiresRequestId(b.method))) {
       throw new ClientError('hub_unusable', 'this hub announces no usable max_request_age, so no call that creates a bill may go to it')
     }
