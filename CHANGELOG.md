@@ -37,7 +37,8 @@
   canonical spelling (new `canonicalToken`), so a bill re-spelled with its
   entries reordered or an unknown TLV added is refused as already held
   instead of being counted twice. `Wallet.open` rewrites stored tokens and
-  removes a second held copy of one slice that an older version stored.
+  marks every second held copy an older version stored with the new holding
+  status `duplicate`, kept for its secrets but never counted or spent.
 - Adds the item outcome state `unanswered` for an item an incomplete reply
   (or no reply) left out, and waits for every chunk up to `total` before a
   reply is complete; `not_served` now means only a complete reply's omission.

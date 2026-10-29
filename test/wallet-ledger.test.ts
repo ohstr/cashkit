@@ -266,33 +266,61 @@ describe('one holding per bill, however it is spelled (NIP-CASH §Wire Format)',
 const legacy = (s: MemoryStorage, id: string, token: string, extra: Partial<NewHolding> & { addedAt?: number } = {}) =>
   s.tx('rw', (t) => t.put('holdings', { ...nh(token), status: 'held', addedAt: 1, version: 1, ...extra, id, token: token.toLowerCase() }, 0))
 
+const rows = (s: MemoryStorage) => s.tx('r', (t) => t.list('holdings'))
+
 describe('normalizeHoldings (stores written before one holding per bill)', () => {
-  test('rewrites tokens canonically and removes a second held copy of one slice', async () => {
+  test('rewrites tokens canonically; the second held copy becomes duplicate, its secret kept', async () => {
     const s = new MemoryStorage()
     await legacy(s, 'h-1', specToken, { addedAt: 1 })
-    await legacy(s, 'h-2', withUnknown(specToken), { addedAt: 2 })
+    await legacy(s, 'h-2', withUnknown(specToken), { addedAt: 2, cashSecret: 'sealed-secret' as never })
     expect(await s.tx('rw', (t) => normalizeHoldings(t, new Set()))).toEqual(['h-2'])
-    const rows = await s.tx('r', (t) => t.list('holdings'))
-    expect(rows.map((h) => [h.id, h.token])).toEqual([['h-1', canonicalToken(specToken)]])
+    expect((await rows(s)).map((h) => [h.id, h.status, h.token])).toEqual([
+      ['h-1', 'held', canonicalToken(specToken)],
+      ['h-2', 'duplicate', canonicalToken(specToken)],
+    ])
+    expect((await rows(s))[1]!.cashSecret).toBe('sealed-secret')
   })
-  test('keeps both copies when one is a cash note or another binding, or an open call names one', async () => {
+  test('every second copy is a duplicate, a cash note or another binding included', async () => {
     const s = new MemoryStorage()
     await legacy(s, 'h-1', specToken, { addedAt: 1 })
     await legacy(s, 'h-2', withUnknown(specToken), { addedAt: 2, mode: 'cash', protection: 'shared' })
-    expect(await s.tx('rw', (t) => normalizeHoldings(t, new Set()))).toEqual([])
-    const t2 = new MemoryStorage()
-    await legacy(t2, 'h-1', specToken, { addedAt: 1 })
-    await legacy(t2, 'h-2', withUnknown(specToken), { addedAt: 2 })
-    expect(await t2.tx('rw', (t) => normalizeHoldings(t, new Set(['h-2'])))).toEqual([])
-    expect(await t2.tx('r', (t) => t.list('holdings'))).toHaveLength(2)
+    await legacy(s, 'h-3', reversed(specToken), { addedAt: 3, mode: 'connection_key' })
+    expect(await s.tx('rw', (t) => normalizeHoldings(t, new Set()))).toEqual(['h-2', 'h-3'])
+    expect((await rows(s)).filter((h) => h.status === 'held').map((h) => h.id)).toEqual(['h-1'])
   })
-  test('Wallet.open brings an older store to one holding per bill', async () => {
+  test('the copy an open call names stays live, then a redeeming one, else the first received', async () => {
+    const s = new MemoryStorage()
+    await legacy(s, 'h-1', specToken, { addedAt: 1 })
+    await legacy(s, 'h-2', withUnknown(specToken), { addedAt: 2 })
+    expect(await s.tx('rw', (t) => normalizeHoldings(t, new Set(['h-2'])))).toEqual(['h-1'])
+    const r = new MemoryStorage()
+    await legacy(r, 'h-1', specToken, { addedAt: 1 })
+    await legacy(r, 'h-2', withUnknown(specToken), { addedAt: 2, status: 'redeeming' } as Partial<NewHolding>)
+    expect(await r.tx('rw', (t) => normalizeHoldings(t, new Set()))).toEqual(['h-1'])
+  })
+  test('Wallet.open: the bill counts once, the duplicate is not spendable, and a third spelling is the same holding', async () => {
     const s = new MemoryStorage()
     await legacy(s, 'h-1', specToken, { addedAt: 1, amount: 5n })
     await legacy(s, 'h-2', withUnknown(specToken), { addedAt: 2, amount: 5n })
-    const h = await harness({ storage: s, deps: { } })
+    const h = await harness({ storage: s, deps: {} })
     expect((await h.wallet.holdings()).map((x) => x.id)).toEqual(['h-1'])
-    expect(h.wallet.state.balance.held).toBe(5n)
+    expect(h.wallet.state.balance).toMatchObject({ held: 5n, count: 1 })
+    expect((await h.wallet.holdings({ includeSpent: true })).find((x) => x.id === 'h-2')?.status).toBe('duplicate')
+    await expect(h.wallet.planRedeem({ holdings: ['h-2'] })).rejects.toBeInstanceOf(CashkitError)
+    // The duplicate's secret stays exportable for recovery.
+    expect(await h.wallet.exportHolding('h-2')).toBe(canonicalToken(specToken))
+    const third = await s.tx('rw', (t) => addHolding(t, nh(reversed(specToken)), o())).catch((e: unknown) => e)
+    expect(third).toMatchObject({ code: 'conflict', input: 'h-1' })
+  })
+  test('a store with no duplicate is unchanged by Wallet.open', async () => {
+    const s = new MemoryStorage()
+    const row = await s.tx('rw', (t) => addHolding(t, nh(specToken), o()))
+    await s.tx('rw', (t) => addHolding(t, nh(tok('other')), o()))
+    const before = await rows(s)
+    await harness({ storage: s, deps: {} })
+    const after = await rows(s)
+    expect(after.map((h) => [h.id, h.status, h.token, h.version])).toEqual(before.map((h) => [h.id, h.status, h.token, h.version]))
+    expect(after[0]!.id).toBe(row.id)
   })
   test('leaves a let-go copy and other bills alone', async () => {
     const s = new MemoryStorage()

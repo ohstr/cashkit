@@ -69,18 +69,13 @@ export async function holdingsNeedNormalizing(t: StorageTx): Promise<boolean> {
   return false
 }
 
-/** Whether `d` holds nothing `keep` lacks: the same identity, no secret or key of its own. */
-const sameSlice = (keep: Holding, d: Holding): boolean =>
-  d.mode === keep.mode && d.mode !== 'cash' && d.throwawayKey === undefined && keep.throwawayKey === undefined && (d.mode !== 'connection_key' || (d.connectionKey?.key !== undefined && d.connectionKey.key === keep.connectionKey?.key))
-
 /**
- * Brings stored holdings to one row per bill (run at open): each token is
- * rewritten in its canonical spelling, and where an older version stored
- * one bill twice as held under two spellings, the first row added is kept
- * and a later one is removed when it is the same slice under the same
- * identity and no open call names it. A cash-mode or differently bound
- * copy keeps its row: its secret or binding is never dropped. Returns the
- * ids removed.
+ * Brings stored holdings to one live row per bill (run at open): each token
+ * is rewritten in its canonical spelling, and where an older version stored
+ * one bill held twice under two spellings, one row stays live and every
+ * other becomes `duplicate`: kept with its secrets for recovery, never
+ * counted or spent. The live one is the row an open call names, else a
+ * `redeeming` one, else the first received. Returns the ids marked.
  */
 export async function normalizeHoldings(t: StorageTx, openCallSources: ReadonlySet<string>): Promise<string[]> {
   for (const h of await t.list('holdings')) {
@@ -96,18 +91,18 @@ export async function normalizeHoldings(t: StorageTx, openCallSources: ReadonlyS
   for (const h of await t.list('holdings')) {
     if (h.status === 'held' || h.status === 'redeeming') byWallet.set(h.walletPubkey, [...(byWallet.get(h.walletPubkey) ?? []), h])
   }
-  const removed: string[] = []
+  const rank = (h: Holding) => (openCallSources.has(h.id) ? 0 : h.status === 'redeeming' ? 1 : 2)
+  const marked: string[] = []
   for (const group of byWallet.values()) {
-    if (group.length < 2 || group.some((h) => openCallSources.has(h.id))) continue
+    if (group.length < 2) continue
     // oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy
-    const [keep, ...rest] = [...group].sort((a, b) => a.addedAt - b.addedAt || (a.id < b.id ? -1 : 1))
+    const [, ...rest] = [...group].sort((a, b) => rank(a) - rank(b) || a.addedAt - b.addedAt || (a.id < b.id ? -1 : 1))
     for (const d of rest) {
-      if (!sameSlice(keep!, d)) continue
-      await t.delete('holdings', d.id)
-      removed.push(d.id)
+      await saveHolding(t, d, { ...d, status: 'duplicate' })
+      marked.push(d.id)
     }
   }
-  return removed
+  return marked
 }
 
 /**
@@ -181,6 +176,8 @@ export function statusDescription(s: HoldingStatus): string {
       return 'reported expired by its Hub'
     case 'reclaimed':
       return 'removed by its sender (reclaimed)'
+    case 'duplicate':
+      return 'a duplicate of another holding of the same bill'
     default:
       return ''
   }
@@ -189,6 +186,9 @@ export function statusDescription(s: HoldingStatus): string {
 /** cashctl `alreadySpentError`: value gone is `spent`, given away is `not_found`. */
 export function notHeldError(h: Pick<Holding, 'id' | 'status'>): CashkitError {
   const desc = statusDescription(h.status)
+  if (h.status === 'duplicate') {
+    return new CashkitError('usage', `token ${h.id} is a duplicate of another holding of the same bill: spend that one`, { input: h.id, reason: 'duplicate' })
+  }
   if (h.status === 'transferred') {
     return new CashkitError('not_found', `token ${h.id} was already ${desc}, so it is no longer yours`, { input: h.id })
   }

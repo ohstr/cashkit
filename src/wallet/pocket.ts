@@ -364,7 +364,8 @@ function keptPastPrune(e: PocketEntry, calls: readonly PendingCall[], openSource
  */
 export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
   const { entries, conflicts, wraps, wrapOf } = await readPocket(ctx)
-  const local = await ctx.read((t) => t.list('holdings'))
+  // A duplicate row shares its bill's wallet pubkey with the live one: the pocket entry is that one's.
+  const local = (await ctx.read((t) => t.list('holdings'))).filter((h) => h.status !== 'duplicate')
   const imported: string[] = []
   const published: string[] = []
   const foreign: string[] = []

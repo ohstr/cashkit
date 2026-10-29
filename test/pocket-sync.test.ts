@@ -199,6 +199,21 @@ describe('importing a connection-key bill', () => {
   })
 })
 
+describe('a duplicate row (one bill stored twice by an older version)', () => {
+  test('is never written to the pocket: the live row keeps the entry live', async () => {
+    const w = h.bank.mintToPubkey(5000n, h.me)
+    const r = await h.wallet.receive(w.token)
+    if (!r.received) throw new Error('not received')
+    const live = (await h.storage.tx('r', (t) => t.get('holdings', r.holding.id)))!
+    await h.storage.tx('rw', (t) => t.put('holdings', { ...live, id: 'h-dup', status: 'duplicate', addedAt: live.addedAt + 1, version: 1 }, 0))
+    await h.wallet.pocket.sync()
+    await h.wallet.pocket.sync()
+    const entry = (await h.wallet.pocket.entries()).find((e) => e.w === w.walletPubkey)
+    expect(entry?.state).toBe('live')
+    expect(h.wallet.state.balance.held).toBe(5000n)
+  })
+})
+
 describe('NIP-40 on wraps', () => {
   test('off by default; on, a bill with an expiry gets an expiration a week-rounded grace past it', async () => {
     const expiresAt = Math.floor(Date.now() / 1000) + 86400

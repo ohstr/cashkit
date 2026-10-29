@@ -693,7 +693,7 @@ interface Holding {
   token: string                    // canonical spelling (canonicalToken); one row per walletPubkey
   walletPubkey: string; minterPubkey?: string; relayUrls: string[]
   amount?: bigint; expiresAt?: number; verified: boolean
-  status: 'held' | 'redeemed' | 'transferred' | 'consolidated' | 'spent'
+  status: 'held' | 'redeemed' | 'transferred' | 'consolidated' | 'spent' | 'duplicate' | …
   mode: 'pubkey' | 'cash' | 'connection_key'
   protection: 'none' | 'shared' | 'protected'   // cash mode only
   cashSecret?: Sealed<CashSecret>
@@ -711,9 +711,11 @@ every known entry kept byte for byte). Rows are never deleted; only
 `status` changes. Adding a bill that exists but is no longer held
 reactivates the same row with the same ID. Adding one that is already held,
 however it is spelled, is a `conflict`. `Wallet.open` rewrites older rows
-canonically and removes a second held copy of one slice that an older
-version stored under another spelling (never a cash-mode or differently
-bound copy, nor one an open call names).
+canonically, and where an older version stored one bill held twice under
+two spellings it keeps one row live (the one an open call names, else a
+`redeeming` one, else the first received) and marks every other
+`duplicate`: kept with its secrets for recovery, never counted, spent or
+written to the Cash Pocket.
 
 ### 4.2 Activity
 

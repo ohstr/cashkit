@@ -13,7 +13,12 @@ export interface Sealed {
  * `spent`, `expired`, `reclaimed`: the Hub said the bill is gone (NIP-CP §Balance); `reclaimed` is a slice its
  * sender removed, `expired` a bill that ran out. Only `held` counts toward a balance.
  */
-export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 'consolidated' | 'spent' | 'expired' | 'reclaimed'
+/**
+ * `duplicate`: a second row an older version stored for a bill already held
+ * under another spelling (same wallet pubkey). Kept for its secrets, never
+ * counted in a balance, never spent, never written to the Cash Pocket.
+ */
+export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 'consolidated' | 'spent' | 'expired' | 'reclaimed' | 'duplicate'
 export type HoldingMode = 'pubkey' | 'cash' | 'connection_key'
 export type Protection = 'none' | 'shared' | 'protected'
 
