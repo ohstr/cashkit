@@ -3,7 +3,7 @@
 // NIP-CASH §Chunked Replies, and the call classification. Cases follow
 // nmilat nipcash/client {batch_session,batch_send,batch_outcome}_test.go and
 // the NIP's tables (§Chunked Replies, §Deadlines, §Methods/Errors).
-import { beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { bySigning, decodeToken, localSigner, pubkeyTarget } from '../src/core/index.js'
 import { newRequestId } from '../src/core/index.js'
 import { BatchSession, billFor, CashClient, classifyCall, ClientError, deadlineFor, MIN_PUBLISH_MARGIN, statusMany, type ItemOutcome } from '../src/client/index.js'
@@ -92,6 +92,67 @@ describe('a rejected newest announcement (§The Hub Announcement)', () => {
     await pool.publish(R1, forged)
     const s = await BatchSession.open(deps(), hub.node, [R1, R2])
     expect(s.inbox).toBe(hub.inbox)
+  })
+})
+
+const sends = () => pool.published.filter((p) => p.event.kind === 23190)
+
+/** Runs `f` under fake timers, moving the clock on in 500 ms steps until it settles. */
+async function underFakeTime<T>(f: () => Promise<T>): Promise<T> {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+  const state = { done: false }
+  const p = f().finally(() => (state.done = true))
+  for (let i = 0; i < 200 && !state.done; i++) await vi.advanceTimersByTimeAsync(500)
+  return p
+}
+
+describe('a relay that takes the request but no longer carries the Hub (§Relays)', () => {
+  const R4 = 'wss://gone.test'
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+  test('after its share of the wait with no reply, the same envelope goes to the next relay, and its reply is read', async () => {
+    await hub.announce({ relays: [R4, R1], createdAt: now() + 1 })
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const t = Date.now()
+    const r = await underFakeTime(() => statusMany(s, statusItems(1), now))
+    expect(r.error).toBeUndefined()
+    expect(r.outcomes[0]!.state).toBe('result')
+    expect(r.acceptedRelays).toEqual([R4, R1])
+    expect(sends().map((x) => x.relay)).toEqual([R4, R1])
+    expect(sends()[0]!.event.id).toBe(sends()[1]!.event.id)
+    // The share: max(5 s, 20 s / 2 relays) = 10 s on the first relay.
+    expect(Date.now() - t).toBeGreaterThanOrEqual(10_000)
+    expect(hub.requests).toHaveLength(1)
+  })
+  test('a first relay that answers within its share is the only one used', async () => {
+    await hub.announce({ relays: [R1, R2], createdAt: now() + 1 })
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const r = await statusMany(s, statusItems(1), now)
+    expect(r.outcomes[0]!.state).toBe('result')
+    expect(sends().map((x) => x.relay)).toEqual([R1])
+  })
+  test('every relay silent: one publish each, then unanswered with a timeout at the end of the wait', async () => {
+    await hub.announce({ relays: [R4, R1], createdAt: now() + 1 })
+    hub.faults = { drop: true }
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const t = Date.now()
+    const r = await underFakeTime(() => statusMany(s, statusItems(1), now))
+    expect(r.error).toMatchObject({ code: 'timeout' })
+    expect(r.outcomes.map((o) => o.state)).toEqual(['unanswered'])
+    expect(sends().map((x) => x.relay)).toEqual([R4, R1])
+    expect(Date.now() - t).toBeGreaterThanOrEqual(20_000)
+  })
+  test('a slow reply on the first relay, after the copy went to the second, is read once', async () => {
+    await hub.announce({ relays: [R1, R2], createdAt: now() + 1 })
+    hub.faults = { delayMs: 12_000, replyOnAllRelays: true }
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const r = await underFakeTime(() => statusMany(s, statusItems(1), now))
+    expect(r.error).toBeUndefined()
+    expect(r.outcomes.map((o) => o.state)).toEqual(['result'])
+    expect(sends().map((x) => x.relay)).toEqual([R1, R2])
+    // The copy on the second relay is a replay of a served nonce: run once, answered once.
+    expect(hub.requests).toHaveLength(1)
   })
 })
 

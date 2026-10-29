@@ -47,6 +47,8 @@ export const SUBSCRIPTION_ACK_WAIT_MS = 2000
 
 /** The refusal given to items never sent because a later envelope could not be built. */
 export const NOT_SENT = 'NOT_SENT'
+/** The least a relay is waited on for a first reply chunk before the same envelope goes to the next relay. */
+export const FAILOVER_FLOOR_MS = 5000
 /** How long an announcement fetch waits for relays to answer. */
 export const ANNOUNCEMENT_FETCH_MS = 5000
 
@@ -343,70 +345,80 @@ export class BatchSession {
   private async sendOne(p: Packed, index: number, pow: PowRequest): Promise<SendResult> {
     const replyKey = deriveReplyKey(pow.conversationKey, p.envelope.replyTo)
     const queue = new EventQueue()
-    let sub: { stop: () => void; accepted: string[] }
+    const pub = this.publisher(p.envelope.replyTo, pow, queue, p.envelope.notAfter)
     try {
-      sub = await this.subscribeAndPublish(p.envelope.replyTo, pow, queue, p.envelope.notAfter)
+      if (!(await pub.publishNext())) return { outcomes: [], error: new ClientError('no_relay', `no relay took the request (${pub.failures.join('; ')})`) }
+      return { ...(await this.collect(queue, replyKey, p, index, pub)), acceptedRelays: [...pub.accepted] }
     } catch (err) {
-      pow.dispose()
       return { outcomes: [], error: err as Error }
-    }
-    pow.dispose()
-    try {
-      return { ...(await this.collect(queue, replyKey, p, index)), acceptedRelays: sub.accepted }
     } finally {
-      sub.stop()
+      pub.stop()
+      // Kept until the reply is in: a later relay's `pow:` refusal re-mines the same envelope.
+      pow.dispose()
     }
   }
 
   /**
-   * Per relay, in order: subscribe for the reply, wait (bounded) for the
-   * relay's EOSE, then publish. The first relay to accept wins. Every
-   * subscription opened is kept until the reply is collected, since a relay
-   * whose publish failed may still have delivered the request.
+   * Publishes one request relay by relay, in order (NIP-CASH §Relays): for
+   * each, subscribe for the reply, wait (bounded) for the relay's EOSE, then
+   * publish. `publishNext` goes on to the next untried relay until one
+   * accepts; it is called again when that relay stays silent, and always
+   * sends the same envelope (same nonce), so the Hub's replay record keeps
+   * it applied at most once. Every subscription opened is kept until the
+   * reply is collected, since a relay whose publish failed may still have
+   * delivered the request.
    */
-  private async subscribeAndPublish(replyTo: string, initial: PowRequest, queue: EventQueue, notAfter: number): Promise<{ stop: () => void; accepted: string[] }> {
+  private publisher(replyTo: string, initial: PowRequest, queue: EventQueue, notAfter: number): { publishNext: () => Promise<boolean>; untried: () => number; stop: () => void; accepted: string[]; failures: string[] } {
     let current = initial
+    const relays = this.relays
     const stops: (() => void)[] = []
-    const stopAll = () => stops.forEach((s) => s())
     const failures: string[] = []
-    for (const relay of this.relays) {
-      let ack!: () => void
-      const acked = new Promise<void>((r) => (ack = r))
-      queue.opened()
-      let closed = false
-      stops.push(
-        this.deps.relays.subscribe([relay], { kinds: [KIND_PRIVATE_RESPONSE], '#p': [replyTo] }, {
-          onEvent: (e) => queue.push(e),
-          onEose: () => ack(),
-          onClose: () => {
-            ack()
-            if (!closed) {
-              closed = true
-              queue.sourceClosed()
+    const accepted: string[] = []
+    let next = 0
+    const publishNext = async (): Promise<boolean> => {
+      while (next < relays.length) {
+        const relay = relays[next++]!
+        let ack!: () => void
+        const acked = new Promise<void>((r) => (ack = r))
+        queue.opened()
+        let closed = false
+        stops.push(
+          this.deps.relays.subscribe([relay], { kinds: [KIND_PRIVATE_RESPONSE], '#p': [replyTo] }, {
+            onEvent: (e) => queue.push(e),
+            onEose: () => ack(),
+            onClose: () => {
+              ack()
+              if (!closed) {
+                closed = true
+                queue.sourceClosed()
+              }
+            },
+          }),
+        )
+        await Promise.race([acked, new Promise((r) => setTimeout(r, SUBSCRIPTION_ACK_WAIT_MS))])
+        try {
+          // A `pow:` refusal re-mines the same event (same envelope, same ids) and publishes it to that relay again.
+          for (let attempt = 0; ; attempt++) {
+            const res = await this.deps.relays.publish(relay, current.event)
+            if (res.ok) {
+              accepted.push(relay)
+              return true
             }
-          },
-        }),
-      )
-      await Promise.race([acked, new Promise((r) => setTimeout(r, SUBSCRIPTION_ACK_WAIT_MS))])
-      try {
-        // A `pow:` refusal re-mines the same event (same envelope, same ids) and publishes it to that relay again.
-        for (let attempt = 0; ; attempt++) {
-          const res = await this.deps.relays.publish(relay, current.event)
-          if (res.ok) return { stop: stopAll, accepted: [relay] }
-          if (!isPowRejection(res.message) || attempt >= 3 || nowSeconds(this.deps) >= notAfter) {
-            failures.push(`${relay}: refused${res.message ? `: ${res.message}` : ''}`)
-            break
+            if (!isPowRejection(res.message) || attempt >= 3 || nowSeconds(this.deps) >= notAfter) {
+              failures.push(`${relay}: refused${res.message ? `: ${res.message}` : ''}`)
+              break
+            }
+            const stated = parsePowRejection(res.message) ?? (await this.powMinimum(relay, true))
+            const target = Math.max(stated, current.difficulty + 1)
+            current = await current.remine(target, { signal: AbortSignal.timeout(Math.max(notAfter * 1000 - nowMs(this.deps), 1)) })
           }
-          const stated = parsePowRejection(res.message) ?? (await this.powMinimum(relay, true))
-          const target = Math.max(stated, current.difficulty + 1)
-          current = await current.remine(target, { signal: AbortSignal.timeout(Math.max(notAfter * 1000 - nowMs(this.deps), 1)) })
+        } catch (err) {
+          failures.push(`${relay}: ${(err as Error).message}`)
         }
-      } catch (err) {
-        failures.push(`${relay}: ${(err as Error).message}`)
       }
+      return false
     }
-    stopAll()
-    throw new ClientError('no_relay', `no relay took the request (${failures.join('; ')})`)
+    return { publishNext, untried: () => relays.length - next, stop: () => stops.forEach((x) => x()), accepted, failures }
   }
 
   /**
@@ -422,7 +434,7 @@ export class BatchSession {
    * an envelope error, is still seen; until then a missing item is
    * `unanswered`, never `not_served`.
    */
-  private async collect(queue: EventQueue, replyKey: Uint8Array, p: Packed, index: number): Promise<SendResult> {
+  private async collect(queue: EventQueue, replyKey: Uint8Array, p: Packed, index: number, failover?: { publishNext: () => Promise<boolean>; untried: () => number }): Promise<SendResult> {
     const decided = new Map<string, ItemResult>()
     const conflicted = new Set<string>()
     let envError: ResultError | undefined
@@ -443,8 +455,16 @@ export class BatchSession {
     const outcomes = () => joinOutcomes(p.ids, { results: [...decided.values()], ...(envError && { error: envError }) }, index, conflicted, complete())
     const capMs = this.deps.replyWaitMs
     const endMs = Math.min(p.envelope.notAfter * 1000, capMs !== undefined ? nowMs(this.deps) + capMs : Infinity)
+    // Until a first chunk arrives, each relay gets its share of the time left; then the same envelope goes to the next.
+    const silenceAt = () => (chunks === 0 && failover !== undefined && failover.untried() > 0 ? nowMs(this.deps) + Math.max(FAILOVER_FLOOR_MS, (endMs - nowMs(this.deps)) / (failover.untried() + 1)) : Infinity)
+    let switchAt = silenceAt()
     for (;;) {
-      const ev = await queue.next(endMs - nowMs(this.deps))
+      const ev = await queue.next(Math.min(endMs, switchAt) - nowMs(this.deps))
+      if (ev === undefined && chunks === 0 && failover !== undefined && failover.untried() > 0 && nowMs(this.deps) < endMs) {
+        await failover.publishNext().catch(() => false)
+        switchAt = silenceAt()
+        continue
+      }
       if (ev === undefined) {
         if (chunks === 0) return { outcomes: [], error: new ClientError('timeout', `envelope ${index}: no reply before not_after`) }
         const why = malformed ? 'the reply was malformed' : `got ${seenSeq.size} of ${total()} chunks${queue.closed ? ' before the relay closed' : ''}`

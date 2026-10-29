@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Sends a private-transport envelope on to the next relay, as the same
+  envelope, when the relay that took it gives no reply within its share of
+  the wait, so a relay the Hub has left no longer holds a call until `not_after`.
 - Closes a call whose Cash Pocket entry another device made final as
   `closed_elsewhere` (a new `CallOutcome`), not `not_applied`, and reads its
   sources first, so a bill that device spent no longer shows as held.

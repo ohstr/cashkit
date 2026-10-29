@@ -385,7 +385,11 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   - Per relay: subscribe to `{kinds:[23191], #p:[reply_to]}`, wait up to 2 s
     for EOSE, then publish. The first relay to accept wins
     (`acceptedRelays`); every subscription opened is kept until the reply
-    is collected.
+    is collected. If no reply chunk arrives within that relay's share of
+    the time left (the time left over the relays not yet tried plus one, at
+    least 5 s), the same envelope (same nonce, so the Hub serves it once)
+    goes to the next relay, and so on; a new envelope is never made for
+    the same calls.
   - Collect replies until `not_after` (or `replyWaitMs`, if shorter), per
     NIP-CASH §Chunked Replies: every decided outcome is kept; chunks
     disagreeing about `total`, two events with one `seq` or a `seq` out of

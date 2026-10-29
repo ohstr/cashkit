@@ -220,6 +220,8 @@ export class FakeHub {
   /** Handles one served item. Default: cash_status says every bill is available. */
   handler: (method: string, info: RequestInfo) => Answer = () => ({ result: { recipients: [] } })
   readonly requests: RequestInfo[] = []
+  /** Every envelope nonce served (NIP-CASH §Envelope: the per-envelope replay state). */
+  readonly servedNonces = new Set<string>()
   /** Bill wallet pubkey -> its connection pubkey, as the Hub's records hold it. */
   readonly bills = new Map<string, string>()
   /** Target -> every connection pubkey whose bill proof verifies for it (several live connections of one Hub); takes precedence over `bills`. */
@@ -261,6 +263,9 @@ export class FakeHub {
     const f = this.faults
     const ck = conversationKeyFor(e.pubkey, this.inboxKey)
     const decoded = decodeEnvelope(nip44.decrypt(e.content, ck), this.limits).envelope
+    // A copy of an envelope already served (another relay's) is a replay: neither run nor answered.
+    if (this.servedNonces.has(decoded.nonce)) return
+    this.servedNonces.add(decoded.nonce)
     const envelope = { ...decoded, items: servableItems(decoded, this.limits).kept }
     const now = Math.floor(this.clock() / 1000)
     let tooFar = false
