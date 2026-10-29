@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.0-rc.2]
+
+- Sorts canonical params keys by UTF-16 code units, as RFC 8785 does; the
+  params hash changes only for keys above U+FFFF.
+
 ## [0.2.0-rc.1]
 
 - Adds the holding statuses `expired` and `reclaimed` to the exported

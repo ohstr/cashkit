@@ -288,9 +288,9 @@ here).
   proof when present, and every signed event in params (`identity_event`,
   `attestation_event`, `quote`, each source's events); a cash secret costs
   nothing.
-- **Canonical params hash (`ph`).** The format is nmilat-specific and is not
-  stock RFC 8785:
-  - Keys are sorted by byte order.
+- **Canonical params hash (`ph`).** The format follows RFC 8785 except for
+  numbers:
+  - Keys are sorted by UTF-16 code units, as RFC 8785 sorts them.
   - Strings use RFC 8785 escaping.
   - Number literals are preserved exactly as written.
 

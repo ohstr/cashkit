@@ -1,6 +1,6 @@
-// The params hash (ph) every item proof binds (design §2.2). nmilat's
-// format, not stock RFC 8785: keys sorted by UTF-8 bytes, no whitespace,
-// number literals exactly as written, strings escaped as RFC 8785 does.
+// The params hash (ph) every item proof binds (design §2.2). Keys sorted
+// and strings escaped as RFC 8785 does, no whitespace, and number literals
+// exactly as written.
 // JSON.stringify over JS numbers would round big amounts, so params travel
 // as JSON text and are canonicalised with a tokenizer that keeps literals.
 import { sha256 } from '@noble/hashes/sha2.js'
@@ -28,13 +28,9 @@ function canonicalString(s: string): string {
   return out + '"'
 }
 
-/** Byte order of the UTF-8 encodings, as Go's sort.Strings orders keys. */
-function utf8Compare(a: string, b: string): number {
-  const x = encoder.encode(a)
-  const y = encoder.encode(b)
-  const n = Math.min(x.length, y.length)
-  for (let i = 0; i < n; i++) if (x[i] !== y[i]) return x[i]! - y[i]!
-  return x.length - y.length
+/** RFC 8785 §3.2.3 key order: by UTF-16 code units, which is how JS strings compare. */
+function utf16Compare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
 }
 
 function write(n: JNode): string {
@@ -55,7 +51,7 @@ function write(n: JNode): string {
       for (const [k, v] of n.members) byKey.set(k, v)
       const keys = [...byKey.keys()]
       // oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy
-      keys.sort(utf8Compare)
+      keys.sort(utf16Compare)
       return '{' + keys.map((k) => canonicalString(k) + ':' + write(byKey.get(k)!)).join(',') + '}'
     }
   }
