@@ -276,6 +276,15 @@ describe('step-3 checks one at a time (T-1602)', () => {
     const reissued = att({ createdAt: NOW - 60, p: OTHER })
     await failsWith(world([claim([old])], [old, reissued]), /not the IA's current attestation/)
   })
+  test('a relay answering a reference with another (even current) attestation does not verify the claim', async () => {
+    const stale = att({ createdAt: NOW - 120 })
+    const current = att({ createdAt: NOW - 60 })
+    const src: AttestationSource = { fetch: async () => current, current: async () => current.id, deletedByAuthor: async () => false }
+    const v = await evaluateConnection(CK, [claim([stale])], src, (x) => x === IA, NOW)
+    expect(v[0]).toMatchObject({ state: 'spoofed', reasons: [expect.stringMatching(/returned another event/)] })
+    const honest: AttestationSource = { ...src, fetch: async () => stale }
+    expect((await evaluateConnection(CK, [claim([current])], { ...honest, fetch: async () => current }, (x) => x === IA, NOW))[0]!.state).toBe('verified')
+  })
   test('two e tags, one counting: verified', async () => {
     const good = att()
     const stranger = att({ key: strangerKey })
