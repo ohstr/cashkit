@@ -31,7 +31,8 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+          # No registry-url: it writes a placeholder token that npm falls back to when
+          # the OIDC exchange fails, which hides the real error behind a 404.
 
       # The same gate as ci.yml: a release is never cut from a state that
       # wouldn't also pass CI.
