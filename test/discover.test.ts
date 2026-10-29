@@ -180,6 +180,37 @@ describe('ranking (§Wallet Rules "Signals")', () => {
   })
 })
 
+describe('operators (§Operators): the 11191 is read from the operator’s own write relays too', () => {
+  const OP_RELAY = 'wss://op.test'
+  const opKey = fill(0x57, 32)
+  async function withOperator(o: { marker?: string; offersOn: string; tenOn?: string }) {
+    const h = await harness({ deps: { nwcTimeoutMs: 2000 } })
+    const order = new FakeOrder(h.bank)
+    const friend = fill(0x48, 32)
+    await h.pool.publish(R, listingEvent(h.bank.hub.nodeKey, { d: order.pubkey, connection: order.string, tags: [['p', getPublicKey(opKey)]] }))
+    await h.pool.publish(R, finalizeEvent({ ...newRecommendation(h.bank.hub.node, R, [`31190:${h.bank.hub.node}:${order.pubkey}`], 'ok'), created_at: NOW - 5 }, friend))
+    const r = o.marker === undefined ? ['r', OP_RELAY] : ['r', OP_RELAY, o.marker]
+    await h.pool.publish(o.tenOn ?? R, finalizeEvent({ kind: 10002, created_at: NOW - 50, tags: [r], content: '' }, opKey))
+    await h.pool.publish(o.offersOn, finalizeEvent({ kind: 11191, created_at: NOW - 40, tags: [['a', `31190:${h.bank.hub.node}:${order.pubkey}`]], content: '' }, opKey))
+    await h.wallet.discover.refresh({ relays: [R], follows: [getPublicKey(friend)] })
+    return h.wallet.discover.list().sections.buyCash[0]!
+  }
+  test('an 11191 kept only on the operator’s write relay verifies the operator', async () => {
+    const c = await withOperator({ offersOn: OP_RELAY })
+    expect(c.operatorUnknown).toBe(false)
+    expect(c.operator?.pubkey).toBe(getPublicKey(opKey))
+  })
+  test('an 11191 on the discovery relays still verifies it', async () => {
+    expect((await withOperator({ offersOn: R, marker: 'read' })).operatorUnknown).toBe(false)
+  })
+  test('a relay the operator marks read-only is not where its 11191 is looked for', async () => {
+    expect((await withOperator({ offersOn: OP_RELAY, marker: 'read' })).operatorUnknown).toBe(true)
+  })
+  test('an operator with no relay list found stays unverified when its 11191 is elsewhere', async () => {
+    expect((await withOperator({ offersOn: OP_RELAY, tenOn: 'wss://nowhere.test' })).operatorUnknown).toBe(true)
+  })
+})
+
 describe('the listing’s connection string', () => {
   test('all uppercase is read; mixed case is step 2', async () => {
     const { bank, order } = await shop()

@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Reads an operator's offer list (kind 11191) from the operator's own NIP-65
+  write relays as well as the discovery relays, so an operator that keeps it
+  only there is no longer shown as unverified.
 - Ranks `discover.list()` offers on the signals each card shows, so a
   recommended offer is no longer placed below a newer one with no signal.
 - Refuses a Hub connection string whose TLV 3 label is not well-formed UTF-8,
