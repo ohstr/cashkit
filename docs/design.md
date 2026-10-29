@@ -792,7 +792,7 @@ deadline, signed by its authorizer (a cash one without its secret first):
 `state.pendingCalls` and `pendingCalls.list()` show open calls and closed
 ones waiting for the user, without request ids or secrets;
 `pendingCalls.close(id)` closes one; `autoSettle()` runs `settle()` at
-`nextSettleAt`. Each operation kind registers how it places, finishes and
+`nextSettleAt`, and at `nextWithdrawReadAt` while a payout is open. Each operation kind registers how it places, finishes and
 looks up its calls (`registerCallKind`); sends, splits, protect, moves onto and off a merge key, and consolidations run as `transfer` and `consolidate` calls (`wallet/kinds.ts`).
 
 `wallet.settle()` MUST run on `open`, before every spend plan, and on
@@ -1218,6 +1218,14 @@ withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), 
   brings nothing back: the call closes, the withdrawal keeps `remintGone`
   (with the tombstone's reason) and the `withdrawCancelled` notice carries
   it, once; nothing waits for an answer.
+- An open payout is followed by lookups, never by notices alone (NIP-CASH
+  §State Notice). `watch` reads it on each notice (one read in flight, at
+  most one per 2 s), every 60 s until `broadcast`, then every 10 min, and
+  at each milestone (deadline + 1, `sent_by`, `sent_by` + 86400 + 60,
+  `sent_by` + 604800), until `final` or `cancelled`. `settle()` reads every
+  open payout; `autoSettle()` reads one at its next milestone not yet read
+  after, or an hour after its last read (`state.nextWithdrawReadAt`), so a
+  lost cancel notice still brings the re-minted bill in.
 - A lost withdrawal (no answer, then `unknown`) is placed again
   automatically, as §5.3 says.
 - `cancel` is offered only for a payout still `broadcast` 7 days after

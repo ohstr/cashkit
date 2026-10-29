@@ -2,6 +2,11 @@
 
 ## [0.2.0-rc.2]
 
+- Follows an on-chain payout by lookups as well as notices: `withdraw.watch`
+  polls it until `final` or `cancelled`, `settle()` reads every open payout
+  (`report.withdrawals`), and `autoSettle()` reads one hourly and at each
+  milestone (`state.nextWithdrawReadAt`), so a lost notice no longer leaves a
+  re-minted bill unimported.
 - Sorts canonical params keys by UTF-16 code units, as RFC 8785 does; the
   params hash changes only for keys above U+FFFF.
 
