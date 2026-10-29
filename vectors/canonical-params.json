@@ -1,5 +1,5 @@
 {
-  "description": "The params hash (ph) an item proof binds: sha256 of params with keys sorted by UTF-8 bytes, no whitespace, number literals verbatim and RFC 8785 string escaping. Not stock JCS.",
+  "description": "The params hash (ph) an item proof binds: sha256 of params with keys sorted and strings escaped as RFC 8785 does (keys by UTF-16 code units), no whitespace, and number literals verbatim, the one departure from RFC 8785.",
   "source": "nipcash/transport/envelope.go CanonicalParamsHash; canonical_jcs_test.go",
   "nmilat": "github.com/ohstr/nmilat devel",
   "hash": [
@@ -88,6 +88,12 @@
       "hash": "7513ecfd87d7bd3c5671d16e2a24074dc15ea73c79a51ffda3ffc1cd8ede8389"
     },
     {
+      "name": "a key above U+FFFF sorts before U+FFFF (UTF-16 code units, not UTF-8 bytes)",
+      "params": "{\"￿\":1,\"𐀀\":2}",
+      "canonical": "{\"𐀀\":2,\"￿\":1}",
+      "hash": "72406deb9e8efdb3b2d8b80c26ebd8d609a5338250baa8308cab44bbe7506499"
+    },
+    {
       "name": "uppercase escape",
       "params": "{\"s\":\"é\"}",
       "canonical": "{\"s\":\"é\"}",
@@ -114,9 +120,9 @@
       "hash": "0da757699fcea5f55455b12cf82724e64a53375f04f94a9710cdb5d362aa2ff7"
     },
     {
-      "name": "keys sort by UTF-8 bytes",
+      "name": "keys sort by UTF-16 code units",
       "params": "{\"￿\":1,\"𐀀\":2,\"é\":3,\"z\":4,\"Z\":5,\"\":6}",
-      "hash": "1437ee730f9845eddc6f582c3198c081c1e435d8631e6a49f831dc2724698282"
+      "hash": "17c3e70bcd571422f4e8556d68a0a2fe9123d8885013b1eb6ce38d082af020fc"
     },
     {
       "name": "duplicate keys: the last wins",

@@ -1,6 +1,6 @@
 {
   "description": "NIP-CW budget periods: the start of the k-th period of a wallet created at created, in UTC. Monthly and yearly stay anchored to the creation day, clamped to the month's last day, counted from the creation.",
-  "source": "nipcw/budget_period.go BudgetPeriodStart; nipcw/budget_period_test.go (K-BP-1..8)",
+  "source": "nipcw/budget_period.go BudgetPeriodStart; nipcw/budget_period_test.go (K-BP-1..9)",
   "nmilat": "github.com/ohstr/nmilat devel",
   "start": [
     {
@@ -60,7 +60,7 @@
       "start": 1706781600
     },
     {
-      "id": "K-BP-8",
+      "id": "K-BP-9",
       "created": 1706695200,
       "renewal": "weekly",
       "k": 1,

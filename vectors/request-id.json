@@ -1,5 +1,5 @@
 {
-  "description": "request_id: 32 to 64 lowercase hex characters of even length; the derived id of a re-placed call is sha256(\"retry:\" || replaced id).",
+  "description": "request_id: 32 to 64 lowercase hex characters of even length; the derived id of a re-placed call is sha256(\"retry:\" || replaced id). privateTransportRequiresRequestId is the private transport's I6 list, the methods refused BAD_REQUEST there without one; mint_cash is not served there, and needs a request_id on NIP-47.",
   "source": "nipcash/request_id.go; nipcash/deadline_lookup_test.go (K-RID-1, K-DID-1..2)",
   "nmilat": "github.com/ohstr/nmilat devel",
   "valid": [
@@ -59,7 +59,7 @@
       "error": "nipcash: \"XYZ\" is not a request_id"
     }
   ],
-  "requiresRequestId": [
+  "privateTransportRequiresRequestId": [
     {
       "method": "mint_cash",
       "value": false

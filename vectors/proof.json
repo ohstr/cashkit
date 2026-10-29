@@ -418,7 +418,7 @@
       "error": "transport: item proof is bound to a different envelope"
     },
     {
-      "name": "different not_after is not checked",
+      "name": "wrong not_after",
       "kind": "item",
       "proof": "{\"id\":\"13f780959c2e459902041a6f4a6a2a5ae47a163be20908f969ed004baf6fa6c5\",\"pubkey\":\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\",\"created_at\":1760000000,\"kind\":23192,\"tags\":[[\"d\",\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"],[\"h\",\"989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f\"],[\"m\",\"cash_redeem\"],[\"ph\",\"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\"],[\"en\",\"1111111111111111111111111111111111111111111111111111111111111111\"],[\"expiration\",\"1760000060\"]],\"content\":\"\",\"sig\":\"afe006d06cff607124635173c6762381fff05d020223b9831420201a018419123f1095aa685496f91839bc97432fc01d45f1dceccfacaf266772ac4b5339e47d\"}",
       "binding": {

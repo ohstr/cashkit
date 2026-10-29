@@ -1,5 +1,5 @@
 {
-  "description": "Deadlines and cash_lookup: CheckDeadline against the Hub's horizon H, DecideLookup (pending with retry_after, unknown, expired, done; a join lookup's window), retention, lookup params, and done results (a tombstone, an order's current state, a withdrawal's current payout).",
+  "description": "Deadlines and cash_lookup: CheckDeadline against the Hub's horizon H, DecideLookup (pending with retry_after, unknown, expired, done; a join lookup's window), retention, lookup params, and done results (a destroyed bill's tombstone in place of its token, an order's current state, a withdrawal's current payout).",
   "source": "nipcash/{lookup_decision,cash_lookup,expiry,tombstone,withdraw_payout}.go; nipcash/deadline_lookup_test.go (K-DL-1, K-LK-1..7, K-JLK-1)",
   "nmilat": "github.com/ohstr/nmilat devel",
   "deadline": [
@@ -331,23 +331,39 @@
       }
     },
     {
-      "name": "done with a tombstone",
+      "name": "done: a destroyed new bill is its tombstone in place of its token",
       "method": "cash_transfer",
-      "result": "{\"status\":\"done\",\"result\":{\"status\":\"spent\",\"reason\":\"transferred\",\"retained_until\":1722592000}}",
+      "result": "{\"status\":\"done\",\"result\":{\"amount_millis\":21000,\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"new_wallet_token\":{\"status\":\"spent\",\"reason\":\"transferred\",\"retained_until\":1722592000}}}",
       "status": "done",
-      "gone": {
-        "status": "spent",
-        "reason": "transferred",
-        "retained_until": 1722592000
+      "inner": {
+        "amount_millis": 21000,
+        "identity_type": "pubkey",
+        "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "new_wallet_token": {
+          "reason": "transferred",
+          "retained_until": 1722592000,
+          "status": "spent"
+        }
       }
     },
     {
-      "name": "done with a written-off tombstone",
-      "method": "cash_redeem",
-      "result": "{\"status\":\"done\",\"result\":{\"status\":\"spent\"}}",
+      "name": "done: past retained_until the tombstone carries status and reason only",
+      "method": "mint_cash",
+      "result": "{\"status\":\"done\",\"result\":{\"wallet_pubkey\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"cash_token\":{\"status\":\"spent\",\"reason\":\"redeemed\"},\"recipients\":[{\"identity_type\":\"pubkey\",\"identity_value\":\"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9\",\"amount_millis\":21000}]}}",
       "status": "done",
-      "gone": {
-        "status": "spent"
+      "inner": {
+        "cash_token": {
+          "reason": "redeemed",
+          "status": "spent"
+        },
+        "recipients": [
+          {
+            "amount_millis": 21000,
+            "identity_type": "pubkey",
+            "identity_value": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+          }
+        ],
+        "wallet_pubkey": "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
       }
     },
     {
@@ -378,16 +394,6 @@
         "state": "broadcast",
         "txid": "abababababababababababababababababababababababababababababababab",
         "vout": 0
-      }
-    },
-    {
-      "name": "withdraw done: a tombstone",
-      "method": "cash_withdraw",
-      "result": "{\"status\":\"done\",\"result\":{\"status\":\"spent\",\"withdraw_request_id\":\"00112233445566778899aabbccddeeff\"}}",
-      "status": "done",
-      "gone": {
-        "status": "spent",
-        "withdraw_request_id": "00112233445566778899aabbccddeeff"
       }
     },
     {

@@ -20,7 +20,7 @@ describe('request-id.json', () => {
   test.skip.each(derived.filter(([n]) => MISMATCH.has(n)))('derived (mismatch): %s', (_: string, c: Json) => {
     expect(() => derivedRequestId(c.replaced)).toThrow()
   })
-  test.each(named(v.requiresRequestId, (c) => c.method))('requiresRequestId: %s', (_: string, c: Json) => {
+  test.each(named(v.privateTransportRequiresRequestId, (c) => c.method))('privateTransportRequiresRequestId: %s', (_: string, c: Json) => {
     expect(requiresRequestId(c.method)).toBe(c.value)
   })
 })
