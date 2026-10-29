@@ -2,6 +2,8 @@
 
 ## [0.2.0-rc.2]
 
+- Refuses a Hub connection string whose TLV 3 label is not well-formed UTF-8,
+  as the spec requires, instead of decoding it with replacement characters.
 - Sends an NWC request to the next relay hint, as the same event, when the
   relay that took it gives no answer within the wait, instead of giving up
   while a hint is still untried; a request past its `expiration` is not resent.

@@ -3,7 +3,7 @@
 // pubkey, 1 relay, 2 secret, 3 optional label, 4 Hub identity, 5 connection
 // signature, 6 chain. Port of nmilat nipcash/cashhub_connection.go,
 // nipCO/order_connection.go and nipcw/circlehub_connection.go.
-import { fromUtf8, isBlank, toHex } from './bytes.js'
+import { fromUtf8, isBlank, isUtf8, toHex } from './bytes.js'
 import { connSignedText, signConnection, validChainName, verifyConnection, type ConnFields, type ConnVerdict } from './connection.js'
 import { CoreError } from './errors.js'
 import { MINT_SIGNATURE_LEN } from './token.js'
@@ -82,6 +82,7 @@ function decodeHub(s: string, wantHrp: string): HubConnection {
         break
       case T_LABEL:
         once(labelBytes, 'label')
+        if (!isUtf8(value)) throw invalid('label is not valid UTF-8')
         labelBytes = value.slice()
         break
       case T_HUB_IDENTITY:
