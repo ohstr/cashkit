@@ -2,6 +2,10 @@
 
 ## [0.2.0-rc.2]
 
+- Checks, in `resolveConnection`, that an attestation is current and not
+  deleted on the IA's own relays (the write relays of its NIP-65 list, or the
+  new `iaRelays` option), never on the claimant's relay hint; with none
+  reachable it does not count.
 - Reads an operator's offer list (kind 11191) from the operator's own NIP-65
   write relays as well as the discovery relays, so an operator that keeps it
   only there is no longer shown as unverified.

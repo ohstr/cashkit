@@ -70,9 +70,13 @@ export function parseIdentityConnection(event: NostrEvent): IdentityConnection {
 export interface AttestationSource {
   /** The event a reference names, from its relay hint. */
   fetch(ref: AttestationRef): Promise<NostrEvent | undefined>
-  /** The id of the IA's current 35522 for `key` on the IA relay `ref` names. */
+  /**
+   * The id of the IA's current 35522 for `key`, asked of the IA's own relays
+   * (its NIP-65 write relays), never of the claimant's hint alone; throws
+   * when none of them can be reached. `ref` is the reference being checked.
+   */
   current(ia: string, key: string, ref: AttestationRef): Promise<string | undefined>
-  /** Whether `ia` itself deleted `eventId` (NIP-09), on the IA relay `ref` names. */
+  /** Whether `ia` itself deleted `eventId` (NIP-09), asked of the IA's own relays as `current` is. */
   deletedByAuthor(ia: string, eventId: string, ref: AttestationRef): Promise<boolean>
 }
 

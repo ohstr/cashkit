@@ -466,7 +466,7 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
 - **NIP-IC verification** (`core/icVerify.ts`, `client/identity.ts`).
   `evaluateConnection` runs the Verification Model over the 35521s found
   for a key, with the relay reads behind an `AttestationSource`;
-  `resolveConnection(pool, key, {trustedIas, relays, now})` queries the
+  `resolveConnection(pool, key, {trustedIas, relays, iaRelays?, now})` queries the
   35521s, fetches each referenced 35522 from its relay hint (the query
   relays when there is none) and returns `verified`, `unverified` or
   `spoofed` with one verdict per claim. A reference counts only when it is
@@ -474,7 +474,10 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   and `platform` equal the claim's and `p` is the claim's author, it is
   unexpired, dated at most 900 s ahead, not deleted by the IA itself and
   the IA's current attestation for the key; each failed check is its own
-  reason. A claim whose `content` names another `user_id` or `username`
+  reason. The last two are asked of the IA's own relays, the write relays
+  of its newest NIP-65 list (read from the query relays) or those
+  `iaRelays` names, never of the claimant's hint; an IA with no relays,
+  or none that answers, makes the reference not count. A claim whose `content` names another `user_id` or `username`
   than the evidence is spoofed, and the handle to show is the evidence's.
   Of the attestations that count the latest `created_at` wins (ties: the
   lowest id) and claims by every other pubkey are spoofed. It is for

@@ -10,6 +10,12 @@ import type { Filter, RelayPool } from './ports.js'
  * Duplicates across relays are then dropped.
  */
 export function readEvents(pool: RelayPool, relays: readonly string[], filter: Filter, timeoutMs: number): Promise<NostrEvent[]> {
+  return readEventsAnswered(pool, relays, filter, timeoutMs).then((r) => r.events)
+}
+
+/** `readEvents`, also saying which relays answered (sent EOSE) rather than closing or timing out. */
+export function readEventsAnswered(pool: RelayPool, relays: readonly string[], filter: Filter, timeoutMs: number): Promise<{ events: NostrEvent[]; answered: string[] }> {
+  const answered: string[] = []
   return new Promise((resolve) => {
     const seen = new Map<string, NostrEvent>()
     const pending = new Set(relays)
@@ -20,7 +26,7 @@ export function readEvents(pool: RelayPool, relays: readonly string[], filter: F
       done = true
       clearTimeout(timer)
       unsubscribe?.()
-      resolve([...seen.values()])
+      resolve({ events: [...seen.values()], answered: [...answered] })
     }
     const settle = (relay: string) => {
       pending.delete(relay)
@@ -32,7 +38,10 @@ export function readEvents(pool: RelayPool, relays: readonly string[], filter: F
         if (seen.has(e.id) || !verifyEvent(e, { checkPow: false })) return
         seen.set(e.id, e)
       },
-      onEose: settle,
+      onEose: (relay) => {
+        if (pending.has(relay)) answered.push(relay)
+        settle(relay)
+      },
       onClose: settle,
     })
     if (done) unsubscribe?.()

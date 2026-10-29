@@ -65,9 +65,13 @@ function pool(events: { relay: string; event: NostrEvent }[]): MemoryRelayPool {
   for (const { relay, event } of events) p.relay(relay).stored.push(event)
   return p
 }
-/** The usual layout: claims on CLAIMS, attestations (and deletions) on the IA relay. */
+/** An IA's NIP-65 relay list, `[url, marker?]` per relay. */
+const relayList = (key: Uint8Array, relays: readonly (readonly [string, string?])[], createdAt = NOW - 1000) =>
+  finalizeEvent({ kind: 10002, created_at: createdAt, tags: relays.map(([u, m]) => (m === undefined ? ['r', u] : ['r', u, m])), content: '' }, key)
+/** The usual layout: claims and the IAs' relay lists on CLAIMS, attestations (and deletions) on the IA relay. */
 function world(claims: NostrEvent[], ias: NostrEvent[], extra: NostrEvent[] = []) {
-  return pool([...claims.map((event) => ({ relay: CLAIMS, event })), ...[...ias, ...extra].map((event) => ({ relay: RELAY, event }))])
+  const lists = [relayList(iaKey, [[RELAY]]), relayList(ia2Key, [[RELAY, 'write']])]
+  return pool([...[...claims, ...lists].map((event) => ({ relay: CLAIMS, event })), ...[...ias, ...extra].map((event) => ({ relay: RELAY, event }))])
 }
 const resolve = (p: MemoryRelayPool, trusted = [IA, IA2], key = CK) => resolveConnection(p, key, { trustedIas: trusted, relays: [CLAIMS], now: NOW, timeoutMs: 200 })
 
@@ -135,10 +139,7 @@ describe('resolveConnection (T-209)', () => {
   })
   test('a hint-less e tag is fetched from the query relays', async () => {
     const a = att()
-    const p = pool([
-      { relay: CLAIMS, event: claim([a], { relay: '' }) },
-      { relay: CLAIMS, event: a },
-    ])
+    const p = world([claim([a], { relay: '' }), a], [a])
     expect((await resolve(p)).state).toBe('verified')
   })
   test('an unreachable IA relay: the reference does not count', async () => {
@@ -156,6 +157,74 @@ describe('resolveConnection (T-209)', () => {
     const src: AttestationSource = { fetch: async () => a, current: async () => a.id, deletedByAuthor: async () => false }
     const verdicts = await evaluateConnection(CK, [claim([a], { d: OTHER_CK })], src, () => true, NOW)
     expect(verdicts).toEqual([{ state: 'unverified', pubkey: '', reasons: [] }])
+  })
+})
+
+describe("the IA's own relays decide what is current and what is deleted (step 3)", () => {
+  const EVIL = 'wss://mallory.example'
+  const OTHER_IA_RELAY = 'wss://ia-two.example'
+  test('an attestation its IA revoked does not verify through a hint relay that lacks the deletion', async () => {
+    const old = att({ p: OTHER, createdAt: NOW - 600 })
+    const deletion = finalizeEvent({ kind: 5, created_at: NOW - 300, content: 'revoked', tags: [['e', old.id]] }, iaKey)
+    const p = world([claim([old], { key: otherKey, relay: EVIL })], [old], [deletion])
+    p.relay(EVIL).stored.push(old)
+    expect((await resolve(p)).state).toBe('spoofed')
+  })
+  test('an attestation its IA replaced (the account moved) does not verify through a hint relay that lacks the new one', async () => {
+    const old = att({ p: OTHER, createdAt: NOW - 600 })
+    const moved = att({ p: USER, createdAt: NOW - 300 })
+    const p = world([claim([old], { key: otherKey, relay: EVIL })], [moved])
+    p.relay(EVIL).stored.push(old)
+    const r = await resolve(p)
+    expect(r.state).toBe('spoofed')
+    expect(r.verdicts[0]!.reasons.join()).toMatch(/not the IA's current attestation/)
+  })
+  test('the attestation may be fetched from any hint; the IA relays still confirm it', async () => {
+    const a = att()
+    const p = world([claim([a], { relay: EVIL })], [a])
+    p.relay(EVIL).stored.push(a)
+    expect((await resolve(p)).state).toBe('verified')
+  })
+  test('an IA with no relay list: the attestation does not count', async () => {
+    const a = att()
+    const p = pool([{ relay: CLAIMS, event: claim([a]) }, { relay: RELAY, event: a }])
+    const r = await resolve(p)
+    expect(r.state).toBe('spoofed')
+    expect(r.verdicts[0]!.reasons.join()).toMatch(/deletion check failed/)
+  })
+  test('a relay the IA lists as read-only is not one of its relays', async () => {
+    const a = att()
+    const p = pool([{ relay: CLAIMS, event: claim([a]) }, { relay: CLAIMS, event: relayList(iaKey, [[RELAY, 'read']]) }, { relay: RELAY, event: a }])
+    expect((await resolve(p)).state).toBe('spoofed')
+  })
+  test("none of the IA's relays answering: the attestation does not count; one of two answering is enough", async () => {
+    const a = att()
+    const lists = [relayList(iaKey, [[OTHER_IA_RELAY], [RELAY]])]
+    const p = pool([...[claim([a], { relay: EVIL }), ...lists].map((event) => ({ relay: CLAIMS, event })), { relay: EVIL, event: a }, { relay: RELAY, event: a }])
+    p.relay(OTHER_IA_RELAY).down = true
+    expect((await resolve(p)).state).toBe('verified')
+    p.relay(RELAY).down = true
+    expect((await resolve(p)).state).toBe('spoofed')
+  })
+  test("the IA's newest relay list counts; an older one naming the claimant's relay does not", async () => {
+    const old = att({ p: OTHER, createdAt: NOW - 600 })
+    const moved = att({ p: USER, createdAt: NOW - 300 })
+    const p = pool([
+      { relay: CLAIMS, event: claim([old], { key: otherKey, relay: EVIL }) },
+      { relay: CLAIMS, event: relayList(iaKey, [[EVIL]], NOW - 5000) },
+      { relay: CLAIMS, event: relayList(iaKey, [[RELAY]], NOW - 1000) },
+      { relay: EVIL, event: old },
+      { relay: RELAY, event: moved },
+    ])
+    expect((await resolve(p)).state).toBe('spoofed')
+  })
+  test('relays the trust configuration names for an IA are used in place of its list', async () => {
+    const a = att()
+    const p = pool([{ relay: CLAIMS, event: claim([a]) }, { relay: OTHER_IA_RELAY, event: a }, { relay: RELAY, event: a }])
+    const r = await resolveConnection(p, CK, { trustedIas: [IA], relays: [CLAIMS], iaRelays: { [IA]: [OTHER_IA_RELAY] }, now: NOW, timeoutMs: 200 })
+    expect(r.state).toBe('verified')
+    p.relay(OTHER_IA_RELAY).down = true
+    expect((await resolveConnection(p, CK, { trustedIas: [IA], relays: [CLAIMS], iaRelays: { [IA]: [OTHER_IA_RELAY] }, now: NOW, timeoutMs: 200 })).state).toBe('spoofed')
   })
 })
 
