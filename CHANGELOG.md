@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Refuses a NIP-LSP announcement dated more than 15 minutes ahead (step 4),
+  and `LspSeen` no longer counts one as seen, so it cannot hide the node's
+  later announcements.
 - Sends a private-transport envelope on to the next relay, as the same
   envelope, when the relay that took it gives no reply within its share of
   the wait, so a relay the Hub has left no longer holds a call until `not_after`.

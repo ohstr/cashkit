@@ -7,6 +7,13 @@ import { validAddr } from '../transport/index.js'
 
 export const KIND_LSP_ANNOUNCEMENT = 10735
 export const LSP_MAX_EXPIRY_SECS = 30 * 24 * 60 * 60
+/** How far ahead of the client's clock an announcement's `created_at` may be (§Client Behavior step 4). */
+export const LSP_MAX_FUTURE_SECS = 15 * 60
+
+/** Step 4's bound on `created_at`. */
+function checkNotFuture(createdAt: number, now: number): void {
+  if (createdAt > now + LSP_MAX_FUTURE_SECS) throw new AnnouncementError(4, `created_at ${createdAt} is more than 15 minutes ahead of now ${now}`)
+}
 export const LSP_MAX_TITLE = 40
 export const LSP_MAX_CONTENT = 280
 const LANGUAGE_NAMESPACE = 'ISO-639-1'
@@ -260,8 +267,8 @@ const AT_MOST = ['title', 'website', 'image', 'p', 'alt']
 /**
  * Checks an announcement as §Client Behavior orders, reporting the first
  * failure: (1) kind and signature; (2) the counts, and a fee row with
- * protocol 2; (3) every value's form, no option twice; (4) not expired, at
- * most 30 days after `created_at`; (5) a chain and network the client uses.
+ * protocol 2; (3) every value's form, no option twice; (4) `created_at` at
+ * most 15 minutes ahead, not expired, at most 30 days after `created_at`; (5) a chain and network the client uses.
  * Unknown tags, unknown options and step data without its protocol are
  * ignored; a closed or paused one parses (see `shown`, `selling`).
  */
@@ -377,6 +384,7 @@ export function parseAnnouncement(ev: NostrEvent, o: { chains: readonly string[]
         break
     }
   }
+  checkNotFuture(ev.created_at, o.now)
   if (o.now > expiration) throw new AnnouncementError(4, `expired at ${expiration}`)
   if (expiration - ev.created_at > LSP_MAX_EXPIRY_SECS) throw new AnnouncementError(4, 'expiration is more than 30 days after created_at')
   if (!o.chains.includes(chain)) throw new AnnouncementError(5, `chain ${chain} is not one the client uses`)
@@ -422,6 +430,8 @@ export class LspSeen {
     if (ev.kind !== KIND_LSP_ANNOUNCEMENT || getEventHash(ev) !== ev.id || !verifyEvent(ev)) return undefined
     const cur = this.nodes.get(ev.pubkey)
     if (cur !== undefined && cur.id === ev.id) return cur.ann
+    // Dated more than 15 minutes ahead: fails step 4 and does not count as seen, so it cannot hide later announcements.
+    if (ev.created_at > this.options.now() + LSP_MAX_FUTURE_SECS) return undefined
     if (cur !== undefined && !(ev.created_at > cur.createdAt || (ev.created_at === cur.createdAt && ev.id < cur.id))) return undefined
     try {
       const ann = parseAnnouncement(ev, { ...this.options, now: this.options.now() })
@@ -445,6 +455,7 @@ export class LspSeen {
   }
 
   remember(nodeKey: string, m: { createdAt: number; id: string }): void {
+    if (m.createdAt > this.options.now() + LSP_MAX_FUTURE_SECS) return
     const cur = this.nodes.get(nodeKey)
     if (cur !== undefined && !(m.createdAt > cur.createdAt || (m.createdAt === cur.createdAt && m.id < cur.id))) return
     this.nodes.set(nodeKey, m)
