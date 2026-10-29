@@ -11,7 +11,7 @@ anything.
 
 ## Testing and tooling
 
-- `tools/export-vectors` pins nmilat `v0.5.0-rc.31` and
+- `tools/export-vectors` pins nmilat `v0.5.0-rc.44` and
   writes every `vectors/*.json` in §11.1 plus the core extras (nip01,
   bolt11, claim, nip19, nip47, nipcw). Where nmilat seals with random
   nonces, `crypto/rand` is seeded so the files stay reproducible. Bump the
