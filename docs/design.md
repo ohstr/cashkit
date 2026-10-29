@@ -1326,9 +1326,11 @@ gift-wrapped to the user, each with a fresh wrap key it records.
 - **Placing a call again.** With a pocket, before a call is placed again
   under its derived id the pocket is read: an entry carrying the derived
   id, in any state, recognised or not, only closes the old call
-  (`replaced`); an old entry already final closes it `not_applied`; a
-  pocket that does not show the old entry stops the re-placement and the
-  call stays open.
+  (`replaced`); an old entry already final closes it `closed_elsewhere`
+  (another device may have applied it) and its sources are read with
+  `cash_status` before they count as held: one the Hub shows gone ends by
+  the result to state table; a pocket that does not show the old entry
+  stops the re-placement and the call stays open.
 - **Relays** (`adapters/sync-pocket`). With `discovery`, the user's newest
   kind 10050 `relay` tags, else the write relays of their newest NIP-65
   kind 10002 (`r` with no marker or `write`), else the configured `relays`;

@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Closes a call whose Cash Pocket entry another device made final as
+  `closed_elsewhere` (a new `CallOutcome`), not `not_applied`, and reads its
+  sources first, so a bill that device spent no longer shows as held.
 - Reads a lookup `done` whose created bill is already a tombstone as that
   bill gone: a spin-off is no longer taken for a move in place or handed off
   as the source's token, and such a mint closes instead of being looked up again.

@@ -381,7 +381,8 @@ export interface WithdrawalRecord {
 }
 
 export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
-export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced'
+/** `closed_elsewhere`: another device's Cash Pocket entry shows the call final; what it did is read from its sources. */
+export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced' | 'closed_elsewhere'
 /**
  * `remint_gone` is only read from rows stored by an earlier version: a
  * cancelled payout whose re-mint is gone is now recorded on the withdrawal

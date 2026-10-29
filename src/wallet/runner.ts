@@ -107,6 +107,8 @@ export const pocketHooks: {
   after?: (ctx: Ctx, callId: string) => Promise<void>
   /** Before placing a call again: the pocket's derived-id check (`derived` or `closed` stop it). */
   beforeReplace?: (ctx: Ctx, call: PendingCall) => Promise<'place' | 'derived' | 'closed'>
+  /** After a call is closed because its entry is final elsewhere: its sources are read before they count as held. */
+  closedElsewhere?: (ctx: Ctx, call: PendingCall) => Promise<void>
 } = {}
 
 /** Closes an open call; a call already closed stays as it is. */
@@ -406,7 +408,9 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
       return undefined
     }
     if (check === 'closed') {
-      await close(ctx, call.id, 'not_applied', { detail: 'closed in the Cash Pocket' })
+      // Final elsewhere: another device may have applied it, so its sources are read before they count as held.
+      await close(ctx, call.id, 'closed_elsewhere', { detail: 'closed in the Cash Pocket' })
+      await pocketHooks.closedElsewhere?.(ctx, call).catch(() => undefined)
       return undefined
     }
   }

@@ -310,6 +310,25 @@ async function beforeReplace(ctx: Ctx, call: PendingCall): Promise<'place' | 'de
 
 pocketHooks.beforeReplace = beforeReplace
 
+/**
+ * A call another device closed (its entry final): that device may have
+ * applied it, so each still-held source the Hub reports gone ends by the
+ * result to state table; one still there stays held; no answer writes nothing.
+ */
+async function closedElsewhere(ctx: Ctx, call: PendingCall): Promise<void> {
+  const held = (await ctx.read((t) => Promise.all(call.sources.map((id) => t.get('holdings', id))))).filter((h): h is Holding => h?.status === 'held')
+  if (held.length === 0) return
+  const st = await statusByNode(ctx, held)
+  await ctx.commit(async (t) => {
+    for (const h of held) {
+      const s = st.get(h.id)
+      if (s !== undefined && 'state' in s && s.state === 'spent') await endHolding(t, ctx.now(), h.id, s.ends)
+    }
+  })
+}
+
+pocketHooks.closedElsewhere = closedElsewhere
+
 const isFinalState = (s: string) => (FINAL_STATES as readonly string[]).includes(s)
 
 /**
