@@ -202,6 +202,10 @@ export interface Faults {
   repeatFirstChunk?: boolean
   /** Answer this item id again in the last chunk. */
   answerTwice?: string
+  /** Publish every reply event twice, as two relays relaying one event would deliver it. */
+  sameEventTwice?: boolean
+  /** Every item in chunk 1, then a chunk 2 that only answers this id again. */
+  lateDuplicate?: string
 }
 
 export class FakeHub {
@@ -301,10 +305,14 @@ export class FakeHub {
       const fake = finalizeEvent({ kind: KIND_PRIVATE_RESPONSE, created_at: now, tags: [['p', envelope.replyTo]], content: nip44.encrypt('{"v":1}', new Uint8Array(32).fill(5)) }, crypto.getRandomValues(new Uint8Array(32)))
       await this.pool.publish(relay, fake)
     }
-    const chunks = Math.max(f.chunks ?? 1, 1)
+    const chunks = f.lateDuplicate !== undefined ? 2 : Math.max(f.chunks ?? 1, 1)
     const total = f.declaredTotal ?? chunks
     const parts: ItemResult[][] = Array.from({ length: chunks }, () => [])
-    results.forEach((r, i) => parts[i % chunks]!.push(r))
+    if (f.lateDuplicate !== undefined) {
+      parts[0]!.push(...results)
+      const again = results.find((r) => r.id === f.lateDuplicate)
+      if (again !== undefined) parts[1]!.push({ ...again, result: '{"recipients":[]}' })
+    } else results.forEach((r, i) => parts[i % chunks]!.push(r))
     const send = f.sendChunks ?? chunks
     const relays = f.replyOnAllRelays ? this.relayUrls : [relay]
     const twice = f.answerTwice !== undefined ? results.find((r) => r.id === f.answerTwice) : undefined
@@ -317,6 +325,7 @@ export class FakeHub {
       )
       const reply = finalizeEvent({ kind: KIND_PRIVATE_RESPONSE, created_at: now, tags: [['p', envelope.replyTo]], content: sealReply(plaintext, ck, envelope.replyTo) }, crypto.getRandomValues(new Uint8Array(32)))
       for (const r of relays) await this.pool.publish(r, reply).catch(() => undefined)
+      if (f.sameEventTwice === true) for (const r of relays) await this.pool.publish(r, reply).catch(() => undefined)
     }
   }
 

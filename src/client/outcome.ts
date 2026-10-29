@@ -5,15 +5,18 @@ import type { ResponseEnvelope, ResultError } from '../transport/index.js'
 import { ClientError, NotServedError, WalletError } from './errors.js'
 
 /**
- * - `not_served` (the default): no answer. Information-free by design, and
- *   possibly applied: never read it as a failure or as "spent".
+ * - `not_served`: a complete reply left the item out, the Hub's final word.
+ *   Information-free by design, and possibly applied: never read it as a
+ *   failure or as "spent".
+ * - `unanswered`: the reply was incomplete (or never came) and nothing that
+ *   arrived mentions the item: ask again. Possibly applied, as above.
  * - `result`: served and succeeded.
  * - `error`: served and refused, with the Hub's reason.
  * - `conflicted`: answered more than once; no decided outcome, possibly applied.
  * - `tombstone`: the bill is gone (NIP-CASH §Answering About a Destroyed
  *   Bill), so the call never ran.
  */
-export type OutcomeState = 'not_served' | 'result' | 'error' | 'conflicted' | 'tombstone'
+export type OutcomeState = 'not_served' | 'unanswered' | 'result' | 'error' | 'conflicted' | 'tombstone'
 
 export interface ItemOutcome {
   readonly id: string
@@ -41,7 +44,7 @@ export const succeeded = (o: Pick<ItemOutcome, 'state'>): boolean => o.state ===
  * Pairs a response with the ids sent, so every requested item gets exactly
  * one outcome. An envelope-level error applies to every item in it.
  */
-export function joinOutcomes(requestedIds: readonly string[], resp: Pick<ResponseEnvelope, 'results' | 'error'> | undefined, envelope: number, conflicted: ReadonlySet<string> = new Set()): ItemOutcome[] {
+export function joinOutcomes(requestedIds: readonly string[], resp: Pick<ResponseEnvelope, 'results' | 'error'> | undefined, envelope: number, conflicted: ReadonlySet<string> = new Set(), complete = true): ItemOutcome[] {
   const byId = new Map((resp?.results ?? []).map((r) => [r.id, r]))
   return requestedIds.map((id): ItemOutcome => {
     if (conflicted.has(id)) return { id, state: 'conflicted', undecodable: false, envelope }
@@ -49,12 +52,18 @@ export function joinOutcomes(requestedIds: readonly string[], resp: Pick<Respons
     if (r?.error) return { id, state: 'error', error: r.error, undecodable: false, envelope }
     if (r) return { id, state: 'result', ...(r.result !== undefined && { result: r.result }), undecodable: false, envelope }
     if (resp?.error) return { id, state: 'error', error: resp.error, undecodable: false, envelope }
-    return { id, state: 'not_served', undecodable: false, envelope }
+    // Only a complete reply's omission is final; a missing chunk may still have held it.
+    return { id, state: complete ? 'not_served' : 'unanswered', undecodable: false, envelope }
   })
 }
 
+/** Every item left out by a complete reply. */
 export const notServedOutcomes = (ids: readonly string[], envelope: number): ItemOutcome[] =>
   ids.map((id) => ({ id, state: 'not_served', undecodable: false, envelope }))
+
+/** Every item of an envelope that got no reply at all (or could not be published): ask again. */
+export const unansweredOutcomes = (ids: readonly string[], envelope: number): ItemOutcome[] =>
+  ids.map((id) => ({ id, state: 'unanswered', undecodable: false, envelope }))
 
 const isTombstone = (x: unknown): x is Tombstone => typeof x === 'object' && x !== null && (x as { status?: unknown }).status === 'spent'
 
@@ -118,7 +127,7 @@ export type CallClass =
   | { readonly kind: 'final_not_applied'; readonly code: string; readonly detail?: string }
   | { readonly kind: 'tombstone' }
   | { readonly kind: 'not_sent' }
-  | { readonly kind: 'open'; readonly reason: 'refused' | 'not_served' | 'conflicted' | 'undecodable'; readonly code?: string; readonly detail?: string }
+  | { readonly kind: 'open'; readonly reason: 'refused' | 'not_served' | 'unanswered' | 'conflicted' | 'undecodable'; readonly code?: string; readonly detail?: string }
 
 export function classifyCall(o: Pick<ItemOutcome, 'state' | 'error' | 'undecodable'> & { readonly tombstone?: unknown }): CallClass {
   if (o.state === 'tombstone' || (o.state === 'result' && o.tombstone !== undefined)) return { kind: 'tombstone' }
@@ -131,5 +140,5 @@ export function classifyCall(o: Pick<ItemOutcome, 'state' | 'error' | 'undecodab
     if (o.error.code === 'BAD_REQUEST') return { kind: 'final_not_applied', code: o.error.code, ...detail }
     return { kind: 'open', reason: 'refused', code: o.error.code, ...detail }
   }
-  return { kind: 'open', reason: 'not_served' }
+  return { kind: 'open', reason: o.state === 'unanswered' ? 'unanswered' : 'not_served' }
 }

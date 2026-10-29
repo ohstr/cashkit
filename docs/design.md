@@ -391,10 +391,13 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
     disagreeing about `total`, two events with one `seq` or a `seq` out of
     range make the reply incomplete, never void; an item answered twice is
     `conflicted`; the same event from two relays is one chunk; `total` is
-    bounded by the items sent.
+    bounded by the items sent. The reply is complete only once every chunk
+    1 to `total` arrived, even if every item already has an answer.
 - **Per-item `ItemOutcome`.**
-  - `state` is `not_served` (the zero value: **unknown**, possibly applied),
-    `result`, `error`, `conflicted` (answered twice, possibly applied) or
+  - `state` is `not_served` (a complete reply left it out: **unknown**,
+    possibly applied), `unanswered` (the reply was incomplete or never
+    came: ask again, possibly applied), `result`, `error`, `conflicted`
+    (answered twice, possibly applied) or
     `tombstone` (the bill is gone, the call never ran).
   - `classifyCall` reads it for a pending call: `applied`;
     `final_not_applied` for `BAD_REQUEST` (item- or envelope-level, with its

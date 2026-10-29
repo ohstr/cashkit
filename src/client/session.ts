@@ -28,7 +28,7 @@ import {
   type ResultError,
 } from '../transport/index.js'
 import { ClientError } from './errors.js'
-import { joinOutcomes, notServedOutcomes, type ItemOutcome } from './outcome.js'
+import { joinOutcomes, unansweredOutcomes, type ItemOutcome } from './outcome.js'
 import { nowMs, nowSeconds, randomOf, type ClientDeps } from './ports.js'
 import { EventQueue, fetchRelayInfo, readEvents } from './relayIO.js'
 
@@ -235,7 +235,7 @@ export class BatchSession {
   /**
    * Packs and sends envelope by envelope, each with its own not_after, so a
    * later envelope never goes out already stale. One outcome per item,
-   * always: an envelope that got no answer yields `not_served` for
+   * always: an envelope that got no answer yields `unanswered` for
    * everything in it; items that were never sent, because building a later
    * envelope failed, are refused with NOT_SENT (safe to resend). Nothing is
    * retried here except one send after a stale-policy refresh.
@@ -292,7 +292,7 @@ export class BatchSession {
         outcomes.push(...r.outcomes)
         if (r.error) errors.push(r.error)
       } else {
-        outcomes.push(...notServedOutcomes(p.ids, i))
+        outcomes.push(...unansweredOutcomes(p.ids, i))
         if (r.error) errors.push(r.error)
       }
       rest = rest.slice(packed.consumed)
@@ -417,7 +417,10 @@ export class BatchSession {
    * or a `seq` out of range make the reply incomplete, never void; an item
    * answered twice (in one chunk or across chunks) is `conflicted`; an id
    * never sent is dropped; the same event from two relays is one chunk.
-   * `total` is bounded by the items sent.
+   * `total` is bounded by the items sent. Complete only once every chunk 1
+   * to `total` arrived, so a later chunk answering an id again, or carrying
+   * an envelope error, is still seen; until then a missing item is
+   * `unanswered`, never `not_served`.
    */
   private async collect(queue: EventQueue, replyKey: Uint8Array, p: Packed, index: number): Promise<SendResult> {
     const decided = new Map<string, ItemResult>()
@@ -435,14 +438,16 @@ export class BatchSession {
         conflicted.add(id)
       } else decided.set(id, r)
     }
-    const outcomes = () => joinOutcomes(p.ids, { results: [...decided.values()], ...(envError && { error: envError }) }, index, conflicted)
+    const total = () => Math.min(declared, p.ids.length)
+    const complete = () => !malformed && total() > 0 && Array.from({ length: total() }, (_, k) => k + 1).every((q) => seenSeq.has(q))
+    const outcomes = () => joinOutcomes(p.ids, { results: [...decided.values()], ...(envError && { error: envError }) }, index, conflicted, complete())
     const capMs = this.deps.replyWaitMs
     const endMs = Math.min(p.envelope.notAfter * 1000, capMs !== undefined ? nowMs(this.deps) + capMs : Infinity)
     for (;;) {
       const ev = await queue.next(endMs - nowMs(this.deps))
       if (ev === undefined) {
         if (chunks === 0) return { outcomes: [], error: new ClientError('timeout', `envelope ${index}: no reply before not_after`) }
-        const why = malformed ? 'the reply was malformed' : `got ${seenSeq.size} of ${Math.min(declared, p.ids.length)} chunks${queue.closed ? ' before the relay closed' : ''}`
+        const why = malformed ? 'the reply was malformed' : `got ${seenSeq.size} of ${total()} chunks${queue.closed ? ' before the relay closed' : ''}`
         return { outcomes: outcomes(), error: new ClientError('incomplete_reply', `envelope ${index}: ${why}`) }
       }
       if (ev.id !== '') {
@@ -473,8 +478,7 @@ export class BatchSession {
         conflicted.add(id)
       }
       for (const r of chunk.results) answer(r.id, r)
-      // Complete once all chunks of the bounded total arrived, or every item already has its answer.
-      if (!malformed && (seenSeq.size >= Math.min(declared, p.ids.length) || decided.size === p.ids.length)) return { outcomes: outcomes() }
+      if (complete()) return { outcomes: outcomes() }
     }
   }
 }

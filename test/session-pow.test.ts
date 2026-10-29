@@ -98,8 +98,8 @@ describe('T-414 a pow: refusal', () => {
     pool.relay(R1).refuse = true
     pool.relay(R2).refuse = true
     const r = await status()
-    expect(r.outcomes[0]!.state).toBe('not_served')
-    expect(classifyCall(r.outcomes[0]!)).toEqual({ kind: 'open', reason: 'not_served' })
+    expect(r.outcomes[0]!.state).toBe('unanswered')
+    expect(classifyCall(r.outcomes[0]!)).toEqual({ kind: 'open', reason: 'unanswered' })
   })
   test('a repeat of an accepted event is dropped by the PoW relay until it expires', async () => {
     pool.relay(R1).powMinimum = 8

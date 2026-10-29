@@ -7,6 +7,7 @@ export {
   classifyCall,
   joinOutcomes,
   notServedOutcomes,
+  unansweredOutcomes,
   oneItemError,
   safeToResend,
   statusUnreadable,

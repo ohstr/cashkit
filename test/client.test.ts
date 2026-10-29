@@ -189,13 +189,13 @@ describe('sending (batch_send.go)', () => {
     const r = await statusMany(s, [1, 2].map((i) => ({ id: `s${i}`, bill: billFor(decodeToken(bill(i))), credential: bySigning(holder) })), now)
     expect(r.error).toMatchObject({ code: 'incomplete_reply' })
     expect(r.outcomes).toHaveLength(2)
-    expect(r.outcomes.map((o) => o.state)).toEqual(expect.arrayContaining(['not_served', 'result']))
+    expect(r.outcomes.map((o) => o.state)).toEqual(expect.arrayContaining(['unanswered', 'result']))
   }, 10_000)
-  test('no reply at all: every item not_served, with a timeout error', async () => {
+  test('no reply at all: every item unanswered, with a timeout error', async () => {
     hub.faults = { drop: true }
     const s = await new CashClient({ relays: pool, replyWaitMs: 1000 }, bill(1)).session()
     const r = await statusMany(s, [{ id: 'a', bill: billFor(decodeToken(bill(1))), credential: bySigning(holder) }], now)
-    expect(r.outcomes).toMatchObject([{ id: 'a', state: 'not_served' }])
+    expect(r.outcomes).toMatchObject([{ id: 'a', state: 'unanswered' }])
     expect(r.error).toMatchObject({ code: 'timeout' })
   }, 10_000)
   test('an omitted item is not_served and not safe to resend', async () => {

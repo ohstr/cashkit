@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Adds the item outcome state `unanswered` for an item an incomplete reply
+  (or no reply) left out, and waits for every chunk up to `total` before a
+  reply is complete; `not_served` now means only a complete reply's omission.
 - Refuses every call to a Hub whose newest signed announcement is rejected
   (`hub_unusable`), at `open()` and on refresh, instead of using an older
   announcement and its inbox; a valid newer announcement makes it usable again.

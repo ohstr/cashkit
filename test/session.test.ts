@@ -194,27 +194,60 @@ describe('T-403 the chunk collector (§Chunked Replies)', () => {
     expect(r.outcomes.filter((o) => o.state === 'result')).toHaveLength(2)
   })
   test('the same event from two relays is one chunk', async () => {
-    hub.faults = { chunks: 1, replyOnAllRelays: true }
+    hub.faults = { chunks: 2, replyOnAllRelays: true, sameEventTwice: true }
     const r = await run()
     expect(r.error).toBeUndefined()
     expect(r.outcomes.every((o) => o.state === 'result')).toBe(true)
   })
   test('an inflated total is bounded by the items asked', async () => {
-    hub.faults = { declaredTotal: 9 }
+    hub.faults = { chunks: 3, declaredTotal: 9 }
+    const t = Date.now()
     const r = await run()
     expect(r.error).toBeUndefined()
+    expect(r.outcomes.every((o) => o.state === 'result')).toBe(true)
+    expect(Date.now() - t).toBeLessThan(1000)
   })
+  test('a total within the items is waited for, even once every item has an answer', async () => {
+    hub.faults = { chunks: 1, declaredTotal: 2 }
+    const r = await run()
+    expect(r.error).toMatchObject({ code: 'incomplete_reply' })
+    expect(r.outcomes.every((o) => o.state === 'result')).toBe(true)
+  }, 10_000)
+  test('a later chunk answering an item again makes it conflicted, though every item was already answered', async () => {
+    hub.faults = { lateDuplicate: 's1' }
+    const r = await run()
+    expect(r.outcomes.map((o) => o.state)).toEqual(['result', 'conflicted', 'result'])
+  })
+  test('items a missing chunk may have held are unanswered, not omitted', async () => {
+    hub.faults = { chunks: 3, sendChunks: 1 }
+    const r = await run()
+    expect(r.error).toMatchObject({ code: 'incomplete_reply' })
+    expect(r.outcomes.map((o) => o.state)).toEqual(['result', 'unanswered', 'unanswered'])
+  }, 10_000)
+  test('with no reply wait set, the wait ends at the envelope not_after', async () => {
+    hub.maxRequestAge = 6
+    await hub.announce({ relays: [R1, R2], createdAt: now() + 1 })
+    hub.faults = { drop: true }
+    const s = await BatchSession.open({ relays: pool }, hub.node, [R1, R2])
+    const t = Date.now()
+    const r = await statusMany(s, statusItems(1), now)
+    const took = Date.now() - t
+    expect(r.error).toMatchObject({ code: 'timeout' })
+    // not_after = now + min(60, floor(6 / 2)) = now + 3 s, at second granularity.
+    expect(took).toBeGreaterThan(1500)
+    expect(took).toBeLessThan(4500)
+  }, 10_000)
   test('an envelope-level error is the outcome of every item', async () => {
     hub.faults = { envelopeError: { code: 'QUOTA_EXCEEDED' } }
     const r = await run()
     expect(r.outcomes.every((o) => o.state === 'error' && o.error?.code === 'QUOTA_EXCEEDED')).toBe(true)
   })
-  test('no reply: a timeout, every item not served, the wait bounded', async () => {
+  test('no reply: a timeout, every item unanswered, the wait bounded', async () => {
     hub.faults = { drop: true }
     const t = Date.now()
     const r = await run()
     expect(r.error).toMatchObject({ code: 'timeout' })
-    expect(r.outcomes.every((o) => o.state === 'not_served')).toBe(true)
+    expect(r.outcomes.every((o) => o.state === 'unanswered')).toBe(true)
     expect(Date.now() - t).toBeLessThan(5000)
   }, 10_000)
 })

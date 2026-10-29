@@ -87,13 +87,13 @@ describe('T-406 / T-407 lookup items and statuses', () => {
     expect(o.value).toEqual({ status: 'unknown' })
     expect(bank.hub.requests.filter((r) => r.item.method === 'cash_lookup')).toHaveLength(1)
   })
-  test('a lookup answered REQUEST_REUSED is routed as not served, never unknown', async () => {
+  test('a lookup answered REQUEST_REUSED is routed as unanswered, never unknown', async () => {
     const w = bank.mintToPubkey(5000n, alice.pubkey)
     const c = new CashClient(deps(), w.token)
     const s = await c.session()
     bank.override = (m) => (m === 'cash_lookup' ? { error: { code: 'REQUEST_REUSED', message: 'x' } } : undefined)
     const r = await lookupMany(s, [{ bill: c.bill, by: { requestId: newRequestId() }, deadline: now(), authorizer: { kind: 'signer', signer: alice } }], now)
-    expect(r.outcomes[0]!.state).toBe('not_served')
+    expect(r.outcomes[0]!.state).toBe('unanswered')
   })
   test('an omitted lookup is not served, never unknown', async () => {
     const w = bank.mintToPubkey(5000n, alice.pubkey)
