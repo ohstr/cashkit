@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Reads a lookup `done` whose created bill is already a tombstone as that
+  bill gone: a spin-off is no longer taken for a move in place or handed off
+  as the source's token, and such a mint closes instead of being looked up again.
 - Refuses an email user id with a leading `@` (`@alice@example.com`) as not
   canonical, instead of deriving a ConnectionKey no IA attests.
 - Checks, in `resolveConnection`, that an attestation is current and not
