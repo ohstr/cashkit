@@ -15,7 +15,7 @@ import {
   type ItemOutcome,
   type LookupAuthorizer,
 } from '../client/index.js'
-import { finishCall, isOwnCall, markSent, recordDerivedId } from './calls.js'
+import { finishCall, isOwnCall, markSent, noteHub, recordDerivedId } from './calls.js'
 import type { Ctx } from './context.js'
 import { CashkitError, codeForNwc } from './errors.js'
 import { credentialKindOf, endHolding, goneError, notFoundByEntryKey, tombstoneStatus, type GoneStatus } from './billState.js'
@@ -430,6 +430,7 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
   const next = kindOf(call).forReplace?.(ctx, placed) ?? placed
   await ctx.commit(async (t) => {
     await recordDerivedId(t, { derivedId: derived, parentCallId: call.id, deadline, hMax: Math.max(hub?.hMax ?? 0, h) })
+    if (h > 0) await noteHub(t, call.node, h)
     await t.put('pendingCalls', next, 0)
   })
   try {
