@@ -1,5 +1,5 @@
 {
-  "description": "bolt11 invoice fields nmilat reads: currency and amount from the HRP, payment hash, description and description hash. The signature is not checked.",
+  "description": "bolt11 invoice fields nmilat reads: currency and amount from the HRP, payment hash, description and description hash. A second 32-byte payment hash field refuses the invoice (readers disagree on which one counts); a field of another length is skipped. The signature is not checked.",
   "source": "nip57/bolt11.go DecodeBolt11; real invoices from cashctl and nmilat test fixtures",
   "nmilat": "github.com/ohstr/nmilat devel",
   "decode": [
@@ -193,15 +193,19 @@
       }
     },
     {
-      "name": "last valid payment hash wins",
+      "name": "two payment hashes are refused",
       "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qpp5hwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwasqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2ygrr0",
-      "want": {
-        "currency": "fc",
-        "amountMillis": "100000",
-        "description": "",
-        "descriptionHash": "",
-        "paymentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-      }
+      "error": "bolt11 invoice has more than one payment_hash tag"
+    },
+    {
+      "name": "the same payment hash twice is refused",
+      "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424qpp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqyycxat",
+      "error": "bolt11 invoice has more than one payment_hash tag"
+    },
+    {
+      "name": "a payment hash with non-zero padding then a good one is refused",
+      "invoice": "lnfc1u1qqqqqqqpp5424242424242424242424242424242424242424242424242424ppp5424242424242424242424242424242424242424242424242424qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqcljde6",
+      "error": "bolt11 invoice has more than one payment_hash tag"
     },
     {
       "name": "short payment hash is skipped",

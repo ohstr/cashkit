@@ -3,10 +3,11 @@
 // NIP-CASH §Chunked Replies, and the call classification. Cases follow
 // nmilat nipcash/client {batch_session,batch_send,batch_outcome}_test.go and
 // the NIP's tables (§Chunked Replies, §Deadlines, §Methods/Errors).
-import { beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { bySigning, decodeToken, localSigner, pubkeyTarget } from '../src/core/index.js'
 import { newRequestId } from '../src/core/index.js'
 import { BatchSession, billFor, CashClient, classifyCall, ClientError, deadlineFor, MIN_PUBLISH_MARGIN, statusMany, type ItemOutcome } from '../src/client/index.js'
+import { DEFAULT_LIMITS } from '../src/transport/index.js'
 import { FakeHub, MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
 
@@ -45,6 +46,113 @@ describe('T-401 / T-402 relay order and failover', () => {
     expect(r.outcomes[0]!.state).toBe('result')
     expect(r.acceptedRelays).toEqual([R2])
     expect(pool.published.filter((p) => p.event.kind === 23190).map((p) => p.relay)).toEqual([R2])
+  })
+})
+
+const requests = () => pool.published.filter((p) => p.event.kind === 23190).length
+
+describe('a rejected newest announcement (§The Hub Announcement)', () => {
+  const below = { ...DEFAULT_LIMITS, padBucketBytes: 1024 }
+  test('open() refuses the Hub, never falling back to the older valid one another relay serves', async () => {
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(BatchSession.open(deps(), hub.node, [R1, R2])).rejects.toMatchObject({ code: 'hub_unusable' })
+  })
+  test('a session holding an older one refuses every call once a newer one is rejected', async () => {
+    const s = await BatchSession.open(deps(), hub.node, [R1])
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    expect(() => s.inbox).toThrow(expect.objectContaining({ code: 'hub_unusable' }))
+    expect(() => s.limits).toThrow(expect.objectContaining({ code: 'hub_unusable' }))
+    const before = requests()
+    await expect(statusMany(s, statusItems(1), now)).rejects.toMatchObject({ code: 'hub_unusable' })
+    expect(requests()).toBe(before)
+  })
+  test('stays unusable when the relays serve only the older one again', async () => {
+    const old = hub.announcementEvent({ relays: [R1], createdAt: now() })
+    const s = await BatchSession.open(deps(), hub.node, [R1])
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    pool.relay(R1).stored = [old]
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    expect(() => s.inbox).toThrow(expect.objectContaining({ code: 'hub_unusable' }))
+  })
+  test('a valid newer announcement makes the Hub usable again', async () => {
+    const s = await BatchSession.open(deps(), hub.node, [R1])
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }))
+    await expect(s.refresh()).rejects.toMatchObject({ code: 'hub_unusable' })
+    await pool.publish(R1, hub.announcementEvent({ relays: [R1], createdAt: now() + 11, limits: { ...DEFAULT_LIMITS, padBucketBytes: 2048 } }))
+    await s.refresh()
+    expect(s.inbox).toBe(hub.inbox)
+    expect(s.limits.padBucketBytes).toBe(2048)
+    const r = await statusMany(s, statusItems(1), now)
+    expect(r.outcomes[0]!.state).toBe('result')
+  })
+  test('a newer event with a bad signature is not the Hub announcement and changes nothing', async () => {
+    const forged = { ...hub.announcementEvent({ relays: [R1], createdAt: now() + 10, limits: below }), sig: '00'.repeat(64) }
+    await pool.publish(R1, forged)
+    const s = await BatchSession.open(deps(), hub.node, [R1, R2])
+    expect(s.inbox).toBe(hub.inbox)
+  })
+})
+
+const sends = () => pool.published.filter((p) => p.event.kind === 23190)
+
+/** Runs `f` under fake timers, moving the clock on in 500 ms steps until it settles. */
+async function underFakeTime<T>(f: () => Promise<T>): Promise<T> {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+  const state = { done: false }
+  const p = f().finally(() => (state.done = true))
+  for (let i = 0; i < 200 && !state.done; i++) await vi.advanceTimersByTimeAsync(500)
+  return p
+}
+
+describe('a relay that takes the request but no longer carries the Hub (§Relays)', () => {
+  const R4 = 'wss://gone.test'
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+  test('after its share of the wait with no reply, the same envelope goes to the next relay, and its reply is read', async () => {
+    await hub.announce({ relays: [R4, R1], createdAt: now() + 1 })
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const t = Date.now()
+    const r = await underFakeTime(() => statusMany(s, statusItems(1), now))
+    expect(r.error).toBeUndefined()
+    expect(r.outcomes[0]!.state).toBe('result')
+    expect(r.acceptedRelays).toEqual([R4, R1])
+    expect(sends().map((x) => x.relay)).toEqual([R4, R1])
+    expect(sends()[0]!.event.id).toBe(sends()[1]!.event.id)
+    // The share: max(5 s, 20 s / 2 relays) = 10 s on the first relay.
+    expect(Date.now() - t).toBeGreaterThanOrEqual(10_000)
+    expect(hub.requests).toHaveLength(1)
+  })
+  test('a first relay that answers within its share is the only one used', async () => {
+    await hub.announce({ relays: [R1, R2], createdAt: now() + 1 })
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const r = await statusMany(s, statusItems(1), now)
+    expect(r.outcomes[0]!.state).toBe('result')
+    expect(sends().map((x) => x.relay)).toEqual([R1])
+  })
+  test('every relay silent: one publish each, then unanswered with a timeout at the end of the wait', async () => {
+    await hub.announce({ relays: [R4, R1], createdAt: now() + 1 })
+    hub.faults = { drop: true }
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const t = Date.now()
+    const r = await underFakeTime(() => statusMany(s, statusItems(1), now))
+    expect(r.error).toMatchObject({ code: 'timeout' })
+    expect(r.outcomes.map((o) => o.state)).toEqual(['unanswered'])
+    expect(sends().map((x) => x.relay)).toEqual([R4, R1])
+    expect(Date.now() - t).toBeGreaterThanOrEqual(20_000)
+  })
+  test('a slow reply on the first relay, after the copy went to the second, is read once', async () => {
+    await hub.announce({ relays: [R1, R2], createdAt: now() + 1 })
+    hub.faults = { delayMs: 12_000, replyOnAllRelays: true }
+    const s = await BatchSession.open({ relays: pool, replyWaitMs: 20_000 }, hub.node, [R1])
+    const r = await underFakeTime(() => statusMany(s, statusItems(1), now))
+    expect(r.error).toBeUndefined()
+    expect(r.outcomes.map((o) => o.state)).toEqual(['result'])
+    expect(sends().map((x) => x.relay)).toEqual([R1, R2])
+    // The copy on the second relay is a replay of a served nonce: run once, answered once.
+    expect(hub.requests).toHaveLength(1)
   })
 })
 
@@ -147,27 +255,60 @@ describe('T-403 the chunk collector (§Chunked Replies)', () => {
     expect(r.outcomes.filter((o) => o.state === 'result')).toHaveLength(2)
   })
   test('the same event from two relays is one chunk', async () => {
-    hub.faults = { chunks: 1, replyOnAllRelays: true }
+    hub.faults = { chunks: 2, replyOnAllRelays: true, sameEventTwice: true }
     const r = await run()
     expect(r.error).toBeUndefined()
     expect(r.outcomes.every((o) => o.state === 'result')).toBe(true)
   })
   test('an inflated total is bounded by the items asked', async () => {
-    hub.faults = { declaredTotal: 9 }
+    hub.faults = { chunks: 3, declaredTotal: 9 }
+    const t = Date.now()
     const r = await run()
     expect(r.error).toBeUndefined()
+    expect(r.outcomes.every((o) => o.state === 'result')).toBe(true)
+    expect(Date.now() - t).toBeLessThan(1000)
   })
+  test('a total within the items is waited for, even once every item has an answer', async () => {
+    hub.faults = { chunks: 1, declaredTotal: 2 }
+    const r = await run()
+    expect(r.error).toMatchObject({ code: 'incomplete_reply' })
+    expect(r.outcomes.every((o) => o.state === 'result')).toBe(true)
+  }, 10_000)
+  test('a later chunk answering an item again makes it conflicted, though every item was already answered', async () => {
+    hub.faults = { lateDuplicate: 's1' }
+    const r = await run()
+    expect(r.outcomes.map((o) => o.state)).toEqual(['result', 'conflicted', 'result'])
+  })
+  test('items a missing chunk may have held are unanswered, not omitted', async () => {
+    hub.faults = { chunks: 3, sendChunks: 1 }
+    const r = await run()
+    expect(r.error).toMatchObject({ code: 'incomplete_reply' })
+    expect(r.outcomes.map((o) => o.state)).toEqual(['result', 'unanswered', 'unanswered'])
+  }, 10_000)
+  test('with no reply wait set, the wait ends at the envelope not_after', async () => {
+    hub.maxRequestAge = 6
+    await hub.announce({ relays: [R1, R2], createdAt: now() + 1 })
+    hub.faults = { drop: true }
+    const s = await BatchSession.open({ relays: pool }, hub.node, [R1, R2])
+    const t = Date.now()
+    const r = await statusMany(s, statusItems(1), now)
+    const took = Date.now() - t
+    expect(r.error).toMatchObject({ code: 'timeout' })
+    // not_after = now + min(60, floor(6 / 2)) = now + 3 s, at second granularity.
+    expect(took).toBeGreaterThan(1500)
+    expect(took).toBeLessThan(4500)
+  }, 10_000)
   test('an envelope-level error is the outcome of every item', async () => {
     hub.faults = { envelopeError: { code: 'QUOTA_EXCEEDED' } }
     const r = await run()
     expect(r.outcomes.every((o) => o.state === 'error' && o.error?.code === 'QUOTA_EXCEEDED')).toBe(true)
   })
-  test('no reply: a timeout, every item not served, the wait bounded', async () => {
+  test('no reply: a timeout, every item unanswered, the wait bounded', async () => {
     hub.faults = { drop: true }
     const t = Date.now()
     const r = await run()
     expect(r.error).toMatchObject({ code: 'timeout' })
-    expect(r.outcomes.every((o) => o.state === 'not_served')).toBe(true)
+    expect(r.outcomes.every((o) => o.state === 'unanswered')).toBe(true)
     expect(Date.now() - t).toBeLessThan(5000)
   }, 10_000)
 })

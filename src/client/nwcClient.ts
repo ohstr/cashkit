@@ -105,8 +105,11 @@ export class NwcClient {
    * by the wallet itself and correctly signed is accepted: anyone can tag an
    * event with the request id and encrypt it to this connection. Every
    * relay's subscription is opened (and its EOSE awaited, bounded) before
-   * the first publish, and kept until the response. `expiration` adds the
-   * NIP-40 tag a deadline-bearing call (`mint_cash`) needs.
+   * the first publish, and kept until the response. The relays are tried
+   * in order: when one refuses the event, or takes it and no answer comes
+   * within `timeoutMs`, the same event goes to the next untried one.
+   * `expiration` adds the NIP-40 tag a deadline-bearing call (`mint_cash`)
+   * needs, and ends the attempts once it passes.
    */
   async call(method: string, params?: unknown, opts: number | { readonly timeoutMs?: number; readonly expiration?: number } = {}): Promise<NWCResponse> {
     const o = typeof opts === 'number' ? { timeoutMs: opts } : opts
@@ -140,37 +143,54 @@ export class NwcClient {
     })
     await Promise.race([ready, sleep(SUBSCRIPTION_EOSE_WAIT_MS)])
     try {
-      let sent = false
       const failures: string[] = []
-      for (const relay of relays) {
-        try {
-          const res = await this.deps.relays.publish(relay, request)
-          if (res.ok) {
-            sent = true
-            break
-          }
-          failures.push(`${relay}: refused${res.message ? `: ${res.message}` : ''}`)
-        } catch (err) {
-          failures.push(`${relay}: ${(err as Error).message}`)
-        }
-      }
-      if (!sent) throw new ClientError('no_relay', `no relay took the request (${failures.join('; ')})`)
-      const deadline = nowMs(this.deps) + timeoutMs
+      let sentOnce = false
+      let next = 0
+      // The relays in order: the same event goes to the next untried one when one refuses it, or takes it
+      // and no answer comes within the wait; only once every relay was tried does the call give up.
       for (;;) {
-        const e = await queue.next(deadline - nowMs(this.deps))
-        if (e === undefined) throw new ClientError('timeout', `${method}: no response from the wallet`)
-        if (e.pubkey !== this.walletPubkey || !verifyEvent(e)) continue
-        let resp: NWCResponse
-        try {
-          resp = parseResponseEvent(e, this.secret, encryption)
-        } catch {
-          continue
+        let sent = false
+        while (!sent && next < relays.length) {
+          const relay = relays[next++]!
+          try {
+            const res = await this.deps.relays.publish(relay, request)
+            if (res.ok) sent = true
+            else failures.push(`${relay}: refused${res.message ? `: ${res.message}` : ''}`)
+          } catch (err) {
+            failures.push(`${relay}: ${(err as Error).message}`)
+          }
         }
-        if (resp.requestEventId !== request.id) continue
-        return resp
+        if (!sent) {
+          if (sentOnce) throw new ClientError('timeout', `${method}: no response from the wallet on any relay`)
+          throw new ClientError('no_relay', `no relay took the request (${failures.join('; ')})`)
+        }
+        sentOnce = true
+        // A deadline-bearing request is not sent again once its expiration has passed.
+        const deadline = Math.min(nowMs(this.deps) + timeoutMs, o.expiration !== undefined ? o.expiration * 1000 : Infinity)
+        const resp = await this.awaitResponse(queue, deadline, request.id, encryption)
+        if (resp !== undefined) return resp
+        if (o.expiration !== undefined && nowMs(this.deps) >= o.expiration * 1000) throw new ClientError('timeout', `${method}: no response from the wallet before the request expired`)
+        if (next >= relays.length) throw new ClientError('timeout', `${method}: no response from the wallet`)
       }
     } finally {
       stop()
+    }
+  }
+
+  /** The wallet's own signed response to `requestId`, or undefined once `deadline` (ms) passes. */
+  private async awaitResponse(queue: EventQueue, deadline: number, requestId: string, encryption: string): Promise<NWCResponse | undefined> {
+    for (;;) {
+      const e = await queue.next(deadline - nowMs(this.deps))
+      if (e === undefined) return undefined
+      if (e.pubkey !== this.walletPubkey || !verifyEvent(e)) continue
+      let resp: NWCResponse
+      try {
+        resp = parseResponseEvent(e, this.secret, encryption)
+      } catch {
+        continue
+      }
+      if (resp.requestEventId !== requestId) continue
+      return resp
     }
   }
 

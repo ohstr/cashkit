@@ -3,6 +3,7 @@
 import { describe, expect, test } from 'vitest'
 import { finalizeEvent, getPublicKey, localSigner, nip44, signerErrorFrom, toHex, type EventTemplate, type NostrEvent } from '../src/core/index.js'
 import { nip07Signer, type Nip07 } from '../src/adapters/signer-nip07.js'
+import { checkSigned } from '../src/adapters/signer-verify.js'
 import { KIND_NIP46, nip46Signer, parseBunkerUri } from '../src/adapters/signer-nip46.js'
 import { MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
@@ -183,5 +184,24 @@ describe('a signer error reason is untrusted text', () => {
     const e = signerErrorFrom('signer-nip46', 'denied: \u001b[31mred\u001b[0m\u0007 line\nnext ‮evil‎\u009b')
     expect(e).toMatchObject({ code: 'denied', message: 'signer-nip46: denied: [31mred[0m line next evil' })
     expect(signerErrorFrom('x', 'a'.repeat(5000)).message.length).toBe('x: '.length + 300)
+  })
+})
+
+// NIP-LS §Client requirements: the event a signer returns must be the one asked for.
+describe('checkSigned', () => {
+  const sk = fill(0x03, 32)
+  const pk = getPublicKey(sk)
+  const asked: EventTemplate = { kind: 23192, created_at: 1720000000, content: 'x', tags: [['amount_millis', '1000']] }
+  test('accepts the event asked for', () => {
+    expect(checkSigned(asked, finalizeEvent(asked, sk), pk, 't').pubkey).toBe(pk)
+  })
+  test.each([
+    ['kind', { ...asked, kind: 1 }],
+    ['created_at', { ...asked, created_at: asked.created_at + 1 }],
+    ['content', { ...asked, content: 'y' }],
+    ['tags', { ...asked, tags: [['amount_millis', '9000000']] }],
+    ['tag count', { ...asked, tags: [...asked.tags, ['x', '1']] }],
+  ])('refuses another %s', (_, other) => {
+    expect(() => checkSigned(asked, finalizeEvent(other as EventTemplate, sk), pk, 't')).toThrow('a different event')
   })
 })

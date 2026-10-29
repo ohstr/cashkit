@@ -25,9 +25,9 @@ const appSecret = fill(0x22, 32)
 type Handler = (method: string, params: unknown) => { result?: unknown; error?: { code: string; message: string } } | 'silent'
 
 /** A wallet service: answers kind 23194 requests addressed to it. */
-function startWallet(pool: MemoryRelayPool, handler: Handler, opts: { forge?: boolean } = {}) {
+function startWallet(pool: MemoryRelayPool, handler: Handler, opts: { forge?: boolean; relays?: readonly string[] } = {}) {
   const seen: { method: string; params: unknown; event: NostrEvent }[] = []
-  pool.subscribe([R1, R2], { kinds: [23194], '#p': [WALLET] }, {
+  pool.subscribe(opts.relays ?? [R1, R2], { kinds: [23194], '#p': [WALLET] }, {
     onEvent: (e, relay) => {
       const ck = nip44.getConversationKey(walletKey, e.pubkey)
       const legacy = e.tags.some((t) => t[0] === 'encryption' && t[1] === 'nip04')
@@ -108,6 +108,26 @@ describe('NwcClient', () => {
     startWallet(pool, () => ({ result: { balance: 1 } }))
     expect(await new NwcClient({ relays: pool }, pairing()).getBalance()).toEqual({ balance: 1 })
   })
+  test('fails over when the first relay takes the request but the wallet no longer listens there', async () => {
+    const seen = startWallet(pool, () => ({ result: { balance: 2 } }), { relays: [R2] })
+    const t = Date.now()
+    expect(await new NwcClient({ relays: pool }, pairing()).call('get_balance', undefined, 300)).toMatchObject({ result: { balance: 2 } })
+    expect(Date.now() - t).toBeGreaterThanOrEqual(250)
+    // One event, sent to each relay in turn.
+    expect(seen).toHaveLength(1)
+    expect(pool.published.filter((p) => p.event.kind === 23194).map((p) => p.relay)).toEqual([R1, R2])
+  })
+  test('a first relay that answers is the only one used', async () => {
+    startWallet(pool, () => ({ result: { balance: 3 } }))
+    expect(await new NwcClient({ relays: pool }, pairing()).getBalance()).toEqual({ balance: 3 })
+    expect(pool.published.filter((p) => p.event.kind === 23194).map((p) => p.relay)).toEqual([R1])
+  })
+  test('a request past its expiration is not sent to another relay', async () => {
+    startWallet(pool, () => ({ result: { balance: 2 } }), { relays: [R2] })
+    const expiration = Math.floor(Date.now() / 1000) + 1
+    await expect(new NwcClient({ relays: pool }, pairing()).call('get_balance', undefined, { timeoutMs: 5000, expiration })).rejects.toMatchObject({ code: 'timeout' })
+    expect(pool.published.filter((p) => p.event.kind === 23194).map((p) => p.relay)).toEqual([R1])
+  }, 10_000)
   test('no response times out', async () => {
     startWallet(pool, () => 'silent')
     await expect(new NwcClient({ relays: pool }, pairing()).call('get_info', undefined, 200)).rejects.toMatchObject({ code: 'timeout' })

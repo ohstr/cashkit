@@ -188,7 +188,8 @@ export async function refreshDiscover(ctx: Ctx, o: DiscoverOptions): Promise<voi
   if (o.includeUnreviewed === true) take(await read(ctx, o.relays, globalFilter(chains)), true)
   const operators = [...new Set([...s.listings.values()].flatMap((l) => (l.operator !== undefined ? [l.operator.pubkey] : [])))]
   if (operators.length > 0) {
-    const ops = await read(ctx, o.relays, { kinds: [KIND_OPERATOR_OFFERS], authors: operators })
+    // From the discovery relays and each operator's own NIP-65 write relays, where an operator keeps its 11191.
+    const ops = await read(ctx, [...new Set([...o.relays, ...(await operatorWriteRelays(ctx, operators, o.relays))])], { kinds: [KIND_OPERATOR_OFFERS], authors: operators })
     for (const op of operators) {
       const n = newestOperatorOffers(ops, op)
       if (n !== undefined) s.operators.set(op, n)
@@ -281,11 +282,16 @@ function operatorOf(s: State): (addr: string) => string | undefined {
   }
 }
 
-function card(ctx: Ctx, s: State, l: Listing): OfferCard {
+/** A listing's signals: its recommendations (one naming another offer of its node included), reports and operator's followers. */
+function signalsOf(s: State, l: Listing): ReturnType<typeof signalsFor> {
+  const op = operatorOf(s)(listingAddress(l))
+  const offersOfNode = [...s.listings.values()].filter((x) => x.nodeIdentity === l.nodeIdentity).map(listingAddress)
+  return signalsFor(l, s.trust, s.recs, s.reports, op !== undefined ? (s.operatorFollowers.get(op) ?? []) : [], operatorOf(s), offersOfNode)
+}
+
+function card(ctx: Ctx, s: State, l: Listing, sig: ReturnType<typeof signalsFor>): OfferCard {
   const addr = listingAddress(l)
   const op = operatorOf(s)(addr)
-  const offersOfNode = [...s.listings.values()].filter((x) => x.nodeIdentity === l.nodeIdentity).map(listingAddress)
-  const sig = signalsFor(l, s.trust, s.recs, s.reports, op !== undefined ? (s.operatorFollowers.get(op) ?? []) : [], operatorOf(s), offersOfNode)
   const last = s.taps.last(l)
   const now = ctx.nowSeconds()
   return {
@@ -335,13 +341,12 @@ export function listDiscover(ctx: Ctx): DiscoverView {
       else contested.push({ d, addresses: ls.map(listingAddress) })
     }
   }
-  const cards = shown.map((l) => ({ l, c: card(ctx, s, l) }))
-  const key = (x: (typeof cards)[number]) => rankKey(x.l, signalsFor(x.l, s.trust, s.recs, s.reports, [], operatorOf(s), []), now)
-  const cmp = (a: (typeof cards)[number], b: (typeof cards)[number]) => {
-    const ka = key(a)
-    const kb = key(b)
-    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2]
-  }
+  // Ranked on the same signals the card shows, so a recommended offer is never below an unsignalled one.
+  const cards = shown.map((l) => {
+    const sig = signalsOf(s, l)
+    return { l, c: card(ctx, s, l, sig), k: rankKey(l, sig, now) }
+  })
+  const cmp = (a: (typeof cards)[number], b: (typeof cards)[number]) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2]
   const ordered = [...cards]
   // oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh copy
   ordered.sort(cmp)
@@ -438,6 +443,20 @@ function newestSignedBy(events: readonly NostrEvent[], pubkey: string): NostrEve
 async function writeRelaysOf(ctx: Ctx, pubkey: string, relays: readonly string[]): Promise<string[]> {
   const newest = newestSignedBy(await read(ctx, relays, { kinds: [10002], authors: [pubkey] }), pubkey)
   return newest?.tags.filter((t) => t[0] === 'r' && typeof t[1] === 'string' && (t[2] === undefined || t[2] === 'write')).map((t) => t[1]!) ?? []
+}
+
+/** At most this many of one operator's write relays are read: an operator cannot make a refresh dial a long list. */
+const MAX_OPERATOR_RELAYS = 4
+
+/** The write relays of each operator's newest signed kind 10002, read from `relays`; ws and wss URLs only. */
+async function operatorWriteRelays(ctx: Ctx, operators: readonly string[], relays: readonly string[]): Promise<string[]> {
+  const lists = await read(ctx, relays, { kinds: [10002], authors: [...operators] })
+  return operators.flatMap((op) =>
+    (newestSignedBy(lists, op)?.tags ?? [])
+      .filter((t) => t[0] === 'r' && typeof t[1] === 'string' && /^wss?:\/\/\S+$/.test(t[1]) && (t[2] === undefined || t[2] === 'write'))
+      .map((t) => t[1]!)
+      .slice(0, MAX_OPERATOR_RELAYS),
+  )
 }
 
 async function requireIdentity(ctx: Ctx) {

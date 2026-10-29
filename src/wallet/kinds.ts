@@ -6,6 +6,7 @@
 // these single calls.
 import {
   bySecret,
+  canonicalToken,
   bySigning,
   cashCommitment,
   decodeLookupDone,
@@ -19,6 +20,7 @@ import {
   type ConsolidateSource,
   type Credential,
   type Target,
+  type Tombstone,
   decodeToken,
 } from '../core/index.js'
 import { consolidateMany, deadlineFor, transferMany, type LookupAuthorizer } from '../client/index.js'
@@ -29,6 +31,17 @@ import { addHandoff, addHolding, appendActivity, updateHolding } from './ledger.
 import type { CallCreated, CallOutput, Holding, PendingCall, Sealed } from './model.js'
 import type { StorageTx } from './ports.js'
 import { executeCall, registerCallKind, type CallKind } from './runner.js'
+import { endHolding, tombstoneStatus } from './billState.js'
+
+/**
+ * Bills a call created that a lookup `done` shows already destroyed: their
+ * tombstones stand where the tokens were (NIP-CASH §Looking Up a Call), so
+ * nothing of them can be held or handed off.
+ */
+interface GoneOutputs {
+  readonly newBill?: Tombstone
+  readonly remainder?: Tombstone
+}
 
 const hexBytes = (hex: string) => Uint8Array.from(hex.match(/../g)!.map((b) => parseInt(b, 16)))
 
@@ -251,10 +264,17 @@ const transferKind: CallKind = {
   },
   async finish(ctx, call, result, from) {
     const src = await holding(ctx, call.sources[0]!)
-    const r: CashTransferResult = from === 'reply' ? (result as CashTransferResult) : await parseCashTransferResult(decodeLookupDone(result).result, await callCredential(ctx, call, src))
+    let r: CashTransferResult
+    let gone: GoneOutputs = {}
+    if (from === 'reply') r = result as CashTransferResult
+    else {
+      const d = decodeLookupDone(result)
+      r = await parseCashTransferResult(d.result, await callCredential(ctx, call, src))
+      gone = { ...(d.tombstones.new_wallet_token !== undefined && { newBill: d.tombstones.new_wallet_token }), ...(d.tombstones.remainder_wallet_token !== undefined && { remainder: d.tombstones.remainder_wallet_token }) }
+    }
     // Everything that needs the vault happens here: a transaction awaits only storage.
-    const ho = call.params?.['keep'] === 'handoff' ? await sealedHandoff(ctx, r.newWalletToken === '' ? src.token : r.newWalletToken, output(call, 'new')!.destination) : undefined
-    return (t) => applyTransfer(ctx, t, call, r, ho)
+    const ho = call.params?.['keep'] === 'handoff' && gone.newBill === undefined ? await sealedHandoff(ctx, r.newWalletToken === '' ? src.token : r.newWalletToken, output(call, 'new')!.destination) : undefined
+    return (t) => applyTransfer(ctx, t, call, r, ho, gone)
   },
   async recovery(ctx, call, result) {
     const r = result as CashTransferResult
@@ -270,7 +290,7 @@ const transferKind: CallKind = {
   },
 }
 
-async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashTransferResult, ho: Awaited<ReturnType<typeof sealedHandoff>> | undefined): Promise<CallCreated> {
+async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashTransferResult, ho: Awaited<ReturnType<typeof sealedHandoff>> | undefined, gone: GoneOutputs = {}): Promise<CallCreated> {
   const src = await t.get('holdings', call.sources[0]!)
   if (src === undefined) throw new CashkitError('internal', `no holding ${call.sources[0]}`)
   const p = call.params ?? {}
@@ -278,14 +298,20 @@ async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashT
   const op = p['op'] ?? 'send'
   const newOut = output(call, 'new')!
   const remOut = output(call, 'remainder')
-  const inPlace = r.newWalletToken === ''
+  // A tombstone in place of the new token is a spin-off since destroyed, never a move in place.
+  const inPlace = r.newWalletToken === '' && gone.newBill === undefined
   const now = ctx.now()
+  if (keep === 'holding' && gone.newBill !== undefined) {
+    // Moved to a key of this wallet, and that bill is already gone: the holding ends by the tombstone's reason.
+    await endHolding(t, now, src.id, tombstoneStatus(gone.newBill))
+    return { movedHoldingId: src.id }
+  }
   if (keep === 'holding') {
     // Moved to a key or secret this wallet holds: the same holding, its identity (and, on a spin-off, its bill) replaced.
     const moved = await updateHolding(t, src.id, (h) => ({
       ...withoutKeys(h),
       ...identityFields(newOut.destination),
-      ...(!inPlace && { token: r.newWalletToken.toLowerCase(), walletPubkey: r.newWalletPubkey !== '' ? r.newWalletPubkey : h.walletPubkey }),
+      ...(!inPlace && { token: canonicalToken(r.newWalletToken), walletPubkey: r.newWalletPubkey !== '' ? r.newWalletPubkey : h.walletPubkey }),
     }))
     if (op === 'protect') await appendActivity(t, now, { action: 'protect', holdingId: moved.id })
     return { movedHoldingId: moved.id }
@@ -297,7 +323,7 @@ async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashT
     created.handoffId = row.id
   }
   let remainderId: string | undefined
-  if (r.remainderWalletToken !== '' && remOut !== undefined) {
+  if (r.remainderWalletToken !== '' && remOut !== undefined && gone.remainder === undefined) {
     const f = tokenFacts(r.remainderWalletToken)
     const rem = await addHolding(
       t,
@@ -395,14 +421,17 @@ const consolidateKind: CallKind = {
   },
   async finish(ctx, call, result, from) {
     let r: CashConsolidateResult
+    let gone: GoneOutputs = {}
     if (from === 'reply') r = result as CashConsolidateResult
     else {
       const { sources } = await consolidateSources(ctx, call)
-      r = await parseCashConsolidateResult(decodeLookupDone(result).result, { sources, to: targetOf(call) })
+      const d = decodeLookupDone(result)
+      r = await parseCashConsolidateResult(d.result, { sources, to: targetOf(call) })
+      if (d.tombstones.new_wallet_token !== undefined) gone = { newBill: d.tombstones.new_wallet_token }
     }
     const minters = await Promise.all(call.sources.map(async (id) => (await holding(ctx, id)).minterPubkey))
-    const ho = call.params?.['keep'] === 'handoff' ? await sealedHandoff(ctx, r.newWalletToken, output(call, 'new')!.destination) : undefined
-    return (t) => applyConsolidate(ctx, t, call, r, sharedMinterOf(minters), ho)
+    const ho = call.params?.['keep'] === 'handoff' && gone.newBill === undefined ? await sealedHandoff(ctx, r.newWalletToken, output(call, 'new')!.destination) : undefined
+    return (t) => applyConsolidate(ctx, t, call, r, sharedMinterOf(minters), ho, gone)
   },
   recovery: (ctx, call, result) => cashNotes(ctx, call, [['new', (result as CashConsolidateResult).newWalletToken]]),
   async lookupTarget(ctx, call) {
@@ -411,7 +440,7 @@ const consolidateKind: CallKind = {
   },
 }
 
-async function applyConsolidate(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashConsolidateResult, minter: string | undefined, ho: Awaited<ReturnType<typeof sealedHandoff>> | undefined): Promise<CallCreated> {
+async function applyConsolidate(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashConsolidateResult, minter: string | undefined, ho: Awaited<ReturnType<typeof sealedHandoff>> | undefined, gone: GoneOutputs = {}): Promise<CallCreated> {
   const p = call.params ?? {}
   const keep = p['keep'] as Keep
   const newOut = output(call, 'new')!
@@ -423,7 +452,8 @@ async function applyConsolidate(ctx: Ctx, t: StorageTx, call: PendingCall, r: Ca
     await updateHolding(t, id, (x) => ({ ...x, status: 'consolidated' }))
   }
   const created: { holdingIds: string[]; handoffId?: string } = { holdingIds: [] }
-  if (keep === 'holding') {
+  // A merged bill already destroyed: the sources are spent and nothing new is held.
+  if (gone.newBill === undefined && keep === 'holding') {
     const f = tokenFacts(r.newWalletToken)
     const added = await addHolding(
       t,

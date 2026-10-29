@@ -288,9 +288,9 @@ here).
   proof when present, and every signed event in params (`identity_event`,
   `attestation_event`, `quote`, each source's events); a cash secret costs
   nothing.
-- **Canonical params hash (`ph`).** The format is nmilat-specific and is not
-  stock RFC 8785:
-  - Keys are sorted by byte order.
+- **Canonical params hash (`ph`).** The format follows RFC 8785 except for
+  numbers:
+  - Keys are sorted by UTF-16 code units, as RFC 8785 sorts them.
   - Strings use RFC 8785 escaping.
   - Number literals are preserved exactly as written.
 
@@ -356,7 +356,10 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
 
 - **`BatchSession(hub, relays)`.**
   - Fetches the announcement from the relay hints only and refreshes it,
-    keeping the newest by `created_at` (rollback guard).
+    keeping the newest by `created_at` (rollback guard). The newest event
+    the Hub validly signed is its policy: when it is rejected, the session
+    refuses every call (`hub_unusable`) until a valid newer one is seen,
+    and never uses an older one instead.
   - Publishes to the announcement's `r` relays first, then the hints in
     encoded order, each once, blanks skipped.
   - Packs items greedily into envelopes with a fresh nonce and `reply_to`
@@ -382,16 +385,23 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   - Per relay: subscribe to `{kinds:[23191], #p:[reply_to]}`, wait up to 2 s
     for EOSE, then publish. The first relay to accept wins
     (`acceptedRelays`); every subscription opened is kept until the reply
-    is collected.
+    is collected. If no reply chunk arrives within that relay's share of
+    the time left (the time left over the relays not yet tried plus one, at
+    least 5 s), the same envelope (same nonce, so the Hub serves it once)
+    goes to the next relay, and so on; a new envelope is never made for
+    the same calls.
   - Collect replies until `not_after` (or `replyWaitMs`, if shorter), per
     NIP-CASH §Chunked Replies: every decided outcome is kept; chunks
     disagreeing about `total`, two events with one `seq` or a `seq` out of
     range make the reply incomplete, never void; an item answered twice is
     `conflicted`; the same event from two relays is one chunk; `total` is
-    bounded by the items sent.
+    bounded by the items sent. The reply is complete only once every chunk
+    1 to `total` arrived, even if every item already has an answer.
 - **Per-item `ItemOutcome`.**
-  - `state` is `not_served` (the zero value: **unknown**, possibly applied),
-    `result`, `error`, `conflicted` (answered twice, possibly applied) or
+  - `state` is `not_served` (a complete reply left it out: **unknown**,
+    possibly applied), `unanswered` (the reply was incomplete or never
+    came: ask again, possibly applied), `result`, `error`, `conflicted`
+    (answered twice, possibly applied) or
     `tombstone` (the bill is gone, the call never ran).
   - `classifyCall` reads it for a pending call: `applied`;
     `final_not_applied` for `BAD_REQUEST` (item- or envelope-level, with its
@@ -432,7 +442,9 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   finds a lost mint. `view()` returns a `HubView` (fingerprint, sanitized
   label, verdict, online state, network, QR form).
 - **`NwcClient`** (subscriptions opened and EOSE awaited, bounded, before the
-  first publish; `call(…, {expiration})` for a deadline): `getInfo` (typing
+  first publish; the relays tried in order, the same event going to the
+  next one when one refuses it or gives no answer within the wait;
+  `call(…, {expiration})` for a deadline, after which nothing is resent): `getInfo` (typing
   `pubkey`, `network`, `chain`), `getBalance`, `makeInvoice`, `payInvoice`,
   `listTransactions`, `signMessage`. The scheme comes from the wallet's
   kind 13194 info event: `nip44_v2` when listed, `nip04` when the wallet
@@ -458,7 +470,7 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
 - **NIP-IC verification** (`core/icVerify.ts`, `client/identity.ts`).
   `evaluateConnection` runs the Verification Model over the 35521s found
   for a key, with the relay reads behind an `AttestationSource`;
-  `resolveConnection(pool, key, {trustedIas, relays, now})` queries the
+  `resolveConnection(pool, key, {trustedIas, relays, iaRelays?, now})` queries the
   35521s, fetches each referenced 35522 from its relay hint (the query
   relays when there is none) and returns `verified`, `unverified` or
   `spoofed` with one verdict per claim. A reference counts only when it is
@@ -466,7 +478,10 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   and `platform` equal the claim's and `p` is the claim's author, it is
   unexpired, dated at most 900 s ahead, not deleted by the IA itself and
   the IA's current attestation for the key; each failed check is its own
-  reason. A claim whose `content` names another `user_id` or `username`
+  reason. The last two are asked of the IA's own relays, the write relays
+  of its newest NIP-65 list (read from the query relays) or those
+  `iaRelays` names, never of the claimant's hint; an IA with no relays,
+  or none that answers, makes the reference not count. A claim whose `content` names another `user_id` or `username`
   than the evidence is spoofed, and the handle to show is the evidence's.
   Of the attestations that count the latest `created_at` wins (ties: the
   lowest id) and claims by every other pubkey are spoofed. It is for
@@ -675,10 +690,10 @@ device row) it is foreign and never re-placed.
 ```ts
 interface Holding {
   id: string                       // opaque, e.g. "h-3f9a"; stable across reactivation
-  token: string                    // lowercased; unique
+  token: string                    // canonical spelling (canonicalToken); one row per walletPubkey
   walletPubkey: string; minterPubkey?: string; relayUrls: string[]
   amount?: bigint; expiresAt?: number; verified: boolean
-  status: 'held' | 'redeemed' | 'transferred' | 'consolidated' | 'spent'
+  status: 'held' | 'redeemed' | 'transferred' | 'consolidated' | 'spent' | 'duplicate' | …
   mode: 'pubkey' | 'cash' | 'connection_key'
   protection: 'none' | 'shared' | 'protected'   // cash mode only
   cashSecret?: Sealed<CashSecret>
@@ -688,10 +703,19 @@ interface Holding {
 }
 ```
 
-Rows are never deleted; only `status` changes. Adding a token that already
-exists but is no longer held reactivates the same row with the same ID.
-Adding one that is already held is a `conflict`. Both rules come from
-`ledger.Add`.
+A holding is keyed by its bill's wallet pubkey (TLV 0), never by the
+string: a decoder accepts entries in any order and ignores unknown types,
+so one bill has many spellings. The token is stored in its canonical
+spelling (lowercase, known entries in type order, unknown types dropped,
+every known entry kept byte for byte). Rows are never deleted; only
+`status` changes. Adding a bill that exists but is no longer held
+reactivates the same row with the same ID. Adding one that is already held,
+however it is spelled, is a `conflict`. `Wallet.open` rewrites older rows
+canonically, and where an older version stored one bill held twice under
+two spellings it keeps one row live (the one an open call names, else a
+`redeeming` one, else the first received) and marks every other
+`duplicate`: kept with its secrets for recovery, never counted, spent or
+written to the Cash Pocket.
 
 ### 4.2 Activity
 
@@ -792,7 +816,7 @@ deadline, signed by its authorizer (a cash one without its secret first):
 `state.pendingCalls` and `pendingCalls.list()` show open calls and closed
 ones waiting for the user, without request ids or secrets;
 `pendingCalls.close(id)` closes one; `autoSettle()` runs `settle()` at
-`nextSettleAt`. Each operation kind registers how it places, finishes and
+`nextSettleAt`, and at `nextWithdrawReadAt` while a payout is open. Each operation kind registers how it places, finishes and
 looks up its calls (`registerCallKind`); sends, splits, protect, moves onto and off a merge key, and consolidations run as `transfer` and `consolidate` calls (`wallet/kinds.ts`).
 
 `wallet.settle()` MUST run on `open`, before every spend plan, and on
@@ -1218,6 +1242,14 @@ withdraw.list(), withdraw.get(id), withdraw.receipt(id), withdraw.signedTx(id), 
   brings nothing back: the call closes, the withdrawal keeps `remintGone`
   (with the tombstone's reason) and the `withdrawCancelled` notice carries
   it, once; nothing waits for an answer.
+- An open payout is followed by lookups, never by notices alone (NIP-CASH
+  §State Notice). `watch` reads it on each notice (one read in flight, at
+  most one per 2 s), every 60 s until `broadcast`, then every 10 min, and
+  at each milestone (deadline + 1, `sent_by`, `sent_by` + 86400 + 60,
+  `sent_by` + 604800), until `final` or `cancelled`. `settle()` reads every
+  open payout; `autoSettle()` reads one at its next milestone not yet read
+  after, or an hour after its last read (`state.nextWithdrawReadAt`), so a
+  lost cancel notice still brings the re-minted bill in.
 - A lost withdrawal (no answer, then `unknown`) is placed again
   automatically, as §5.3 says.
 - `cancel` is offered only for a payout still `broadcast` 7 days after
@@ -1300,9 +1332,11 @@ gift-wrapped to the user, each with a fresh wrap key it records.
 - **Placing a call again.** With a pocket, before a call is placed again
   under its derived id the pocket is read: an entry carrying the derived
   id, in any state, recognised or not, only closes the old call
-  (`replaced`); an old entry already final closes it `not_applied`; a
-  pocket that does not show the old entry stops the re-placement and the
-  call stays open.
+  (`replaced`); an old entry already final closes it `closed_elsewhere`
+  (another device may have applied it) and its sources are read with
+  `cash_status` before they count as held: one the Hub shows gone ends by
+  the result to state table; a pocket that does not show the old entry
+  stops the re-placement and the call stays open.
 - **Relays** (`adapters/sync-pocket`). With `discovery`, the user's newest
   kind 10050 `relay` tags, else the write relays of their newest NIP-65
   kind 10002 (`r` with no marker or `write`), else the configured `relays`;

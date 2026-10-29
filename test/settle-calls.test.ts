@@ -170,6 +170,19 @@ describe('T-522 unknown and re-placement', () => {
     expect(await ctxOf(h.wallet).read((t) => t.get('derivedIds', next.requestId))).toMatchObject({ parentCallId: call.id })
     expect(h.bank.hub.requests.filter((r) => r.item.method === 'cash_transfer').map((r) => r.params['request_id'])).toEqual([next.requestId])
   })
+  test('the largest H seen for the Hub is kept, never lowered, and keeps a derived id past deadline + that H', async () => {
+    const { ctx, call } = await lostThenUnknown()
+    const hub = () => ctx.read((t) => t.get('hubs', call.node))
+    // Written with the call: the Hub's announced H.
+    expect(await hub()).toMatchObject({ hMax: 300 })
+    const { noteHub } = await import('../src/wallet/calls.js')
+    await ctx.commit((t) => noteHub(t, call.node, 900))
+    await ctx.commit((t) => noteHub(t, call.node, 60))
+    expect(await hub()).toMatchObject({ hMax: 900 })
+    await h.wallet.settle()
+    const next = (await calls()).find((c) => c.derivedFrom === call.id)!
+    expect(await ctx.read((t) => t.get('derivedIds', next.requestId))).toMatchObject({ keepUntil: next.deadline + 900 })
+  })
   test('a derived id already recorded only closes the old call', async () => {
     const { ctx, call } = await lostThenUnknown()
     const { recordDerivedId } = await import('../src/wallet/calls.js')

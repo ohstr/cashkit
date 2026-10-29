@@ -24,5 +24,5 @@ export function derivedRequestId(id: string): string {
 
 const REQUEST_ID_METHODS = new Set(['cash_transfer', 'cash_consolidate', 'cash_withdraw', 'cash_order'])
 
-/** The methods that carry a request_id: those that create a bill or move value. */
+/** The methods the private transport refuses without a request_id (mint_cash is not served there; it carries one on NIP-47). */
 export const requiresRequestId = (method: string): boolean => REQUEST_ID_METHODS.has(method)

@@ -67,6 +67,8 @@ export class FakeBank {
   cashHubInfo: { pubkey?: string; network?: string | null; chain?: string | null } = {}
   /** Mints but loses the reply. */
   loseMintReply = false
+  /** Loses the mint request itself: nothing is minted, so a later lookup reads `unknown`. */
+  dropMintRequest = false
   /** Refuse a redeem invoice not for exactly the required amount (off by default: older tests use placeholder amounts). */
   strictInvoices = false
   /**
@@ -435,6 +437,7 @@ export class FakeBank {
     if (e.pubkey !== hubConn.client || !verifyEvent(e)) return
     const ck = nip44.getConversationKey(walletKey, e.pubkey)
     const req = JSON.parse(nip44.decrypt(e.content, ck)) as { method: string; params?: Record<string, unknown> }
+    if (req.method === 'mint_cash' && this.dropMintRequest) return
     const answer = this.cashHubAnswer(req.method, req.params ?? {}, e)
     if (req.method === 'mint_cash' && this.loseMintReply) return
     const body = JSON.stringify({ result_type: req.method, ...answer }, (_k, v) => (typeof v === 'bigint' ? Number(v) : v))

@@ -25,6 +25,7 @@ import {
   KIND_CLAIM_PROOF,
   localSigner,
   ownClaim,
+  ownRow,
   ownScope,
   type RosterRow,
   newCashTarget,
@@ -356,5 +357,29 @@ describe('ownClaim: the caller row, then whether it can be spent', () => {
     ['no rows', [], bySigning(signer)],
   ])('refused: %s', (_, rows, cred) => {
     expect(() => ownClaim(rows, cred, AT)).toThrow(CoreError)
+  })
+})
+
+describe('ownRow with scope all: claimed history is listed too', () => {
+  const mine = (amount: bigint, claimedAt?: number): RosterRow =>
+    row('pubkey', signer.pubkey, amount, claimedAt === undefined ? {} : { claimed: true, claimed_at: claimedAt })
+  const cred = bySigning(signer)
+  test.each<[string, RosterRow[], number]>([
+    ['the unclaimed row after claimed history', [mine(500n, 100), mine(600n, 200), mine(1000n)], 2],
+    ['the unclaimed row before claimed history', [mine(1000n), mine(500n, 100)], 0],
+    ['the unclaimed row among other wallets', [row('pubkey', WALLET2, 9n), mine(500n, 100), mine(1000n)], 2],
+    ['only claimed history: the latest', [mine(500n, 100), mine(600n, 200)], 1],
+    ['only claimed history, the latest first', [mine(600n, 200), mine(500n, 100)], 0],
+    ['claimed at the same second: the first listed', [mine(500n, 100), mine(600n, 100)], 0],
+    ['a single claimed row', [mine(500n, 100)], 0],
+  ])('%s', (_, rows, index) => {
+    expect(ownRow(rows, cred, 'all')).toBe(rows[index])
+  })
+  test.each<[string, RosterRow[]]>([
+    ['two unclaimed rows', [mine(1000n), mine(2000n)]],
+    ['two unclaimed rows around claimed history', [mine(1000n), mine(500n, 100), mine(2000n)]],
+    ['only other wallets', [row('pubkey', WALLET2, 1n)]],
+  ])('refused: %s', (_, rows) => {
+    expect(() => ownRow(rows, cred, 'all')).toThrow(CoreError)
   })
 })

@@ -34,6 +34,7 @@ import { NostrToolsPool, type SimplePoolLike } from '../src/adapters/relay-nostr
 import { MemoryRelayPool } from './fakeHub.js'
 import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
+import type { BankWallet } from './fakeBank.js'
 
 const R = ['wss://inbox1.test', 'wss://inbox2.test']
 const BOB = 'ee'.repeat(32)
@@ -80,7 +81,7 @@ const transfers = () => h.bank.hub.requests.filter((r) => r.item.method === 'cas
 const row = (id: string) => ctxOf(h.wallet).read((t) => t.get('pendingCalls', id))
 
 /** A transfer written ahead to the pocket and marked sent, but never delivered; the clock then passes its deadline. */
-async function lostCall(): Promise<{ ctx: Ctx; call: PendingCall }> {
+async function lostCall(): Promise<{ ctx: Ctx; call: PendingCall; w: BankWallet }> {
   const w = h.bank.mintToPubkey(5000n, h.me)
   const r = await h.wallet.receive(w.token)
   if (!r.received) throw new Error('not received')
@@ -104,7 +105,7 @@ async function lostCall(): Promise<{ ctx: Ctx; call: PendingCall }> {
   await markSent(ctx, call)
   await pocketHooks.writeAhead!(ctx, (await row(call.id))!)
   skew = (call.deadline + 2) * 1000 - Date.now()
-  return { ctx, call }
+  return { ctx, call, w }
 }
 
 /** Publishes a pocket entry of the user's own as raw tags (as another wallet might have written it). */
@@ -143,13 +144,24 @@ describe('placing a call again: the derived-id check', () => {
     expect(await row(call.id)).toMatchObject({ state: 'done', outcome: 'replaced' })
     expect((await h.wallet.pocket.entries()).find((e) => e.w === call.requestId)?.state).toBe('done')
   })
-  test('an old entry already closed elsewhere is not placed again', async () => {
+  test('an old entry already closed elsewhere is not placed again; a source the Hub still shows stays held', async () => {
     const { ctx, call } = await lostCall()
     // Another device closes it (the user decided): the pocket shows it `done` at a higher rev.
     await writeEntry(ctx, { w: call.requestId, state: 'done', amountMillis: 5000n, chain: 'flokicoin', requestId: call.requestId, deadline: call.deadline, target: call.target, device: 'ff'.repeat(16) }, { seenRev: 5 })
     await h.wallet.settle()
     expect(transfers()).toHaveLength(0)
-    expect(await row(call.id)).toMatchObject({ state: 'done', outcome: 'not_applied' })
+    expect(await row(call.id)).toMatchObject({ state: 'done', outcome: 'closed_elsewhere' })
+    expect((await h.wallet.holdings()).map((x) => x.id)).toEqual(call.sources)
+  })
+  test('an old entry another device applied: its source, gone at the Hub, is not shown held (KT-11)', async () => {
+    const { ctx, call, w } = await lostCall()
+    await writeEntry(ctx, { w: call.requestId, state: 'done', amountMillis: 5000n, chain: 'flokicoin', requestId: call.requestId, deadline: call.deadline, target: call.target, device: 'ff'.repeat(16) }, { seenRev: 5 })
+    w.spent = true
+    await h.wallet.settle()
+    expect(transfers()).toHaveLength(0)
+    expect(await row(call.id)).toMatchObject({ outcome: 'closed_elsewhere' })
+    expect(await h.wallet.holdings()).toEqual([])
+    expect((await h.storage.tx('r', (t) => t.get('holdings', call.sources[0]!)))?.status).toBe('spent')
   })
   test('a pocket that does not show the old entry stops the re-placement; the call stays open', async () => {
     const { call } = await lostCall()
@@ -184,6 +196,21 @@ describe('importing a connection-key bill', () => {
     )
     expect(await h.wallet.receive(w.token, { attestation: att })).toMatchObject({ received: true, holding: { id: held.id, mode: 'connection_key' } })
     expect((await h.wallet.send({ to: BOB, holdings: [held.id] })).sent).toBe(5000n)
+  })
+})
+
+describe('a duplicate row (one bill stored twice by an older version)', () => {
+  test('is never written to the pocket: the live row keeps the entry live', async () => {
+    const w = h.bank.mintToPubkey(5000n, h.me)
+    const r = await h.wallet.receive(w.token)
+    if (!r.received) throw new Error('not received')
+    const live = (await h.storage.tx('r', (t) => t.get('holdings', r.holding.id)))!
+    await h.storage.tx('rw', (t) => t.put('holdings', { ...live, id: 'h-dup', status: 'duplicate', addedAt: live.addedAt + 1, version: 1 }, 0))
+    await h.wallet.pocket.sync()
+    await h.wallet.pocket.sync()
+    const entry = (await h.wallet.pocket.entries()).find((e) => e.w === w.walletPubkey)
+    expect(entry?.state).toBe('live')
+    expect(h.wallet.state.balance.held).toBe(5000n)
   })
 })
 

@@ -62,6 +62,18 @@ export const utf8 = (s: string): Uint8Array => encoder.encode(s)
 /** Decodes UTF-8, replacing invalid sequences with U+FFFD. */
 export const fromUtf8 = (b: Uint8Array): string => decoder.decode(b)
 
+const strictDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true })
+
+/** Whether `b` is well-formed UTF-8 (no invalid sequence, no encoded surrogate). */
+export function isUtf8(b: Uint8Array): boolean {
+  try {
+    strictDecoder.decode(b)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * Reports whether `s` is empty after trimming whitespace, using Go's
  * `unicode.IsSpace` set (as `strings.TrimSpace` does). It differs from

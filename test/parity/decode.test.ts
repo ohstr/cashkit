@@ -5,7 +5,9 @@
 //
 // For every corpus string, cashkit's view of it (sniff, split, decode,
 // verifyProvenance) must produce exactly the JSON cashctl prints, and must
-// fail exactly when cashctl does.
+// fail exactly when cashctl does. The view follows cashctl v0.7's shape:
+// the provenance verdict, scheme and relay hash, every relay entry as
+// encoded, and the minter as its compressed key.
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,15 +17,17 @@ import { bech32Encode, toWords } from '../../src/core/bech32.js'
 import {
   bech32Hrp,
   decodeCircleHubConnection,
+  fromUtf8,
+  relayHash,
   decodeToken,
   encodeToken,
   fromHex,
-  hasProvenance,
   sniff,
   splitCashString,
   toHex,
   trimSpace,
   verifyProvenance,
+  type Token,
 } from '../../src/core/index.js'
 
 type Json = any
@@ -48,6 +52,30 @@ function cashctl(input: string): Json | undefined {
   }
 }
 
+/** cashctl's --json output replaces C0, DEL, C1, U+2028/9 and bidi controls with U+FFFD; so does this view. */
+// oxlint-disable-next-line no-control-regex -- matching the control characters is the point
+const asCashctlPrints = (x: string) => x.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/gu, '\ufffd')
+
+/**
+ * cashctl's provenance fields: `signature_scheme`, `provenance` (valid,
+ * invalid, needs_zap_event or none), `relay_hash` for schemes 1 and 2, the
+ * TLV 5 and 6 values of a well-formed pair, `mint_signature_valid` (null when only the
+ * zap event can tell) and, when valid, `minter_pubkey`.
+ */
+function provenanceView(tok: Token): Json {
+  const out: Json = { signature_scheme: tok.scheme }
+  if (tok.scheme === 'none') return { ...out, provenance: 'none' }
+  const minter = verifyProvenance(tok)
+  out.provenance = tok.scheme === 'zap_v1' ? 'needs_zap_event' : minter !== undefined ? 'valid' : 'invalid'
+  if (tok.scheme === 'mint_v1' || tok.scheme === 'zap_v1') out.relay_hash = relayHash(tok)
+  // Only a well-formed pair under a known scheme is decoded; a malformed one shows neither value.
+  if (tok.mintSignature !== undefined) out.mint_signature = toHex(tok.mintSignature)
+  if (tok.attestedAmountMillis !== undefined) out.attested_amount_millis = tok.attestedAmountMillis
+  out.mint_signature_valid = tok.scheme === 'zap_v1' ? null : minter !== undefined
+  if (minter !== undefined) out.minter_pubkey = minter.minter
+  return out
+}
+
 /** What cashctl decode prints for `input`, built from cashkit; undefined = refused. */
 function cashkit(input: string): Json | undefined {
   const { token: value, cashSecret } = splitCashString(trimSpace(input))
@@ -59,23 +87,18 @@ function cashkit(input: string): Json | undefined {
           type: 'cash_token',
           hrp: tok.hrp,
           wallet_pubkey: tok.walletPubkey,
-          relays: [...tok.relays],
+          // Every TLV 1 as encoded, blank ones included, as cashctl lists them.
+          relays: (tok.relayBytes ?? []).map((b) => asCashctlPrints(fromUtf8(b))),
           identity_required: tok.identityRequired ?? null,
         }
         if (tok.hubGroup !== undefined && tok.hubGroup.length > 0) out.cash_hub = toHex(tok.hubGroup)
         if (cashSecret !== '') out.embedded_cash_secret_present = true
-        if (hasProvenance(tok)) {
-          out.mint_signature = toHex(tok.mintSignature!)
-          out.attested_amount_millis = tok.attestedAmountMillis
-          const minter = verifyProvenance(tok)
-          out.mint_signature_valid = minter !== undefined
-          if (minter !== undefined) out.minter_pubkey = minter
-        }
+        Object.assign(out, provenanceView(tok))
         return out
       }
       case 'circlehub': {
         const c = decodeCircleHubConnection(value)
-        return { type: 'circlehub', hrp: 'circlehub', wallet_pubkey: c.walletPubkey, relays: [...c.relays], label: c.label }
+        return { type: 'circlehub', hrp: 'circlehub', wallet_pubkey: c.walletPubkey, relays: c.relays.map(asCashctlPrints), label: asCashctlPrints(c.label) }
       }
       case 'nostr_entity':
         // npub is decoded by nip19, which cashctl decode doesn't expand; only

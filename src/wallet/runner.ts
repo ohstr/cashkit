@@ -15,7 +15,7 @@ import {
   type ItemOutcome,
   type LookupAuthorizer,
 } from '../client/index.js'
-import { finishCall, isOwnCall, markSent, recordDerivedId } from './calls.js'
+import { finishCall, isOwnCall, markSent, noteHub, recordDerivedId } from './calls.js'
 import type { Ctx } from './context.js'
 import { CashkitError, codeForNwc } from './errors.js'
 import { credentialKindOf, endHolding, goneError, notFoundByEntryKey, tombstoneStatus, type GoneStatus } from './billState.js'
@@ -107,6 +107,8 @@ export const pocketHooks: {
   after?: (ctx: Ctx, callId: string) => Promise<void>
   /** Before placing a call again: the pocket's derived-id check (`derived` or `closed` stop it). */
   beforeReplace?: (ctx: Ctx, call: PendingCall) => Promise<'place' | 'derived' | 'closed'>
+  /** After a call is closed because its entry is final elsewhere: its sources are read before they count as held. */
+  closedElsewhere?: (ctx: Ctx, call: PendingCall) => Promise<void>
 } = {}
 
 /** Closes an open call; a call already closed stays as it is. */
@@ -406,7 +408,9 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
       return undefined
     }
     if (check === 'closed') {
-      await close(ctx, call.id, 'not_applied', { detail: 'closed in the Cash Pocket' })
+      // Final elsewhere: another device may have applied it, so its sources are read before they count as held.
+      await close(ctx, call.id, 'closed_elsewhere', { detail: 'closed in the Cash Pocket' })
+      await pocketHooks.closedElsewhere?.(ctx, call).catch(() => undefined)
       return undefined
     }
   }
@@ -430,6 +434,7 @@ export async function replace(ctx: Ctx, call: PendingCall): Promise<PendingCall 
   const next = kindOf(call).forReplace?.(ctx, placed) ?? placed
   await ctx.commit(async (t) => {
     await recordDerivedId(t, { derivedId: derived, parentCallId: call.id, deadline, hMax: Math.max(hub?.hMax ?? 0, h) })
+    if (h > 0) await noteHub(t, call.node, h)
     await t.put('pendingCalls', next, 0)
   })
   try {

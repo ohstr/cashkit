@@ -125,6 +125,13 @@
       "input": "12345",
       "mode": "typed",
       "error": "nipIC: this platform has no canonical form; take the key from the recipient's attestation or nconnection"
+    },
+    {
+      "id": "nostr is no platform: a pubkey is never hashed",
+      "platform": "nostr",
+      "input": "abababababababababababababababababababababababababababababababab",
+      "mode": "attested",
+      "error": "nipIC: platform name must match [a-z0-9._-]+"
     }
   ],
   "canonicalUserId": [
@@ -298,6 +305,61 @@
       "platform": "telegram",
       "input": "12345",
       "error": "nipIC: this platform has no canonical form; take the key from the recipient's attestation or nconnection"
+    },
+    {
+      "platform": "email",
+      "input": "@alice@example.com",
+      "error": "nipIC: user id is not in canonical form"
+    },
+    {
+      "platform": "email",
+      "input": " @alice@example.com",
+      "error": "nipIC: user id is not in canonical form"
+    },
+    {
+      "platform": "email",
+      "input": "\"@alice\"@example.com",
+      "output": "\"@alice\"@example.com"
+    },
+    {
+      "platform": "email",
+      "input": "@example.com",
+      "error": "nipIC: user id is not in canonical form"
+    },
+    {
+      "platform": "email",
+      "input": "é@x.example",
+      "error": "nipIC: user id is not in canonical form"
+    },
+    {
+      "platform": "email",
+      "input": "é@x.example",
+      "output": "é@x.example"
+    },
+    {
+      "platform": "dns",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "platform": "dns",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "error": "nipIC: user id is not in canonical form"
+    },
+    {
+      "platform": "email",
+      "input": "a@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output": "a@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "platform": "email",
+      "input": "a@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "error": "nipIC: user id is not in canonical form"
+    },
+    {
+      "platform": "nostr",
+      "input": "abababababababababababababababababababababababababababababababab",
+      "error": "nipIC: platform name must match [a-z0-9._-]+"
     }
   ],
   "legacy": [

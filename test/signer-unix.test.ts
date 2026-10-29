@@ -186,6 +186,21 @@ describe('the wire', () => {
     expect(await s.call('ping', [])).toBe('pong')
     s.close()
   })
+  test('an answer that never ends its line is cut off at 1 MiB, not buffered without bound', async () => {
+    const f = await fakeSigner()
+    const s = await unixSigner({ uri: f.path })
+    f.raw = 'x'.repeat(MAX_MESSAGE_BYTES + 1)
+    await expect(s.call('ping', [])).rejects.toMatchObject({ code: 'failed', message: expect.stringMatching(/over 1 MiB/) })
+    expect(await s.call('ping', [])).toBe('pong')
+    s.close()
+  })
+  test('a long answer that arrives in many pieces, under 1 MiB, is read whole', async () => {
+    const big = 'y'.repeat(MAX_MESSAGE_BYTES - 64)
+    const f = await fakeSigner(async (req) => (req.method === 'get_public_key' ? { result: user.pubkey } : { result: big }))
+    const s = await unixSigner({ uri: f.path })
+    expect(await s.call('ping', [])).toBe(big)
+    s.close()
+  })
   test('blank lines are skipped; an empty-id invalid answer resets the connection', async () => {
     const f = await fakeSigner()
     const s = await unixSigner({ uri: f.path })
@@ -211,6 +226,21 @@ describe('errors and checks', () => {
     await expect(s.signEvent(tpl)).rejects.toMatchObject({ name: 'SignerError', code: 'denied', message: 'signer-unix: denied: kind 1 is not allowed' })
     await expect(s.nip44Encrypt(user.pubkey, 'x')).rejects.toMatchObject({ code: 'invalid' })
     await expect(s.nip44Decrypt(user.pubkey, 'x')).rejects.toMatchObject({ code: 'failed' })
+    s.close()
+  })
+  test.each([
+    ['uppercase', () => user.pubkey.toUpperCase()],
+    ['63 characters', () => user.pubkey.slice(1)],
+    ['compressed (66)', () => `02${user.pubkey}`],
+    ['not hex', () => 'z'.repeat(64)],
+  ])('get_public_key answered with a pubkey that is %s is refused', async (_, bad) => {
+    const f = await fakeSigner(async (req) => (req.method === 'get_public_key' ? { result: bad() } : { result: 'pong' }))
+    await expect(unixSigner({ uri: f.path })).rejects.toMatchObject({ code: 'failed', message: expect.stringMatching(/invalid pubkey/) })
+  })
+  test('get_public_key answered with 64 lowercase hex is the identity', async () => {
+    const f = await fakeSigner()
+    const s = await unixSigner({ uri: f.path })
+    expect(s.pubkey).toBe(user.pubkey)
     s.close()
   })
   test('a returned event is checked: another event, another key or a bad signature is refused', async () => {

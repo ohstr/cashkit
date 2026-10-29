@@ -583,6 +583,12 @@ export async function refreshWithdrawal(ctx: Ctx, id: string): Promise<Withdrawa
   if (call.state !== 'open_withdraw') return noticeWithdrawal(ctx, withdrawalView(call))
   const { holding } = await credentialOfCall(ctx, call)
   const o = await lookupWithdraw(await ctx.clientFor(holding).session(), ctx.clientDeps, { bill: billOf(holding), requestId: call.requestId, deadline: call.deadline, authorizer: await lookupAuth(ctx, call, holding) }).catch(() => undefined)
+  const readAt = ctx.nowSeconds()
+  // Every attempt is recorded, answered or not, so the follow-up schedule (withdrawReadDue) moves on.
+  await ctx.commit(async (t) => {
+    const cur = await t.get('pendingCalls', id)
+    if (cur?.state === 'open_withdraw') await t.put('pendingCalls', { ...cur, lookup: { ...(cur.lookup ?? { omissions: 0 }), checkedAt: readAt }, version: cur.version + 1 }, cur.version)
+  })
   const v = o?.state === 'result' ? o.value : undefined
   if (v?.status === 'done') {
     const checked = await checkPayout(ctx, call, v.result, 'lookup').catch(() => undefined)
@@ -755,17 +761,116 @@ export async function withdrawalReceipt(ctx: Ctx, id: string): Promise<string> {
   return r.receipt
 }
 
-/** Reads the payout on each state notice while the app watches. Returns the stop. */
+/** While watched: a read every 60 s until the payout is broadcast, then every 10 min (XQ-31). */
+const WATCH_GAP_UNSENT = 60
+const WATCH_GAP_BROADCAST = 600
+/** Without a watcher, `autoSettle` reads an open payout at most hourly between milestones. */
+export const SETTLE_WITHDRAW_GAP = 3600
+/** Notices never cause more than one read per 2 s. */
+const NOTICE_MIN_GAP_MS = 2000
+
+/** The XQ-31 milestones: deadline + 1, `sent_by`, `sent_by` + 86400 + 60 and `sent_by` + 604800. */
+function milestones(call: PendingCall): number[] {
+  const sentBy = call.withdrawal?.sentBy ?? Number(call.params?.['sentBy'] ?? '0')
+  return [call.deadline + 1, sentBy, sentBy + CANCEL_GRACE + 60, sentBy + CANCEL_REQUEST_AFTER]
+}
+
+/**
+ * When an open payout is next read (Unix seconds): the first milestone not
+ * yet read after, or `gap` past the last read, whichever comes first.
+ * Undefined once the call is no longer open.
+ */
+export function withdrawReadDue(call: PendingCall, gap: number): number | undefined {
+  if (call.state !== 'open_withdraw') return undefined
+  const last = Math.max(call.lookup?.checkedAt ?? 0, call.withdrawal?.checkedAt ?? 0)
+  const next = milestones(call).filter((m) => m > last)
+  return Math.min(last + gap, ...next)
+}
+
+/**
+ * Reads open payouts (NIP-CASH §State Notice: a client polls until `final`
+ * and never relies on notices). `due` reads only those whose hourly or
+ * milestone read is due, as `autoSettle` does; otherwise every one is read.
+ */
+export async function settleWithdrawals(ctx: Ctx, o: { due?: boolean } = {}): Promise<{ checked: string[]; ended: string[] }> {
+  const now = ctx.nowSeconds()
+  const open = (await ctx.read((t) => t.list('pendingCalls'))).filter((c) => c.kind === 'withdraw' && c.state === 'open_withdraw')
+  const checked: string[] = []
+  const ended: string[] = []
+  for (const call of open) {
+    if (o.due === true && now < withdrawReadDue(call, SETTLE_WITHDRAW_GAP)!) continue
+    const v = await refreshWithdrawal(ctx, call.id).catch(() => undefined)
+    checked.push(call.id)
+    if (v?.phase === 'final' || v?.phase === 'cancelled') ended.push(call.id)
+  }
+  return { checked, ended }
+}
+
+/**
+ * Follows a payout while the app watches: each state notice triggers one
+ * read (never more than one in flight, at most one per 2 s), and it is also
+ * polled every 60 s until broadcast, then every 10 min, and at each
+ * milestone, until `final` or `cancelled`. Nothing is marked from a notice
+ * itself. Returns the stop.
+ */
 export async function watchWithdrawal(ctx: Ctx, id: string, o: { signal?: AbortSignal; onUpdate?: (v: WithdrawalView) => void } = {}): Promise<() => void> {
   const call = await withdrawalCall(ctx, id)
-  const stop = watchPayout(ctx.clientDeps, call.params?.['notify'] ?? '', call.relays, () => {
-    void refreshWithdrawal(ctx, id)
-      .then((v) => {
-        o.onUpdate?.(v)
-        if (v.phase === 'final' || v.phase === 'cancelled') stop()
-      })
-      .catch(() => undefined)
-  })
+  let stopped = false
+  let inFlight = false
+  let again = false
+  let lastReadMs = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const arm = (atMs: number) => {
+    if (stopped) return
+    if (timer !== undefined) clearTimeout(timer)
+    timer = setTimeout(() => {
+      timer = undefined
+      void read()
+    }, Math.max(0, atMs - ctx.now()))
+  }
+  const schedule = async () => {
+    const cur = await ctx.read((t) => t.get('pendingCalls', id))
+    const gap = cur?.withdrawal?.state === 'broadcast' || cur?.withdrawal?.state === 'confirmed' ? WATCH_GAP_BROADCAST : WATCH_GAP_UNSENT
+    if (cur === undefined || cur.state === 'done') return stop()
+    // A call not yet open (its reply lost, settle() looks it up) is checked again a minute later.
+    const due = withdrawReadDue(cur, gap) ?? ctx.nowSeconds() + WATCH_GAP_UNSENT
+    arm(Math.max(due * 1000, lastReadMs + NOTICE_MIN_GAP_MS))
+  }
+  const read = async (): Promise<void> => {
+    if (stopped) return
+    if (inFlight) {
+      again = true
+      return
+    }
+    inFlight = true
+    try {
+      const v = await ctx.spend(() => refreshWithdrawal(ctx, id))
+      o.onUpdate?.(v)
+      if (v.phase === 'final' || v.phase === 'cancelled') stop()
+    } catch {
+      // No answer: the next poll asks again.
+    } finally {
+      inFlight = false
+      lastReadMs = ctx.now()
+    }
+    if (again) {
+      again = false
+      arm(lastReadMs + NOTICE_MIN_GAP_MS)
+    } else await schedule().catch(() => undefined)
+  }
+  const onNotice = () => {
+    if (stopped) return
+    if (inFlight) again = true
+    else arm(Math.max(ctx.now(), lastReadMs + NOTICE_MIN_GAP_MS))
+  }
+  const unsub = watchPayout(ctx.clientDeps, call.params?.['notify'] ?? '', call.relays, onNotice)
+  function stop() {
+    if (stopped) return
+    stopped = true
+    unsub()
+    if (timer !== undefined) clearTimeout(timer)
+  }
   o.signal?.addEventListener('abort', stop)
+  await schedule()
   return stop
 }

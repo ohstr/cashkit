@@ -113,7 +113,11 @@ export async function prepareCall(ctx: Ctx, spec: CallSpec): Promise<PendingCall
     version: 1,
   }
   try {
-    await ctx.commit((t) => t.put('pendingCalls', row, 0))
+    await ctx.commit(async (t) => {
+      await t.put('pendingCalls', row, 0)
+      // The largest H seen for the Hub, in the same write: a derived id is kept until deadline + that H.
+      if (spec.hAtSend > 0) await noteHub(t, spec.node, spec.hAtSend)
+    })
   } catch (err) {
     throw new CashkitError('internal', 'could not record the call before placing it, so it was not placed (your funds have not moved)', { cause: err })
   }

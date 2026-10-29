@@ -22,6 +22,7 @@ import {
   normalizeNodeIdentity,
   omittedIds,
   openReply,
+  canonicalParams,
   paramsHash,
   randomizedCreatedAt,
   sealReply,
@@ -162,6 +163,15 @@ describe('params text', () => {
   test('the same value written two ways hashes alike', () => {
     expect(paramsHash('{"a":1,"b":[true,null]}')).toBe(paramsHash(' { "b" : [ true , null ] , "a" : 1 } '))
     expect(paramsHash('{"n":1.0}')).not.toBe(paramsHash('{"n":1}'))
+  })
+  test('keys sort by UTF-16 code units, as RFC 8785 does, so U+10000 comes before U+FFFF', () => {
+    // UTF-8 byte order would put U+FFFF (ef bf bf) before U+10000 (f0 90 80 80).
+    expect(canonicalParams('{"\uffff":1,"\u{10000}":2}')).toBe('{"\u{10000}":2,"\uffff":1}')
+    expect(canonicalParams('{"\u{10000}":2,"\uffff":1}')).toBe('{"\u{10000}":2,"\uffff":1}')
+  })
+  test('keys below the surrogate range keep code point order', () => {
+    expect(canonicalParams('{"\ud7ff":1,"é":2,"z":3,"Z":4,"":5}')).toBe('{"":5,"Z":4,"z":3,"é":2,"\ud7ff":1}')
+    expect(canonicalParams('{"ab":1,"a":2}')).toBe('{"a":2,"ab":1}')
   })
 })
 

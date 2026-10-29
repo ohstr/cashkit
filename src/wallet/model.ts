@@ -13,7 +13,12 @@ export interface Sealed {
  * `spent`, `expired`, `reclaimed`: the Hub said the bill is gone (NIP-CP §Balance); `reclaimed` is a slice its
  * sender removed, `expired` a bill that ran out. Only `held` counts toward a balance.
  */
-export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 'consolidated' | 'spent' | 'expired' | 'reclaimed'
+/**
+ * `duplicate`: a second row an older version stored for a bill already held
+ * under another spelling (same wallet pubkey). Kept for its secrets, never
+ * counted in a balance, never spent, never written to the Cash Pocket.
+ */
+export type HoldingStatus = 'held' | 'redeeming' | 'redeemed' | 'transferred' | 'consolidated' | 'spent' | 'expired' | 'reclaimed' | 'duplicate'
 export type HoldingMode = 'pubkey' | 'cash' | 'connection_key'
 export type Protection = 'none' | 'shared' | 'protected'
 
@@ -36,7 +41,7 @@ export interface ConnectionKeyBinding {
 export interface Holding {
   /** Opaque, e.g. "h-3f9a01c2"; stable across reactivation. */
   readonly id: string
-  /** Lowercased; unique (design §4.1). */
+  /** The canonical spelling (`canonicalToken`); one row per `walletPubkey` (design §4.1). */
   readonly token: string
   readonly walletPubkey: string
   readonly minterPubkey?: string
@@ -381,7 +386,8 @@ export interface WithdrawalRecord {
 }
 
 export type CallState = 'prepared' | 'sent' | 'open_order' | 'open_withdraw' | 'done'
-export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced'
+/** `closed_elsewhere`: another device's Cash Pocket entry shows the call final; what it did is read from its sources. */
+export type CallOutcome = 'applied' | 'not_applied' | 'not_sent' | 'lookup_expired' | 'user_closed' | 'replaced' | 'closed_elsewhere'
 /**
  * `remint_gone` is only read from rows stored by an earlier version: a
  * cancelled payout whose re-mint is gone is now recorded on the withdrawal

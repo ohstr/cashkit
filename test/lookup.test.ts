@@ -59,14 +59,20 @@ describe('T-406 / T-407 lookup items and statuses', () => {
     expect(o.value?.status).toBe('done')
   })
   test('no record: pending until the deadline (retry deadline + 1), then unknown', async () => {
+    // One fixed clock for the client and the Hub: the expected retry time cannot move by a second mid-test.
+    const T = now()
+    const clock = () => T * 1000
+    bank.hub.clock = clock
+    const fixed = () => T
     const w = bank.mintToPubkey(5000n, alice.pubkey)
-    const c = new CashClient(deps(), w.token)
+    const c = new CashClient({ ...deps(), clock }, w.token)
     const s = await c.session()
-    const item: BatchLookup = { bill: c.bill, by: { requestId: newRequestId() }, deadline: now() + 30, authorizer: { kind: 'signer', signer: alice } }
-    const pending = await lookupOne(s, item, now)
-    expect(pending.value).toEqual({ status: 'pending', retryAfter: now() + 31 })
-    expect((await lookupOne(s, { ...item, deadline: now() - 5 }, now)).value).toEqual({ status: 'unknown' })
-    expect((await lookupOne(s, { ...item, deadline: now() - 400 }, now)).value).toEqual({ status: 'expired' })
+    const item: BatchLookup = { bill: c.bill, by: { requestId: newRequestId() }, deadline: T + 30, authorizer: { kind: 'signer', signer: alice } }
+    expect((await lookupOne(s, item, fixed)).value).toEqual({ status: 'pending', retryAfter: T + 31 })
+    expect((await lookupOne(s, { ...item, deadline: T }, fixed)).value).toEqual({ status: 'pending', retryAfter: T + 1 })
+    expect((await lookupOne(s, { ...item, deadline: T - 1 }, fixed)).value).toEqual({ status: 'unknown' })
+    expect((await lookupOne(s, { ...item, deadline: T - 300 }, fixed)).value).toEqual({ status: 'unknown' })
+    expect((await lookupOne(s, { ...item, deadline: T - 301 }, fixed)).value).toEqual({ status: 'expired' })
   })
   test('bearer two-step: without the secret first; with it only after UNAUTHORIZED', async () => {
     const t = newCashTarget()
@@ -87,13 +93,13 @@ describe('T-406 / T-407 lookup items and statuses', () => {
     expect(o.value).toEqual({ status: 'unknown' })
     expect(bank.hub.requests.filter((r) => r.item.method === 'cash_lookup')).toHaveLength(1)
   })
-  test('a lookup answered REQUEST_REUSED is routed as not served, never unknown', async () => {
+  test('a lookup answered REQUEST_REUSED is routed as unanswered, never unknown', async () => {
     const w = bank.mintToPubkey(5000n, alice.pubkey)
     const c = new CashClient(deps(), w.token)
     const s = await c.session()
     bank.override = (m) => (m === 'cash_lookup' ? { error: { code: 'REQUEST_REUSED', message: 'x' } } : undefined)
     const r = await lookupMany(s, [{ bill: c.bill, by: { requestId: newRequestId() }, deadline: now(), authorizer: { kind: 'signer', signer: alice } }], now)
-    expect(r.outcomes[0]!.state).toBe('not_served')
+    expect(r.outcomes[0]!.state).toBe('unanswered')
   })
   test('an omitted lookup is not served, never unknown', async () => {
     const w = bank.mintToPubkey(5000n, alice.pubkey)

@@ -13,7 +13,8 @@ on:
 permissions:
   contents: write
   actions: write
-  # npm provenance: the registry checks the package against this run's OIDC token.
+  # npm trusted publishing: the registry authenticates this run by its OIDC
+  # token (no NPM_TOKEN secret) and records provenance from it.
   id-token: write
 
 jobs:
@@ -98,16 +99,21 @@ jobs:
           git tag -a "v$VERSION" -F /tmp/release-notes.md
           git push origin "v$VERSION"
 
+      # Trusted publishing (OIDC) needs npm 11.5.1 or later.
+      - name: Update npm for trusted publishing
+        run: npm install -g npm@^11.5.1
+
       # A prerelease (0.1.0-rc.1) goes to the "next" dist-tag, so it never
-      # becomes what `npm install @ohstr/cashkit` picks.
+      # becomes what `npm install @ohstr/cashkit` picks. No token: npm
+      # authenticates with the run's OIDC identity, which the package's
+      # trusted publisher on npmjs.com must name (this repo, release.yml).
       - name: Publish to npm with provenance
         env:
           VERSION: ${{ steps.changelog.outputs.version }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           TAG=latest
           case "$VERSION" in *-*) TAG=next ;; esac
-          pnpm publish --no-git-checks --access public --provenance --tag "$TAG"
+          npm publish --access public --provenance --tag "$TAG"
 
       - name: GitHub release
         env:

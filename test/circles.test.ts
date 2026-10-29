@@ -80,6 +80,15 @@ describe('circles.join', () => {
     expect(circle.joins).toHaveLength(1)
     expect(h.wallet.state.pendingJoins).toEqual([])
   })
+  test('REQUEST_REUSED is not a failure: the pending join and its connection secret are kept and looked up (NIP-CW §Errors)', async () => {
+    const { h, circle } = await setup()
+    circle.refuseWith = 'REQUEST_REUSED'
+    expect(await failure(h.wallet.circles.join(circle.string, terms))).toMatchObject({ code: 'indeterminate', reason: 'join_pending' })
+    const pending = await h.storage.tx('r', (t) => t.list('pendingJoins'))
+    expect(pending).toHaveLength(1)
+    expect(pending[0]).toMatchObject({ sent: true })
+    expect(await h.wallet.circles.exportConnectionSecret(pending[0]!.id)).toMatch(/^[0-9a-f]{64}$/)
+  }, 20_000)
   test('a pending join that does not read back is never sent', async () => {
     // Storage that loses every pending-join write: the join's secret would not survive, so nothing may go out.
     class LosesJoins implements Storage {
@@ -141,6 +150,21 @@ describe('settling joins', () => {
     await x.storage.tx('rw', (t) => t.put('pendingJoins', { ...cur, deadline: Math.floor(Date.now() / 1000) - 400, version: cur.version + 1 }, cur.version))
     expect((await x.wallet.settle()).joins.joined).toEqual([pj.id])
     expect(await x.storage.tx('r', (t) => t.list('pendingJoins'))).toEqual([])
+  }, 20_000)
+  test.each([
+    ['unknown, past the deadline', 10, 'join_not_made'],
+    ['expired, past the deadline and the horizon', 400, 'lookup_expired'],
+  ] as const)('a join the Hub has no record of, read %s, asks the user (%s) and is never joined again by itself', async (_, ago, want) => {
+    const { h, circle } = await setup()
+    circle.refuseWith = 'REQUEST_REUSED'
+    await failure(h.wallet.circles.join(circle.string, terms))
+    circle.refuseWith = undefined
+    const pj = (await h.storage.tx('r', (t) => t.list('pendingJoins')))[0]!
+    await h.storage.tx('rw', (t) => t.put('pendingJoins', { ...pj, deadline: Math.floor(Date.now() / 1000) - ago, version: pj.version + 1 }, pj.version))
+    const rep = await h.wallet.settle()
+    expect(rep.joins.needsUser).toEqual([pj.id])
+    expect(h.wallet.state.pendingJoins.map((j) => j.needsUser)).toEqual([want])
+    expect(circle.joins).toHaveLength(1)
   }, 20_000)
   test('one join whose answer does not parse never stops the others', async () => {
     const { h, circle: a } = await setup()

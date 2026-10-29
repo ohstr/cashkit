@@ -11,7 +11,7 @@ anything.
 
 ## Testing and tooling
 
-- `tools/export-vectors` pins nmilat `v0.5.0-rc.31` and
+- `tools/export-vectors` pins nmilat `v0.5.0-rc.45` and
   writes every `vectors/*.json` in §11.1 plus the core extras (nip01,
   bolt11, claim, nip19, nip47, nipcw). Where nmilat seals with random
   nonces, `crypto/rand` is seeded so the files stay reproducible. Bump the
@@ -39,8 +39,9 @@ anything.
 - Releases: `release.yml` (workflow_dispatch) takes the version and notes
   from the topmost `## [X.Y.Z]` heading in CHANGELOG.md, sets it in
   package.json only inside the run (main stays at 0.0.0), tags, and
-  publishes to npm with provenance. It needs the `NPM_TOKEN` secret. A
-  prerelease goes to the `next` dist-tag. `pages.yml` builds the docs site
+  publishes to npm with provenance through npm trusted publishing (OIDC; no
+  token secret): the package's trusted publisher on npmjs.com must name this
+  repository and `release.yml`. A prerelease goes to the `next` dist-tag. `pages.yml` builds the docs site
   with docs-kit.
 
 Local setup: Node 24 (`.node-version`; dependency-cruiser refuses Node 25),

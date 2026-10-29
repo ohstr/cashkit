@@ -55,3 +55,34 @@ describe('connection-key.json idna_corpus', () => {
     expect(connectionKeyFromTyped('dns', 'BüCHER.example')).toBe(connectionKeyFromTyped('dns', 'xn--bcher-kva.example'))
   })
 })
+
+const NOT_CANONICAL = 'nipIC: user id is not in canonical form'
+const long = ['a'.repeat(63), 'a'.repeat(63), 'a'.repeat(63), 'a'.repeat(59), 'ex'].join('.') // 254 characters
+
+describe('canonical user ids at their edges (§Canonical Platform User IDs)', () => {
+  test.each([
+    ['email', '@alice@example.com'],
+    ['email', ' @alice@example.com'],
+    ['email', '@example.com'],
+    // A decomposed é: the local part is not NFC.
+    ['email', 'e\u0301@x.example'],
+    ['dns', long],
+    ['email', `a@${long}`],
+    ['dns', '@example.com'],
+  ])('%s %j is refused, never repaired', (platform, input) => {
+    expect(() => canonicalUserId(platform, input)).toThrow(NOT_CANONICAL)
+  })
+  test.each([
+    ['email', ' Alice@Example.COM ', 'alice@example.com'],
+    ['email', 'a@b.example', 'a@b.example'],
+    ['email', 'e\u0301@x.example'.normalize('NFC'), 'é@x.example'],
+    ['dns', long.slice(1), long.slice(1)],
+    ['email', `a@${long.slice(1)}`, `a@${long.slice(1)}`],
+  ])('%s %j is %j', (platform, input, want) => {
+    expect(canonicalUserId(platform, input)).toBe(want)
+  })
+  test('the tables are Unicode 15.0.0, as nmilat on its pinned toolchain: a 15.0 ideograph is valid, a 15.1 one is not', () => {
+    expect(canonicalUserId('dns', '\u{31350}.example')).toMatch(/^xn--[a-z0-9]+\.example$/)
+    expect(() => canonicalUserId('dns', '\u{2EBF0}.example')).toThrow(NOT_CANONICAL)
+  })
+})

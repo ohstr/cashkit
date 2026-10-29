@@ -51,6 +51,15 @@ describe('lookup.json', () => {
       return
     }
     expect(parseTombstone(r.result)).toBeUndefined()
-    expect(numeric(decodeLookupDone(r.result))).toEqual({ result: c.inner, tombstones: {} })
+    // A destroyed bill's tombstone stands in place of its token: split out, its token field left empty.
+    const result: Json = { ...c.inner }
+    const tombstones: Json = {}
+    for (const f of ['cash_token', 'new_wallet_token', 'remainder_wallet_token']) {
+      const t = c.inner[f]
+      if (t === null || typeof t !== 'object') continue
+      tombstones[f] = { status: t.status, ...(t.reason !== undefined && { reason: t.reason }), ...(t.retained_until !== undefined && { retainedUntil: t.retained_until }) }
+      result[f] = ''
+    }
+    expect(numeric(decodeLookupDone(r.result))).toEqual({ result, tombstones })
   })
 })

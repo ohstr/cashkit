@@ -149,6 +149,35 @@ describe('parsing (T23-03..T23-09)', () => {
   })
 })
 
+/** The example announcement signed as created at `created`. */
+const at = (created: number) => {
+  const u = newAnnouncement(example(), created)
+  return finalizeEvent({ kind: u.kind, created_at: created, tags: u.tags, content: u.content }, KEY1)
+}
+
+describe('step 4: created_at at most 15 minutes ahead (§Client Behavior)', () => {
+  test('900 s ahead parses; 901 s ahead fails step 4', () => {
+    expect(stepOf(() => parseAnnouncement(at(NOW + 900), mainnet))).toBe(0)
+    expect(stepOf(() => parseAnnouncement(at(NOW + 901), mainnet))).toBe(4)
+  })
+  test('a future-dated announcement is not seen: it neither replaces the current one nor hides a later real one', () => {
+    const seen = new LspSeen({ chains: ['bitcoin'], networks: ['mainnet'], now: () => NOW })
+    const v1 = at(CREATED)
+    expect(seen.offer(v1)).toBeDefined()
+    expect(seen.offer(at(NOW + 901))).toBeUndefined()
+    expect(seen.marks()[KEY1_PUB]?.id).toBe(v1.id)
+    expect(seen.current(KEY1_PUB)).toBeDefined()
+    const v2 = at(CREATED + 5)
+    expect(seen.offer(v2)).toBeDefined()
+    expect(seen.marks()[KEY1_PUB]?.id).toBe(v2.id)
+    seen.remember(KEY1_PUB, { createdAt: NOW + 901, id: 'ff'.repeat(32) })
+    expect(seen.marks()[KEY1_PUB]?.id).toBe(v2.id)
+    const edge = at(NOW + 900)
+    expect(seen.offer(edge)).toBeDefined()
+    expect(seen.marks()[KEY1_PUB]?.id).toBe(edge.id)
+  })
+})
+
 describe('LSPS answers and the live check (T23-10..T23-12)', () => {
   test('both unit dialects map to the announced names', () => {
     expect(fromLspsName('max_channel_balance_sat')).toEqual({ name: 'max_channel_balance', unit: 'base' })

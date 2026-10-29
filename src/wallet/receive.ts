@@ -9,7 +9,7 @@ import { runTransfer } from './kinds.js'
 import { connectionKeyCredential, tokenFacts, type Ctx } from './context.js'
 import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
 import { goneError, tombstoneStatus } from './billState.js'
-import { addHolding, appendActivity, findByToken, updateHolding } from './ledger.js'
+import { addHolding, appendActivity, findByWallet, updateHolding } from './ledger.js'
 import type { ConnectionKeyBinding, Holding } from './model.js'
 import { holdingView, type HoldingView } from './views.js'
 
@@ -119,7 +119,7 @@ export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}
   if (isCash && embedded === '') {
     return { received: false, reason: 'no_embedded_secret', report: { ...reportOf(tok), ...(facts.minterPubkey !== undefined && { minterPubkey: facts.minterPubkey }) } }
   }
-  const existing = await ctx.read((t) => findByToken(t, input))
+  const existing = await ctx.read((t) => findByWallet(t, tok.walletPubkey))
   if (existing?.status === 'held' || existing?.status === 'redeeming') {
     if (ck !== undefined && existing.mode === 'connection_key' && existing.connectionKey !== undefined) return refreshAttestation(ctx, existing, o.attestation!, input)
     throw new CashkitError('conflict', 'this token is already in your wallet', { input: existing.id })

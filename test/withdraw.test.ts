@@ -13,6 +13,7 @@ import {
   nearMatch,
   nip44,
   normalizeAddressText,
+  parseCashWithdrawQuoteResult,
   parsePayout,
   parseTx,
   parseWithdrawQuote,
@@ -20,6 +21,7 @@ import {
   toHex,
   txid,
   verifyPayoutTx,
+  verifyQuoteAnswer,
   verifyWithdrawReceipt,
   withdrawFee,
 } from '../src/core/index.js'
@@ -424,5 +426,56 @@ describe('wallet.withdraw: a lost withdrawal is placed again (NIP-CP §Writing)'
     await h.wallet.settle()
     expect(await h.storage.tx('r', (x) => x.get('pendingCalls', pc.id))).toMatchObject({ state: 'done', outcome: 'not_applied', lastDetail: 'quote_expired' })
     expect((await h.storage.tx('r', (x) => x.list('pendingCalls'))).some((c) => c.derivedFrom === pc.id)).toBe(false)
+  })
+})
+
+// The client's own quote and receipt checks, each on its own.
+const quoteNode = fill(0x62, 32)
+const QUOTE_NODE = getPublicKey(quoteNode)
+const quoteTags = (over: Record<string, string> = {}) =>
+  [['d', 'aa'.repeat(32)], ['i', 'bb'.repeat(32)], ['address', PAYTO], ['amount_millis', '21000000'], ['network_fee_millis', '1200000'],
+    ['hub_fee_millis', '542000'], ['payout_millis', '19258000'], ['sent_by', '1720003600'], ['holds_until', '870413']].map((t) => (over[t[0]!] !== undefined ? [t[0]!, over[t[0]!]!] : t))
+const quoteAnswer = (over: Record<string, string> = {}, kind = 23187) => {
+  const q = JSON.stringify(finalizeEvent({ kind, created_at: 1, tags: quoteTags(over), content: '' }, quoteNode))
+  const t = Object.fromEntries(quoteTags(over).map((x) => [x[0], x[1]]))
+  return parseCashWithdrawQuoteResult({
+    quote: q, address: t['address'], amount_millis: Number(t['amount_millis']), network_fee_millis: Number(t['network_fee_millis']),
+    hub_fee_millis: Number(t['hub_fee_millis']), fee_millis: Number(t['amount_millis']) - Number(t['payout_millis']),
+    payout_millis: Number(t['payout_millis']), sent_by: Number(t['sent_by']), holds_until: Number(t['holds_until']),
+  })
+}
+const asked = { hubXOnly: QUOTE_NODE, wallet: 'aa'.repeat(32), identityValue: 'bb'.repeat(32), address: PAYTO, amountMillis: 21_000_000n, redeemFeeMillis: 105_000n }
+
+describe('quote checks against what was asked (§Quoting a Withdrawal)', () => {
+  test('the spec example verifies', () => {
+    expect(() => verifyQuoteAnswer(quoteAnswer(), { ...asked, sendBefore: 1720003600 })).not.toThrow()
+  })
+  test('sent_by one second past send_before is refused', () => {
+    expect(() => verifyQuoteAnswer(quoteAnswer(), { ...asked, sendBefore: 1720003599 })).toThrow(expect.objectContaining({ code: 'quote_mismatch' }))
+  })
+  test('a quote for another amount than the slice is refused', () => {
+    expect(() => verifyQuoteAnswer(quoteAnswer(), { ...asked, amountMillis: 20_999_000n })).toThrow(expect.objectContaining({ code: 'quote_mismatch' }))
+  })
+  test('another bill, another slice, another address, another signer are refused', () => {
+    expect(() => verifyQuoteAnswer(quoteAnswer(), { ...asked, wallet: 'cc'.repeat(32) })).toThrow(expect.objectContaining({ code: 'quote_mismatch' }))
+    expect(() => verifyQuoteAnswer(quoteAnswer(), { ...asked, identityValue: 'cc'.repeat(32) })).toThrow(expect.objectContaining({ code: 'quote_mismatch' }))
+    expect(() => verifyQuoteAnswer(quoteAnswer({ address: PAYTO.slice(0, -1) + (PAYTO.endsWith('q') ? 'p' : 'q') }), asked)).toThrow()
+    expect(() => verifyQuoteAnswer(quoteAnswer(), { ...asked, hubXOnly: 'ab'.repeat(32) })).toThrow(expect.objectContaining({ code: 'quote_mismatch' }))
+  })
+  test('a fee equal to the slice redeem fee is accepted', () => {
+    expect(() => verifyQuoteAnswer(quoteAnswer(), { ...asked, redeemFeeMillis: 1_742_000n })).not.toThrow()
+  })
+  test('a fee below the slice redeem fee is refused', () => {
+    expect(() => verifyQuoteAnswer(quoteAnswer({ payout_millis: '20999000' }), { ...asked, redeemFeeMillis: 5_000n })).toThrow(expect.objectContaining({ code: 'quote_mismatch' }))
+  })
+})
+
+describe('receipt checks (§Response)', () => {
+  test('a Hub-signed event of another kind is not a receipt', () => {
+    const rid = 'cd'.repeat(16)
+    const rtags = [['d', 'aa'.repeat(32)], ['q', 'ee'.repeat(32)], ['request_hash', requestHash(rid)], ['address', PAYTO], ['payout_millis', '19258000'], ['sent_by', '1720003600']]
+    const want = { hubXOnly: QUOTE_NODE, target: 'aa'.repeat(32), quoteId: 'ee'.repeat(32), requestId: rid, address: PAYTO, payoutMillis: 19_258_000n, sentBy: 1720003600 }
+    expect(() => verifyWithdrawReceipt(JSON.stringify(finalizeEvent({ kind: 23188, created_at: 1, tags: rtags, content: '' }, quoteNode)), want)).not.toThrow()
+    expect(() => verifyWithdrawReceipt(JSON.stringify(finalizeEvent({ kind: 23189, created_at: 1, tags: rtags, content: '' }, quoteNode)), want)).toThrow(expect.objectContaining({ code: 'receipt_invalid' }))
   })
 })

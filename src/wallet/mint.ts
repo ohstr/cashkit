@@ -250,6 +250,8 @@ const mintKind: CallKind = {
   },
   async finish(ctx, call, result, from) {
     const recipients = recipientsOf(call)
+    // The minted bill already destroyed (spent or expired elsewhere): the mint was applied, and nothing is left to hold.
+    if (from === 'lookup' && decodeLookupDone(result).tombstones.cash_token !== undefined) return (t) => applyMintGone(ctx, t, call)
     const r: MintCashResult = from === 'reply' ? (result as MintCashResult) : parseMintCashResult(decodeLookupDone(result).result, mintCashRequest({ recipients, requestId: call.requestId }))
     const keep = call.params?.['keep'] as Keep
     const ho = keep === 'handoff' ? await sealedValue(ctx, r.cashToken, call.outputs[0]?.destination) : undefined
@@ -264,6 +266,12 @@ const mintKind: CallKind = {
     const d = call.outputs[0]?.destination
     return d?.kind === 'cash' ? [`${(result as MintCashResult).cashToken}#${await ctx.open(d.secret)}`] : []
   },
+}
+
+/** A mint whose bill a lookup shows already destroyed: recorded, nothing held or handed off. */
+async function applyMintGone(ctx: Ctx, t: StorageTx, call: PendingCall): Promise<CallCreated> {
+  await appendActivity(t, ctx.now(), { action: 'mint', amount: call.amount, to: call.params?.['display'] ?? '' })
+  return {}
 }
 
 async function applyMint(ctx: Ctx, t: StorageTx, call: PendingCall, r: MintCashResult, ho: { sealed: Sealed; isCash: boolean } | undefined, hubIdentity: string | undefined): Promise<CallCreated> {

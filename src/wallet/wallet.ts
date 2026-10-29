@@ -32,7 +32,7 @@ import {
 } from './discover.js'
 import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, republishZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
-import { cancelWithdrawal, listWithdrawals, quoteWithdrawal, recoverWithdrawal, requoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
+import { cancelWithdrawal, listWithdrawals, settleWithdrawals, withdrawReadDue, SETTLE_WITHDRAW_GAP, quoteWithdrawal, recoverWithdrawal, requoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
 import { type GetInfoResult, type MakeInvoiceParams } from '../client/index.js'
 import { exportBackup, importBackup, valueFingerprint, type ImportSummary } from './backup.js'
@@ -70,7 +70,7 @@ import { Ctx, type OperationEvent } from './context.js'
 import { unverifiedAnswer, type ConfirmHandler } from './confirm.js'
 import { CashkitError } from './errors.js'
 import { activity, balance, listHandoffs, type ActivityItem, type Balance, type HandoffView } from './feed.js'
-import { newId, updateHolding } from './ledger.js'
+import { holdingsNeedNormalizing, newId, normalizeHoldings, updateHolding } from './ledger.js'
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Connection, type ConnectionKind, type HandoffStatus, type Holding, type PendingJoin, type Meta, type Settings } from './model.js'
 import type { WalletDeps } from './ports.js'
 import { executeRedeem, planRedeem, settleRedeeming, type RedeemingReport, type RedeemInput, type RedeemOutcome, type RedeemPlan } from './redeem.js'
@@ -87,7 +87,8 @@ import { holdingView, pendingCallView, type HoldingView, type PendingCallView } 
  * `unmerged`: bills a merge left on its one-time key, turned back into cash
  * notes (best-effort; one that could not move stays for the next settle).
  */
-export type SettleReport = SettleCallsReport & { readonly redeems: RedeemingReport; readonly joins: SettleJoinsReport; readonly unmerged: number }
+/** `withdrawals`: the open payouts read (`checked`) and those that reached `final` or `cancelled` (`ended`). */
+export type SettleReport = SettleCallsReport & { readonly redeems: RedeemingReport; readonly joins: SettleJoinsReport; readonly unmerged: number; readonly withdrawals: { readonly checked: readonly string[]; readonly ended: readonly string[] } }
 
 export interface ConnectionView {
   readonly name: string
@@ -137,6 +138,8 @@ export interface WalletState {
   readonly pendingCalls: readonly PendingCallView[]
   /** Unix seconds: the earliest time a pending lookup asked to be retried. */
   readonly nextSettleAt?: number
+  /** Unix seconds: when `autoSettle` next reads an open on-chain payout (hourly, and at each milestone). */
+  readonly nextWithdrawReadAt?: number
   /** Calls whose outcome can no longer be learned; their written-ahead secrets are in `unreconciledSecrets`. */
   readonly unreconciled: number
 }
@@ -216,6 +219,8 @@ export class Wallet {
     })
     ctx.walletId = meta.walletId
     ctx.deviceId = await ensureDevice(ctx, meta)
+    // One row per bill, in its canonical spelling, whatever an older version stored.
+    if (await ctx.read(holdingsNeedNormalizing)) await ctx.commit(async (t) => normalizeHoldings(t, new Set((await t.list('pendingCalls')).filter((c) => c.state !== 'done').flatMap((c) => [...c.sources, ...(c.authorizer.kind === 'cash' ? [c.authorizer.holdingId] : [])]))))
     if (deps.signer !== undefined) {
       const signer = deps.signer
       await ctx.commit(async (t) => {
@@ -297,6 +302,7 @@ export class Wallet {
     const shown = calls.filter((c) => c.state !== 'done' || c.needsUser !== undefined)
     const lockedIds = new Set(calls.flatMap((c) => (c.state === 'done' ? [] : [...c.sources, ...(c.authorizer.kind === 'cash' ? [c.authorizer.holdingId] : [])])))
     const retries = calls.flatMap((c) => (c.state !== 'done' && c.lookup?.retryAfter !== undefined ? [c.lookup.retryAfter] : []))
+    const withdrawReads = calls.flatMap((c) => (c.kind === 'withdraw' ? [withdrawReadDue(c, SETTLE_WITHDRAW_GAP)].filter((x) => x !== undefined) : []))
     const fp = await valueFingerprint(this.ctx)
     const held = rows.filter((h) => h.status === 'held')
     let sum = 0n
@@ -319,6 +325,7 @@ export class Wallet {
       locked: this.ctx.deps.vault.locked(),
       pendingCalls: shown.map((c) => pendingCallView(c, this.ctx.deviceId)),
       ...(retries.length > 0 && { nextSettleAt: Math.min(...retries) }),
+      ...(withdrawReads.length > 0 && { nextWithdrawReadAt: Math.min(...withdrawReads) }),
       unreconciled: calls.filter((c) => c.outcome === 'lookup_expired').length,
     }
     for (const s of this.subscribers) {
@@ -384,15 +391,22 @@ export class Wallet {
    * any zap's 9522 that no relay has accepted.
    */
   settle(): Promise<SettleReport> {
+    return this.settleWith({})
+  }
+
+  /** `dueWithdrawals`: read only the payouts whose hourly or milestone read is due (`autoSettle`). */
+  private settleWith(o: { dueWithdrawals?: boolean }): Promise<SettleReport> {
     return this.ctx.spend(async () => {
       const calls = await settleCalls(this.ctx)
+      // After settleCalls: a lost withdraw reply it just applied is open now and read here too.
+      const withdrawals = await settleWithdrawals(this.ctx, { due: o.dueWithdrawals === true }).catch(() => ({ checked: [], ended: [] }))
       // No merge runs between operations: a held merge-key bill with no open call is a leftover (withdraw and zap refuse it).
       const leftovers = (await this.ctx.read((t) => t.list('holdings'))).filter((h) => h.status === 'held' && h.throwawayKey !== undefined).map((h) => h.id)
       const unmerged = leftovers.length > 0 ? await toCashNotes(this.ctx, leftovers).catch(() => 0) : 0
       const redeems = await settleRedeeming(this.ctx).catch(() => ({ released: [], redeemed: [], spent: [], stillRedeeming: [] }))
       const joins = await settleJoins(this.ctx).catch(() => ({ joined: [], pending: [], needsUser: [] }))
       await republishZaps(this.ctx).catch(() => 0)
-      return { ...calls, redeems, joins, unmerged }
+      return { ...calls, redeems, joins, unmerged, withdrawals }
     })
   }
 
@@ -439,15 +453,21 @@ export class Wallet {
     const schedule = () => {
       if (stopped) return
       const open = this.snapshot.pendingCalls.some((c) => c.state === 'sent' || c.state === 'prepared')
-      if (!open) return
+      const withdrawAt = this.snapshot.nextWithdrawReadAt
+      if (!open && withdrawAt === undefined) return
       const at = this.snapshot.nextSettleAt
-      const delay = at !== undefined ? Math.max(at * 1000 - this.ctx.now(), 0) : (o.idleMs ?? 30_000)
+      const callsDelay = !open ? Infinity : at !== undefined ? Math.max(at * 1000 - this.ctx.now(), 0) : (o.idleMs ?? 30_000)
+      const withdrawDelay = withdrawAt !== undefined ? Math.max(withdrawAt * 1000 - this.ctx.now(), 0) : Infinity
       handle = set(() => {
-        void this.settle()
+        // Cleared first, so a commit during the run (or a quiet spell after it) can schedule again.
+        handle = undefined
+        void this.settleWith({ dueWithdrawals: true })
           .catch(() => undefined)
           .then(() => this.refreshState())
-          .then(schedule)
-      }, delay)
+          .then(() => {
+            if (handle === undefined) schedule()
+          })
+      }, Math.min(callsDelay, withdrawDelay))
     }
     // The discover outbox: publish each queued item once its time comes.
     let outbox: unknown

@@ -78,6 +78,27 @@ describe('wallet.mint', () => {
     expect((await h.wallet.holdings()).map((x) => x.amount)).toEqual([3000n])
     expect(await openCalls(h)).toEqual([])
   }, 20_000)
+  test('a mint read unknown is never placed again without the user: it waits for confirmReplace', async () => {
+    let offset = 0
+    const clock = () => Date.now() + offset
+    const h = await harness({ deps: { nwcTimeoutMs: 300, clock } })
+    h.bank.hub.clock = clock
+    await h.wallet.connections.add('hub', h.bank.openCashHub())
+    h.bank.dropMintRequest = true
+    const e = await failure(h.wallet.mint({ hub: 'hub', amount: 3000n, to: 'self' }))
+    expect(e.code).toBe('indeterminate')
+    h.bank.dropMintRequest = false
+    // Past the deadline, the Hub has no record: unknown.
+    offset = 120_000
+    const rep = await h.wallet.settle()
+    expect(rep.needsUser).toEqual([e.pendingCallId])
+    expect(rep.replaced).toEqual([])
+    expect(await h.wallet.holdings()).toEqual([])
+    expect((await h.wallet.pendingCalls.list()).map((c) => c.needsUser)).toEqual(['confirm_replace'])
+    // Confirmed by the user: placed again under its derived id.
+    await h.wallet.pendingCalls.confirmReplace(e.pendingCallId!)
+    expect((await h.wallet.holdings()).map((x) => x.amount)).toEqual([3000n])
+  }, 20_000)
   test('the Cash Hub connection an open mint needs for its lookup cannot be removed until it settles', async () => {
     const { h } = await withHub({ nwcTimeoutMs: 300 })
     h.bank.loseMintReply = true

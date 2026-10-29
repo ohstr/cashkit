@@ -32,7 +32,7 @@ export interface BatchLookup {
 /**
  * Sends lookup items. A `REQUEST_REUSED` answering one is not an answer
  * about the call (a Hub answers a lookup naming a used id), so it is routed
- * as `not_served`: asked again, never read as `unknown`.
+ * as `unanswered`: asked again, never read as `unknown`.
  */
 export async function lookupMany(session: BatchSession, items: readonly BatchLookup[], now: () => number): Promise<BatchResult<CashLookupResult>> {
   const builders = items.map((it, i): ItemBuilder => ({
@@ -47,7 +47,7 @@ export async function lookupMany(session: BatchSession, items: readonly BatchLoo
     },
   }))
   const r = await run(session, builders, (_o, v) => parseCashLookupResult(v))
-  return { ...r, outcomes: r.outcomes.map((o): TypedOutcome<CashLookupResult> => (o.state === 'error' && o.error?.code === 'REQUEST_REUSED' ? { id: o.id, state: 'not_served', undecodable: false, envelope: o.envelope } : o)) }
+  return { ...r, outcomes: r.outcomes.map((o): TypedOutcome<CashLookupResult> => (o.state === 'error' && o.error?.code === 'REQUEST_REUSED' ? { id: o.id, state: 'unanswered', undecodable: false, envelope: o.envelope } : o)) }
 }
 
 /**

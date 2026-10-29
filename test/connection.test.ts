@@ -199,6 +199,10 @@ describe('T-1202 refusals (K-CO-2, K-CWH-2)', () => {
     ['TLV 3 twice', {}, [[3, 'x']]],
     ['TLV 5 twice', {}, [[5, fill(1, 65)]]],
     ['TLV 6 twice', {}, [[6, 'bitcoin']]],
+    ['TLV 3 that is not UTF-8', { 3: Uint8Array.of(0xff, 0xfe) }, []],
+    ['TLV 3 with an overlong encoding', { 3: Uint8Array.of(0xc0, 0xaf) }, []],
+    ['TLV 3 with an encoded surrogate', { 3: Uint8Array.of(0xed, 0xa0, 0x80) }, []],
+    ['TLV 3 cut inside a character', { 3: Uint8Array.of(0x61, 0xe2, 0x82) }, []],
   ])('K-CO-2 refuses %s; the same for cashhub1', (_, over, extra) => {
     expect(() => decodeOrderConnection(rawBech32('cashorder', entries(co, over, extra)))).toThrow(CoreError)
     expect(() => decodeCashHubConnection(rawBech32('cashhub', entries({ ...KATS[0]! }, over, extra)))).toThrow(CoreError)
@@ -221,6 +225,12 @@ describe('T-1202 refusals (K-CO-2, K-CWH-2)', () => {
     })()
     expect(err).toBeInstanceOf(CoreError)
     expect((err as CoreError).code).toBe('invalid_tlv')
+  })
+  test('a TLV 3 of any well-formed UTF-8 decodes as written, a leading BOM and an empty label included', () => {
+    for (const label of ['é😀 Hub', '\ufeffHub', '', 'a'.repeat(255)]) {
+      expect(decodeCashHubConnection(rawBech32('cashhub', entries({ ...KATS[0]! }, { 3: utf8(label) }, []))).label).toBe(label)
+      expect(decodeOrderConnection(rawBech32('cashorder', entries(co, { 3: utf8(label) }, []))).label).toBe(label)
+    }
   })
   test('an extra TLV 9 decodes, is ignored and stays outside the signature (K-CO-2, K-CSIG-1)', () => {
     const c = decodeOrderConnection(rawBech32('cashorder', entries(co, {}, [[9, 'future']])))
