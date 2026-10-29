@@ -438,7 +438,9 @@ A port of `nmilat/nipcash/client`, `nipcw/client` and the NWC client:
   finds a lost mint. `view()` returns a `HubView` (fingerprint, sanitized
   label, verdict, online state, network, QR form).
 - **`NwcClient`** (subscriptions opened and EOSE awaited, bounded, before the
-  first publish; `call(…, {expiration})` for a deadline): `getInfo` (typing
+  first publish; the relays tried in order, the same event going to the
+  next one when one refuses it or gives no answer within the wait;
+  `call(…, {expiration})` for a deadline, after which nothing is resent): `getInfo` (typing
   `pubkey`, `network`, `chain`), `getBalance`, `makeInvoice`, `payInvoice`,
   `listTransactions`, `signMessage`. The scheme comes from the wallet's
   kind 13194 info event: `nip44_v2` when listed, `nip04` when the wallet

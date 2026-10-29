@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Sends an NWC request to the next relay hint, as the same event, when the
+  relay that took it gives no answer within the wait, instead of giving up
+  while a hint is still untried; a request past its `expiration` is not resent.
 - Keys holdings by the bill's wallet pubkey and stores each token in its
   canonical spelling (new `canonicalToken`), so a bill re-spelled with its
   entries reordered or an unknown TLV added is refused as already held
