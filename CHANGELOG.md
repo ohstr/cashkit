@@ -41,7 +41,8 @@
   milestone (`state.nextWithdrawReadAt`), so a lost notice no longer leaves a
   re-minted bill unimported.
 - Sorts canonical params keys by UTF-16 code units, as RFC 8785 does; the
-  params hash changes only for keys above U+FFFF.
+  params hash changes only where keys mix characters above U+FFFF with ones
+  from U+E000 to U+FFFF.
 
 ## [0.2.0-rc.1]
 
