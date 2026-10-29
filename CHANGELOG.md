@@ -2,6 +2,9 @@
 
 ## [0.2.0-rc.2]
 
+- Picks, from a scope-all roster that lists claimed history, the caller's
+  unclaimed row wherever it is listed (two are refused as ambiguous), else
+  its most recently claimed row, instead of the first row that matches.
 - Refuses a bolt11 invoice carrying two 32-byte payment hash fields, as
   readers disagree on which one counts; a field of another length is still
   skipped.

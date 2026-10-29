@@ -358,7 +358,7 @@ export async function cashConsolidateRequest(p: {
 /** The roster row fields `ownRow` and `claimable` read. */
 export type RosterRow = Pick<
   import('./results.js').RecipientStatus,
-  'identity_type' | 'identity_value' | 'ia_pubkey' | 'amount_millis' | 'claimed' | 'expires_at' | 'withdraw_request_id'
+  'identity_type' | 'identity_value' | 'ia_pubkey' | 'amount_millis' | 'claimed' | 'claimed_at' | 'expires_at' | 'withdraw_request_id'
 >
 
 /**
@@ -367,7 +367,9 @@ export type RosterRow = Pick<
  * connection_key credential matches its attestation's key and IA; a cash
  * credential matches the cash row its secret commits to (exactly, lowercase).
  * With scope `mine` the answer must be exactly that one row, else it is
- * refused as widened; with `all`, the first matching row, else not found.
+ * refused as widened. With `all`, which lists claimed history too, it is the
+ * caller's unclaimed row wherever it is listed (two are refused as
+ * ambiguous), else its most recently claimed row, else not found.
  */
 export function ownRow<R extends RosterRow>(rows: readonly R[], credential: Credential, scope: 'mine' | 'all' = 'mine'): R {
   const match = rowMatcher(credential)
@@ -375,7 +377,18 @@ export function ownRow<R extends RosterRow>(rows: readonly R[], credential: Cred
     if (rows.length !== 1 || !match(rows[0]!)) throw new CoreError('invalid_payload', `a scope-mine answer is not exactly the caller's row: ${rows.length} rows`)
     return rows[0]!
   }
-  const row = rows.find(match)
+  let live: R | undefined
+  let latest: R | undefined
+  for (const r of rows) {
+    if (!match(r)) continue
+    if (!r.claimed) {
+      if (live !== undefined) throw new CoreError('invalid_payload', 'a scope-all answer has two unclaimed rows for the caller')
+      live = r
+    } else if (latest === undefined || (r.claimed_at ?? 0) > (latest.claimed_at ?? 0)) {
+      latest = r
+    }
+  }
+  const row = live ?? latest
   if (row === undefined) throw new CoreError('invalid_payload', 'this bill has no slice for the caller')
   return row
 }

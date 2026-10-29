@@ -94,7 +94,7 @@
       }
     },
     {
-      "name": "unparseable expiration is ignored",
+      "name": "an unparseable expiration is refused",
       "event": {
         "id": "ddc97e4b0d221d7ec20f6514f2fb2e7f8537fc910996e5d91d7b45659e73986e",
         "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
@@ -690,7 +690,7 @@
       "error": "nipIC: invalid tag: evidence version must be 1"
     },
     {
-      "name": "a repeated tag: the last one wins",
+      "name": "a repeated platform tag is refused",
       "event": {
         "id": "fd6d4a02a53b18b1208302220eb7fdbff6776cace1b18d5942ea66bb0bd76e93",
         "pubkey": "531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
@@ -2997,6 +2997,125 @@
       ],
       "index": -1,
       "error": "nipcash: this bill has no slice for the caller"
+    },
+    {
+      "name": "all: the unclaimed row after claimed history",
+      "credential": "signing",
+      "scope": "all",
+      "rows": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 500,
+          "claimed": true,
+          "claimed_at": 100,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 600,
+          "claimed": true,
+          "claimed_at": 200,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": 2
+    },
+    {
+      "name": "all: the unclaimed row before claimed history",
+      "credential": "signing",
+      "scope": "all",
+      "rows": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 500,
+          "claimed": true,
+          "claimed_at": 100,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": 0
+    },
+    {
+      "name": "all: only claimed history, the latest",
+      "credential": "signing",
+      "scope": "all",
+      "rows": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 600,
+          "claimed": true,
+          "claimed_at": 200,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 500,
+          "claimed": true,
+          "claimed_at": 100,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": 0
+    },
+    {
+      "name": "all: two unclaimed rows",
+      "credential": "signing",
+      "scope": "all",
+      "rows": [
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 1000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        },
+        {
+          "identity_type": "pubkey",
+          "identity_value": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+          "amount_millis": 2000,
+          "claimed": false,
+          "redeem_fee_millis": 0,
+          "net_redeemable_millis": 0,
+          "min_transfer_millis": 0
+        }
+      ],
+      "index": -1,
+      "error": "nipcash: a scope-all answer has two unclaimed rows for the caller"
     }
   ],
   "claimable": [
