@@ -2,6 +2,11 @@
 
 ## [0.2.0-rc.2]
 
+- Keys holdings by the bill's wallet pubkey and stores each token in its
+  canonical spelling (new `canonicalToken`), so a bill re-spelled with its
+  entries reordered or an unknown TLV added is refused as already held
+  instead of being counted twice. `Wallet.open` rewrites stored tokens and
+  removes a second held copy of one slice that an older version stored.
 - Adds the item outcome state `unanswered` for an item an incomplete reply
   (or no reply) left out, and waits for every chunk up to `total` before a
   reply is complete; `not_served` now means only a complete reply's omission.

@@ -70,7 +70,7 @@ import { Ctx, type OperationEvent } from './context.js'
 import { unverifiedAnswer, type ConfirmHandler } from './confirm.js'
 import { CashkitError } from './errors.js'
 import { activity, balance, listHandoffs, type ActivityItem, type Balance, type HandoffView } from './feed.js'
-import { newId, updateHolding } from './ledger.js'
+import { holdingsNeedNormalizing, newId, normalizeHoldings, updateHolding } from './ledger.js'
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Connection, type ConnectionKind, type HandoffStatus, type Holding, type PendingJoin, type Meta, type Settings } from './model.js'
 import type { WalletDeps } from './ports.js'
 import { executeRedeem, planRedeem, settleRedeeming, type RedeemingReport, type RedeemInput, type RedeemOutcome, type RedeemPlan } from './redeem.js'
@@ -219,6 +219,8 @@ export class Wallet {
     })
     ctx.walletId = meta.walletId
     ctx.deviceId = await ensureDevice(ctx, meta)
+    // One row per bill, in its canonical spelling, whatever an older version stored.
+    if (await ctx.read(holdingsNeedNormalizing)) await ctx.commit(async (t) => normalizeHoldings(t, new Set((await t.list('pendingCalls')).filter((c) => c.state !== 'done').flatMap((c) => [...c.sources, ...(c.authorizer.kind === 'cash' ? [c.authorizer.holdingId] : [])]))))
     if (deps.signer !== undefined) {
       const signer = deps.signer
       await ctx.commit(async (t) => {

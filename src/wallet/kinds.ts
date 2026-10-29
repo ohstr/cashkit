@@ -6,6 +6,7 @@
 // these single calls.
 import {
   bySecret,
+  canonicalToken,
   bySigning,
   cashCommitment,
   decodeLookupDone,
@@ -285,7 +286,7 @@ async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashT
     const moved = await updateHolding(t, src.id, (h) => ({
       ...withoutKeys(h),
       ...identityFields(newOut.destination),
-      ...(!inPlace && { token: r.newWalletToken.toLowerCase(), walletPubkey: r.newWalletPubkey !== '' ? r.newWalletPubkey : h.walletPubkey }),
+      ...(!inPlace && { token: canonicalToken(r.newWalletToken), walletPubkey: r.newWalletPubkey !== '' ? r.newWalletPubkey : h.walletPubkey }),
     }))
     if (op === 'protect') await appendActivity(t, now, { action: 'protect', holdingId: moved.id })
     return { movedHoldingId: moved.id }

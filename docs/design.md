@@ -681,7 +681,7 @@ device row) it is foreign and never re-placed.
 ```ts
 interface Holding {
   id: string                       // opaque, e.g. "h-3f9a"; stable across reactivation
-  token: string                    // lowercased; unique
+  token: string                    // canonical spelling (canonicalToken); one row per walletPubkey
   walletPubkey: string; minterPubkey?: string; relayUrls: string[]
   amount?: bigint; expiresAt?: number; verified: boolean
   status: 'held' | 'redeemed' | 'transferred' | 'consolidated' | 'spent'
@@ -694,10 +694,17 @@ interface Holding {
 }
 ```
 
-Rows are never deleted; only `status` changes. Adding a token that already
-exists but is no longer held reactivates the same row with the same ID.
-Adding one that is already held is a `conflict`. Both rules come from
-`ledger.Add`.
+A holding is keyed by its bill's wallet pubkey (TLV 0), never by the
+string: a decoder accepts entries in any order and ignores unknown types,
+so one bill has many spellings. The token is stored in its canonical
+spelling (lowercase, known entries in type order, unknown types dropped,
+every known entry kept byte for byte). Rows are never deleted; only
+`status` changes. Adding a bill that exists but is no longer held
+reactivates the same row with the same ID. Adding one that is already held,
+however it is spelled, is a `conflict`. `Wallet.open` rewrites older rows
+canonically and removes a second held copy of one slice that an older
+version stored under another spelling (never a cash-mode or differently
+bound copy, nor one an open call names).
 
 ### 4.2 Activity
 

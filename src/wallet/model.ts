@@ -36,7 +36,7 @@ export interface ConnectionKeyBinding {
 export interface Holding {
   /** Opaque, e.g. "h-3f9a01c2"; stable across reactivation. */
   readonly id: string
-  /** Lowercased; unique (design §4.1). */
+  /** The canonical spelling (`canonicalToken`); one row per `walletPubkey` (design §4.1). */
   readonly token: string
   readonly walletPubkey: string
   readonly minterPubkey?: string

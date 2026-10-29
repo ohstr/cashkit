@@ -4,6 +4,7 @@ export { fromHex, fromUtf8, toHex, trimSpace, utf8 } from './bytes.js'
 export { goString, toJSONText } from './json.js'
 export { bech32Hrp, sniff, type InputKind } from './sniff.js'
 export {
+  canonicalToken,
   decodeToken,
   encodeToken,
   hasProvenance,

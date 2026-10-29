@@ -8,6 +8,7 @@ import { commitment, FakeBank } from './fakeBank.js'
 import { FakeNwcWallet, harness, type Harness } from './walletHarness.js'
 import { fill, invoice, signedInvoice } from './helpers.js'
 import { BatchSession, ClientError } from '../src/client/index.js'
+import { bech32Decode, bech32Encode, fromWords, toWords } from '../src/core/bech32.js'
 
 let h: Harness
 beforeEach(async () => {
@@ -70,6 +71,22 @@ describe('receive (cmd/cash_receive.go)', () => {
   test('a token already held is a conflict', async () => {
     const { w } = await receivePubkey(5n)
     expect((await err(h.wallet.receive(w.token)))?.code).toBe('conflict')
+  })
+  test('the same bill spelled another way is the same holding: a conflict, counted once', async () => {
+    const { w } = await receivePubkey(5n)
+    const { hrp, words } = bech32Decode(w.token)
+    // An unknown TLV appended: it still decodes as the same bill.
+    const respelled = bech32Encode(hrp, toWords(Uint8Array.from([...fromWords(words), 9, 1, 0])))
+    expect(respelled).not.toBe(w.token)
+    expect((await err(h.wallet.receive(respelled)))?.code).toBe('conflict')
+    expect(await h.wallet.holdings()).toHaveLength(1)
+    expect(h.wallet.state.balance.held).toBe(5n)
+  })
+  test('another bill is received beside a held one', async () => {
+    await receivePubkey(5n)
+    const other = h.bank.mintToPubkey(7n, h.me)
+    expect((await h.wallet.receive(other.token)).received).toBe(true)
+    expect(new Set((await h.wallet.holdings()).map((x) => x.amount))).toEqual(new Set([5n, 7n]))
   })
   test('a spent bill is spent, and nothing is stored', async () => {
     const w = h.bank.mintToPubkey(5n, h.me)

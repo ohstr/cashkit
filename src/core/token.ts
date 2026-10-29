@@ -176,6 +176,25 @@ export function decodeToken(s: string): Token {
   }
 }
 
+const KNOWN_TYPES: ReadonlySet<number> = new Set([T_WALLET_PUBKEY, T_RELAY, T_SECRET, T_IDENTITY_REQUIRED, T_MINT_SIGNATURE, T_ATTESTED_AMOUNT, T_HUB_GROUP, T_SIGNATURE_SCHEME])
+
+/**
+ * The one spelling of a bill string: lowercase, the entries this decoder
+ * reads in ascending type order (TLV 1 in encoded order), unknown types
+ * dropped. A decoder accepts any order and ignores unknown types, so one
+ * bill has many spellings; this one is what a wallet stores. Every known
+ * entry is kept byte for byte, so provenance verifies exactly as on the
+ * given string. Throws what `decodeToken` throws.
+ */
+export function canonicalToken(s: string): string {
+  decodeToken(s)
+  const { hrp, data } = decodeBech32TLV(s)
+  const entries = readTLVs(data).filter((e) => KNOWN_TYPES.has(e.type))
+  // oxlint-disable-next-line unicorn/no-array-sort -- sorts a fresh array; the sort is stable, keeping relay order
+  entries.sort((a, b) => a.type - b.type)
+  return encodeBech32TLV(hrp.toLowerCase(), entries)
+}
+
 /** What `encodeToken` needs: a token with its provenance (`relayBytes` is ignored). */
 export type TokenFields = Omit<Token, 'relayBytes'> & { readonly relayBytes?: readonly Uint8Array[] }
 
