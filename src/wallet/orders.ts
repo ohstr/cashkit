@@ -11,6 +11,7 @@ import {
   localSigner,
   confirmationsFor,
   decodeLookupDone,
+  decodeToken,
   endedUnpaid,
   finished,
   newBuyerKey,
@@ -26,7 +27,8 @@ import {
   type OrderTerms,
   type Payment,
 } from '../core/index.js'
-import { ClientError, connectOrder, deadlineFor, WalletError, type ConnectOrderOptions, type HubView, type OrderClient } from '../client/index.js'
+import { ClientError, connectOrder, deadlineFor, WalletError, type CheckClaimResult, type ConnectOrderOptions, type HubView, type OrderClient } from '../client/index.js'
+import { validateClaimedAmount } from './amounts.js'
 import { prepareCall, finishCall, type PlainOutput } from './calls.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError, fromWalletError } from './errors.js'
@@ -286,7 +288,7 @@ function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet:
     bills: order.bills.map((b): OrderRecordBill => {
       const before = prev?.bills.find((x) => x.walletPubkey === b.walletPubkey)?.problem
       const c = checks.get(b.walletPubkey)
-      const problem = c === 'not_ours' || c === 'expires' ? c : before
+      const problem = c === 'not_ours' || c === 'expires' || c === 'bad_amount' ? c : before
       return {
         walletPubkey: b.walletPubkey,
         amountMillis: b.amountMillis,
@@ -311,10 +313,14 @@ function recordOf(call: PendingCall, order: Order, now: number, holdingByWallet:
  * holding by the tombstone's reason (NIP-CP §Balance); the record replaces the last one. The call stays
  * `open_order` until the order is finished.
  */
-/** What a bill's own row said before it was kept: as ordered, another recipient's, carrying an expiry, or no answer. */
-type BillCheck = 'ok' | 'not_ours' | 'expires' | 'unknown'
-/** The expiry a bill's row carried, by wallet pubkey, for one that `expires`. */
-type BillChecks = Map<string, BillCheck> & { expiry?: Map<string, number> }
+/**
+ * What a bill's own row said before it was kept: as ordered, another
+ * recipient's, carrying an expiry, no answer, or a live amount that does not
+ * match its own signed provenance (never kept).
+ */
+type BillCheck = 'ok' | 'not_ours' | 'expires' | 'unknown' | 'bad_amount'
+/** The expiry (for one that `expires`) and the authoritative amount a bill's row carried, by wallet pubkey. */
+type BillChecks = Map<string, BillCheck> & { expiry?: Map<string, number>; amount?: Map<string, bigint> }
 
 /**
  * Reads the own row of each live bill this wallet keeps and does not hold
@@ -326,21 +332,34 @@ type BillChecks = Map<string, BillCheck> & { expiry?: Map<string, number> }
 async function checkBills(ctx: Ctx, call: PendingCall, order: Order): Promise<BillChecks> {
   const out: BillChecks = new Map<string, BillCheck>()
   out.expiry = new Map()
+  out.amount = new Map()
   const dest = call.outputs[0]?.destination
   if (call.params?.['keep'] !== 'holding' || dest === undefined) return out
   const held = new Set((await ctx.read((t) => t.list('holdings'))).map((h) => h.walletPubkey))
   let credential: Credential | undefined
   for (const b of order.bills) {
     if (typeof b.token !== 'string' || held.has(b.walletPubkey)) continue
+    let r: CheckClaimResult
     try {
       credential ??= dest.kind === 'cash' ? bySecret(await ctx.open(dest.secret)) : bySigning(await ctx.requireSigner())
-      const r = await ctx.client(b.token).checkClaim(credential)
-      const expires = r.expiresAt !== undefined && r.expiresAt !== 0
-      out.set(b.walletPubkey, expires ? 'expires' : 'ok')
-      if (expires) out.expiry.set(b.walletPubkey, r.expiresAt!)
+      r = await ctx.client(b.token).checkClaim(credential)
     } catch (err) {
       out.set(b.walletPubkey, err instanceof ClientError && err.code === 'claim_not_found' ? 'not_ours' : 'unknown')
+      continue
     }
+    // NIP-CASH §Mint Provenance: the amount this wallet trusts is the one the mint signature attests
+    // (and that cash_status agrees), never the Order Hub's unsigned reply. A live amount that does not
+    // match the signed provenance is refused for this bill, never kept at the reply's figure.
+    try {
+      validateClaimedAmount(decodeToken(b.token), r.minterPubkey, r.amountMillis)
+    } catch {
+      out.set(b.walletPubkey, 'bad_amount')
+      continue
+    }
+    const expires = r.expiresAt !== undefined && r.expiresAt !== 0
+    out.set(b.walletPubkey, expires ? 'expires' : 'ok')
+    out.amount.set(b.walletPubkey, r.amountMillis)
+    if (expires) out.expiry.set(b.walletPubkey, r.expiresAt!)
   }
   return out
 }
@@ -360,7 +379,7 @@ async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Orde
       continue
     }
     const check = checks.get(b.walletPubkey) ?? 'unknown'
-    if (!keep || typeof b.token !== 'string' || out === undefined || check === 'not_ours') continue
+    if (!keep || typeof b.token !== 'string' || out === undefined || check === 'not_ours' || check === 'bad_amount') continue
     const f = tokenFacts(b.token)
     const h = await addHolding(
       t,
@@ -369,7 +388,8 @@ async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Orde
         walletPubkey: b.walletPubkey,
         hubGroup: f.hubGroup,
         relayUrls: f.tok.relays,
-        amount: b.amountMillis,
+        // The authoritative amount cash_status reported (checked against the mint signature), not the reply's.
+        amount: checks.amount?.get(b.walletPubkey) ?? b.amountMillis,
         verified: check !== 'unknown',
         ...(out.kind === 'cash' ? { mode: 'cash' as const, protection: 'protected' as const, cashSecret: out.secret } : { mode: 'pubkey' as const, protection: 'none' as const }),
         ...(f.minterPubkey !== undefined && { minterPubkey: f.minterPubkey, minterXonly: f.minterPubkey.length === 66 ? f.minterPubkey.slice(2) : f.minterPubkey }),

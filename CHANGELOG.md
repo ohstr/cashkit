@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0-rc.3]
+
+- Records an ordered bill at the amount its mint signature attests (and
+  `cash_status` confirms), never the Order Hub's unsigned order reply, and
+  refuses a bill whose live amount disagrees with its signed provenance.
+
 ## [0.2.0-rc.2]
 
 - Picks, from a scope-all roster that lists claimed history, the caller's
