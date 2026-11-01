@@ -5,6 +5,9 @@
 - Records an ordered bill at the amount its mint signature attests (and
   `cash_status` confirms), never the Order Hub's unsigned order reply, and
   refuses a bill whose live amount disagrees with its signed provenance.
+- Refuses a `mint_cash` reply whose bill the connected Hub did not sign
+  (provenance, node identity and wallet pubkey are all checked), recording
+  nothing, so a bill minted by another key is never counted or spent.
 
 ## [0.2.0-rc.2]
 

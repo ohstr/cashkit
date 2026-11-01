@@ -6,6 +6,7 @@
 import {
   CoreError,
   decodeLookupDone,
+  hubIdentityEqual,
   mintCashRequest,
   newRequestId,
   parseMintCashResult,
@@ -14,6 +15,7 @@ import {
   type MintRecipient,
 } from '../core/index.js'
 import { CashHubClient, ClientError, deadlineFor, WalletError } from '../client/index.js'
+import { validateClaimedAmount } from './amounts.js'
 import { prepareCall, type PlainOutput } from './calls.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
@@ -253,10 +255,13 @@ const mintKind: CallKind = {
     // The minted bill already destroyed (spent or expired elsewhere): the mint was applied, and nothing is left to hold.
     if (from === 'lookup' && decodeLookupDone(result).tombstones.cash_token !== undefined) return (t) => applyMintGone(ctx, t, call)
     const r: MintCashResult = from === 'reply' ? (result as MintCashResult) : parseMintCashResult(decodeLookupDone(result).result, mintCashRequest({ recipients, requestId: call.requestId }))
+    const row = await ctx.read((t) => t.get('connections', call.params?.['connection'] ?? ''))
+    // NIP-CASH §Mint Provenance: a bill the connected Hub did not sign is refused here, before anything is
+    // written, so it is never recorded, counted or spent (nothing is handed off or held on a mismatch).
+    verifyMintedByHub(r, row?.hubIdentity, call.amount)
     const keep = call.params?.['keep'] as Keep
     const ho = keep === 'handoff' ? await sealedValue(ctx, r.cashToken, call.outputs[0]?.destination) : undefined
-    const row = await ctx.read((t) => t.get('connections', call.params?.['connection'] ?? ''))
-    return (t) => applyMint(ctx, t, call, r, ho, row?.hubIdentity)
+    return (t) => applyMint(ctx, t, call, r, ho)
   },
   async lookupTarget(ctx, call) {
     const client = await cashHubClient(ctx, await cashHubRow(ctx, call.params?.['connection'] ?? ''))
@@ -274,7 +279,26 @@ async function applyMintGone(ctx: Ctx, t: StorageTx, call: PendingCall): Promise
   return {}
 }
 
-async function applyMint(ctx: Ctx, t: StorageTx, call: PendingCall, r: MintCashResult, ho: { sealed: Sealed; isCash: boolean } | undefined, hubIdentity: string | undefined): Promise<CallCreated> {
+/**
+ * A minted bill is recorded only if the connected Hub signed it (NIP-CASH
+ * §Mint Provenance): its provenance must recover and equal the Hub's node
+ * identity, the token's wallet pubkey must match the reply, and its signed
+ * amount must match what was minted. Anything else is refused and nothing is
+ * stored — mirroring the reference clients (nmilat `mintedByHub`, cashctl
+ * `applyMintResult`), so a `verified:false` holding is never created.
+ */
+function verifyMintedByHub(r: MintCashResult, hubIdentity: string | undefined, amount: bigint): void {
+  const f = tokenFacts(r.cashToken)
+  if (f.minterPubkey === undefined || hubIdentity === undefined || !hubIdentityEqual(hubIdentity, f.minterPubkey)) {
+    throw new CashkitError('invalid_input', 'the minted bill is not signed by this Hub’s identity, so it cannot be trusted as minted here — refusing it', { reason: 'mint_not_hub_signed' })
+  }
+  if (f.tok.walletPubkey !== r.walletPubkey) {
+    throw new CashkitError('invalid_input', 'the minted bill names a different wallet than the reply — refusing it', { reason: 'mint_wallet_mismatch' })
+  }
+  validateClaimedAmount(f.tok, f.minterPubkey, amount)
+}
+
+async function applyMint(ctx: Ctx, t: StorageTx, call: PendingCall, r: MintCashResult, ho: { sealed: Sealed; isCash: boolean } | undefined): Promise<CallCreated> {
   const now = ctx.now()
   const display = call.params?.['display'] ?? ''
   if (ho !== undefined) {
@@ -283,9 +307,8 @@ async function applyMint(ctx: Ctx, t: StorageTx, call: PendingCall, r: MintCashR
     return { handoffId: row.id }
   }
   const f = tokenFacts(r.cashToken)
-  // The minter is the Hub this connection names: anything else is a bill this wallet cannot trust as minted here.
+  // finish() refused any bill the connected Hub did not sign, so a holding recorded here is verified.
   const xonly = f.minterPubkey?.length === 66 ? f.minterPubkey.slice(2) : f.minterPubkey
-  const verified = xonly !== undefined && xonly === hubIdentity
   const h = await addHolding(
     t,
     {
@@ -294,7 +317,7 @@ async function applyMint(ctx: Ctx, t: StorageTx, call: PendingCall, r: MintCashR
       hubGroup: f.hubGroup,
       relayUrls: f.tok.relays,
       amount: call.amount,
-      verified,
+      verified: true,
       mode: 'pubkey',
       protection: 'none',
       ...(r.expiresAt !== undefined && { expiresAt: r.expiresAt }),
