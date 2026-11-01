@@ -8,6 +8,9 @@
 - Refuses a `mint_cash` reply whose bill the connected Hub did not sign
   (provenance, node identity and wallet pubkey are all checked), recording
   nothing, so a bill minted by another key is never counted or spent.
+- Authenticates the whole backup, not only its sealed secrets: a tampered
+  plaintext field (amount, status, token, …) is detected and refused on
+  restore. The backup format is now version 3; an older backup is not read.
 
 ## [0.2.0-rc.2]
 

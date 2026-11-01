@@ -13,7 +13,7 @@ import { CashkitError } from './errors.js'
 import { COLLECTIONS, LOCAL_ONLY, type Collection, type Rows, type Sealed } from './model.js'
 
 export const BACKUP_FORMAT = 'cashkit-backup'
-export const BACKUP_VERSION = 2
+export const BACKUP_VERSION = 3
 const AAD = utf8('cashkit/backup/v1')
 const CHECK = 'cashkit backup key check'
 
@@ -59,8 +59,19 @@ export interface BackupFile {
   readonly kdf: { readonly name: 'scrypt'; readonly logN: number; readonly r: 8; readonly p: 1; readonly salt: string }
   /** A known text sealed under the key: tells a wrong passphrase from a damaged file. */
   readonly check: string
+  /**
+   * The collections' digest sealed under the key (AEAD, base64 nonce‖ciphertext):
+   * authenticates the WHOLE backup, so any change to a plaintext field — not
+   * only the sealed secrets — is detected on restore.
+   */
+  readonly mac: string
   /** Rows as the codec writes them (bigint as {"$bigint": "…"}); secrets as { "sealed": "<base64 nonce‖ciphertext>" }. */
   readonly collections: Partial<Record<Collection, unknown[]>>
+}
+
+/** The canonical digest the backup MAC authenticates: SHA-256 over the codec's bytes for `collections`. */
+function collectionsDigest(collections: Partial<Record<Collection, unknown[]>>): Uint8Array {
+  return sha256(utf8(encodeRow(collections)))
 }
 
 function deriveKey(passphrase: string, salt: Uint8Array, logN: number): Uint8Array {
@@ -120,6 +131,7 @@ export async function exportBackup(ctx: Ctx, passphrase: string, o: { logN?: num
     createdAt: ctx.nowSeconds(),
     kdf: { name: 'scrypt', logN, r: 8, p: 1, salt: base64.encode(salt) },
     check: seal(key, utf8(CHECK), ctx.random),
+    mac: seal(key, collectionsDigest(collections), ctx.random),
     collections,
   }
   const text = encodeRow(file)
@@ -163,6 +175,18 @@ export async function importBackup(ctx: Ctx, text: string, passphrase: string): 
     open(key, file.check)
   } catch {
     throw new CashkitError('auth', 'wrong passphrase for this backup')
+  }
+  // Authenticate the whole backup before trusting any of it: a tampered plaintext field (amount,
+  // status, verified, token, …), not only a damaged secret, is detected here and refused.
+  if (typeof file.mac !== 'string') throw new CashkitError('invalid_input', 'this backup carries no integrity tag, so it cannot be trusted')
+  let mac: Uint8Array
+  try {
+    mac = open(key, file.mac)
+  } catch {
+    throw new CashkitError('auth', 'wrong passphrase for this backup')
+  }
+  if (toHex(mac) !== toHex(collectionsDigest(file.collections))) {
+    throw new CashkitError('invalid_input', 'this backup failed its integrity check: it was changed after it was written')
   }
   const rows: Partial<Record<Collection, Record<string, unknown>[]>> = {}
   for (const c of EXPORTED) {

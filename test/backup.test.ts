@@ -47,7 +47,7 @@ describe('backup', () => {
     expect(priv).toBe(true)
     for (const secret of [cashSecret, note.split('#')[1]!, Buffer.from(nwc.appSecret).toString('hex')]) expect(text).not.toContain(secret)
     const f = decodeRow<BackupFile>(text)
-    expect(f).toMatchObject({ format: BACKUP_FORMAT, version: 2, kdf: { name: 'scrypt', logN: 4, r: 8, p: 1 } })
+    expect(f).toMatchObject({ format: BACKUP_FORMAT, version: 3, kdf: { name: 'scrypt', logN: 4, r: 8, p: 1 } })
     expect((f.collections.holdings as { amount?: bigint }[]).map((x) => x.amount)).toContain(3000n)
     expect(text).toContain('{"$bigint":"3000"}')
     expect(JSON.stringify(f.collections.identity)).toContain('"priv":{"sealed":')
@@ -59,13 +59,25 @@ describe('backup', () => {
     await expect((await fresh()).importBackup(text, 'nope')).rejects.toMatchObject({ code: 'auth' })
     await expect((await fresh()).importBackup('not json', 'backup pw')).rejects.toMatchObject({ code: 'invalid_input' })
     await expect((await fresh()).importBackup('{"format":"other"}', 'backup pw')).rejects.toMatchObject({ code: 'invalid_input' })
-    await expect((await fresh()).importBackup(text.replace('"version":2', '"version":9'), 'backup pw')).rejects.toMatchObject({ code: 'usage' })
+    await expect((await fresh()).importBackup(text.replace('"version":3', '"version":9'), 'backup pw')).rejects.toMatchObject({ code: 'usage' })
     const f = decodeRow<BackupFile>(text)
     const row = (f.collections.holdings as { cashSecret?: { sealed: string } }[]).find((x) => x.cashSecret !== undefined)!
     row.cashSecret = { sealed: row.cashSecret!.sealed.slice(0, -4) + 'AAAA' }
     const { encodeRow } = await import('../src/wallet/index.js')
-    await expect((await fresh()).importBackup(encodeRow(f), 'backup pw')).rejects.toThrow(/damaged/)
+    await expect((await fresh()).importBackup(encodeRow(f), 'backup pw')).rejects.toThrow(/integrity check/)
     await expect(h.wallet.importBackup(text, 'backup pw')).rejects.toMatchObject({ code: 'exists' })
+  })
+  test('a tampered plaintext field (not a secret) is rejected on restore: the whole backup is authenticated', async () => {
+    const { h } = await loaded()
+    const text = await h.wallet.exportBackup('backup pw', LOGN)
+    const f = decodeRow<BackupFile>(text)
+    // Inflate a holding's plaintext amount, leaving every sealed secret untouched.
+    const holding = (f.collections.holdings as { amount?: bigint }[]).find((x) => x.amount === 3000n)!
+    holding.amount = 9_999_999n
+    const { encodeRow } = await import('../src/wallet/index.js')
+    const fresh = await harness({ identity: false, pool: h.pool, bank: h.bank })
+    await expect(fresh.wallet.importBackup(encodeRow(f), 'backup pw')).rejects.toMatchObject({ code: 'invalid_input' })
+    expect(await fresh.wallet.holdings()).toEqual([])
   })
   test('state.backupStale: false when empty, true after value moves, false after an export', async () => {
     const h = await harness({ identity: false })
