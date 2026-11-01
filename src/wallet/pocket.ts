@@ -213,12 +213,22 @@ async function afterCall(ctx: Ctx, callId: string): Promise<void> {
 /** Writes a call's sources `spent`, the wallet's own spend (not a bill moved in place), once each. */
 async function sourcesSpent(ctx: Ctx, call: PendingCall): Promise<void> {
   const state = goneStatus({ result: 'own_spend' })!
+  const toWrite: Holding[] = []
   for (const id of call.sources) {
     if (id === call.created?.movedHoldingId) continue
     const h = await ctx.read((t) => t.get('holdings', id))
     if (h === undefined) continue
     if ((await ctx.read((t) => t.get('pocket', h.walletPubkey)))?.state === state) continue
-    await writeEntry(ctx, await heldEntry(ctx, h, state))
+    toWrite.push(h)
+  }
+  if (toWrite.length === 0) return
+  // NIP-CP §Writing: sync the highest rev seen across relays before marking a source spent, so a
+  // definitive `spent` lands at or above a concurrent `live` another device republished (and replaces
+  // its stale wraps). Without this the spend writes at local-rev+1 and a higher-rev `live` masks it.
+  const { entries, wraps } = await readPocket(ctx)
+  for (const h of toWrite) {
+    const w = h.walletPubkey
+    await writeEntry(ctx, await heldEntry(ctx, h, state), { seenRev: entries.get(w)?.rev ?? 0, replaces: wraps.get(w) ?? [] })
   }
 }
 

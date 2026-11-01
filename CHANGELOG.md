@@ -11,6 +11,9 @@
 - Authenticates the whole backup, not only its sealed secrets: a tampered
   plaintext field (amount, status, token, …) is detected and refused on
   restore. The backup format is now version 3; an older backup is not read.
+- Reads the Cash Pocket's highest seen rev before a spend writes a source
+  `spent`, so a concurrent higher-rev `live` another device republished no
+  longer masks the spend and leaves the bill counted on another device.
 
 ## [0.2.0-rc.2]
 
