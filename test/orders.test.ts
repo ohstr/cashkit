@@ -164,6 +164,32 @@ describe('wallet.orders', () => {
     expect(held).toMatchObject({ amount: 4_999_000n, expiresAt: 4_000_000_000 })
     expect(held!.ordered).toBeFalsy()
   })
+  test('CASHKIT-0005: a short-minted bill is recorded at its signed amount, not the order reply’s figure', async () => {
+    const { h, shop } = await setup()
+    const v = await h.wallet.orders.place({ connection: shop.string, amountMillis: 10_000_000n, payment: 'lightning', to: 'self' })
+    // The Hub mints (and signs) 6,000,000 but its order reply reports the full 10,000,000.
+    shop.mintShortBy = 4_000_000n
+    await shop.pay(shop.only(), shop.only().pay)
+    const after = await h.wallet.orders.refresh(v.id)
+    expect(after).toMatchObject({ state: 'minted', finished: true })
+    const [held] = await h.wallet.holdings()
+    // The authoritative (signed, cash_status) amount, never the reply’s inflated figure.
+    expect(held).toMatchObject({ amount: 6_000_000n, ordered: true })
+    const row = (await h.storage.tx('r', (t) => t.get('holdings', held!.id)))!
+    expect(row).toMatchObject({ amount: 6_000_000n, verified: true })
+  })
+  test('CASHKIT-0005: a bill whose live amount disagrees with its signed provenance is refused, not held', async () => {
+    const { h, shop } = await setup()
+    const v = await h.wallet.orders.place({ connection: shop.string, amountMillis: 5_000_000n, payment: 'lightning', to: 'self' })
+    await shop.pay(shop.only(), shop.only().pay)
+    // The Hub now reports a larger live amount than the mint signature attests.
+    const wp = shop.only().bills[0]!.wallet_pubkey
+    shop.bank.wallets.get(wp)!.amount = 9_000_000n
+    const after = await h.wallet.orders.refresh(v.id)
+    expect(after.bills[0]).toMatchObject({ problem: 'bad_amount' })
+    expect(after.bills[0]!.holdingId).toBeUndefined()
+    expect(await h.wallet.holdings()).toEqual([])
+  })
   test('a gift: the bill goes to its recipient; no holding is made', async () => {
     const { h, shop } = await setup()
     const bob = await harness({ pool: h.pool, bank: h.bank })

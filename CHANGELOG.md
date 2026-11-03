@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.0-rc.3]
+
+- Records an ordered bill at the amount its mint signature attests (and
+  `cash_status` confirms), never the Order Hub's unsigned order reply, and
+  refuses a bill whose live amount disagrees with its signed provenance. ([#52](https://github.com/ohstr/cashkit/pull/52))
+- Refuses a `mint_cash` reply whose bill the connected Hub did not sign
+  (provenance, node identity and wallet pubkey are all checked), recording
+  nothing, so a bill minted by another key is never counted or spent. ([#52](https://github.com/ohstr/cashkit/pull/52))
+- Authenticates the whole backup, not only its sealed secrets: a tampered
+  plaintext field (amount, status, token, …) is detected and refused on
+  restore. The backup format is now version 3; an older backup is not read. ([#52](https://github.com/ohstr/cashkit/pull/52))
+- Reads the Cash Pocket's highest seen rev before a spend writes a source
+  `spent`, so a concurrent higher-rev `live` another device republished no
+  longer masks the spend and leaves the bill counted on another device. ([#52](https://github.com/ohstr/cashkit/pull/52))
+
 ## [0.2.0-rc.2]
 
 - Picks, from a scope-all roster that lists claimed history, the caller's

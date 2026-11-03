@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { splitCashString } from '../src/core/index.js'
 import { CashkitError } from '../src/wallet/index.js'
 import { commitment } from './fakeBank.js'
+import { fill } from './helpers.js'
 import { FakeNwcWallet, harness, type Harness } from './walletHarness.js'
 
 const failure = (p: Promise<unknown>): Promise<CashkitError> =>
@@ -116,6 +117,18 @@ describe('wallet.mint', () => {
     expect((await failure(h.wallet.mint({ hub: 'hub', recipients: [{ to: 'cash', amount: 1n }] }))).code).toBe('usage')
     expect((await failure(h.wallet.mint({ hub: 'nope', amount: 1n }))).code).toBe('not_found')
     expect(await h.storage.tx('r', (t) => t.list('pendingCalls'))).toEqual([])
+  })
+  test('CASHKIT-0006: a mint reply whose bill the Hub did not sign is refused; balance unchanged', async () => {
+    const { h } = await withHub()
+    await h.wallet.mint({ hub: 'hub', amount: 5000n, to: 'self' })
+    expect((await h.wallet.holdings()).map((x) => x.amount)).toEqual([5000n])
+    // The Hub replies well-formed, but its bill is signed by a disposable attacker key, not the Hub's identity.
+    h.bank.forgeMintKey = fill(0x99, 32)
+    const e = await failure(h.wallet.mint({ hub: 'hub', amount: 7000n, to: 'self' }))
+    expect(e.code).toBe('invalid_input')
+    expect(e.reason).toBe('mint_not_hub_signed')
+    // Nothing was recorded, counted or made spendable: the balance is still the one honest holding.
+    expect((await h.wallet.holdings()).map((x) => x.amount)).toEqual([5000n])
   })
   test('BAD_REQUEST from the Hub closes the mint not applied', async () => {
     const { h } = await withHub()

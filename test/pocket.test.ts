@@ -20,10 +20,14 @@ import {
   type PocketEntry,
 } from '../src/core/index.js'
 import { syncPocket } from '../src/adapters/sync-pocket.js'
-import { CashkitError } from '../src/wallet/index.js'
+import { CashkitError, type Wallet } from '../src/wallet/index.js'
+import type { Ctx } from '../src/wallet/context.js'
+import { heldEntry } from '../src/wallet/pocket.js'
 import { FakeWithdraw, PAYTO } from './fakeWithdraw.js'
 import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
+
+const ctxOf = (w: Wallet) => (w as unknown as { ctx: Ctx }).ctx
 
 const R = ['wss://inbox1.test', 'wss://inbox2.test']
 const rnd = (n: number) => fill(9, n)
@@ -99,6 +103,38 @@ describe('the pocket engine', () => {
     expect(entries.filter((e) => e.state === 'done')).toHaveLength(1)
     expect(entries.filter((e) => e.state === 'spent').map((e) => e.amountMillis)).toEqual([5000n])
     expect(await h.wallet.pocket.balance()).toEqual(new Map([['flokicoin', 3000n]]))
+  })
+  test('CASHKIT-0008: a spend syncs the highest rev first, so a concurrent higher-rev live cannot mask the spent', async () => {
+    const h = await withPocket()
+    const wX = h.bank.mintToPubkey(5000n, h.me)
+    await h.wallet.receive(wX.token)
+    await h.wallet.pocket.sync() // X live at rev 1, locally and on the relays
+    const ctx = ctxOf(h.wallet)
+    const id = (await h.wallet.holdings())[0]!.id
+    const row = (await h.storage.tx('r', (t) => t.get('holdings', id)))!
+    // Another device republishes X as `live` at a higher rev (5) on the relays; this device's local row stays at 1.
+    const competing: PocketEntry = { ...(await heldEntry(ctx, row, 'live')), rev: 5, wrapKey: toHex(fill(0x56, 32)), checkedAt: ctx.nowSeconds() }
+    const signer = await ctx.requireSigner()
+    const rumor = createRumor({ kind: 9525, pubkey: signer.pubkey, created_at: ctx.nowSeconds(), tags: pocketEntryTags(competing), content: '' })
+    const wrap = createWrap(await createSeal(rumor, signer, { now: ctx.nowSeconds(), random: ctx.random }), fill(0x56, 32), signer.pubkey, { now: ctx.nowSeconds(), random: ctx.random })
+    for (const url of R) await h.pool.publish(url, wrap)
+    expect((await h.storage.tx('r', (t) => t.get('pocket', wX.walletPubkey)))!.rev).toBe(1)
+    // The spend reads the pocket first, so its `spent` lands above the concurrent live (rev 6), not at local+1 (2).
+    await h.wallet.send({ amount: 2000n })
+    expect((await h.storage.tx('r', (t) => t.get('pocket', wX.walletPubkey)))!.rev).toBeGreaterThan(5)
+    const entries = await h.wallet.pocket.entries()
+    expect(entries.find((e) => e.w === wX.walletPubkey)?.state).toBe('spent')
+    // A third device syncing does not import the spent bill as a spendable holding.
+    const c = await withPocket({ pool: h.pool, bank: h.bank })
+    const self = await h.storage.tx('r', (t) => t.get('identity', 'self'))
+    await c.storage.tx('rw', async (t) => {
+      const cur = await t.get('identity', 'self')
+      await t.put('identity', { ...self!, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+    })
+    const c2 = await c.reopen({ pocket: syncPocket({ pool: h.pool, relays: R, readTimeoutMs: 300 }) })
+    const rep = await c2.pocket.sync()
+    expect(rep.imported).not.toContain(wX.walletPubkey)
+    expect((await c2.holdings()).some((x) => x.id === wX.walletPubkey || x.amount === 5000n)).toBe(false)
   })
   test('a pocket that cannot store the entry stops the call: nothing is sent', async () => {
     const h = await withPocket({ relays: ['wss://inbox1.test'] })

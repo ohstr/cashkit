@@ -332,10 +332,11 @@ export interface OrderRecordBill {
   readonly spent: boolean
   /**
    * The bill's own row, read before it is kept, is not what was ordered:
-   * `not_ours` (another recipient: no holding is made) or `expires` (it
-   * carries an expiry: kept, not marked ordered).
+   * `not_ours` (another recipient: no holding is made), `expires` (it carries
+   * an expiry: kept, not marked ordered), or `bad_amount` (its live amount
+   * does not match its signed provenance: no holding is made).
    */
-  readonly problem?: 'not_ours' | 'expires'
+  readonly problem?: 'not_ours' | 'expires' | 'bad_amount'
 }
 
 export interface OrderRecord {

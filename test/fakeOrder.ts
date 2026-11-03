@@ -167,11 +167,13 @@ export class FakeOrder {
   /** A misbehaving Hub: bills minted to another recipient, or with an expiry. */
   mintTo?: Identity | undefined
   mintExpiry?: number
+  /** A short-mint: mint (and attest) this many millis less than the reply reports for each bill (CASHKIT-0005). */
+  mintShortBy?: bigint
 
   async pay(o: FakeOrderRow, received: bigint): Promise<void> {
     const max = BigInt(((this.terms as Record<string, Record<string, unknown>>)[o.payment]!['max_millis'] as number) ?? 0)
     for (const amt of mintSplit(received, o.fee, max)) {
-      const w = this.bank.mint(amt, this.mintTo ?? o.recipient, { ...(this.mintExpiry !== undefined && { expiresAt: this.mintExpiry }) })
+      const w = this.bank.mint(amt - (this.mintShortBy ?? 0n), this.mintTo ?? o.recipient, { ...(this.mintExpiry !== undefined && { expiresAt: this.mintExpiry }) })
       o.bills.push({ wallet_pubkey: w.walletPubkey, cash_token: w.token, amount_millis: amt, paid_millis: received, ...(o.payment === 'onchain' && { outpoint: `${'ab'.repeat(32)}:${o.bills.length}` }) })
     }
     o.state = 'minted'

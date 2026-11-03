@@ -6,6 +6,7 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { decideLookup, decodeBolt11, encodeCashHubConnection, finalizeEvent, fromHex, getPublicKey, hubGroupFor, nip44, signCashHubConnection, toHex, verifyEvent, type NostrEvent } from '../src/core/index.js'
 import { FakeHub, type Answer, type MemoryRelayPool, type RequestInfo } from './fakeHub.js'
+import { signedToken } from './helpers.js'
 
 export type Identity = { readonly type: 'pubkey'; readonly value: string } | { readonly type: 'connection_key'; readonly value: string; readonly ia: string } | { readonly type: 'cash'; readonly value: string }
 
@@ -67,6 +68,8 @@ export class FakeBank {
   cashHubInfo: { pubkey?: string; network?: string | null; chain?: string | null } = {}
   /** Mints but loses the reply. */
   loseMintReply = false
+  /** Sign the mint_cash token with this key instead of the node identity: a reply whose bill the connected Hub did not sign (CASHKIT-0006). */
+  forgeMintKey?: Uint8Array
   /** Loses the mint request itself: nothing is minted, so a later lookup reads `unknown`. */
   dropMintRequest = false
   /** Refuse a redeem invoice not for exactly the required amount (off by default: older tests use placeholder amounts). */
@@ -467,8 +470,17 @@ export class FakeBank {
     if (!Number.isFinite(exp) || exp < this.now() || exp > this.now() + (this.hub.maxRequestAge ?? 0)) return { error: { code: 'BAD_REQUEST', message: 'expiration is missing or out of range' } }
     const r = (p['recipients'] as { identity_type: string; identity_value: string; amount_millis: number }[] | undefined)?.[0]
     if (r === undefined) return { error: { code: 'BAD_REQUEST', message: 'recipients' } }
+    const echoed = [{ identity_type: r.identity_type, identity_value: r.identity_value, amount_millis: r.amount_millis }]
+    if (this.forgeMintKey !== undefined) {
+      // A well-formed reply whose bill is signed by a disposable attacker key, not the Hub's node identity.
+      const walletKey = nextKey()
+      const token = signedToken({ hrp: 'lokicash', walletPubkey: getPublicKey(walletKey), secret: toHex(nextKey()), relays: this.hub.relayUrls, amount: BigInt(r.amount_millis), hubGroup: this.hubGroup, identityRequired: true }, this.forgeMintKey)
+      const forged = { wallet_pubkey: getPublicKey(walletKey), cash_token: token, recipients: echoed }
+      this.records.set(rid, { target: getPublicKey(this.cashHubs.get(e.tags.find((t) => t[0] === 'p')![1]!)!.walletKey), authorizer: e.pubkey, result: forged })
+      return { result: forged }
+    }
     const w = this.mint(BigInt(r.amount_millis), { type: r.identity_type, value: r.identity_value } as Identity)
-    const result = { wallet_pubkey: w.walletPubkey, cash_token: w.token, recipients: [{ identity_type: r.identity_type, identity_value: r.identity_value, amount_millis: r.amount_millis }] }
+    const result = { wallet_pubkey: w.walletPubkey, cash_token: w.token, recipients: echoed }
     this.records.set(rid, { target: getPublicKey(this.cashHubs.get(e.tags.find((t) => t[0] === 'p')![1]!)!.walletKey), authorizer: e.pubkey, result })
     return { result }
   }

@@ -153,7 +153,7 @@ describe('T-515 backup v2', () => {
     expect(text).not.toContain(secret)
     expect(text).not.toContain('cd'.repeat(32))
     const file = JSON.parse(text) as { version: number; collections: Record<string, unknown> }
-    expect(file.version).toBe(2)
+    expect(file.version).toBe(3)
     for (const c of LOCAL_ONLY) expect(file.collections).not.toHaveProperty(c)
     const d2 = deps()
     const fresh = await Wallet.open(d2)
@@ -167,7 +167,7 @@ describe('T-515 backup v2', () => {
   })
   test('a version-1 backup is refused', async () => {
     const w = await Wallet.open(deps())
-    const text = (await w.exportBackup('pw', { logN: 4 })).replace('"version":2', '"version":1')
+    const text = (await w.exportBackup('pw', { logN: 4 })).replace('"version":3', '"version":1')
     const fresh = await Wallet.open(deps())
     await expect(fresh.importBackup(text, 'pw')).rejects.toMatchObject({ code: 'usage', message: expect.stringMatching(/older/) })
   })
