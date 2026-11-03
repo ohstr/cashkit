@@ -1662,16 +1662,17 @@ This lets cashkit and cashctl share fixtures.
     last export (a fingerprint of the value-bearing rows' ids and versions,
     kept in `meta` at export, so no ordinary commit writes a shared row)
 
-  **Backup format, version 2.** One JSON document, written with the
-  row codec (a bigint is `{"$bigint":"<decimal>"}`), so another tool can
-  import it:
+  **Backup format, version 3.** One JSON document, written with the
+  row codec (a bigint is `{"$bigint":"<decimal>"}`), so another tool
+  (e.g. [cashctl](https://github.com/ohstr/cashctl)) can import it:
 
   ```jsonc
   {
-    "format": "cashkit-backup", "version": 2,
+    "format": "cashkit-backup", "version": 3,
     "walletId": "…", "createdAt": 1760870000,          // Unix seconds
     "kdf": { "name": "scrypt", "logN": 16, "r": 8, "p": 1, "salt": "<base64, 16 bytes>" },
     "check": "<sealed 'cashkit backup key check'>",     // tells a wrong passphrase from damage
+    "mac":   "<sealed SHA-256 of the collections' canonical bytes>", // authenticates the WHOLE file
     "collections": {                                     // every collection of §4, rows as stored
       "holdings": [ { "id": "h-…", "token": "lokicash1…", "amount": {"$bigint":"5000"},
                       "cashSecret": { "sealed": "<base64 nonce‖ciphertext>" }, … } ],
@@ -1681,15 +1682,52 @@ This lets cashkit and cashctl share fixtures.
   }
   ```
 
-  - The key is scrypt over the NFKC passphrase (NIP-49's parameters); each
-    secret is XChaCha20-Poly1305 under a fresh 24-byte nonce, with associated
-    data `cashkit/backup/v1`.
-  - The secret-bearing fields are exactly: holdings `cashSecret` and
-    `throwawayKey`; handoffs `handoff`; connections `uri`; identity `priv`;
-    pendingJoins `connectionSecret`; pendingCalls `authorizer.authorizerKey`,
-    `authorizer.buyerKey`, `outputs[].destination.secret` and
-    `outputs[].destination.key`; pendingRecoveries `newSecret`. Each is `{ "sealed": … }` in the file and
-    nothing else is secret. A version-1 backup is refused.
+  - **Key.** scrypt over the NFKC-normalised passphrase with NIP-49's
+    parameters: `N = 2^logN` (`logN` is 1…22, default 16), `r = 8`, `p = 1`,
+    `dkLen = 32`, `maxmem = 2^(logN+11)`. `salt` is the base64 of 16 random
+    bytes. `logN`, `r`, `p` and `salt` are read from the file's `kdf`.
+  - **Seal.** A sealed value is `base64(nonce ‖ ciphertext)` where the 24-byte
+    XChaCha20-Poly1305 nonce is prepended to the ciphertext, the key is the
+    derived key, and the associated data is the bytes of `cashkit/backup/v1`.
+    A sealed *secret* decrypts to the field's **plaintext** bytes (the value
+    `SecretVault.open` yields), not to a vault envelope: an importer recovers
+    the raw secret and re-seals it under its own vault.
+  - **`check`.** The sealed text `cashkit backup key check`. It opening tells a
+    correct passphrase (and an intact file) from a wrong one; it does **not**
+    cover the collections.
+  - **`mac` (v3, authenticates the whole file).** The sealed SHA-256 of the
+    collections' **canonical bytes**, so any change to a *plaintext* field
+    (amount, status, verified, token, …) — not only a damaged secret — is
+    detected on restore. The canonical bytes are `encodeRow(collections)`:
+    the row codec's output, i.e. compact JSON (no insignificant whitespace),
+    object keys in the order the writer emitted them (an importer MUST NOT
+    reorder keys), each bigint as `{"$bigint":"<decimal>"}`, `undefined`
+    fields omitted. An importer recomputes `SHA-256(encodeRow(collections))`
+    over the file's own `collections` value (strip only insignificant
+    whitespace; preserve key order and token text) and compares it, constant-
+    time, to the opened `mac`. A file with no `mac`, or a mismatching one, is
+    refused as tampered.
+  - **Verify order on import.** derive key → open `check` (wrong → wrong
+    passphrase) → open `mac` and compare to the recomputed digest (mismatch →
+    tampered) → only then open the sealed secrets and trust any row.
+  - **Secret-bearing fields** (each is `{ "sealed": … }` in the file; nothing
+    else is secret) — exactly `SEALED_FIELDS`:
+    - holdings: `cashSecret`, `throwawayKey`
+    - handoffs: `handoff`
+    - connections: `uri`, `connection`, `secret`, `circle.hubConnection`,
+      `rotation.newSecret`
+    - identity: `priv`
+    - pendingJoins: `connectionSecret`, `hubConnection`
+    - pendingCalls: `authorizer.authorizerKey`, `authorizer.buyerKey`,
+      `outputs[].destination.secret`, `outputs[].destination.key`
+    - pendingRecoveries: `newSecret`
+
+    A dotted path reaches into a nested object; `[]` applies to every element
+    of an array.
+  - **Version.** The reader accepts version 3 **exactly**: an older backup
+    (v1/v2) is refused (`this backup was written by an older cashkit …`) and a
+    newer one asks the user to upgrade. There is no v2→v3 migration — v2 was
+    never a released format.
   - `importBackup` restores into an empty wallet only (merging two ledgers is
     not a restore), re-seals every secret under the new wallet's vault,
     adopts the backup's `walletId`, then runs `settle()`.
