@@ -8,6 +8,7 @@ import { CashkitError, classifyReadError, codeForNwc, fromWalletError } from './
 import { isLightning, nwcFor } from './circle.js'
 import { heldHoldings } from './ledger.js'
 import type { Activity, ConnectionKind, Handoff, HandoffStatus } from './model.js'
+import { unitForToken } from './views.js'
 
 export interface WalletBalance {
   readonly name: string
@@ -18,15 +19,24 @@ export interface WalletBalance {
   readonly unreachable?: CashkitError
 }
 
+/** Held cash of one currency: loki and sat are never summed into one figure. */
+export interface HeldFigures {
+  readonly held: bigint
+  readonly count: number
+  readonly expired: bigint
+}
+
 export interface Balance {
-  /** Wallets plus unexpired held cash, as cashctl's total. */
-  readonly total: bigint
-  /** The part of `total` that is a stranded wallet's cached figure. */
-  readonly stranded: bigint
+  /** Lightning wallets, per connection: each a figure in that wallet's own currency. */
   readonly wallets: readonly WalletBalance[]
-  readonly holdings: { readonly held: bigint; readonly count: number; readonly expired: bigint; readonly pendingMerge: number }
-  /** Handed out and unclaimed: shown, never counted. */
-  readonly outstandingCashNotes: { readonly count: number; readonly amount: bigint }
+  /** The total of stranded Lightning wallets' cached figures (their own units). */
+  readonly stranded: bigint
+  /** Unexpired and expired held cash, keyed by currency unit (`loki`, `sat`): never summed across units. */
+  readonly holdings: Readonly<Record<string, HeldFigures>>
+  /** Bills moved for a merge that has not finished (unit-agnostic). */
+  readonly pendingMerge: number
+  /** Handed out and unclaimed, per unit: shown, never counted. */
+  readonly outstandingCashNotes: Readonly<Record<string, { readonly count: number; readonly amount: bigint }>>
 }
 
 export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<Balance> {
@@ -34,23 +44,19 @@ export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<
   // Lightning wallets only: a Cash Hub connection holds no balance of its own.
   const conns = (await ctx.read((t) => t.list('connections'))).filter(isLightning)
   const wallets: WalletBalance[] = []
-  let total = 0n
   let stranded = 0n
   for (const c of conns) {
     if (!refresh) {
-      if (c.lastKnownBalance !== undefined) total += c.lastKnownBalance.millis
       wallets.push({ name: c.id, kind: c.kind, ...(c.lastKnownBalance !== undefined && { balance: c.lastKnownBalance.millis }) })
       continue
     }
     try {
       const r = await (await nwcFor(ctx, c)).getBalance()
       const millis = BigInt(r.balance)
-      total += millis
       wallets.push({ name: c.id, kind: c.kind, balance: millis })
       await ctx.commit((t) => t.put('connections', { ...c, lastKnownBalance: { millis, at: ctx.now() }, version: c.version + 1 }, c.version)).catch(() => undefined)
     } catch (err) {
       if (err instanceof WalletError && codeForNwc(err.walletCode) === 'auth' && c.lastKnownBalance !== undefined) {
-        total += c.lastKnownBalance.millis
         stranded += c.lastKnownBalance.millis
         wallets.push({ name: c.id, kind: c.kind, balance: c.lastKnownBalance.millis, stranded: true })
         continue
@@ -59,26 +65,30 @@ export async function balance(ctx: Ctx, o: { refresh?: boolean } = {}): Promise<
     }
   }
   const now = ctx.nowSeconds()
-  let held = 0n
-  let expired = 0n
-  let count = 0
+  const holdings: Record<string, { held: bigint; count: number; expired: bigint }> = {}
   let pendingMerge = 0
   for (const h of await ctx.read(heldHoldings)) {
     if (h.throwawayKey !== undefined) pendingMerge++
     if (h.amount === undefined) continue
-    count++
-    if (h.expiresAt !== undefined && h.expiresAt <= now) expired += h.amount
-    else held += h.amount
+    // The currency is the token's, never mixed: each unit keeps its own figure.
+    const unit = unitForToken(h.token) ?? 'loki'
+    const f = holdings[unit] ?? { held: 0n, count: 0, expired: 0n }
+    f.count++
+    if (h.expiresAt !== undefined && h.expiresAt <= now) f.expired += h.amount
+    else f.held += h.amount
+    holdings[unit] = f
   }
   const handoffs = await ctx.read((t) => t.list('handoffs'))
   const notes = handoffs.filter((h) => h.kind === 'cash_note' && h.status === 'unclaimed')
-  return {
-    total: total + held,
-    stranded,
-    wallets,
-    holdings: { held, count, expired, pendingMerge },
-    outstandingCashNotes: { count: notes.length, amount: notes.reduce((a, h) => a + h.amount, 0n) },
+  const outstandingCashNotes: Record<string, { count: number; amount: bigint }> = {}
+  for (const h of notes) {
+    const unit = unitForToken(splitCashString(await ctx.open(h.handoff)).token) ?? 'loki'
+    const agg = outstandingCashNotes[unit] ?? { count: 0, amount: 0n }
+    agg.count++
+    agg.amount += h.amount
+    outstandingCashNotes[unit] = agg
   }
+  return { wallets, stranded, holdings, pendingMerge, outstandingCashNotes }
 }
 
 export interface HandoffView {
@@ -88,6 +98,8 @@ export interface HandoffView {
   /** The note or gift token; an unclaimed note's secret is hidden unless asked for. */
   readonly handoff: string
   readonly secretHidden: boolean
+  /** The currency of the handed-over bill (`loki`, `sat`), from its token HRP. */
+  readonly unit?: string
   readonly amount: bigint
   readonly target: string
   readonly walletPubkey: string
@@ -100,12 +112,14 @@ export interface HandoffView {
 export async function handoffView(ctx: Ctx, h: Handoff, includeSecrets: boolean): Promise<HandoffView> {
   const value = await ctx.open(h.handoff)
   const hide = !includeSecrets && h.kind === 'cash_note' && h.status === 'unclaimed'
+  const unit = unitForToken(splitCashString(value).token)
   return {
     id: h.id,
     at: h.at,
     kind: h.kind,
     handoff: hide ? `${splitCashString(value).token}#<hidden>` : value,
     secretHidden: hide,
+    ...(unit !== undefined && { unit }),
     amount: h.amount,
     target: h.target,
     walletPubkey: h.walletPubkey,

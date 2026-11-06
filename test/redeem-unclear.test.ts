@@ -45,7 +45,7 @@ describe('unclear redeems', () => {
     expect(r.firstError).toMatchObject({ code: 'indeterminate', reason: 'redeem_in_flight' })
     expect(await h.wallet.holdings()).toEqual([])
     expect((await h.wallet.holdings({ includeSpent: true })).map((x) => x.status)).toEqual(['redeeming'])
-    expect((await h.wallet.balance({ refresh: false })).holdings.held).toBe(0n)
+    expect((await h.wallet.balance({ refresh: false })).holdings.loki?.held ?? 0n).toBe(0n)
     let rep = await h.wallet.settle()
     expect(rep.redeems.stillRedeeming).toHaveLength(1)
     nwc.handler = (method, params) => (method === 'lookup_invoice' ? { result: { invoice: params['invoice'], settled_at: 1 } } : { error: { code: 'NOT_IMPLEMENTED', message: method } })

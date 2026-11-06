@@ -1,14 +1,25 @@
 // Public, secret-free shapes of stored rows, and `toJSON` (design §8): the
 // shape cashctl prints under --json, with snake_case keys and bigint
 // amounts as exact JSON integers.
-import { toJSONText } from '../core/index.js'
+import { decodeToken, toJSONText, unitForHrp } from '../core/index.js'
 import type { Holding, HoldingMode, HoldingStatus, Protection } from './model.js'
+
+/** The display unit (`loki`, `sat`) of a token, from its HRP; undefined for an HRP this build has no row for. */
+export function unitForToken(token: string): string | undefined {
+  try {
+    return unitForHrp(decodeToken(token).hrp)
+  } catch {
+    return undefined
+  }
+}
 
 export interface HoldingView {
   readonly id: string
   readonly status: HoldingStatus
   readonly mode: HoldingMode
   readonly protection: Protection
+  /** The currency this bill is in (`loki`, `sat`), from its token HRP. Never summed or spent across units. */
+  readonly unit?: string
   readonly amount?: bigint
   readonly verified: boolean
   readonly expiresAt?: number
@@ -31,11 +42,13 @@ export interface HoldingView {
 
 /** `locked`: an open call holds this bill (it is excluded from every plan until the call closes). */
 export function holdingView(h: Holding, nowSeconds: number, locked = false): HoldingView {
+  const unit = unitForToken(h.token)
   return {
     id: h.id,
     status: h.status,
     mode: h.mode,
     protection: h.protection,
+    ...(unit !== undefined && { unit }),
     ...(h.amount !== undefined && { amount: h.amount }),
     verified: h.verified,
     ...(h.expiresAt !== undefined && { expiresAt: h.expiresAt }),

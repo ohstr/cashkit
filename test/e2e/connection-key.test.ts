@@ -101,7 +101,7 @@ describe.skipIf(admin === undefined)('lokihub: a connection-key holder (SG-1: st
     const out = await bob.redeem({ holdings: [r.holding.id] }).catch((x: unknown) => x as CashkitError)
     const e = 'firstError' in (out as object) ? (out as { firstError?: CashkitError }).firstError : (out as CashkitError)
     expect(e).toMatchObject({ code: 'usage', reason: 'status_unreadable' })
-    expect((await bob.balance()).holdings.held).toBe(20_000n)
+    expect((await bob.balance()).holdings.loki?.held ?? 0n).toBe(20_000n)
   }, 300_000)
 
   test('an on-chain withdrawal is refused before anything is quoted', async (ctx) => {
@@ -112,7 +112,7 @@ describe.skipIf(admin === undefined)('lokihub: a connection-key holder (SG-1: st
     const e = await bob.withdraw.quote(r.holding.id, await hooks.payerAddress()).catch((x: unknown) => x)
     expect(e).toBeInstanceOf(CashkitError)
     expect(e).toMatchObject({ code: 'usage', reason: 'status_unreadable' })
-    expect((await bob.balance()).holdings.held).toBe(21_000_000n)
+    expect((await bob.balance()).holdings.loki?.held ?? 0n).toBe(21_000_000n)
   }, 300_000)
 
   test('a send still works: split to a pubkey, the remainder stays bound to the account, the recipient reads its bill', async () => {

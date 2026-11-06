@@ -8,7 +8,7 @@
 // first (consolidateInRounds), then splits from it: the same wire calls and
 // the same result for the recipient, with no window where the only copy of
 // a landed bill is unsaved.
-import { newCashTarget, pubkeyTarget, type CashTarget, type Target } from '../core/index.js'
+import { formatAmount, newCashTarget, pubkeyTarget, type CashTarget, type Target } from '../core/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import { getHeld, liveAmount, lockedHoldings, moveCashNotesToKey, newThrowawayKey, requireUnlocked, toCashNotes } from './bills.js'
 import type { PlainDestination } from './calls.js'
@@ -20,7 +20,22 @@ import { consolidateCap, consolidateInRounds } from './merge.js'
 import type { CallCreated, Holding, TargetDisplay } from './model.js'
 import { FundsFragmentedError, InsufficientFundsError, selectForAmount, sumAmounts, type Selectable } from './select.js'
 import { parseTarget, type TargetKind } from './target.js'
-import { holdingView, type HoldingView } from './views.js'
+import { holdingView, unitForToken, type HoldingView } from './views.js'
+
+/** The currency of a bill (`loki`, `sat`); indeterminate HRPs read as loki, as all pre-multi-currency data is. */
+export const unitOf = (h: Holding): string => unitForToken(h.token) ?? 'loki'
+
+/**
+ * The currency an amount-based spend works in: the one the caller named, else
+ * the wallet's sole held unit. With bills of several currencies and none
+ * named, it refuses rather than guess — loki and sat are never pooled.
+ */
+export function pickUnit(held: readonly Holding[], want: string | undefined, verb = 'send'): string {
+  if (want !== undefined) return want
+  const units = [...new Set(held.filter((h) => h.amount !== undefined).map(unitOf))]
+  if (units.length > 1) throw new CashkitError('usage', `you hold more than one currency (${[...units].join(', ')}): pass unit to say which to ${verb}`, { reason: 'ambiguous_unit' })
+  return units[0] ?? 'loki'
+}
 
 export interface SendInput {
   readonly amount?: bigint
@@ -29,6 +44,8 @@ export interface SendInput {
   readonly holdings?: readonly string[]
   /** Identity Authority for an nconnection target that doesn't name one. */
   readonly ia?: string
+  /** Which currency to send (`loki`, `sat`) with an amount: required only when the wallet holds more than one. */
+  readonly unit?: string
 }
 
 export interface PlannedSource {
@@ -69,7 +86,7 @@ export interface SendResult {
   readonly consolidatedFirst: boolean
 }
 
-export const selectable = (h: Holding): Selectable & Holding => ({ ...h, hasCashSecret: h.cashSecret !== undefined })
+export const selectable = (h: Holding): Selectable & Holding => ({ ...h, unit: unitOf(h), hasCashSecret: h.cashSecret !== undefined })
 
 /** Whether the amount could be covered if the bills kept out of merges were merged too. */
 function coverableWithExcluded(held: readonly Holding[], amount: bigint): boolean {
@@ -106,15 +123,19 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
       group = [(await liveAmount(ctx, held[0]!)).holding]
     } else {
       if (held.length === 0) throw new CashkitError('not_found', 'you have no held cash tokens: receive one first')
+      // Pick the currency first, then select only within it: loki and sat never cover each other.
+      const unit = pickUnit(held, o.unit)
+      const inUnit = held.filter((h) => unitOf(h) === unit)
+      if (inUnit.length === 0) throw new CashkitError('invalid_input', `you hold no ${unit} bills to send`, { input: unit })
       let plan
       try {
-        plan = selectForAmount(held.map(selectable), o.amount)
+        plan = selectForAmount(inUnit.map(selectable), o.amount)
       } catch (err) {
-        if ((err instanceof InsufficientFundsError || err instanceof FundsFragmentedError) && held.some((h) => h.excludeFromMerge === true) && coverableWithExcluded(held, o.amount)) {
+        if ((err instanceof InsufficientFundsError || err instanceof FundsFragmentedError) && inUnit.some((h) => h.excludeFromMerge === true) && coverableWithExcluded(inUnit, o.amount)) {
           throw new CashkitError('invalid_input', 'covering this amount would merge a bill you keep out of merges; nothing was changed', { reason: 'excluded_from_merge' })
         }
-        if (err instanceof InsufficientFundsError) throw new CashkitError('invalid_input', `not enough funds: you hold ${err.totalHeld} millis, need ${err.target} millis`)
-        if (err instanceof FundsFragmentedError) throw new CashkitError('usage', err.message)
+        if (err instanceof InsufficientFundsError) throw new CashkitError('invalid_input', `not enough funds: you hold ${formatAmount(err.totalHeld, unit)}, need ${formatAmount(err.target, unit)}`)
+        if (err instanceof FundsFragmentedError) throw new CashkitError('usage', `funds are fragmented across separate Hubs: you hold ${formatAmount(err.totalHeld, unit)} total, but no single Hub's bills sum to the ${formatAmount(err.target, unit)} wanted`)
         throw err
       }
       if (plan.kind === 'consolidate' && !(await ctx.settings()).allowAutoConsolidate) {
@@ -128,9 +149,13 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
   const amount = o.amount ?? sum
   if (group.length === 1) {
     const h = group[0]!
-    if (amount > h.amount!) throw new CashkitError('usage', `can't send ${amount} millis: the held token only has ${h.amount} millis`)
+    if (amount > h.amount!) throw new CashkitError('usage', `can't send ${formatAmount(amount, unitOf(h))}: the held token only has ${formatAmount(h.amount!, unitOf(h))}`)
     return { ...base, amount, sources: [{ holdingId: h.id, version: h.version, amount: h.amount! }], consolidateFirst: false, split: amount < h.amount!, ...(h.expiresAt !== undefined && { earliestExpiry: h.expiresAt }) }
   }
+  // Several bills merge first: they must share one currency (and so one Hub).
+  const units = new Set(group.map(unitOf))
+  if (units.size > 1) throw new CashkitError('invalid_input', `these bills are in different currencies (${[...units].join(', ')}); a send never merges across currencies. Nothing was changed`, { reason: 'mixed_units', input: group.map((h) => h.id).join(',') })
+  const gu = unitOf(group[0]!)
   const hub = group[0]!.hubGroup
   if (hub === '' || group.some((h) => h.hubGroup !== hub || h.mode === 'connection_key' || (h.mode === 'cash' && h.cashSecret === undefined))) {
     throw new CashkitError('usage', 'only bills from one Cash Hub, in pubkey mode or with a known cash secret, can be merged into one send')
@@ -139,7 +164,7 @@ export async function planSend(ctx: Ctx, o: SendInput): Promise<SendPlan> {
   if (new Set(group.map((h) => h.ordered === true)).size > 1) {
     throw new CashkitError('invalid_input', 'bills minted for your orders never merge with other bills; nothing was changed', { reason: 'mixed_ordered', input: group.map((h) => h.id).join(',') })
   }
-  if (amount > sum) throw new CashkitError('usage', `can't send ${amount} millis: the named holdings only have ${sum} millis`)
+  if (amount > sum) throw new CashkitError('usage', `can't send ${formatAmount(amount, gu)}: the named holdings only have ${formatAmount(sum, gu)}`)
   const now = ctx.nowSeconds()
   const expired = group.filter((h) => h.expiresAt !== undefined && h.expiresAt <= now)
   if (expired.length > 0 && expired.length < group.length) {

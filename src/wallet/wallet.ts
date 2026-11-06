@@ -69,7 +69,7 @@ import { consolidate, type ConsolidateReport } from './consolidate.js'
 import { Ctx, type OperationEvent } from './context.js'
 import { unverifiedAnswer, type ConfirmHandler } from './confirm.js'
 import { CashkitError } from './errors.js'
-import { activity, balance, listHandoffs, type ActivityItem, type Balance, type HandoffView } from './feed.js'
+import { activity, balance, listHandoffs, type ActivityItem, type Balance, type HandoffView, type HeldFigures } from './feed.js'
 import { holdingsNeedNormalizing, newId, normalizeHoldings, updateHolding } from './ledger.js'
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Connection, type ConnectionKind, type HandoffStatus, type Holding, type PendingJoin, type Meta, type Settings } from './model.js'
 import type { WalletDeps } from './ports.js'
@@ -80,7 +80,7 @@ import { executeSend, planSend, type SendInput, type SendPlan, type SendResult }
 import { lockedHoldings, toCashNotes } from './bills.js'
 import { closeByUser, confirmReplace, settleCalls, type SettleCallsReport } from './runner.js'
 import { status, type StatusOutcome } from './status.js'
-import { holdingView, pendingCallView, type HoldingView, type PendingCallView } from './views.js'
+import { holdingView, pendingCallView, unitForToken, type HoldingView, type PendingCallView } from './views.js'
 
 /**
  * What `settle()` did: the pending calls, then the `redeeming` holdings.
@@ -124,7 +124,8 @@ export interface PendingJoinView {
 
 export interface WalletState {
   readonly holdings: readonly HoldingView[]
-  readonly balance: { readonly held: bigint; readonly count: number; readonly expired: bigint }
+  /** Held cash per currency unit (`loki`, `sat`): loki and sat are never summed into one figure. */
+  readonly balance: Readonly<Record<string, HeldFigures>>
   readonly pendingJoins: readonly PendingJoinView[]
   /** Holdings moved for a merge that has not finished. */
   readonly pendingMerge: number
@@ -159,7 +160,7 @@ export interface Lightning {
   signMessage(message: string): Promise<{ message: string; signature: string }>
 }
 
-const EMPTY_STATE: WalletState = { holdings: [], balance: { held: 0n, count: 0, expired: 0n }, pendingJoins: [], pendingMerge: 0, backupStale: false, locked: false, pendingCalls: [], unreconciled: 0 }
+const EMPTY_STATE: WalletState = { holdings: [], balance: {}, pendingJoins: [], pendingMerge: 0, backupStale: false, locked: false, pendingCalls: [], unreconciled: 0 }
 
 /**
  * This store's device id, created on first open. A store whose meta names
@@ -305,18 +306,19 @@ export class Wallet {
     const withdrawReads = calls.flatMap((c) => (c.kind === 'withdraw' ? [withdrawReadDue(c, SETTLE_WITHDRAW_GAP)].filter((x) => x !== undefined) : []))
     const fp = await valueFingerprint(this.ctx)
     const held = rows.filter((h) => h.status === 'held')
-    let sum = 0n
-    let expired = 0n
-    let count = 0
+    const byUnit: Record<string, { held: bigint; count: number; expired: bigint }> = {}
     for (const h of held) {
       if (h.amount === undefined) continue
-      count++
-      if (h.expiresAt !== undefined && h.expiresAt <= now) expired += h.amount
-      else sum += h.amount
+      const unit = unitForToken(h.token) ?? 'loki'
+      const f = byUnit[unit] ?? { held: 0n, count: 0, expired: 0n }
+      f.count++
+      if (h.expiresAt !== undefined && h.expiresAt <= now) f.expired += h.amount
+      else f.held += h.amount
+      byUnit[unit] = f
     }
     this.snapshot = {
       holdings: held.map((h) => holdingView(h, now, lockedIds.has(h.id))),
-      balance: { held: sum, count, expired },
+      balance: byUnit,
       pendingJoins: joins.map((j) => ({ connectionPubkey: j.id, hubPubkey: j.hubPubkey, hubLabel: j.hubLabel, name: j.name, at: j.at, deadline: j.deadline, ...(j.needsUser !== undefined && { needsUser: j.needsUser }) })),
       pendingMerge: held.filter((h) => h.throwawayKey !== undefined).length,
       ...(this.storagePersisted !== undefined && { storagePersisted: this.storagePersisted }),

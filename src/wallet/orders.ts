@@ -33,6 +33,7 @@ import { prepareCall, finishCall, type PlainOutput } from './calls.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError, fromWalletError } from './errors.js'
 import { addHolding, appendActivity } from './ledger.js'
+import { unitForToken } from './views.js'
 import { endHolding, tombstoneStatus } from './billState.js'
 import type { CallCreated, OrderRecord, OrderRecordBill, PendingCall } from './model.js'
 import type { StorageTx } from './ports.js'
@@ -401,7 +402,7 @@ async function applyOrder(ctx: Ctx, t: StorageTx, call: PendingCall, order: Orde
     )
     byWallet.set(b.walletPubkey, h.id)
     created.push(h.id)
-    await appendActivity(t, ctx.now(), { action: 'receive', amount: b.amountMillis, holdingId: h.id, mode: h.mode })
+    await appendActivity(t, ctx.now(), { action: 'receive', amount: b.amountMillis, holdingId: h.id, mode: h.mode, unit: unitForToken(h.token) ?? 'loki' })
   }
   const record = recordOf(cur, order, ctx.nowSeconds(), byWallet, checks)
   await t.put('pendingCalls', { ...cur, order: record, state: 'open_order', version: cur.version + 1 }, cur.version)

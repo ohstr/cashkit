@@ -11,7 +11,7 @@ import { CashkitError, classifyReadError, notClaimableError } from './errors.js'
 import { goneError, tombstoneStatus } from './billState.js'
 import { addHolding, appendActivity, findByWallet, updateHolding } from './ledger.js'
 import type { ConnectionKeyBinding, Holding } from './model.js'
-import { holdingView, type HoldingView } from './views.js'
+import { holdingView, unitForToken, type HoldingView } from './views.js'
 
 /** What a token says about itself, read offline. Carries no secret. */
 export interface TokenReport {
@@ -171,7 +171,7 @@ export async function receive(ctx: Ctx, rawInput: string, o: ReceiveOptions = {}
       },
       { now: ctx.now(), random: ctx.random },
     )
-    await appendActivity(t, ctx.now(), { action: 'receive', amount: r.amountMillis, holdingId: h.id, mode: h.mode })
+    await appendActivity(t, ctx.now(), { action: 'receive', amount: r.amountMillis, holdingId: h.id, mode: h.mode, unit: unitForToken(h.token) ?? 'loki' })
     return h
   })
   let secured: Secured = { status: 'not_applicable' }
@@ -228,7 +228,7 @@ async function receiveUnreadable(ctx: Ctx, input: string, tok: Token, facts: Ret
       },
       { now: ctx.now(), random: ctx.random },
     )
-    await appendActivity(t, ctx.now(), { action: 'receive', amount, holdingId: h.id, mode: h.mode })
+    await appendActivity(t, ctx.now(), { action: 'receive', amount, holdingId: h.id, mode: h.mode, unit: unitForToken(h.token) ?? 'loki' })
     return h
   })
   return { received: true, holding: holdingView(holding, ctx.nowSeconds()), secured: { status: 'not_applicable' }, statusUnreadable: true }

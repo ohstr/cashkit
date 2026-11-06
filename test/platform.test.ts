@@ -55,7 +55,7 @@ describe('two tabs on one wallet', () => {
     await a.wallet.receive(a.bank.mintToPubkey(5000n, a.me).token)
     await tick()
     expect(b.state.holdings).toHaveLength(1)
-    expect(seen.at(-1)?.balance.held).toBe(5000n)
+    expect(seen.at(-1)?.balance.loki?.held).toBe(5000n)
     b.close()
   })
   test("another wallet's notices are ignored", async () => {

@@ -304,7 +304,7 @@ describe('normalizeHoldings (stores written before one holding per bill)', () =>
     await legacy(s, 'h-2', withUnknown(specToken), { addedAt: 2, amount: 5n })
     const h = await harness({ storage: s, deps: {} })
     expect((await h.wallet.holdings()).map((x) => x.id)).toEqual(['h-1'])
-    expect(h.wallet.state.balance).toMatchObject({ held: 5n, count: 1 })
+    expect(h.wallet.state.balance).toMatchObject({ sat: { held: 5n, count: 1 } })
     expect((await h.wallet.holdings({ includeSpent: true })).find((x) => x.id === 'h-2')?.status).toBe('duplicate')
     await expect(h.wallet.planRedeem({ holdings: ['h-2'] })).rejects.toBeInstanceOf(CashkitError)
     // The duplicate's secret stays exportable for recovery.

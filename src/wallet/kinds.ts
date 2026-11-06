@@ -28,6 +28,7 @@ import { prepareCall, type PlainAuthorizer, type PlainOutput } from './calls.js'
 import { billOf, tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
 import { addHandoff, addHolding, appendActivity, updateHolding } from './ledger.js'
+import { unitForToken } from './views.js'
 import type { CallCreated, CallOutput, Holding, PendingCall, Sealed } from './model.js'
 import type { StorageTx } from './ports.js'
 import { executeCall, registerCallKind, type CallKind } from './runner.js'
@@ -355,6 +356,7 @@ async function applyTransfer(ctx: Ctx, t: StorageTx, call: PendingCall, r: CashT
     ...(created.handoffId !== undefined && { handoffId: created.handoffId }),
     holdingIds: [src.id],
     ...(remainderId !== undefined && { remainderId }),
+    unit: unitForToken(src.token) ?? 'loki',
   })
   return created
 }
@@ -477,7 +479,7 @@ async function applyConsolidate(ctx: Ctx, t: StorageTx, call: PendingCall, r: Ca
     const row = await addHandoff(t, { kind: ho.isCash ? 'cash_note' : 'gift', handoff: ho.sealed, amount: r.amountMillis, target: p['display'] ?? '', walletPubkey: ho.wallet }, { now, random: ctx.random })
     created.handoffId = row.id
   }
-  await appendActivity(t, now, { action: 'consolidate', amount: r.amountMillis, from: [...call.sources], ...(created.holdingIds[0] !== undefined && { into: created.holdingIds[0] }) })
+  await appendActivity(t, now, { action: 'consolidate', amount: r.amountMillis, from: [...call.sources], ...(created.holdingIds[0] !== undefined && { into: created.holdingIds[0] }), unit: unitForToken(r.newWalletToken) ?? 'loki' })
   return created
 }
 

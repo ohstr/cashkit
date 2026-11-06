@@ -5,6 +5,7 @@ import { MemoryStorage } from '../src/adapters/storage-memory.js'
 import { NoneVault } from '../src/adapters/vault-none.js'
 import { PassphraseVault } from '../src/adapters/vault-passphrase.js'
 import { BACKUP_FORMAT, decodeRow, type BackupFile } from '../src/wallet/index.js'
+import { FakeBank } from './fakeBank.js'
 import { FakeNwcWallet, harness, type Harness } from './walletHarness.js'
 
 const LOGN = { logN: 4 }
@@ -39,6 +40,26 @@ describe('backup', () => {
     expect((await w.connections.list())[0]).toMatchObject({ name: 'main', isDefault: true })
     // The restored wallet can move the money: its keys and secrets are real.
     expect((await w.send({ amount: 3500n })).sent).toBe(3500n)
+  })
+  test('round-trips bills of more than one currency (no schema or format change)', async () => {
+    const vault = await PassphraseVault.create('device pw', LOGN)
+    const h = await harness({ deps: { vault } })
+    const sat = new FakeBank(h.pool, ['wss://satbank.test'], { seed: 0x33, hrp: 'satscash' })
+    await sat.start()
+    await h.wallet.receive(h.bank.mintToPubkey(5000n, h.me).token) // loki
+    await h.wallet.receive(sat.mintToPubkey(7000n, h.me).token) // sat
+    expect(new Set((await h.wallet.holdings()).map((x) => x.unit))).toEqual(new Set(['loki', 'sat']))
+    const text = await h.wallet.exportBackup('backup pw', LOGN)
+    // Still a v3 backup: the currency lives in each token's HRP, so nothing new is stored.
+    expect(decodeRow<BackupFile>(text)).toMatchObject({ format: BACKUP_FORMAT, version: 3 })
+    const fresh = await harness({ identity: false, pool: h.pool, bank: h.bank, deps: { vault: new NoneVault(), storage: new MemoryStorage() } })
+    const sum = await fresh.wallet.importBackup(text, 'backup pw')
+    expect(sum.holdings).toBe(2)
+    // Both currencies survive the round trip, each reported on its own (never summed).
+    expect(new Set((await fresh.wallet.holdings()).map((x) => x.unit))).toEqual(new Set(['loki', 'sat']))
+    const bal = await fresh.wallet.balance({ refresh: false })
+    expect(bal.holdings.loki?.held).toBe(5000n)
+    expect(bal.holdings.sat?.held).toBe(7000n)
   })
   test('the file holds no secret in the clear, and amounts as exact integers', async () => {
     const { h, nwc, cashSecret, note } = await loaded()

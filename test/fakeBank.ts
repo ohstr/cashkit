@@ -46,6 +46,8 @@ export interface BankOptions {
   readonly seed?: number
   /** Redeem fee per bill; default 0. */
   fee?: (amount: bigint) => bigint
+  /** The token HRP this Hub mints under (`lokicash` by default; `satscash` for a Bitcoin Hub). */
+  readonly hrp?: string
 }
 
 export class FakeBank {
@@ -53,6 +55,7 @@ export class FakeBank {
   readonly wallets = new Map<string, BankWallet>()
   readonly hubGroup: Uint8Array
   readonly redeemed: { walletPubkey: string; invoice: string; amount: bigint }[] = []
+  readonly hrp: string
   fee: (amount: bigint) => bigint
   /** Answers for one method, checked before the bank's own; return undefined to fall through. */
   override: ((method: string, info: RequestInfo) => Answer | undefined) | undefined
@@ -91,6 +94,7 @@ export class FakeBank {
   ) {
     this.hub = new FakeHub(pool, relays, o.seed ?? 0x0a)
     this.hubGroup = hubGroupFor(this.hub.inbox)
+    this.hrp = o.hrp ?? 'lokicash'
     this.fee = o.fee ?? (() => 0n)
     this.hub.handler = (method, info) => {
       const a = this.override?.(method, info) ?? this.handle(method, info)
@@ -111,7 +115,7 @@ export class FakeBank {
   mint(amount: bigint, to: Identity, o: { expiresAt?: number } = {}): BankWallet {
     const walletKey = nextKey()
     const connSecret = nextKey()
-    const token = this.hub.mintBill({ walletKey, connSecret, amount, hubGroup: this.hubGroup, identityRequired: to.type !== 'cash' })
+    const token = this.hub.mintBill({ walletKey, connSecret, amount, hubGroup: this.hubGroup, identityRequired: to.type !== 'cash', hrp: this.hrp })
     const w: BankWallet = {
       walletKey,
       walletPubkey: getPublicKey(walletKey),

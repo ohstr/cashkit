@@ -80,7 +80,7 @@ describe('receive (cmd/cash_receive.go)', () => {
     expect(respelled).not.toBe(w.token)
     expect((await err(h.wallet.receive(respelled)))?.code).toBe('conflict')
     expect(await h.wallet.holdings()).toHaveLength(1)
-    expect(h.wallet.state.balance.held).toBe(5n)
+    expect(h.wallet.state.balance.loki?.held).toBe(5n)
   })
   test('another bill is received beside a held one', async () => {
     await receivePubkey(5n)
@@ -456,8 +456,10 @@ describe('balance (cmd/wallet_balance_test.go)', () => {
     await h.wallet.send({ amount: 400n })
     const b = await h.wallet.balance()
     expect(b.wallets).toEqual([{ name: 'main', kind: 'nwc', balance: 7000n }])
-    expect(b.outstandingCashNotes).toEqual({ count: 1, amount: 400n })
-    expect(b.total).toBe(7000n + b.holdings.held)
+    expect(b.outstandingCashNotes).toEqual({ loki: { count: 1, amount: 400n } })
+    // Held cash is reported per currency now; the Lightning wallet's figure stays its own.
+    expect(b.holdings.loki?.held).toBe(1100n)
+    expect(b.wallets[0]?.balance).toBe(7000n)
   })
   test('an auth decline with a cached figure is stranded (strandedBalanceFallback)', async () => {
     const nwc = new FakeNwcWallet(h.pool)
@@ -532,7 +534,7 @@ describe('state and toJSON', () => {
     await new Promise((r) => setTimeout(r, 0))
     expect(states.length).toBeGreaterThan(0)
     expect(h.wallet.state.holdings).toHaveLength(1)
-    expect(h.wallet.state.balance).toEqual({ held: 700n, count: 1, expired: 0n })
+    expect(h.wallet.state.balance).toEqual({ loki: { held: 700n, count: 1, expired: 0n } })
     expect(toJSON(h.wallet.state)).not.toContain(t.secret)
   })
   test('toJSON writes snake_case keys and exact integers', () => {

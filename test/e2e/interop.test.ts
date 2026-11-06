@@ -103,8 +103,8 @@ describe.skipIf(dir === undefined)('interop with cashctl', () => {
       await new Promise((r) => setTimeout(r, 5000))
       report = await w.settle()
     }
-    write('kit-lost-pending.json', { lost: errCode(lost), settle: report, held: (await w.balance()).holdings.held })
+    write('kit-lost-pending.json', { lost: errCode(lost), settle: report, held: (await w.balance()).holdings.loki?.held ?? 0n })
     expect(report.open).toEqual([])
-    expect((await w.balance()).holdings.held).toBe(7_000n)
+    expect((await w.balance()).holdings.loki?.held ?? 0n).toBe(7_000n)
   }, 600_000)
 })

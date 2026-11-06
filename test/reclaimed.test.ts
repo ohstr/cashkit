@@ -27,12 +27,12 @@ describe('a slice its sender removed', () => {
   test('status() marks the holding reclaimed; it leaves the balance', async () => {
     const { w, holding } = await receivePubkey(5000n)
     await receivePubkey(1000n)
-    expect((await h.wallet.balance()).holdings.held).toBe(6000n)
+    expect((await h.wallet.balance()).holdings.loki?.held ?? 0n).toBe(6000n)
     w.removed = true
     const rep = await h.wallet.status()
     expect(rep.outcomes.find((o) => o.ok && o.holdingId === holding.id)).toMatchObject({ ok: true, state: 'spent', ends: 'reclaimed' })
     expect(await statusOf(holding.id)).toBe('reclaimed')
-    expect((await h.wallet.balance()).holdings).toMatchObject({ held: 1000n, count: 1 })
+    expect((await h.wallet.balance()).holdings.loki).toMatchObject({ held: 1000n, count: 1 })
   })
   test('a cash bill whose secret no longer finds a slice is reclaimed', async () => {
     const secret = '33'.repeat(32)
@@ -42,7 +42,7 @@ describe('a slice its sender removed', () => {
     w.removed = true
     await h.wallet.status()
     expect(await statusOf(r.holding.id)).toBe('reclaimed')
-    expect((await h.wallet.balance()).holdings.held).toBe(0n)
+    expect((await h.wallet.balance()).holdings.loki?.held ?? 0n).toBe(0n)
   })
   test('a redeem answered NOT_FOUND ends the holding reclaimed, not left pending', async () => {
     const { holding } = await receivePubkey(5000n)
@@ -73,7 +73,7 @@ describe('a tombstone ends a holding by its reason', () => {
     const rep = await h.wallet.status({ holdings: [holding.id] })
     expect(rep.outcomes[0]).toMatchObject({ ok: true, state: 'spent', ends: want })
     expect(await statusOf(holding.id)).toBe(want)
-    expect((await h.wallet.balance()).holdings.held).toBe(0n)
+    expect((await h.wallet.balance()).holdings.loki?.held ?? 0n).toBe(0n)
   })
   test('receiving a reclaimed bill is refused as gone, with the reason', async () => {
     const w = h.bank.mintToPubkey(5000n, h.me)

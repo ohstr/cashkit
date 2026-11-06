@@ -1032,14 +1032,19 @@ status(o?: { holdings?: string[]; scope?: 'mine' | 'all' }): Promise<Report<Stat
 
 ### 6.5 Balance
 
+A wallet can hold bills of more than one currency (`lokicash`/loki,
+`satscash`/sat); the two are never summed into one figure. Held cash and
+outstanding notes are reported per unit, keyed by the unit string:
+
 ```ts
 balance(o?: { refresh?: boolean }): Promise<Balance>
+interface HeldFigures { held: bigint; count: number; expired: bigint }
 interface Balance {
-  total: bigint                                   // wallets + unexpired held cash, as cashctl's
-  stranded: bigint                                // the part of total that is a stranded wallet's cached figure
   wallets: { name: string; kind: 'nwc' | 'circle'; balance?: bigint; stranded?: boolean; unreachable?: CashkitError }[]
-  holdings: { held: bigint; count: number; expired: bigint; pendingMerge: number }
-  outstandingCashNotes: bigint                    // handed out, unclaimed — shown, not counted
+  stranded: bigint                                // total of stranded Lightning wallets' cached figures (their own units)
+  holdings: Record<string, HeldFigures>           // held cash per currency unit — never summed across units
+  pendingMerge: number                            // bills moved for an unfinished merge (unit-agnostic)
+  outstandingCashNotes: Record<string, { count: number; amount: bigint }> // handed out, unclaimed, per unit — shown, not counted
 }
 ```
 

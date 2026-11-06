@@ -342,17 +342,20 @@ export class FakeHub {
     relays?: readonly string[]
     hubGroup?: Uint8Array
     identityRequired?: boolean
+    /** The token HRP to mint under (`lokicash` by default, `satscash` for a Bitcoin fixture Hub). */
+    hrp?: string
     /** Signs a zap bill (`cash-zap:v1`) instead of a mint one. */
     zap?: { recipient: string; sender: string; zapTarget: string; issuedAt: number; expiresAt: number }
   }): string {
     const wallet = getPublicKey(p.walletKey)
+    const hrp = p.hrp ?? 'lokicash'
     this.bills.set(wallet, getPublicKey(p.connSecret))
     if (p.zap !== undefined) {
-      return zapSignedToken({ hrp: 'lokicash', walletPubkey: wallet, secret: toHex(p.connSecret), relays: p.relays ?? this.relayUrls, amount: p.amount, ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }), identityRequired: true }, p.zap, this.nodeKey)
+      return zapSignedToken({ hrp, walletPubkey: wallet, secret: toHex(p.connSecret), relays: p.relays ?? this.relayUrls, amount: p.amount, ...(p.hubGroup !== undefined && { hubGroup: p.hubGroup }), identityRequired: true }, p.zap, this.nodeKey)
     }
     return signedToken(
       {
-        hrp: 'lokicash',
+        hrp,
         walletPubkey: wallet,
         secret: toHex(p.connSecret),
         relays: p.relays ?? this.relayUrls,

@@ -94,7 +94,7 @@ describe.skipIf(admin === undefined)('live hub: wallet engine', () => {
     const bob = await openWallet()
     const note = await bob.receive(sent.cashNote!)
     expect(note.received).toBe(true)
-    expect((await bob.balance()).holdings.held).toBe(SEND)
+    expect((await bob.balance()).holdings.loki?.held ?? 0n).toBe(SEND)
 
     // The Hub now reports the sender's note as claimed.
     const [handoff] = await alice.handoffs({ refresh: true })
@@ -103,7 +103,7 @@ describe.skipIf(admin === undefined)('live hub: wallet engine', () => {
     for (const w of [alice, bob]) {
       const r = await w.redeem({ all: true, into: 'hub' })
       expect(r.firstError).toBeUndefined()
-      expect((await w.balance()).holdings.held).toBe(0n)
+      expect((await w.balance()).holdings.loki?.held ?? 0n).toBe(0n)
     }
   }, 600_000)
 })

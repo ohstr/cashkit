@@ -210,7 +210,7 @@ describe('a duplicate row (one bill stored twice by an older version)', () => {
     await h.wallet.pocket.sync()
     const entry = (await h.wallet.pocket.entries()).find((e) => e.w === w.walletPubkey)
     expect(entry?.state).toBe('live')
-    expect(h.wallet.state.balance.held).toBe(5000n)
+    expect(h.wallet.state.balance.loki?.held).toBe(5000n)
   })
 })
 

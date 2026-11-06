@@ -103,10 +103,12 @@ export type HoldingOrigin = 'received' | 'minted' | 'split' | 'remainder' | 'con
 /** What a send was addressed to, in public form only (§4.2). */
 export type TargetDisplay = string
 
+// The amount-bearing rows carry the bill's currency unit (`loki`, `sat`); a
+// row written before multi-currency has none and reads as loki.
 export type ActivityDetail =
-  | { readonly action: 'receive'; readonly amount: bigint; readonly holdingId: string; readonly mode: HoldingMode }
+  | { readonly action: 'receive'; readonly amount: bigint; readonly holdingId: string; readonly mode: HoldingMode; readonly unit?: string }
   | { readonly action: 'protect'; readonly holdingId: string }
-  | { readonly action: 'redeem'; readonly amount: bigint; readonly feesPaid: bigint; readonly into: string; readonly holdingIds: readonly string[] }
+  | { readonly action: 'redeem'; readonly amount: bigint; readonly feesPaid: bigint; readonly into: string; readonly holdingIds: readonly string[]; readonly unit?: string }
   | {
       readonly action: 'send'
       readonly amount: bigint
@@ -114,11 +116,12 @@ export type ActivityDetail =
       readonly handoffId?: string
       readonly holdingIds: readonly string[]
       readonly remainderId?: string
+      readonly unit?: string
     }
-  | { readonly action: 'consolidate'; readonly amount: bigint; readonly from: readonly string[]; readonly into?: string }
+  | { readonly action: 'consolidate'; readonly amount: bigint; readonly from: readonly string[]; readonly into?: string; readonly unit?: string }
   | { readonly action: 'spent'; readonly holdingId: string }
-  | { readonly action: 'withdraw'; readonly amount: bigint; readonly holdingId: string }
-  | { readonly action: 'mint'; readonly amount: bigint; readonly to: TargetDisplay; readonly holdingId?: string; readonly handoffId?: string }
+  | { readonly action: 'withdraw'; readonly amount: bigint; readonly holdingId: string; readonly unit?: string }
+  | { readonly action: 'mint'; readonly amount: bigint; readonly to: TargetDisplay; readonly holdingId?: string; readonly handoffId?: string; readonly unit?: string }
   | { readonly action: 'join'; readonly circle: string; readonly connection: string }
 
 export type Activity = ActivityDetail & { readonly id: string; readonly at: number }
