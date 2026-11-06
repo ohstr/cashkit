@@ -7,13 +7,13 @@
 - Holds lokicash (loki) and satscash (sat) bills in one wallet, each bill's
   currency taken from its token HRP. Selection, consolidate and merge stay
   within one currency, amount send/redeem take a `unit` (inferred when only one
-  is held), and a wrong-network Lightning invoice is refused before any payment.
+  is held), and a wrong-network Lightning invoice is refused before any payment. (#53)
 
 ### Changed
 
 - BREAKING: balance is reported per currency. `Balance.holdings` and
   `WalletState.balance` are now keyed by unit (`loki`, `sat`) and the single
-  cross-currency `Balance.total` is gone; loki and sat are never summed.
+  cross-currency `Balance.total` is gone; loki and sat are never summed. (#53)
 
 ## [0.2.0-rc.3]
 
