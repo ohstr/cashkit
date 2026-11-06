@@ -8,8 +8,10 @@ import { DEFAULT_LIMITS, maxSourcesForEnvelope } from '../transport/index.js'
 import { hexBytes } from './bills.js'
 import type { PlainDestination } from './calls.js'
 import type { Ctx } from './context.js'
+import { CashkitError } from './errors.js'
 import { runConsolidate, type Keep } from './kinds.js'
 import type { Holding } from './model.js'
+import { unitForToken } from './views.js'
 
 /** The Hub's announced source cap, at least 2 (`hubConsolidateCap`). */
 export async function consolidateCap(ctx: Ctx, token: string): Promise<number> {
@@ -86,6 +88,9 @@ export async function consolidateInRounds(
   target: Target & { readonly secret?: string },
   o: { keep: Keep; maxSources: number; interimKey?: string; display?: string },
 ): Promise<MergeResult> {
+  // A merge never crosses currencies (callers enforce this; guarded here too).
+  const units = new Set(items.map((h) => unitForToken(h.token) ?? 'loki'))
+  if (units.size > 1) throw new CashkitError('invalid_input', `a merge never crosses currencies (${[...units].join(', ')}); nothing was changed`, { reason: 'mixed_units' })
   let max = Math.max(o.maxSources, 2)
   let cur = [...items]
   for (;;) {

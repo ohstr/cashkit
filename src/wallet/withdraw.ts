@@ -52,6 +52,7 @@ import { prepareCall, finishCall, type PlainOutput } from './calls.js'
 import { billOf, tokenFacts, type Ctx } from './context.js'
 import { CashkitError, codeForNwc, fromWalletError, statusUnreadableError } from './errors.js'
 import { addHolding, appendActivity, updateHolding } from './ledger.js'
+import { unitForToken } from './views.js'
 import type { CallCreated, Holding, PendingCall, WithdrawalRecord } from './model.js'
 import type { StorageTx } from './ports.js'
 import { executeCall, pocketHooks, registerCallKind, type CallKind } from './runner.js'
@@ -406,7 +407,7 @@ async function applyPayout(ctx: Ctx, t: StorageTx, call: PendingCall, p: Payout,
   const src = await t.get('holdings', call.sources[0]!)
   if (src !== undefined && src.status === 'held') {
     await updateHolding(t, src.id, (x) => ({ ...x, status: 'spent' }))
-    await appendActivity(t, ctx.now(), { action: 'withdraw', amount: p.amountMillis, holdingId: src.id })
+    await appendActivity(t, ctx.now(), { action: 'withdraw', amount: p.amountMillis, holdingId: src.id, unit: unitForToken(src.token) ?? 'loki' })
   }
   let txCheck = prev.txCheck
   if (p.tx !== undefined && p.txid !== undefined && p.vout !== undefined) {

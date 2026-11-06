@@ -290,7 +290,7 @@ export {
   type UnsignedEvent,
 } from './nip01.js'
 export { redact, sanitize } from './redact.js'
-export { formatAmount, formatMillis, MAX_AMOUNT_MILLIS, MILLIS_PER_UNIT, parseUnits, unitForHrp } from './units.js'
+export { formatAmount, formatMillis, hrpForInvoiceCurrency, MAX_AMOUNT_MILLIS, MILLIS_PER_UNIT, parseUnits, unitForHrp } from './units.js'
 export { NCRYPTSEC_HRP, nip49Decrypt, nip49Encrypt, type KeySecurity, type Nip49EncryptOptions } from './nip49.js'
 export * as nip04 from './nip04.js'
 export { derivedRequestId, isRequestId, newRequestId, REQUEST_ID_RE, requiresRequestId } from './requestId.js'

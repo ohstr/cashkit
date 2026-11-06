@@ -455,8 +455,9 @@ export function App() {
 }
 
 function Balance() {
-  const held = useWalletState((s) => s.balance.held)
-  return <p>{held.toString()} millis</p>
+  // Held cash is reported per currency; loki and sat are never summed together.
+  const loki = useWalletState((s) => s.balance.loki?.held ?? 0n)
+  return <p>{loki.toString()} loki</p>
 }
 
 function SendCash() {

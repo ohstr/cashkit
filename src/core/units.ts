@@ -16,6 +16,32 @@ export function unitForHrp(hrp: string): string | undefined {
 }
 
 /**
+ * A Lightning invoice's currency (the bolt11 HRP between `ln` and the amount,
+ * e.g. `bc`, `tb`, `bcrt`, `fc`) → the token HRP whose bills can pay it: every
+ * Bitcoin network is `satscash`, every Flokicoin network is `lokicash`. The
+ * currency encodes both the coin and its network; a redeem checks the coin.
+ * The prefixes are the same ones `get_info` reports for segwit addresses.
+ */
+const INVOICE_CURRENCY_HRP: Readonly<Record<string, string>> = {
+  bc: 'satscash',
+  tb: 'satscash',
+  bcrt: 'satscash',
+  fc: 'lokicash',
+  tf: 'lokicash',
+  fcrt: 'lokicash',
+}
+
+/**
+ * The token HRP a Lightning invoice of this currency must be paid from, or
+ * undefined for a currency this build has no row for. An unlisted currency is
+ * not assumed to match or mismatch any holding: only a listed one that names a
+ * different HRP is a wrong-network invoice.
+ */
+export function hrpForInvoiceCurrency(currency: string): string | undefined {
+  return Object.hasOwn(INVOICE_CURRENCY_HRP, currency) ? INVOICE_CURRENCY_HRP[currency] : undefined
+}
+
+/**
  * Formats millis as whole units plus up to three decimals, trailing zeros
  * dropped: 21000n → "21", 1500n → "1.5", 1n → "0.001".
  */

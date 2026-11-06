@@ -22,8 +22,10 @@ export class FakeNwcWallet {
   readonly seen: { method: string; params: Record<string, unknown> }[] = []
   invoiceSeq = 0x50
   balance = 0n
+  /** The bolt11 currency this wallet's invoices use (`fc` flokicoin by default; `bc`/`bcrt` for a Bitcoin wallet). */
+  invoiceCurrency = 'fc'
   handler: NwcHandler = (method, params) => {
-    if (method === 'make_invoice') return { result: { invoice: invoice(BigInt(params['amount'] as number), this.invoiceSeq++ & 0xff) } }
+    if (method === 'make_invoice') return { result: { invoice: invoice(BigInt(params['amount'] as number), this.invoiceSeq++ & 0xff, this.invoiceCurrency) } }
     if (method === 'get_balance') return { result: { balance: Number(this.balance) } }
     return { error: { code: 'NOT_IMPLEMENTED', message: method } }
   }

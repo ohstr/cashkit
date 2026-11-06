@@ -83,7 +83,7 @@ describe('state', () => {
     expect(result.current.holdings).toHaveLength(0)
     await act(async () => void (await h.wallet.receive(token)))
     expect(result.current.holdings).toHaveLength(1)
-    expect(result.current.balance.held).toBe(5000n)
+    expect(result.current.balance.loki?.held).toBe(5000n)
   })
   test('a selector keeps its value between renders of the same snapshot', async () => {
     const { h, token } = await withBill()
@@ -91,7 +91,7 @@ describe('state', () => {
     const { result, rerender } = renderHook(
       () => {
         renders++
-        return useWalletState((s) => ({ held: s.balance.held }))
+        return useWalletState((s) => ({ held: s.balance.loki?.held }))
       },
       { wrapper: wrap(h.wallet) },
     )
@@ -171,9 +171,9 @@ describe('queries', () => {
   test('useBalance follows the held total', async () => {
     const { h, token } = await withBill()
     const { result } = renderHook(() => useBalance(), { wrapper: wrap(h.wallet) })
-    await waitFor(() => expect(result.current.data?.total).toBe(0n))
+    await waitFor(() => expect(result.current.data?.holdings.loki?.held ?? 0n).toBe(0n))
     await act(async () => void (await h.wallet.receive(token)))
-    await waitFor(() => expect(result.current.data?.total).toBe(5000n))
+    await waitFor(() => expect(result.current.data?.holdings.loki?.held ?? 0n).toBe(5000n))
   })
 })
 

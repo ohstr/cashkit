@@ -10,7 +10,7 @@ import { consolidateCap, consolidateInRounds } from './merge.js'
 import type { Holding } from './model.js'
 import type { Report } from './report.js'
 import { groupableForConsolidation, groupByHub } from './select.js'
-import { selectable } from './send.js'
+import { selectable, unitOf } from './send.js'
 import { parseTarget } from './target.js'
 import { holdingView, type HoldingView } from './views.js'
 
@@ -44,6 +44,11 @@ async function consolidateGroup(ctx: Ctx, ids: readonly string[], to: string | u
   const group: Holding[] = []
   for (const id of ids) group.push((await liveAmount(ctx, await getHeld(ctx, id))).holding)
   if (group.length < 2) throw new CashkitError('usage', `consolidate needs at least 2 sources, got ${group.length}`)
+  // Bills of different currencies never merge: loki and sat keep apart even before the Hub check.
+  const units = new Set(group.map(unitOf))
+  if (units.size > 1) {
+    throw new CashkitError('invalid_input', `these bills are in different currencies (${[...units].join(', ')}); a consolidation only merges bills of one currency. Nothing was changed`, { input: ids.join(',') })
+  }
   // Bills of different Cash Hubs never merge; known only from their hub groups, so checked locally.
   if (new Set(group.map((h) => h.hubGroup).filter((g) => g !== '')).size > 1) throw crossHub(ids)
   // Ordered bills never merge with others: the Hub refuses the mix, so it is refused here first.

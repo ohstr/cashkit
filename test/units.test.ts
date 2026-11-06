@@ -1,13 +1,21 @@
 // Cases from cashctl internal/output/output_test.go (TestFormatAmount,
 // TestParseAmount*), which is what cashkit's amount handling must match.
 import { describe, expect, test } from 'vitest'
-import { formatAmount, formatMillis, MAX_AMOUNT_MILLIS, parseUnits, unitForHrp } from '../src/core/index.js'
+import { formatAmount, formatMillis, hrpForInvoiceCurrency, MAX_AMOUNT_MILLIS, parseUnits, unitForHrp } from '../src/core/index.js'
 
 test('display unit comes from the HRP', () => {
   expect(unitForHrp('lokicash')).toBe('loki')
   expect(unitForHrp('satscash')).toBe('sat')
   expect(unitForHrp('xyzcash')).toBeUndefined()
   expect(unitForHrp('toString')).toBeUndefined()
+})
+
+test('a Lightning invoice currency maps to the token HRP it must be paid from', () => {
+  for (const c of ['bc', 'tb', 'bcrt']) expect(hrpForInvoiceCurrency(c)).toBe('satscash')
+  for (const c of ['fc', 'tf', 'fcrt']) expect(hrpForInvoiceCurrency(c)).toBe('lokicash')
+  // A currency this build has no row for is neither matched nor refused.
+  expect(hrpForInvoiceCurrency('ltc')).toBeUndefined()
+  expect(hrpForInvoiceCurrency('toString')).toBeUndefined()
 })
 
 describe('formatAmount (TestFormatAmount)', () => {

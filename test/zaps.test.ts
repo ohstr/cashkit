@@ -126,7 +126,7 @@ describe('wallet.zaps', () => {
     expect(await failure(bob.wallet.zaps.claim(ev!))).toMatchObject({ code: 'conflict' })
     const held = (await bob.storage.tx('r', (t) => t.list('holdings'))).filter((h) => h.status === 'held')
     expect(held.map((h) => h.amount)).toEqual([21_000n])
-    expect(bob.wallet.state.balance.held).toBe(21_000n)
+    expect(bob.wallet.state.balance.loki?.held).toBe(21_000n)
   })
   test('a profile zap is valid but never counted', async () => {
     const { alice, bob } = await pair()

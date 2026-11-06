@@ -25,6 +25,7 @@ import { lockedHoldings } from './bills.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
 import { addHolding, appendActivity, heldHoldings } from './ledger.js'
+import { unitForToken } from './views.js'
 import { runTransfer, setZapPublisher } from './kinds.js'
 import { DEFAULT_SETTINGS, type Holding, type PendingCall } from './model.js'
 import { parseTarget } from './target.js'
@@ -307,7 +308,7 @@ export async function claimZap(ctx: Ctx, ev: NostrEvent, opts: { relays?: readon
       },
       { now: ctx.now(), random: ctx.random },
     )
-    await appendActivity(t, ctx.now(), { action: 'receive', amount: v.tags!.amountMillis, holdingId: h.id, mode: 'pubkey' })
+    await appendActivity(t, ctx.now(), { action: 'receive', amount: v.tags!.amountMillis, holdingId: h.id, mode: 'pubkey', unit: unitForToken(h.token) ?? 'loki' })
     return h
   })
 }

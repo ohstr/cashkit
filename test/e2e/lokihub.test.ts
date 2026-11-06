@@ -125,7 +125,7 @@ describe.skipIf(admin === undefined)('lokihub: cashhub1 mint and lost replies', 
     const report = await settleAll(w)
     expect(report.open).toEqual([])
     expect(report.applied.length).toBeGreaterThanOrEqual(1)
-    expect((await w.balance()).holdings.held).toBe(12_000n)
+    expect((await w.balance()).holdings.loki?.held ?? 0n).toBe(12_000n)
   }, 600_000)
 
   test('a transfer whose reply was lost is settled: the remainder is held, nothing twice', async () => {
@@ -139,7 +139,7 @@ describe.skipIf(admin === undefined)('lokihub: cashhub1 mint and lost replies', 
     const w = await openWallet({ storage, vault }, false)
     const report = await settleAll(w)
     expect(report.open).toEqual([])
-    expect((await w.balance()).holdings.held).toBe(25_000n)
+    expect((await w.balance()).holdings.loki?.held ?? 0n).toBe(25_000n)
     const [handoff] = await w.handoffs({ includeSecrets: true })
     expect(handoff).toBeDefined()
   }, 600_000)
@@ -176,7 +176,7 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: orders paid by the p
     await until('order finished', async () => (await w.orders.refresh(o.id)).finished)
     const done = await w.orders.get(o.id)
     expect(done.bills).toHaveLength(1)
-    expect((await w.balance()).holdings.held).toBe(5_000n)
+    expect((await w.balance()).holdings.loki?.held ?? 0n).toBe(5_000n)
   }, 300_000)
 
   test('an order whose reply was lost is found by settle(), then minted once after payment', async () => {
@@ -202,7 +202,7 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: orders paid by the p
     expect((await hooks.payInvoice(o!.invoice!)).status).toBe('SUCCEEDED')
     await until('order finished', async () => (await w.orders.refresh(o!.id)).finished)
     expect((await w.orders.get(o!.id)).bills).toHaveLength(1)
-    expect((await w.balance()).holdings.held).toBe(6_000n)
+    expect((await w.balance()).holdings.loki?.held ?? 0n).toBe(6_000n)
   }, 600_000)
 
   test('an on-chain order is minted after one confirmation', async () => {
@@ -302,7 +302,7 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: on-chain withdrawals
     const v = all[0]!
     expect(v.id).toBe((lost as CashkitError).pendingCallId)
     expect(['accepted', 'broadcast', 'confirmed', 'final']).toContain(v.phase)
-    expect((await w.balance()).holdings.held).toBe(0n)
+    expect((await w.balance()).holdings.loki?.held ?? 0n).toBe(0n)
     await until('payout final', async () => (await w.withdraw.refresh(v.id)).state === 'final', { mine: true, tries: 40 })
   }, 900_000)
 
@@ -312,7 +312,7 @@ describe.skipIf(admin === undefined || !hasHooks)('lokihub: on-chain withdrawals
     const c = await w.withdraw.cancel(sent.id).catch((e: unknown) => e)
     if (c instanceof Error) ctx.skip() // already broadcast: the race is the Hub's to win
     await until('cancelled', async () => (await w.withdraw.refresh(sent.id)).state === 'cancelled', { mine: true, tries: 40 })
-    await until('re-minted bill held', async () => (await w.balance({ refresh: true })).holdings.held > 0n, { mine: true, tries: 20 })
+    await until('re-minted bill held', async () => ((await w.balance({ refresh: true })).holdings.loki?.held ?? 0n) > 0n, { mine: true, tries: 20 })
   }, 900_000)
 })
 
@@ -348,7 +348,7 @@ describe.skipIf(admin === undefined || relayUrl === undefined)('lokihub: zaps, p
     expect(event).toBeDefined()
     const held = await bob.zaps.claim(event!, { relays: [relayUrl!] })
     expect(held.amount).toBe(10_000n)
-    expect((await bob.balance()).holdings.held).toBe(10_000n)
+    expect((await bob.balance()).holdings.loki?.held ?? 0n).toBe(10_000n)
     expect((await bob.zaps.list({ relays: [relayUrl!] })).find((z) => z.id === zap.id)?.status).toBe('claimed')
   }, 300_000)
 
@@ -363,7 +363,7 @@ describe.skipIf(admin === undefined || relayUrl === undefined)('lokihub: zaps, p
       const r = await b.pocket.sync()
       return r.imported.length > 0
     })
-    expect((await b.balance()).holdings.held).toBe(9_000n)
+    expect((await b.balance()).holdings.loki?.held ?? 0n).toBe(9_000n)
   }, 300_000)
 
   test('a listed circle is found, tapped and joined', async (ctx) => {

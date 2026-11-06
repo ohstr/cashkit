@@ -2,7 +2,7 @@
 // runCashRedeem, resolveHeldTokensForRedeem, selectHeldTokensForRedeemAmount,
 // invoiceAmountOverride and makeRedeemInvoices, and cmd/redeem_private.go
 // redeemHubGroup, retryWithPendingSecrets and applyRedeemResults.
-import { decodeBolt11, redeemInvoiceMillis, type CashRedeemResult } from '../core/index.js'
+import { decodeBolt11, decodeToken, formatAmount, hrpForInvoiceCurrency, redeemInvoiceMillis, unitForHrp, type CashRedeemResult } from '../core/index.js'
 import { NotServedError, NwcClient, WalletError, type BatchRedeem } from '../client/index.js'
 import { validateRequestedAmount } from './amounts.js'
 import { getHeld, getHolding, lockedHoldings, requireUnlocked } from './bills.js'
@@ -14,7 +14,34 @@ import { endHolding, goneError, markGone, notFoundByEntryKey, tombstoneStatus, t
 import type { Connection, Holding } from './model.js'
 import { report, type Outcome, type Report } from './report.js'
 import { exactSameHubSum } from './select.js'
+import { pickUnit, unitOf } from './send.js'
 import { byNode, quoteMany, statusByNode } from './status.js'
+import { unitForToken } from './views.js'
+
+const hrpOf = (token: string): string | undefined => {
+  try {
+    return decodeToken(token).hrp
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Refuses a Lightning invoice whose currency names a different coin than the
+ * bill being redeemed into it (a loki bill paying a `bc` invoice, say). A
+ * currency this build has no row for is let through — the Hub still checks it.
+ */
+function wrongNetwork(invoiceCurrency: string, holdingToken: string, holdingId: string): CashkitError | undefined {
+  const want = hrpForInvoiceCurrency(invoiceCurrency)
+  const have = hrpOf(holdingToken)
+  if (want === undefined || have === undefined || want === have) return undefined
+  const wantUnit = unitForHrp(want) ?? want
+  const haveUnit = unitForHrp(have) ?? have
+  return new CashkitError('invalid_input', `this is a ${invoiceCurrency} (${wantUnit}) invoice, but the bill is ${haveUnit}: paying one currency's bill into another currency's invoice is refused. Nothing was paid`, {
+    input: holdingId,
+    reason: 'wrong_network',
+  })
+}
 
 export interface RedeemInput {
   /** Exactly this much, net: one holding or a same-hub subset that sums to it. */
@@ -25,6 +52,8 @@ export interface RedeemInput {
   readonly into?: string
   /** Redeem one holding straight into this invoice instead. */
   readonly invoice?: string
+  /** Which currency to redeem (`loki`, `sat`) with an amount: required only when the wallet holds more than one. */
+  readonly unit?: string
 }
 
 export interface RedeemPlanItem {
@@ -73,9 +102,10 @@ async function freeHeld(ctx: Ctx): Promise<Holding[]> {
   return free
 }
 
-async function selectByAmount(ctx: Ctx, target: bigint): Promise<Holding[]> {
-  const held = (await freeHeld(ctx)).filter((h) => h.amount !== undefined)
-  if (held.length === 0) throw noneHeld()
+async function selectByAmount(ctx: Ctx, target: bigint, unit: string): Promise<Holding[]> {
+  // One currency only: a net sum never mixes loki and sat tokens.
+  const held = (await freeHeld(ctx)).filter((h) => h.amount !== undefined && unitOf(h) === unit)
+  if (held.length === 0) throw new CashkitError('not_found', `you have no held ${unit} cash tokens to redeem`, { input: unit })
   const quotes = await quoteMany(ctx, held)
   const quoted: { holding: Holding; hubGroup: string; net: bigint }[] = []
   let totalNet = 0n
@@ -88,8 +118,8 @@ async function selectByAmount(ctx: Ctx, target: bigint): Promise<Holding[]> {
   }
   const subset = exactSameHubSum(quoted, target)
   if (subset !== undefined) return subset.map((q) => q.holding)
-  if (totalNet < target) throw new CashkitError('invalid_input', `not enough funds: you hold ${totalNet} millis net redeemable, need ${target} millis`)
-  throw new CashkitError('usage', `funds are fragmented across separate Hubs: you hold ${totalNet} millis total, but no single Hub's tokens sum to exactly the ${target} millis you're redeeming`)
+  if (totalNet < target) throw new CashkitError('invalid_input', `not enough funds: you hold ${formatAmount(totalNet, unit)} net redeemable, need ${formatAmount(target, unit)}`)
+  throw new CashkitError('usage', `funds are fragmented across separate Hubs: you hold ${formatAmount(totalNet, unit)} total, but no single Hub's tokens sum to exactly the ${formatAmount(target, unit)} you're redeeming`)
 }
 
 async function destinationConnection(ctx: Ctx, into: string | undefined): Promise<Connection> {
@@ -110,9 +140,10 @@ export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> 
   let invoiceAmount: bigint | undefined
   let fixed = 0n
   let payee: string | undefined
+  let invoiceCurrency: string | undefined
   if (o.invoice !== undefined) {
     try {
-      ;({ amountMillis: fixed, payee } = decodeBolt11(o.invoice))
+      ;({ amountMillis: fixed, payee, currency: invoiceCurrency } = decodeBolt11(o.invoice))
     } catch (err) {
       throw new CashkitError('invalid_input', (err as Error).message, { input: o.invoice, cause: err })
     }
@@ -128,13 +159,17 @@ export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> 
   let selected: Holding[]
   if (o.amount !== undefined && o.invoice === undefined) {
     if (o.holdings !== undefined || o.all === true) throw new CashkitError('usage', 'got amount with holdings/all: pass one or the other')
-    selected = await selectByAmount(ctx, o.amount)
+    const unit = pickUnit((await freeHeld(ctx)).filter((h) => h.amount !== undefined), o.unit, 'redeem')
+    selected = await selectByAmount(ctx, o.amount, unit)
   } else if (o.holdings !== undefined) {
     if (o.holdings.length === 0) throw new CashkitError('usage', 'holdings was given no ids')
     if (new Set(o.holdings).size !== o.holdings.length) throw new CashkitError('usage', 'a holding was named more than once')
     await requireUnlocked(ctx, o.holdings)
     selected = []
     for (const id of o.holdings) selected.push(await getHeld(ctx, id))
+    // Named holdings must be one currency: a redeem never pools loki and sat.
+    const units = new Set(selected.map(unitOf))
+    if (units.size > 1) throw new CashkitError('invalid_input', `these holdings are in different currencies (${[...units].join(', ')}); a redeem never mixes units. Redeem each currency on its own`, { reason: 'mixed_units', input: o.holdings.join(',') })
   } else {
     const held = await freeHeld(ctx)
     if (held.length === 0) throw noneHeld()
@@ -143,6 +178,13 @@ export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> 
   }
   if (o.invoice !== undefined && selected.length > 1) {
     throw new CashkitError('usage', `an invoice is payable once, but ${selected.length} tokens were selected: drop invoice to have them paid into a wallet, or redeem them one at a time`)
+  }
+  // A supplied invoice must match the bill's coin: refuse a wrong-network one before anything is paid.
+  if (invoiceCurrency !== undefined) {
+    for (const h of selected) {
+      const bad = wrongNetwork(invoiceCurrency, h.token, h.id)
+      if (bad !== undefined) throw bad
+    }
   }
   const destination: RedeemPlan['destination'] =
     o.invoice !== undefined ? { kind: 'invoice', invoice: o.invoice, ...(invoiceAmount !== undefined && { amount: invoiceAmount }) } : { kind: 'connection', name: (await destinationConnection(ctx, o.into)).id }
@@ -162,7 +204,7 @@ export async function planRedeem(ctx: Ctx, o: RedeemInput): Promise<RedeemPlan> 
     if (o.invoice !== undefined && asked !== want.millis) {
       refused.push({
         holdingId: h.id,
-        error: new CashkitError('invalid_input', `this invoice asks for ${asked} millis, but this bill redeems ${want.millis} millis into it${want.sameNode ? ' (a payment on its own node, fee-free)' : ' (after its redeem fee)'}`, { input: h.id, reason: 'invoice_amount' }),
+        error: new CashkitError('invalid_input', `this invoice asks for ${formatAmount(asked ?? 0n, unitOf(h))}, but this bill redeems ${formatAmount(want.millis, unitOf(h))} into it${want.sameNode ? ' (a payment on its own node, fee-free)' : ' (after its redeem fee)'}`, { input: h.id, reason: 'invoice_amount' }),
       })
       continue
     }
@@ -243,13 +285,16 @@ async function makeInvoice(nwc: NwcClient, amount: bigint): Promise<string> {
  */
 async function redeemInvoice(nwc: NwcClient, l: { readonly item: RedeemPlanItem; readonly holding: Holding }): Promise<string> {
   const first = await makeInvoice(nwc, l.item.net)
-  let payee: string | undefined
+  let decoded
   try {
-    payee = decodeBolt11(first).payee
+    decoded = decodeBolt11(first)
   } catch {
     return first
   }
-  const want = redeemInvoiceMillis({ amount_millis: l.item.amount, net_redeemable_millis: l.item.net }, payee, l.holding.minterXonly ?? l.holding.minterPubkey)
+  // The wallet answered with an invoice of its own coin: refuse redeeming a bill of another coin into it.
+  const bad = wrongNetwork(decoded.currency, l.holding.token, l.holding.id)
+  if (bad !== undefined) throw bad
+  const want = redeemInvoiceMillis({ amount_millis: l.item.amount, net_redeemable_millis: l.item.net }, decoded.payee, l.holding.minterXonly ?? l.holding.minterPubkey)
   return want.sameNode && want.millis !== l.item.net ? makeInvoice(nwc, want.millis) : first
 }
 
@@ -297,14 +342,14 @@ async function placeRedeems(ctx: Ctx, group: readonly Ready[], invoiceAmount: bi
  */
 async function redeemGroup(ctx: Ctx, group: readonly Ready[], into: string, invoiceAmount: bigint | undefined, freshInvoice: ((r: Ready) => Promise<string>) | undefined): Promise<Outcome<RedeemOutcome>[]> {
   const out: Outcome<RedeemOutcome>[] = []
-  const done: { id: string; amount: bigint; value: CashRedeemResult; invoice: string }[] = []
+  const done: { id: string; amount: bigint; value: CashRedeemResult; invoice: string; token: string }[] = []
   const unclear: { r: Ready; error: CashkitError }[] = []
   let pending = [...group]
   for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
     const retry: Ready[] = []
     for (const p of await placeRedeems(ctx, pending, invoiceAmount)) {
       const id = p.r.holding.id
-      if (p.kind === 'done') done.push({ id, amount: p.r.holding.amount ?? p.r.item.amount, value: p.value, invoice: p.r.invoice })
+      if (p.kind === 'done') done.push({ id, amount: p.r.holding.amount ?? p.r.item.amount, value: p.value, invoice: p.r.invoice, token: p.r.holding.token })
       else if (p.kind === 'gone') {
         await markGone(ctx, id, p.ends)
         out.push({ ok: false, error: goneError(p.ends, id), holdingIds: [id] })
@@ -326,7 +371,7 @@ async function redeemGroup(ctx: Ctx, group: readonly Ready[], into: string, invo
     await ctx.commit(async (t) => {
       for (const d of done) {
         await updateHolding(t, d.id, (x) => ({ ...x, status: 'redeemed' }))
-        await appendActivity(t, ctx.now(), { action: 'redeem', amount: d.amount, feesPaid: d.value.feesPaid, into, holdingIds: [d.id] })
+        await appendActivity(t, ctx.now(), { action: 'redeem', amount: d.amount, feesPaid: d.value.feesPaid, into, holdingIds: [d.id], unit: unitForToken(d.token) ?? 'loki' })
       }
     })
   } catch (err) {
@@ -433,7 +478,7 @@ export async function settleRedeeming(ctx: Ctx): Promise<RedeemingReport> {
         return (presumedNow && r !== undefined ? { ...rest, status, redeem: { ...r, presumedAt: now } } : { ...rest, status }) as Holding
       })
       if (status === 'spent' || status === 'expired' || status === 'reclaimed') await appendActivity(t, ctx.now(), { action: 'spent', holdingId: h.id })
-      if (status === 'redeemed') await appendActivity(t, ctx.now(), { action: 'redeem', amount: h.amount ?? 0n, feesPaid: 0n, into: info?.into ?? 'invoice', holdingIds: [h.id] })
+      if (status === 'redeemed') await appendActivity(t, ctx.now(), { action: 'redeem', amount: h.amount ?? 0n, feesPaid: 0n, into: info?.into ?? 'invoice', holdingIds: [h.id], unit: unitForToken(h.token) ?? 'loki' })
     })
     ;(status === 'held' ? rep.released : status === 'redeemed' ? rep.redeemed : rep.spent).push(h.id)
   }

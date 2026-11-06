@@ -8,6 +8,7 @@ import {
   FundsFragmentedError,
   groupableForConsolidation,
   InsufficientFundsError,
+  MixedUnitsError,
   selectForAmount,
   sumAmounts,
   type Selectable,
@@ -120,6 +121,13 @@ describe('selectForAmount', () => {
     const p = selectForAmount([h('1', 400), h('2', 900)], 500n)
     expect(p.kind === 'single' && p.holding.id).toBe('2')
     expect(p.split).toBe(true)
+  })
+  test('selection refuses to cross currencies', () => {
+    const loki = h('loki-1', 5000, hubA, { unit: 'loki' })
+    const sat = h('sat-1', 5000, hubB, { unit: 'sat' })
+    expect(() => selectForAmount([loki, sat], 5000n)).toThrow(MixedUnitsError)
+    // One currency at a time is fine, even if a same-amount bill of the other exists.
+    expect(selectForAmount([loki], 5000n).kind).toBe('single')
   })
 })
 

@@ -20,6 +20,7 @@ import { prepareCall, type PlainOutput } from './calls.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
 import { addHandoff, addHolding, appendActivity } from './ledger.js'
+import { unitForToken } from './views.js'
 import type { CallCreated, CallOutput, Connection, PendingCall, Sealed } from './model.js'
 import type { StorageTx } from './ports.js'
 import { executeCall, registerCallKind, type CallKind } from './runner.js'
@@ -303,7 +304,7 @@ async function applyMint(ctx: Ctx, t: StorageTx, call: PendingCall, r: MintCashR
   const display = call.params?.['display'] ?? ''
   if (ho !== undefined) {
     const row = await addHandoff(t, { kind: ho.isCash ? 'cash_note' : 'gift', handoff: ho.sealed, amount: call.amount, target: display, walletPubkey: r.walletPubkey, ...(r.expiresAt !== undefined && { expiresAt: r.expiresAt }) }, { now, random: ctx.random })
-    await appendActivity(t, now, { action: 'mint', amount: call.amount, to: display, handoffId: row.id })
+    await appendActivity(t, now, { action: 'mint', amount: call.amount, to: display, handoffId: row.id, unit: unitForToken(r.cashToken) ?? 'loki' })
     return { handoffId: row.id }
   }
   const f = tokenFacts(r.cashToken)
@@ -327,7 +328,7 @@ async function applyMint(ctx: Ctx, t: StorageTx, call: PendingCall, r: MintCashR
     },
     { now, random: ctx.random },
   )
-  await appendActivity(t, now, { action: 'mint', amount: call.amount, to: display, holdingId: h.id })
+  await appendActivity(t, now, { action: 'mint', amount: call.amount, to: display, holdingId: h.id, unit: unitForToken(h.token) ?? 'loki' })
   return { holdingIds: [h.id] }
 }
 

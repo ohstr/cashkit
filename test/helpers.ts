@@ -41,11 +41,11 @@ export const BASE: RawTLV[] = [
  * payment_hash field. With no amount the invoice is amount-less; millis
  * are written in pico units.
  */
-export function invoice(amountMillis?: bigint, hashByte = 0x42): string {
+export function invoice(amountMillis?: bigint, hashByte = 0x42, currency = 'fc'): string {
   const hash = toWords(fill(hashByte, 32))
   const words = Uint8Array.from([...fill(0, 7), 1, hash.length >> 5, hash.length & 31, ...hash, ...fill(0, 104)])
   const amount = amountMillis === undefined ? '' : `${amountMillis * 10n}p`
-  return bech32Encode(`lnfc${amount}`, words)
+  return bech32Encode(`ln${currency}${amount}`, words)
 }
 
 /** A big-endian number as `n` 5-bit words. */

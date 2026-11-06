@@ -5,6 +5,8 @@
 /** What selection reads from a holding. */
 export interface Selectable {
   readonly id: string
+  /** The currency unit (`loki`, `sat`), from the token HRP. Selection never crosses units. */
+  readonly unit?: string
   readonly amount?: bigint
   /** Hex hub-group fingerprint, "" when the token carries none. */
   readonly hubGroup: string
@@ -41,6 +43,14 @@ export class FundsFragmentedError extends Error {
     readonly target: bigint,
   ) {
     super(`funds are fragmented across separate Hubs: you hold ${totalHeld} millis total, but no single Hub's bills sum to the ${target} millis wanted`)
+  }
+}
+
+/** Selection was asked to mix currencies (loki and sat): the caller must pick one unit first. */
+export class MixedUnitsError extends Error {
+  override readonly name = 'MixedUnitsError'
+  constructor(readonly units: readonly string[]) {
+    super(`these bills are in different currencies (${units.join(', ')}); selection never mixes units`)
   }
 }
 
@@ -109,6 +119,9 @@ const sortedKeys = (m: Map<string, unknown>) => [...m.keys()].sort()
  * FundsFragmentedError.
  */
 export function selectForAmount<H extends Selectable>(held: readonly H[], target: bigint): SelectionPlan<H> {
+  // One currency at a time (I): loki and sat are never summed or swapped for each other.
+  const units = [...new Set(held.flatMap((h) => (h.amount !== undefined && h.unit !== undefined ? [h.unit] : [])))]
+  if (units.length > 1) throw new MixedUnitsError(units)
   let bestFit: H | undefined
   for (const h of held) {
     if (h.amount === undefined) continue
