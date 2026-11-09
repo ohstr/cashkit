@@ -7,17 +7,17 @@
 - Keeps a claimed Cash Zap's `9522` id on its held bill's Cash Pocket entry
   (`source`), and on import re-fetches that `9522` to recover the minter and
   Cash Zap fields a `zap_v1` token needs, so a restored zap bill is spendable
-  on a second device instead of stuck with no identifiable Hub. (#N)
+  on a second device instead of stuck with no identifiable Hub. (#56)
 - Reads the Cash Pocket's highest seen rev before `afterCall` rewrites a bill
   returned by an in-place transfer (which keeps its `w`), so a concurrent
-  higher-rev `live` another device republished no longer masks the write. (#N)
+  higher-rev `live` another device republished no longer masks the write. (#56)
 - Reports a `cash_status` timeout during a zap claim (rule 9) as a retryable
   read error rather than `spent`, reserving `spent` for an explicit tombstone,
   so a transient Hub timeout no longer makes a still-claimable zap look gone
-  (NIP-CZ §Receiving: a timeout MUST NOT be reported as spent). (#N)
+  (NIP-CZ §Receiving: a timeout MUST NOT be reported as spent). (#56)
 - Refuses an email or DNS user id that is not valid UTF-8 (a lone surrogate)
   before canonicalizing it, matching nmilat's `utf8.ValidString` guard, so the
-  two clients accept and refuse the same inputs. (#N)
+  two clients accept and refuse the same inputs. (#56)
 
 ## [0.2.0-rc.5]
 
