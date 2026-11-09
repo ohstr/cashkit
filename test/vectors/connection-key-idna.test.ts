@@ -69,8 +69,18 @@ describe('canonical user ids at their edges (§Canonical Platform User IDs)', ()
     ['dns', long],
     ['email', `a@${long}`],
     ['dns', '@example.com'],
+    // CASHKIT-0013: invalid UTF-8 (a lone surrogate) is refused before canonicalizing, matching
+    // nmilat's utf8.ValidString guard; the local part's NFC-stability check alone lets it through.
+    ['email', '\uD800@x.example'],
+    ['email', 'a\uDC00b@x.example'],
+    ['dns', '\uD800.example'],
   ])('%s %j is refused, never repaired', (platform, input) => {
     expect(() => canonicalUserId(platform, input)).toThrow(NOT_CANONICAL)
+  })
+  test('a lone-surrogate email local part derives no ConnectionKey (CASHKIT-0013)', () => {
+    expect(() => connectionKeyFromTyped('email', '\uD800@x.example')).toThrow(NOT_CANONICAL)
+    expect('\uD800'.normalize('NFC')).toBe('\uD800') // the surrogate survives NFC, so only the UTF-8 guard refuses it
+    expect(connectionKeyFromTyped('email', 'alice@x.example')).toMatch(/^[0-9a-f]{64}$/) // a well-formed address still derives a key
   })
   test.each([
     ['email', ' Alice@Example.COM ', 'alice@example.com'],
