@@ -15,6 +15,13 @@
   `WalletState.balance` are now keyed by unit (`loki`, `sat`) and the single
   cross-currency `Balance.total` is gone; loki and sat are never summed. (#53)
 
+### Fixed
+
+- Reads the scrypt `r` and `p` from a backup's `kdf` on import instead of
+  assuming `8`/`1`, so a backup written with non-default parameters restores
+  correctly and matches other clients that read them. `exportBackup` also takes
+  optional `r`/`p`. ([#55](https://github.com/ohstr/cashkit/pull/55))
+
 ## [0.2.0-rc.3]
 
 - Records an ordered bill at the amount its mint signature attests (and
