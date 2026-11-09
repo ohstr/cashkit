@@ -56,7 +56,7 @@ export interface BackupFile {
   readonly walletId: string
   /** Unix seconds. */
   readonly createdAt: number
-  readonly kdf: { readonly name: 'scrypt'; readonly logN: number; readonly r: 8; readonly p: 1; readonly salt: string }
+  readonly kdf: { readonly name: 'scrypt'; readonly logN: number; readonly r: number; readonly p: number; readonly salt: string }
   /** A known text sealed under the key: tells a wrong passphrase from a damaged file. */
   readonly check: string
   /**
@@ -74,9 +74,13 @@ function collectionsDigest(collections: Partial<Record<Collection, unknown[]>>):
   return sha256(utf8(encodeRow(collections)))
 }
 
-function deriveKey(passphrase: string, salt: Uint8Array, logN: number): Uint8Array {
+function deriveKey(passphrase: string, salt: Uint8Array, logN: number, r: number, p: number): Uint8Array {
   if (!Number.isInteger(logN) || logN < 1 || logN > 22) throw new CashkitError('invalid_input', 'backup: logN out of range')
-  return scrypt(utf8(passphrase.normalize('NFKC')), salt, { N: 2 ** logN, r: 8, p: 1, dkLen: 32, maxmem: 2 ** (logN + 11) })
+  if (!Number.isInteger(r) || r < 1 || r > 32) throw new CashkitError('invalid_input', 'backup: scrypt r out of range')
+  if (!Number.isInteger(p) || p < 1 || p > 16) throw new CashkitError('invalid_input', 'backup: scrypt p out of range')
+  // maxmem must cover scrypt's 128·N·r bytes; 256·N·r gives 2× headroom and
+  // equals the former 2**(logN+11) for the default r=8.
+  return scrypt(utf8(passphrase.normalize('NFKC')), salt, { N: 2 ** logN, r, p, dkLen: 32, maxmem: 256 * (2 ** logN) * r })
 }
 
 function seal(key: Uint8Array, plain: Uint8Array, random: (n: number) => Uint8Array): string {
@@ -102,12 +106,14 @@ export async function valueFingerprint(ctx: Ctx): Promise<string> {
   return parts.length === 0 ? '' : toHex(sha256(utf8(parts.join('\n'))))
 }
 
-export async function exportBackup(ctx: Ctx, passphrase: string, o: { logN?: number } = {}): Promise<string> {
+export async function exportBackup(ctx: Ctx, passphrase: string, o: { logN?: number; r?: number; p?: number } = {}): Promise<string> {
   if (passphrase === '') throw new CashkitError('usage', 'a backup needs a passphrase')
   ctx.requireUnlocked()
   const logN = o.logN ?? 16
+  const kdfR = o.r ?? 8
+  const kdfP = o.p ?? 1
   const salt = ctx.random(16)
-  const key = deriveKey(passphrase, salt, logN)
+  const key = deriveKey(passphrase, salt, logN, kdfR, kdfP)
   const snapshot = await ctx.read(async (t) => {
     const out: Partial<Record<Collection, unknown[]>> = {}
     for (const c of EXPORTED) out[c] = await t.list(c)
@@ -129,7 +135,7 @@ export async function exportBackup(ctx: Ctx, passphrase: string, o: { logN?: num
     version: BACKUP_VERSION,
     walletId: ctx.walletId,
     createdAt: ctx.nowSeconds(),
-    kdf: { name: 'scrypt', logN, r: 8, p: 1, salt: base64.encode(salt) },
+    kdf: { name: 'scrypt', logN, r: kdfR, p: kdfP, salt: base64.encode(salt) },
     check: seal(key, utf8(CHECK), ctx.random),
     mac: seal(key, collectionsDigest(collections), ctx.random),
     collections,
@@ -170,7 +176,7 @@ export async function importBackup(ctx: Ctx, text: string, passphrase: string): 
   if (file.version > BACKUP_VERSION) throw new CashkitError('usage', `this backup was written by a newer cashkit (version ${file.version}); upgrade to import it`)
   if (file.version < BACKUP_VERSION) throw new CashkitError('usage', `this backup was written by an older cashkit (version ${file.version}), whose wallet format this one does not read`)
   if (file.kdf?.name !== 'scrypt' || typeof file.kdf.salt !== 'string') throw new CashkitError('invalid_input', 'this backup has no usable key parameters')
-  const key = deriveKey(passphrase, base64.decode(file.kdf.salt), file.kdf.logN)
+  const key = deriveKey(passphrase, base64.decode(file.kdf.salt), file.kdf.logN, file.kdf.r, file.kdf.p)
   try {
     open(key, file.check)
   } catch {
