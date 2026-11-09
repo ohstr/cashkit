@@ -76,6 +76,8 @@ export interface Holding {
   readonly refusedMerges?: readonly string[]
   /** A zap bill's Cash Zap fields (NIP-CZ): its provenance, and so its Hub, is recovered only with them. */
   readonly zap?: { readonly recipient: string; readonly sender: string; readonly zapTarget: string; readonly issuedAt: number; readonly expiresAt: number }
+  /** A zap bill's 9522 event id (NIP-CP `source`): kept on its pocket entry so a restoring device can re-fetch the 9522 and recover the provenance above. */
+  readonly zapSource?: string
   /** Kept out of every merge the wallet plans (local; set by the user). */
   readonly excludeFromMerge?: boolean
   /** `min_transfer_millis` as `cash_status` last reported it: bills merge only with bills of the same figure. */

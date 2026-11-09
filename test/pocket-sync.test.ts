@@ -16,6 +16,7 @@ import {
   getPublicKey,
   newCashTarget,
   newRequestId,
+  pocketEntryTags,
   pubkeyTarget,
   toHex,
   type EventTemplate,
@@ -196,6 +197,43 @@ describe('importing a connection-key bill', () => {
     )
     expect(await h.wallet.receive(w.token, { attestation: att })).toMatchObject({ received: true, holding: { id: held.id, mode: 'connection_key' } })
     expect((await h.wallet.send({ to: BOB, holdings: [held.id] })).sent).toBe(5000n)
+  })
+})
+
+describe('afterCall: an in-place-transferred bill and a concurrent higher-rev entry (CASHKIT-0011)', () => {
+  test('the moved holding is rewritten at the highest rev seen + 1, not local-rev + 1', async () => {
+    const ctx = ctxOf(h.wallet)
+    const w = h.bank.mintToPubkey(5000n, h.me)
+    const r = await h.wallet.receive(w.token)
+    if (!r.received) throw new Error('not received')
+    // This device's own entry for the bill is written live at rev 1.
+    await h.wallet.pocket.sync()
+    expect((await ctx.read((t) => t.get('pocket', w.walletPubkey)))?.rev).toBe(1)
+    // Another device republished the same bill (its w kept) at a higher rev 5, which this device has not recorded.
+    const now = Math.floor(clock() / 1000)
+    await rawEntry(ctx, pocketEntryTags({ w: w.walletPubkey, rev: 5, state: 'live', checkedAt: now, wrapKey: 'cd'.repeat(32), amountMillis: 5000n, chain: 'flokicoin', cash: w.token, identity: { type: 'pubkey', value: h.me } }))
+    // A call that returned the bill in place (it kept its w): afterCall rewrites its entry.
+    const call = await prepareCall(ctx, {
+      kind: 'pocket-test-transfer',
+      requestId: newRequestId(),
+      method: 'cash_transfer',
+      target: w.walletPubkey,
+      node: 'aa'.repeat(32),
+      relays: [],
+      deadline: now + 3600,
+      hAtSend: 0,
+      amount: 5000n,
+      sources: [r.holding.id],
+      authorizer: { kind: 'identity' },
+      outputs: [],
+    })
+    await ctx.commit(async (t) => {
+      const c = (await t.get('pendingCalls', call.id))!
+      await t.put('pendingCalls', { ...c, created: { movedHoldingId: r.holding.id }, version: c.version + 1 }, c.version)
+    })
+    await pocketHooks.after!(ctx, call.id)
+    // The write landed above the concurrent rev 5 (seenRev + 1), not at local rev 1 + 1.
+    expect((await ctx.read((t) => t.get('pocket', w.walletPubkey)))?.rev).toBe(6)
   })
 })
 
