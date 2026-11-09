@@ -20,6 +20,7 @@ import {
   FINAL_STATES,
   fromHex,
   getPublicKey,
+  KIND_CASH_ZAP,
   KIND_POCKET_ENTRY,
   connectionKeyFromAttested,
   parsePocketEntry,
@@ -28,11 +29,16 @@ import {
   resolveEntries,
   toHex,
   unwrap,
+  verifyCashZap,
   wrapDeletion,
   wrapExpiration,
+  zapFieldsFromEvent,
   type PocketEntry,
   type PocketIdentity,
+  type Token,
+  type ZapFields,
 } from '../core/index.js'
+import { readEvents } from '../client/index.js'
 import { tokenFacts, type Ctx } from './context.js'
 import { CashkitError } from './errors.js'
 import { goneStatus, endHolding, pocketStateOf } from './billState.js'
@@ -141,6 +147,7 @@ export async function heldEntry(ctx: Ctx, h: Holding, state: PocketEntry['state'
     cash: h.token,
     identity: await identityOf(ctx, h),
     ...(h.minterPubkey !== undefined && { mint: h.minterPubkey }),
+    ...(h.zapSource !== undefined && { source: h.zapSource }),
     ...(h.expiresAt !== undefined && { expiresAt: h.expiresAt }),
     ...(h.cashSecret !== undefined && { secrets: [{ secret: await ctx.open(h.cashSecret), role: '' }] }),
   }
@@ -190,12 +197,21 @@ async function afterCall(ctx: Ctx, callId: string): Promise<void> {
   const call = await ctx.read((t) => t.get('pendingCalls', callId))
   if (call === undefined) return
   const kept = [...(call.created?.holdingIds ?? []), ...(call.created?.movedHoldingId !== undefined ? [call.created.movedHoldingId] : []), ...(call.order?.bills.flatMap((b) => (b.holdingId !== undefined ? [b.holdingId] : [])) ?? []), ...(call.withdrawal?.remintHoldingId !== undefined ? [call.withdrawal.remintHoldingId] : [])]
+  // A bill moved in place keeps its `w`, so its rewrite can clash with an entry another device
+  // republished at a higher `rev`. Read the pocket once (like sourcesSpent and the sync path's `at`)
+  // so the write lands at/above that rev and replaces its stale wraps (NIP-CP §Writing); lazily, only
+  // when a held write is actually made (a fresh bill writes at rev 1, harmless).
+  let pocket: PocketRead | undefined
+  const seenAt = async (w: string) => {
+    pocket ??= await readPocket(ctx)
+    return { seenRev: pocket.entries.get(w)?.rev ?? 0, replaces: pocket.wraps.get(w) ?? [] }
+  }
   for (const id of new Set(kept)) {
     const h = await ctx.read((t) => t.get('holdings', id))
     if (h === undefined || h.status !== 'held') continue
     const prev = await ctx.read((t) => t.get('pocket', h.walletPubkey))
     if (prev?.state === 'live' && id !== call.created?.movedHoldingId) continue
-    await writeEntry(ctx, await heldEntry(ctx, h))
+    await writeEntry(ctx, await heldEntry(ctx, h), await seenAt(h.walletPubkey))
   }
   if (call.withdrawal?.receipt !== undefined && call.state !== 'done') {
     const cur = await ctx.read((t) => t.get('pocket', call.requestId))
@@ -360,6 +376,28 @@ function keptPastPrune(e: PocketEntry, calls: readonly PendingCall[], openSource
   return false
 }
 
+const ZAP_RECOVERY_FETCH_MS = 2500
+
+/**
+ * A zap bill's provenance (NIP-CZ): the minting Hub and the Cash Zap fields a
+ * `zap_v1` token needs to be spent are recovered only from its 9522, which the
+ * entry names in `source` (NIP-CP §Kind 9525). Re-fetches that 9522 from the
+ * bill's own relays and, when it verifies for this bill, returns the recovered
+ * minter and fields; undefined for a non-zap bill, an entry with no `source`,
+ * or a 9522 that cannot be found or does not verify. The 9522 lives on the zap
+ * relays, which may differ from the bill's; recovery here is best-effort.
+ */
+async function recoverZap(ctx: Ctx, entry: PocketEntry, tok: Token): Promise<{ readonly minter: string; readonly zap: ZapFields } | undefined> {
+  if (tok.scheme !== 'zap_v1' || entry.source === undefined || entry.cash === undefined) return undefined
+  const evs = await readEvents(ctx.deps.relays, tok.relays, { ids: [entry.source], kinds: [KIND_CASH_ZAP] }, ZAP_RECOVERY_FETCH_MS).catch(() => [])
+  const ev = evs.find((x) => x.id === entry.source)
+  if (ev === undefined) return undefined
+  const v = verifyCashZap(ev)
+  if (v.minter === undefined || v.tags === undefined || v.tags.cash !== entry.cash) return undefined
+  const zap = zapFieldsFromEvent(ev, v.tags)
+  return zap === undefined ? undefined : { minter: v.minter, zap }
+}
+
 /**
  * Syncs the pocket: imports live entries for bills this device does not
  * hold (with their secret, and the entry's rev and wrap, so the next write
@@ -390,6 +428,11 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
       continue
     }
     const f = tokenFacts(e.cash)
+    // A zap bill (`zap_v1`) carries no self-verifiable provenance: its minter and Cash Zap fields are
+    // recovered from the 9522 the entry names in `source` (NIP-CP §Kind 9525), so the bill is spendable
+    // on this device instead of stuck with no hub (tokenFacts/verifyProvenance return none for it).
+    const rec = await recoverZap(ctx, e, f.tok)
+    const minterPubkey = rec?.minter ?? f.minterPubkey
     const secret = e.secrets?.find((s) => s.role === '')?.secret
     const sealed = secret !== undefined ? await ctx.seal(secret) : undefined
     const wrap = wrapOf.get(e.w)
@@ -409,7 +452,9 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
           amount: e.amountMillis,
           verified: false,
           ...modeOfEntry(e.identity, sealed),
-          ...(f.minterPubkey !== undefined && { minterPubkey: f.minterPubkey }),
+          ...(minterPubkey !== undefined && { minterPubkey }),
+          ...(rec?.zap !== undefined && { zap: rec.zap }),
+          ...(e.source !== undefined && { zapSource: e.source }),
           ...(e.expiresAt !== undefined && { expiresAt: e.expiresAt }),
           origin: 'received',
         },

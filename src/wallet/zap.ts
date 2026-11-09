@@ -10,6 +10,7 @@ import {
   chainForHrp,
   decodeToken,
   incomingZapFilter,
+  isSpent,
   KIND_CASH_ZAP,
   KIND_CASH_ZAP_INFO,
   ownClaim,
@@ -23,7 +24,7 @@ import {
 import { CashClient, readEvents } from '../client/index.js'
 import { lockedHoldings } from './bills.js'
 import { tokenFacts, type Ctx } from './context.js'
-import { CashkitError } from './errors.js'
+import { CashkitError, classifyReadError } from './errors.js'
 import { addHolding, appendActivity, heldHoldings } from './ledger.js'
 import { unitForToken } from './views.js'
 import { runTransfer, setZapPublisher } from './kinds.js'
@@ -275,12 +276,22 @@ export async function claimZap(ctx: Ctx, ev: NostrEvent, opts: { relays?: readon
   if (v.tags.p.kind !== 'pubkey' || v.tags.p.value !== me) throw new CashkitError('usage', 'only a zap to this wallet’s pubkey is claimed here', { reason: 'not_for_this_wallet' })
   const zap = zapFieldsFromEvent(ev, v.tags)
   const client = new CashClient(ctx.clientDeps, v.token, zap)
-  const st = await client.statusMany([{ id: '1', bill: client.bill, credential: bySigning(await ctx.requireSigner()), scope: 'mine' }])
-  const o = st.outcomes[0]
-  if (o?.state !== 'result' || o.value === undefined || o.value.tombstone !== undefined) throw new CashkitError('spent', 'this zap’s bill is gone or did not answer', { reason: 'zap_unclaimable' })
+  const credential = bySigning(await ctx.requireSigner())
+  let result
+  try {
+    result = await client.cashStatus(credential, 'mine')
+  } catch (err) {
+    // NIP-CZ §Receiving: a token's state comes from `cash_status` only, and a timeout MUST NOT be
+    // reported as spent. CashClient.cashStatus (via oneItemError) throws only for a no-answer or a Hub
+    // refusal, which classifyReadError maps to a retryable read error — never `spent` — so the caller
+    // asks again rather than treating a still-claimable zap as gone.
+    throw classifyReadError(err)
+  }
+  // Only an explicit tombstone in the Hub's answer means the bill is gone.
+  if (isSpent(result)) throw new CashkitError('spent', 'this zap’s bill is gone, so it cannot be claimed', { reason: 'zap_unclaimable' })
   let own
   try {
-    own = ownClaim(o.value.recipients, bySigning(await ctx.requireSigner()), ctx.nowSeconds())
+    own = ownClaim(result.recipients, credential, ctx.nowSeconds())
   } catch {
     throw new CashkitError('invalid_input', 'this zap’s bill is not this wallet’s alone at its amount', { reason: 'rule_9' })
   }
@@ -304,6 +315,9 @@ export async function claimZap(ctx: Ctx, ev: NostrEvent, opts: { relays?: readon
         minterXonly: xonly(v.minter)!,
         ...(full.expires_at !== undefined && { expiresAt: full.expires_at }),
         ...(zap !== undefined && { zap }),
+        // The 9522's id (NIP-CP §Kind 9525 `source`): kept so this bill's pocket entry carries it and a
+        // restoring device can re-fetch the 9522 to recover the provenance (NIP-CZ §Receiving).
+        zapSource: ev.id,
         origin: 'zap',
       },
       { now: ctx.now(), random: ctx.random },

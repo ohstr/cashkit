@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest'
 import {
   checkCashZapTags,
   countCashZaps,
+  decodeToken,
   finalizeEvent,
   getPublicKey,
   isTrustedMinter,
@@ -14,6 +15,7 @@ import {
   verifyCashZap,
 } from '../src/core/index.js'
 import { CashkitError } from '../src/wallet/index.js'
+import { syncPocket } from '../src/adapters/sync-pocket.js'
 import { fill } from './helpers.js'
 import { harness, type Harness } from './walletHarness.js'
 
@@ -96,6 +98,23 @@ describe('wallet.zaps', () => {
     alice.bank.wallet(ev!.tags.find((t) => t[0] === 'cash')![1]!)!.withdrawRequestId = 'ab'.repeat(32)
     expect(await failure(bob.wallet.zaps.claim(ev!))).toMatchObject({ code: 'invalid_input', reason: 'rule_9', message: expect.stringMatching(/withdrawn/) })
   })
+  test('rule 9: a cash_status timeout is a retryable read error, never spent (CASHKIT-0012, NIP-CZ §Receiving)', async () => {
+    const alice = await harness()
+    const bob = await harness({ pool: alice.pool, bank: alice.bank, deps: { replyWaitMs: 300 } })
+    await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
+    await alice.wallet.zaps.send({ to: bob.me, amountMillis: 21_000n, target: { e: 'cd'.repeat(32) }, relays: [SOCIAL] })
+    const [ev] = published(alice)
+    const [z] = await bob.wallet.zaps.list({ relays: [SOCIAL] })
+    await bob.wallet.zaps.approveMinter(z!.minter!, z!.chain!)
+    // The minting Hub never answers the rule-9 cash_status: a timeout says nothing about the bill.
+    alice.bank.loseReplyFor.add('cash_status')
+    const err = await failure(bob.wallet.zaps.claim(ev!))
+    expect(err.code).toBe('network')
+    expect(err.retryable).toBe(true)
+    // With the reply restored, the same zap claims: the bill was the recipient's all along.
+    alice.bank.loseReplyFor.clear()
+    expect(await bob.wallet.zaps.claim(ev!)).toMatchObject({ amount: 21_000n, mode: 'pubkey' })
+  })
   test('the recipient sees it issued; claims it only once the minter is approved, after rule 9; then spends it', async () => {
     const { alice, bob } = await pair()
     await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
@@ -166,6 +185,64 @@ describe('wallet.zaps: the 9522 is published until a relay takes it', () => {
     expect(published(alice).map((e) => e.id)).toEqual([r.eventId])
     await alice.wallet.settle()
     expect(published(alice)).toHaveLength(1)
+  })
+})
+
+describe('wallet.zaps.claim: a restoring device recovers a zap bill from its pocket (CASHKIT-0010)', () => {
+  const POCKET = ['wss://zap-pocket.test']
+  const withPocket = (alice: Harness) => ({ pool: alice.pool, bank: alice.bank, identity: false as const, deps: { pocket: syncPocket({ pool: alice.pool, relays: POCKET, minRelays: 1, readTimeoutMs: 300 }) } })
+  test('the claimed bill keeps its 9522 as `source`; a second device re-fetches it, recovers the provenance and spends the bill', async () => {
+    const bobKey = fill(0x5e, 32)
+    const bobPub = getPublicKey(bobKey)
+    const alice = await harness()
+    const device1 = await harness(withPocket(alice))
+    await device1.wallet.identity.useSigner(localSigner(bobKey))
+    await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
+    await alice.wallet.zaps.send({ to: bobPub, amountMillis: 21_000n, target: { e: 'cd'.repeat(32) }, relays: [SOCIAL] })
+    const [ev] = published(alice)
+    const [z] = await device1.wallet.zaps.list({ relays: [SOCIAL] })
+    await device1.wallet.zaps.approveMinter(z!.minter!, z!.chain!)
+    const claimed = await device1.wallet.zaps.claim(ev!)
+    const row1 = (await device1.storage.tx('r', (t) => t.get('holdings', claimed.id)))!
+    // The claimed holding keeps the 9522's id, so its pocket entry can carry `source` (NIP-CP §Kind 9525).
+    expect(row1.zapSource).toBe(ev!.id)
+    // Device 1 writes the bill's entry to the pocket; its 9522 is reachable on the bill's own relays.
+    await device1.wallet.pocket.sync()
+    for (const relay of decodeToken(row1.token).relays) await alice.pool.publish(relay, ev!)
+    // A second device of the same user, holding nothing but the pocket, imports and recovers the provenance.
+    const device2 = await harness(withPocket(alice))
+    await device2.wallet.identity.useSigner(localSigner(bobKey))
+    const rep = await device2.wallet.pocket.sync()
+    expect(rep.imported).toHaveLength(1)
+    const imported = (await device2.storage.tx('r', (t) => t.get('holdings', rep.imported[0]!)))!
+    expect(imported).toMatchObject({ minterPubkey: z!.minter, origin: 'received' })
+    expect(imported.zap?.recipient).toBe(bobPub)
+    expect(imported.zapSource).toBe(ev!.id)
+    // The recovered minter and Cash Zap fields make the zap bill spendable on the restoring device.
+    expect((await device2.wallet.send({ amount: 1_000n, to: alice.me })).sent).toBe(1_000n)
+  })
+  test('without the 9522 reachable, the bill is imported but carries no recovered provenance', async () => {
+    const bobKey = fill(0x5f, 32)
+    const bobPub = getPublicKey(bobKey)
+    const alice = await harness()
+    const device1 = await harness(withPocket(alice))
+    await device1.wallet.identity.useSigner(localSigner(bobKey))
+    await alice.wallet.receive(alice.bank.mintToPubkey(50_000n, alice.me).token)
+    await alice.wallet.zaps.send({ to: bobPub, amountMillis: 21_000n, target: { e: 'cd'.repeat(32) }, relays: [SOCIAL] })
+    const [ev] = published(alice)
+    const [z] = await device1.wallet.zaps.list({ relays: [SOCIAL] })
+    await device1.wallet.zaps.approveMinter(z!.minter!, z!.chain!)
+    await device1.wallet.zaps.claim(ev!)
+    await device1.wallet.pocket.sync() // the 9522 is NOT republished to the bill's relays
+    const device2 = await harness(withPocket(alice))
+    await device2.wallet.identity.useSigner(localSigner(bobKey))
+    const rep = await device2.wallet.pocket.sync()
+    expect(rep.imported).toHaveLength(1)
+    const imported = (await device2.storage.tx('r', (t) => t.get('holdings', rep.imported[0]!)))!
+    // `source` is kept so the app can still re-fetch and claim the incoming zap; no minter/zap is invented.
+    expect(imported).toMatchObject({ zapSource: ev!.id })
+    expect(imported.minterPubkey).toBeUndefined()
+    expect(imported.zap).toBeUndefined()
   })
 })
 
