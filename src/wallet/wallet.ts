@@ -588,7 +588,7 @@ export class Wallet {
    * somewhere the browser cannot evict: it is how an unclaimed cash note
    * survives a cleared site.
    */
-  exportBackup(passphrase: string, o: { logN?: number } = {}): Promise<string> {
+  exportBackup(passphrase: string, o: { logN?: number; r?: number; p?: number } = {}): Promise<string> {
     return exportBackup(this.ctx, passphrase, o)
   }
 

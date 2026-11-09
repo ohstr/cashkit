@@ -24,6 +24,25 @@ async function loaded(): Promise<{ h: Harness; nwc: FakeNwcWallet; cashSecret: s
 }
 
 describe('backup', () => {
+  // design §10: logN, r AND p are read from the file's kdf. Pins CASHKIT-0009 —
+  // deriveKey must not hardcode r=8/p=1, or a non-default-param backup opens here
+  // but fails cross-client (cashctl reads r/p).
+  test('round-trips a backup with non-default scrypt r/p (reads them from the file)', async () => {
+    const { h } = await loaded()
+    const text = await h.wallet.exportBackup('backup pw', { logN: 4, r: 2, p: 2 })
+    const f = JSON.parse(text) as BackupFile
+    expect([f.kdf.r, f.kdf.p]).toEqual([2, 2])
+
+    const fresh = await harness({ identity: false, pool: h.pool, bank: h.bank, deps: { vault: new NoneVault(), storage: new MemoryStorage() } })
+    const sum = await fresh.wallet.importBackup(text, 'backup pw')
+    expect(sum.holdings).toBe(3)
+
+    // Tampering kdf.r must break the derived key — proof the file's r is used.
+    const tampered = JSON.stringify({ ...f, kdf: { ...f.kdf, r: 8 } })
+    const fresh2 = await harness({ identity: false, pool: h.pool, bank: h.bank, deps: { vault: new NoneVault(), storage: new MemoryStorage() } })
+    await expect(fresh2.wallet.importBackup(tampered, 'backup pw')).rejects.toThrow()
+  })
+
   test('restores into a fresh wallet with another vault, intact and spendable', async () => {
     const { h, cashSecret, note } = await loaded()
     const text = await h.wallet.exportBackup('backup pw', LOGN)
