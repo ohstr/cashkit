@@ -172,6 +172,17 @@ function bidiRuleOk(label: string): boolean {
 const isRtl = (s: string) => [...s].some((c) => ['R', 'AL', 'AN'].includes(bidiClass(c.codePointAt(0)!)))
 const allValid = (s: string) => [...s].every((c) => isValid(c.codePointAt(0)!))
 
+/**
+ * Whether a string is well-formed UTF-16 (no lone surrogate), the JS
+ * equivalent of nmilat's `utf8.ValidString` guard (canonical.go:97-99,
+ * 105-107): a JS string encodes to valid UTF-8 exactly when it has no
+ * unpaired surrogate.
+ */
+const isWellFormedUtf8 = (s: string): boolean => {
+  const isWellFormed = (s as unknown as { isWellFormed?: () => boolean }).isWellFormed
+  return typeof isWellFormed === 'function' ? isWellFormed.call(s) : !/\p{Surrogate}/u.test(s)
+}
+
 const ASCII_WS = ' \t\n\v\f\r'
 const trimAscii = (s: string): string => {
   let a = 0
@@ -235,6 +246,9 @@ export function canonicalUserId(platform: string, typed: string): string {
       if (!NUMERIC.test(typed) || BigInt(typed) >= 1n << 64n) throw notCanonical()
       return typed
     case 'email': {
+      // nmilat guards email/dns with utf8.ValidString before canonicalizing (canonical.go:97-99):
+      // refuse invalid UTF-8 (a lone surrogate), which an NFC-stability check alone lets through.
+      if (!isWellFormedUtf8(typed)) throw notCanonical()
       const s = asciiLower(trimAscii(typed))
       const at = s.lastIndexOf('@')
       // No value carries a leading '@' (a handle-style paste): refused, never repaired.
@@ -244,6 +258,7 @@ export function canonicalUserId(platform: string, typed: string): string {
       return `${local}@${canonicalDomain(s.slice(at + 1))}`
     }
     case 'dns':
+      if (!isWellFormedUtf8(typed)) throw notCanonical()
       return canonicalDomain(trimAscii(typed))
     default:
       throw new CoreError('invalid_field', NO_CANONICAL_FORM)
