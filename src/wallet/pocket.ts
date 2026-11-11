@@ -45,7 +45,7 @@ import { goneStatus, endHolding, pocketStateOf } from './billState.js'
 import { addHolding } from './ledger.js'
 import type { Holding, PendingCall } from './model.js'
 import { pocketHooks } from './runner.js'
-import { cacheBalance, cacheEntries, cursorAt, foldDelta, materialized, materializeFull, POCKET_SYNC_OVERLAP_SECONDS, type FoldInput } from './pocketCache.js'
+import { cacheBalance, cacheEntries, cursorAt, flagConflicts, foldDelta, foldLocal, materialized, materializeFull, POCKET_SYNC_OVERLAP_SECONDS, type FoldInput } from './pocketCache.js'
 import { status, statusByNode, type NodeStatus } from './status.js'
 
 /** A wrap the pocket holds for a `w`, with the key that deletes it. */
@@ -95,6 +95,12 @@ export async function writeEntry(
     const cur = await t.get('pocket', entry.w)
     await t.put('pocket', { id: entry.w, rev: full.rev, state: full.state, wrapId: wrap.id, wrapKey: sealedKey, at: ctx.now(), ...(cur?.noExpiry === true && { noExpiry: true }), version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
   })
+  // Keep the materialized cache fresh in the same flow as the write (so
+  // pocket.balance/entries, which read the cache, reflect this write without a
+  // sync). Uses the rumor's own id + created_at — identical to what a later
+  // relay read would fold — so local and synced folds converge. No-op until the
+  // cache is materialized (the first read rebuilds it).
+  await foldLocal(ctx, { entry: full, rumor: { id: rumor.id, created_at: now } })
   const old: StoredWrap[] = [...(prev !== undefined ? [{ wrapId: prev.wrapId, wrapKey: await ctx.open(prev.wrapKey) }] : []), ...(o.replaces ?? [])]
   await deleteWraps(ctx, old.filter((x) => x.wrapId !== wrap.id))
   return full
@@ -431,6 +437,13 @@ async function recoverZap(ctx: Ctx, entry: PocketEntry, tok: Token): Promise<{ r
  */
 export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
   const { entries, conflicts, winners, wraps, wrapOf } = await readPocket(ctx)
+  // Materialize the resolved set into the cache NOW (before this sync's own writes),
+  // so the cache is materialized and the writeEntry→foldLocal hook folds every entry
+  // this sync writes (a republished held bill, a spent source, a recheck result) into
+  // it in the same flow — otherwise materializing only the pre-write snapshot would
+  // miss the bills this sync itself publishes. Runtime re-check conflicts accumulated
+  // below are applied at the end with flagConflicts.
+  await materializeFull(ctx, entries, winners, conflicts)
   // A duplicate row shares its bill's wallet pubkey with the live one: the pocket entry is that one's.
   const local = (await ctx.read((t) => t.list('holdings'))).filter((h) => h.status !== 'duplicate')
   const imported: string[] = []
@@ -537,11 +550,9 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
   const expiryFilled = await fillExpiry(ctx, entries, wraps, new Set(published))
   const pruned = await prune(ctx, entries, wraps)
   const pending = [...entries.values()].filter((e) => e.state === 'pending').map((e) => e.w)
-  // Materialize the resolved set (from the sync read) into the local cache so
-  // pocket.balance/entries read it with no relay round-trip. `conflicts` carries
-  // the runtime re-checks accumulated above; the cache self-corrects on the next
-  // sync/refresh for anything this sync's own writes changed.
-  await materializeFull(ctx, entries, winners, conflicts)
+  // The cache was materialized up front and kept current by each writeEntry's
+  // foldLocal; apply the runtime re-check conflicts accumulated during this sync.
+  await flagConflicts(ctx, conflicts)
   return { imported, published, conflicts, pending, pruned, expiryFilled, foreign }
 }
 
@@ -625,6 +636,9 @@ async function prune(ctx: Ctx, entries: ReadonlyMap<string, PocketEntry>, wraps:
     await deleteWraps(ctx, wraps.get(e.w) ?? [])
     await ctx.commit(async (t) => {
       if ((await t.get('pocket', e.w)) !== undefined) await t.delete('pocket', e.w)
+      // Drop the pruned entry from the materialized cache too, so pocket.balance/
+      // entries (cache reads) stop showing it (the cache was materialized up front).
+      if ((await t.get('pocketCache', e.w)) !== undefined) await t.delete('pocketCache', e.w)
     })
     pruned.push(e.w)
   }

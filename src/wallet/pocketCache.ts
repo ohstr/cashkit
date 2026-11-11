@@ -101,6 +101,21 @@ export async function cacheEntries(ctx: Ctx): Promise<{ entries: { w: string; st
   }
 }
 
+/**
+ * Flag the given w's as conflicted in the cache (idempotent). A sync accumulates
+ * runtime re-check conflicts after its initial materialize; this applies them to
+ * the already-materialized cache without re-materializing.
+ */
+export async function flagConflicts(ctx: Ctx, conflicts: readonly string[]): Promise<void> {
+  for (const w of conflicts) {
+    await ctx.commit(async (t) => {
+      const cur = await t.get('pocketCache', w)
+      if (cur === undefined || cur.conflict) return
+      await t.put('pocketCache', { ...cur, conflict: true, version: cur.version + 1 }, cur.version)
+    })
+  }
+}
+
 /** The cursor (newest folded wrap created_at); 0 when the cache was never populated or is empty. */
 export async function cursorAt(ctx: Ctx): Promise<number> {
   return (await ctx.read((t) => t.get('pocketCursor', 'self')))?.at ?? 0
@@ -118,6 +133,24 @@ async function advanceCursor(ctx: Ctx, at: number): Promise<void> {
     const next = Math.max(cur?.at ?? 0, Math.max(0, at))
     if (cur !== undefined && cur.at === next) return
     await t.put('pocketCursor', { id: 'self', at: next, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+  })
+}
+
+/**
+ * Fold one locally-written entry into the cache, in the same flow as the write
+ * (writeEntry), so cached reads stay fresh between syncs without re-fetching.
+ * No-op until the cache has been materialized (the first read rebuilds it fully,
+ * so a partial cache is never served). Does NOT advance the cursor — the cursor
+ * tracks only relay-pulled wraps; a local write is covered by the next delta's
+ * 2-day overlap. Monotonic: a lower/stale rev loses (foldOne).
+ */
+export async function foldLocal(ctx: Ctx, inp: FoldInput): Promise<void> {
+  if (!(await materialized(ctx))) return
+  await ctx.commit(async (t) => {
+    const prev = await t.get('pocketCache', inp.entry.w)
+    const next = foldOne(prev, inp)
+    if (next === undefined) return
+    await t.put('pocketCache', next, prev?.version ?? 0)
   })
 }
 
@@ -158,8 +191,17 @@ export async function materializeFull(
       maxAt = Math.max(maxAt, meta.created_at)
       keep.add(w)
       const prev = await t.get('pocketCache', w)
-      const row = rowFrom({ entry: e, rumor: meta }, conflictSet.has(w), (prev?.version ?? 0) + 1)
-      await t.put('pocketCache', row, prev?.version ?? 0)
+      // Merge, not clobber: a newer local write (higher rev, folded in by foldLocal
+      // during this very sync) must not be regressed to this sync's pre-write
+      // snapshot. foldOne keeps the winner (rev is monotonic); the resolver's
+      // conflict is OR'd in. When prev already wins (folded undefined) only a
+      // newly-flagged conflict is written.
+      const folded = foldOne(prev, { entry: e, rumor: meta })
+      if (folded !== undefined) {
+        await t.put('pocketCache', { ...folded, conflict: folded.conflict || conflictSet.has(w) }, prev?.version ?? 0)
+      } else if (prev !== undefined && conflictSet.has(w) && !prev.conflict) {
+        await t.put('pocketCache', { ...prev, conflict: true, version: prev.version + 1 }, prev.version)
+      }
     }
     for (const r of existing) if (!keep.has(r.id)) await t.delete('pocketCache', r.id)
   })

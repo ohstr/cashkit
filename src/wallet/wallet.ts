@@ -658,13 +658,17 @@ export class Wallet {
     sync: (): Promise<PocketSyncReport> => this.ctx.spend(() => syncPocket(this.ctx)),
     /** A background delta refresh: fold wraps newer than the cursor into the local cache (so cached reads stay fresh without a full sync). Returns how many were folded. */
     refresh: (): Promise<number> => refreshPocket(this.ctx),
-    /** Authoritative live balance (a relay read). */
-    balance: (): Promise<Map<string, bigint>> => pocketBalanceOf(this.ctx),
-    /** Authoritative live entries (a relay read). */
-    entries: () => pocketEntries(this.ctx),
-    /** Zero-latency balance from the local materialized cache (no relay once materialized; offline-capable; as fresh as the last sync/refresh). */
+    /** Balance per chain from the local materialized cache: zero-latency, no relay query once materialized (offline-capable), kept fresh by every write + sync/refresh. Use `liveBalance` for an authoritative relay read. */
+    balance: (): Promise<Map<string, bigint>> => cachedBalanceOf(this.ctx),
+    /** Resolved entries from the local materialized cache (zero-latency, no relay once materialized). Use `liveEntries` for an authoritative relay read. */
+    entries: () => cachedEntriesOf(this.ctx).then((r) => r.entries),
+    /** Authoritative balance from a live relay read (re-fetches + re-decrypts every wrap). Prefer `balance` for reads; this is for when the latest relay state is required. */
+    liveBalance: (): Promise<Map<string, bigint>> => pocketBalanceOf(this.ctx),
+    /** Authoritative entries from a live relay read. Prefer `entries`; use this when the latest relay state is required. */
+    liveEntries: () => pocketEntries(this.ctx),
+    /** The materialized cache balance (same as `balance`; explicit name for clarity). */
     cachedBalance: (): Promise<Map<string, bigint>> => cachedBalanceOf(this.ctx),
-    /** Zero-latency entries + conflicts from the local cache (no relay once materialized). */
+    /** The materialized cache entries + the w's flagged for a cash_status re-check. */
     cachedEntries: () => cachedEntriesOf(this.ctx),
   }
 

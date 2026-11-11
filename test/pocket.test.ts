@@ -86,6 +86,26 @@ async function withPocket(o: { pool?: Harness['pool']; bank?: Harness['bank']; r
 }
 const wraps = (h: Harness) => h.pool.published.filter((p) => p.event.kind === 1059)
 
+describe('cached reads hit no relay', () => {
+  test('wallet.pocket.balance/entries read the materialized cache without any relay fetch', async () => {
+    const base = await harness()
+    let fetches = 0
+    const inner = syncPocket({ pool: base.pool, relays: R, readTimeoutMs: 300 })
+    // Wrap the pocket's only relay read so we can assert the cached path never calls it.
+    const pocket = { ...inner, fetch: (pubkey: string, since?: number) => (fetches++, inner.fetch(pubkey, since)) }
+    const wallet = await base.reopen({ pocket })
+    await wallet.receive(base.bank.mintToPubkey(5000n, base.me).token)
+    await wallet.pocket.sync() // materializes the cache (does fetch)
+    const before = fetches
+    const bal = await wallet.pocket.balance()
+    const ents = await wallet.pocket.entries()
+    expect(ents.length).toBeGreaterThan(0)
+    expect([...bal.values()].reduce((a, b) => a + b, 0n)).toBeGreaterThan(0n)
+    // The cached reads were served entirely from the local cache: no new relay fetch.
+    expect(fetches).toBe(before)
+  })
+})
+
 describe('the pocket engine', () => {
   test('a send writes its pending entry ahead (read back), then the remainder live and the pending done, the source spent', async () => {
     const h = await withPocket()
