@@ -30,7 +30,7 @@ import {
   type ReportPreview,
   type TapView,
 } from './discover.js'
-import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
+import { cachedBalanceOf, cachedEntriesOf, pocketBalanceOf, pocketEntries, refreshPocket, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, republishZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, settleWithdrawals, withdrawReadDue, SETTLE_WITHDRAW_GAP, quoteWithdrawal, recoverWithdrawal, requoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
@@ -656,8 +656,16 @@ export class Wallet {
    */
   readonly pocket = {
     sync: (): Promise<PocketSyncReport> => this.ctx.spend(() => syncPocket(this.ctx)),
+    /** A background delta refresh: fold wraps newer than the cursor into the local cache (so cached reads stay fresh without a full sync). Returns how many were folded. */
+    refresh: (): Promise<number> => refreshPocket(this.ctx),
+    /** Authoritative live balance (a relay read). */
     balance: (): Promise<Map<string, bigint>> => pocketBalanceOf(this.ctx),
+    /** Authoritative live entries (a relay read). */
     entries: () => pocketEntries(this.ctx),
+    /** Zero-latency balance from the local materialized cache (no relay once materialized; offline-capable; as fresh as the last sync/refresh). */
+    cachedBalance: (): Promise<Map<string, bigint>> => cachedBalanceOf(this.ctx),
+    /** Zero-latency entries + conflicts from the local cache (no relay once materialized). */
+    cachedEntries: () => cachedEntriesOf(this.ctx),
   }
 
   /**

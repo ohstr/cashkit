@@ -45,6 +45,7 @@ import { goneStatus, endHolding, pocketStateOf } from './billState.js'
 import { addHolding } from './ledger.js'
 import type { Holding, PendingCall } from './model.js'
 import { pocketHooks } from './runner.js'
+import { cacheBalance, cacheEntries, cursorAt, foldDelta, materialized, materializeFull, POCKET_SYNC_OVERLAP_SECONDS, type FoldInput } from './pocketCache.js'
 import { status, statusByNode, type NodeStatus } from './status.js'
 
 /** A wrap the pocket holds for a `w`, with the key that deletes it. */
@@ -274,6 +275,8 @@ interface EntryWrap {
 interface PocketRead {
   readonly entries: Map<string, PocketEntry>
   readonly conflicts: string[]
+  /** The winning rumor's created_at + id per `w` (the fold comparator, for the materialized cache). */
+  readonly winners: Map<string, { created_at: number; id: string }>
   readonly seen: Set<string>
   /** Every wrap read for each `w`, the stale ones included. */
   readonly wraps: Map<string, StoredWrap[]>
@@ -283,11 +286,22 @@ interface PocketRead {
   readonly wrapOf: Map<string, EntryWrap>
 }
 
-async function readPocket(ctx: Ctx, since?: number): Promise<PocketRead> {
+/** One decoded rumor the pocket read parsed, with the rumor meta the fold/resolve order on. */
+export interface PocketRumor {
+  readonly rumor: { readonly id: string; readonly created_at: number }
+  readonly entry: PocketEntry & { readonly recognised: boolean }
+}
+
+/**
+ * Fetches the user's pocket wraps (optionally only those newer than `since`),
+ * unwraps and parses each; shared by readPocket (full resolve) and the
+ * materialized cache's delta refresh (pocketCache.refreshPocket).
+ */
+export async function fetchPocketRumors(ctx: Ctx, since?: number): Promise<{ rumors: PocketRumor[]; seen: Set<string>; wraps: Map<string, StoredWrap[]>; ws: Set<string>; wrapOf: Map<string, EntryWrap> }> {
   const pocket = requirePocket(ctx)
   const signer = await ctx.requireSigner()
   const fetched = await pocket.fetch(signer.pubkey, since)
-  const rumors: { rumor: { id: string; created_at: number }; entry: PocketEntry & { recognised: boolean } }[] = []
+  const rumors: PocketRumor[] = []
   const seen = new Set<string>()
   const wraps = new Map<string, StoredWrap[]>()
   const ws = new Set<string>()
@@ -309,6 +323,11 @@ async function readPocket(ctx: Ctx, since?: number): Promise<PocketRead> {
     const cur = wrapOf.get(entry.w)
     if (/^[0-9a-f]{64}$/.test(entry.wrapKey) && (cur === undefined || entry.rev > cur.rev)) wrapOf.set(entry.w, { wrapId: w.id, wrapKey: entry.wrapKey, rev: entry.rev })
   }
+  return { rumors, seen, wraps, ws, wrapOf }
+}
+
+async function readPocket(ctx: Ctx, since?: number): Promise<PocketRead> {
+  const { rumors, seen, wraps, ws, wrapOf } = await fetchPocketRumors(ctx, since)
   return { ...resolveEntries(rumors), seen, wraps, ws, wrapOf }
 }
 
@@ -411,7 +430,7 @@ async function recoverZap(ctx: Ctx, entry: PocketEntry, tok: Token): Promise<{ r
  * re-placed from here.
  */
 export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
-  const { entries, conflicts, wraps, wrapOf } = await readPocket(ctx)
+  const { entries, conflicts, winners, wraps, wrapOf } = await readPocket(ctx)
   // A duplicate row shares its bill's wallet pubkey with the live one: the pocket entry is that one's.
   const local = (await ctx.read((t) => t.list('holdings'))).filter((h) => h.status !== 'duplicate')
   const imported: string[] = []
@@ -518,7 +537,34 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
   const expiryFilled = await fillExpiry(ctx, entries, wraps, new Set(published))
   const pruned = await prune(ctx, entries, wraps)
   const pending = [...entries.values()].filter((e) => e.state === 'pending').map((e) => e.w)
+  // Materialize the resolved set (from the sync read) into the local cache so
+  // pocket.balance/entries read it with no relay round-trip. `conflicts` carries
+  // the runtime re-checks accumulated above; the cache self-corrects on the next
+  // sync/refresh for anything this sync's own writes changed.
+  await materializeFull(ctx, entries, winners, conflicts)
   return { imported, published, conflicts, pending, pruned, expiryFilled, foreign }
+}
+
+/**
+ * A background delta refresh: pull only wraps newer than the cursor minus the
+ * NIP-59 2-day back-dating window and fold them into the materialized cache
+ * (risk 13). Keeps pocket.balance/entries fresh without a full re-decrypt, and
+ * is read-only against relays (no writes, no reconciliation — syncPocket does
+ * that). Returns how many deltas were folded.
+ */
+export async function refreshPocket(ctx: Ctx): Promise<number> {
+  const at = await cursorAt(ctx)
+  const since = at > 0 ? Math.max(0, at - POCKET_SYNC_OVERLAP_SECONDS) : undefined
+  const { rumors } = await fetchPocketRumors(ctx, since)
+  const inputs: FoldInput[] = rumors.filter((r) => r.entry.recognised).map((r) => ({ entry: r.entry, rumor: r.rumor }))
+  await foldDelta(ctx, inputs)
+  return inputs.length
+}
+
+/** Rebuild the materialized cache from scratch (a full read), e.g. after a schema change or a corrupt cache. */
+export async function rebuildPocketCache(ctx: Ctx): Promise<void> {
+  const { entries, winners, conflicts } = await readPocket(ctx)
+  await materializeFull(ctx, entries, winners, conflicts)
 }
 
 /**
@@ -585,13 +631,39 @@ async function prune(ctx: Ctx, entries: ReadonlyMap<string, PocketEntry>, wraps:
   return pruned
 }
 
-/** The pocket's balance per chain: the sum over live entries. */
+/** The pocket's balance per chain: the sum over live entries (a live relay read — authoritative). For a zero-latency, offline read use `cachedBalanceOf`. */
 export async function pocketBalanceOf(ctx: Ctx): Promise<Map<string, bigint>> {
   return pocketBalance((await readPocket(ctx)).entries.values())
 }
 
-/** The pocket's resolved entries, without any secret. */
+/** The pocket's resolved entries, without any secret (a live relay read). For a zero-latency, offline read use `cachedEntriesOf`. */
 export async function pocketEntries(ctx: Ctx): Promise<{ w: string; state: string; amountMillis: bigint; chain: string; pending: boolean }[]> {
   return [...(await readPocket(ctx)).entries.values()].map((e) => ({ w: e.w, state: e.state, amountMillis: e.amountMillis, chain: e.chain, pending: e.state === 'pending' }))
+}
+
+/**
+ * Populate the materialized cache on first use (no explicit sync yet), so a
+ * cached read works; subsequent cached reads are served from the store with no
+ * relay query. `sync` (full) and `refresh` (delta) keep it current thereafter.
+ */
+async function ensureMaterialized(ctx: Ctx): Promise<void> {
+  if (!(await materialized(ctx))) await rebuildPocketCache(ctx)
+}
+
+/**
+ * The pocket balance from the local materialized cache: **zero-latency, no relay
+ * query** once materialized (offline-capable), for an instant first paint. It is
+ * as fresh as the last `sync`/`refresh`; use `pocketBalanceOf` for an
+ * authoritative live read.
+ */
+export async function cachedBalanceOf(ctx: Ctx): Promise<Map<string, bigint>> {
+  await ensureMaterialized(ctx)
+  return cacheBalance(ctx)
+}
+
+/** The pocket's resolved entries from the local cache (zero-latency, no relay once materialized), plus the w's flagged for a cash_status re-check. */
+export async function cachedEntriesOf(ctx: Ctx): Promise<{ entries: { w: string; state: string; amountMillis: bigint; chain: string; pending: boolean }[]; conflicts: string[] }> {
+  await ensureMaterialized(ctx)
+  return cacheEntries(ctx)
 }
 

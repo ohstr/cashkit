@@ -64,7 +64,7 @@ describe('T-511 schema 2', () => {
     await expect(Wallet.open(deps({ storage }))).rejects.toMatchObject({ code: 'usage' })
   })
   test('the device, derived ids, Hub records, Cash Pocket wraps and what discover keeps are local only', () => {
-    expect(LOCAL_ONLY).toEqual(['device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox'])
+    expect(LOCAL_ONLY).toEqual(['device', 'derivedIds', 'hubs', 'pocket', 'pocketCache', 'pocketCursor', 'discoverBook', 'discoverEvents', 'discoverOutbox'])
   })
 })
 
