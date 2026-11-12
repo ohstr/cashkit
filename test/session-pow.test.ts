@@ -30,7 +30,10 @@ async function status(o: object = {}) {
   return statusMany(await c.session(), [{ id: 'a', bill: billFor(decodeToken(w.token)), credential: bySigning(holder) }], now)
 }
 
-describe('T-413 mining before the first publish', () => {
+// Difficulty-12 PoW mines are single-threaded JS; under CI's per-file worker
+// fan-out the default 5s is too tight (passes locally, flakes in CI). Give the
+// mining suites generous headroom.
+describe('T-413 mining before the first publish', { timeout: 30_000 }, () => {
   test('all minimums 0: a plain event, neither nonce nor expiration', async () => {
     const r = await status()
     expect(r.outcomes[0]!.state).toBe('result')
@@ -74,7 +77,7 @@ describe('T-413 mining before the first publish', () => {
   })
 })
 
-describe('T-414 a pow: refusal', () => {
+describe('T-414 a pow: refusal', { timeout: 30_000 }, () => {
   test('re-mined to the stated difficulty and published again; the Hub runs it once', async () => {
     pool.relay(R1).powRequired = 12
     const r = await status()
