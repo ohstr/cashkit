@@ -632,6 +632,12 @@ export interface PocketCursorRow {
   readonly id: string
   /** The newest wrap `created_at` folded into the cache. A delta sync pulls `since = at − 2 days` (NIP-59's back-dating window). */
   readonly at: number
+  /**
+   * The cache-schema version the cache was built under (CACHE_SCHEMA_VERSION).
+   * A mismatch (or absence, for a row written before this field) marks the
+   * cache stale, forcing a one-time true rebuild. Absent until first stamped.
+   */
+  readonly schema?: number
   readonly version: number
 }
 

@@ -15,8 +15,18 @@ import { FINAL_STATES, type PocketEntry } from '../core/index.js'
 import type { Ctx } from './context.js'
 import type { PocketCacheRow } from './model.js'
 
-/** The NIP-59 back-dating window: a wrap published now may carry a created_at up to 2 days in the past (risk 13), so a delta pull starts this far before the cursor. */
+/** The NIP-59 back-dating window: a wrap published now may carry a created_at up to 2 days in the past (risk 13), so a delta pull starts this far before the cursor. The adapter (sync-pocket) owns the single subtraction of this window; `refreshPocket` passes the raw cursor. */
 export const POCKET_SYNC_OVERLAP_SECONDS = 2 * 86400
+
+/**
+ * The cache-schema version (mirrors cashctl's `cacheSchemaVersion`): bumped
+ * whenever the decoded-cache row shape or fold semantics change. It is stamped
+ * on the `pocketCursor` row; a mismatch (or absence, for a cache written before
+ * the field existed) makes `materialized` report the cache stale, so the next
+ * read forces a one-time true rebuild (`rebuildPocketCache`). The cache is
+ * derived and rebuildable from the wraps, so a bump is always safe.
+ */
+export const CACHE_SCHEMA_VERSION = 1
 
 const isFinal = (s: string) => (FINAL_STATES as readonly string[]).includes(s)
 
@@ -121,19 +131,50 @@ export async function cursorAt(ctx: Ctx): Promise<number> {
   return (await ctx.read((t) => t.get('pocketCursor', 'self')))?.at ?? 0
 }
 
-/** Whether the cache has ever been materialized (the cursor row exists, even at 0 for an empty pocket) — so reads needn't fall back to a relay fetch. */
+/**
+ * Whether the cache is materialized AND current (the cursor row exists — even at
+ * 0 for an empty pocket — and carries the current schema). A cursor written
+ * under an older schema, or before the field existed, reports not-materialized,
+ * so the next read rebuilds it once. Keeps reads off the relay once fresh.
+ */
 export async function materialized(ctx: Ctx): Promise<boolean> {
-  return (await ctx.read((t) => t.get('pocketCursor', 'self'))) !== undefined
+  const cur = await ctx.read((t) => t.get('pocketCursor', 'self'))
+  return cur !== undefined && cur.schema === CACHE_SCHEMA_VERSION
 }
 
-/** Records the cursor at max(current, at), creating the row on first call (even at 0, marking the cache materialized). */
+/** Records the cursor at max(current, at), creating the row on first call (even at 0, marking the cache materialized), and stamps the current schema. */
 async function advanceCursor(ctx: Ctx, at: number): Promise<void> {
   await ctx.commit(async (t) => {
     const cur = await t.get('pocketCursor', 'self')
     const next = Math.max(cur?.at ?? 0, Math.max(0, at))
-    if (cur !== undefined && cur.at === next) return
-    await t.put('pocketCursor', { id: 'self', at: next, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
+    if (cur !== undefined && cur.at === next && cur.schema === CACHE_SCHEMA_VERSION) return
+    await t.put('pocketCursor', { id: 'self', at: next, schema: CACHE_SCHEMA_VERSION, version: (cur?.version ?? 0) + 1 }, cur?.version ?? 0)
   })
+}
+
+/**
+ * A TRUE reset of the cache: delete every `pocketCache` row AND the
+ * `pocketCursor` row, so a following `materializeFull` re-folds every `w` from
+ * `prev === undefined` (the authoritative winner is written fresh) instead of
+ * merging onto a stored higher-rev row. Used by the recovery/rebuild path only;
+ * the normal delta/sync merge (foldOne, rev-monotonic) is left untouched.
+ */
+export async function clearPocketCache(ctx: Ctx): Promise<void> {
+  await ctx.commit(async (t) => {
+    for (const r of await t.list('pocketCache')) await t.delete('pocketCache', r.id)
+    if ((await t.get('pocketCursor', 'self')) !== undefined) await t.delete('pocketCursor', 'self')
+  })
+}
+
+/**
+ * Clears the cache only when its stored schema is stale (an older version, or no
+ * field at all), so the following `materializeFull` becomes a fresh rebuild
+ * rather than a merge onto rows written by an older schema. A no-op on a fresh
+ * cache (no cursor yet) or a current-schema cache — the normal path is unchanged.
+ */
+export async function clearStaleCache(ctx: Ctx): Promise<void> {
+  const cur = await ctx.read((t) => t.get('pocketCursor', 'self'))
+  if (cur !== undefined && cur.schema !== CACHE_SCHEMA_VERSION) await clearPocketCache(ctx)
 }
 
 /**

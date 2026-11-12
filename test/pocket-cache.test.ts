@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
 import { resolveEntries, type PocketEntry, type PocketState } from '../src/core/index.js'
-import { cursorAt, foldDelta, foldOne, POCKET_SYNC_OVERLAP_SECONDS, type FoldInput } from '../src/wallet/pocketCache.js'
+import { CACHE_SCHEMA_VERSION, cacheBalance, cacheEntries, cursorAt, foldDelta, foldLocal, foldOne, materialized, materializeFull, POCKET_SYNC_OVERLAP_SECONDS, type FoldInput } from '../src/wallet/pocketCache.js'
 import { cachedBalanceOf, cachedEntriesOf } from '../src/wallet/pocket.js'
 import type { Ctx } from '../src/wallet/context.js'
 import type { Wallet } from '../src/wallet/index.js'
@@ -151,5 +151,50 @@ describe('cached reads are served locally (no relay)', () => {
     expect(await cachedBalanceOf(ctx)).toEqual(new Map([['bitcoin', 500n]]))
     await foldDelta(ctx, [inp(W1, 500n, '09', 2000, 'spent')]) // rev 1, final beats non-final at equal rev
     expect(await cachedBalanceOf(ctx)).toEqual(new Map())
+  })
+})
+
+/** A PocketEntry at a chosen rev/state/amount (the fold's winner input). */
+const entryRev = (w: string, rev: number, amount: bigint, state: PocketState = 'live'): PocketEntry => ({ w, rev, state, checkedAt: 1, wrapKey: 'bb'.repeat(32), amountMillis: amount, chain: 'bitcoin', cash: 'satscash1x', identity: { type: 'pubkey', value: 'cc'.repeat(32) } })
+
+describe('the cache-schema version marks a stale cache (FIX 6)', () => {
+  const W = 'a'.repeat(64)
+
+  test('materialized is true only for a cursor stamped with the current schema', async () => {
+    const h = await harness()
+    const ctx = ctxOf(h.wallet)
+    // A fold stamps the current schema on the cursor → materialized.
+    await foldDelta(ctx, [cachedInput(W, 100n, '01', 1000)])
+    const cur = await ctx.read((t) => t.get('pocketCursor', 'self'))
+    expect(cur?.schema).toBe(CACHE_SCHEMA_VERSION)
+    expect(await materialized(ctx)).toBe(true)
+    // A cursor from an older version (no `schema` field) reads as stale.
+    await ctx.commit((t) => t.put('pocketCursor', { id: 'self', at: cur!.at, version: cur!.version + 1 }, cur!.version))
+    expect(await materialized(ctx)).toBe(false)
+    // An explicitly older schema number is stale too.
+    const bare = await ctx.read((t) => t.get('pocketCursor', 'self'))
+    await ctx.commit((t) => t.put('pocketCursor', { id: 'self', at: bare!.at, schema: CACHE_SCHEMA_VERSION - 1, version: bare!.version + 1 }, bare!.version))
+    expect(await materialized(ctx)).toBe(false)
+  })
+})
+
+describe('the normal materializeFull merge stays intact (positive control)', () => {
+  const W = 'd'.repeat(64)
+
+  test('a delta materializeFull does NOT regress a legitimately newer local write', async () => {
+    const h = await harness()
+    const ctx = ctxOf(h.wallet)
+    // A sync materializes the pre-write snapshot: W live@rev1.
+    await materializeFull(ctx, new Map([[W, entryRev(W, 1, 500n, 'live')]]), new Map([[W, { created_at: 1000, id: '01' }]]), [])
+    expect(await cacheBalance(ctx)).toEqual(new Map([['bitcoin', 500n]]))
+    // Mid-sync, this device writes W spent at the next rev (folded in by foldLocal).
+    await foldLocal(ctx, { entry: entryRev(W, 2, 500n, 'spent'), rumor: { id: '02', created_at: 1100 } })
+    expect(await cacheBalance(ctx)).toEqual(new Map())
+    // The same sync now merges its pre-write snapshot (W live@rev1) — it MUST NOT
+    // clobber the newer local spent@rev2 (rev-monotonic merge keeps the winner).
+    await materializeFull(ctx, new Map([[W, entryRev(W, 1, 500n, 'live')]]), new Map([[W, { created_at: 1000, id: '01' }]]), [])
+    const { entries } = await cacheEntries(ctx)
+    expect(entries.find((e) => e.w === W)?.state).toBe('spent')
+    expect(await cacheBalance(ctx)).toEqual(new Map())
   })
 })

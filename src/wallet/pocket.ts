@@ -45,7 +45,7 @@ import { goneStatus, endHolding, pocketStateOf } from './billState.js'
 import { addHolding } from './ledger.js'
 import type { Holding, PendingCall } from './model.js'
 import { pocketHooks } from './runner.js'
-import { cacheBalance, cacheEntries, cursorAt, flagConflicts, foldDelta, foldLocal, materialized, materializeFull, POCKET_SYNC_OVERLAP_SECONDS, type FoldInput } from './pocketCache.js'
+import { cacheBalance, cacheEntries, clearPocketCache, clearStaleCache, cursorAt, flagConflicts, foldDelta, foldLocal, materialized, materializeFull, type FoldInput } from './pocketCache.js'
 import { status, statusByNode, type NodeStatus } from './status.js'
 
 /** A wrap the pocket holds for a `w`, with the key that deletes it. */
@@ -437,6 +437,11 @@ async function recoverZap(ctx: Ctx, entry: PocketEntry, tok: Token): Promise<{ r
  */
 export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
   const { entries, conflicts, winners, wraps, wrapOf } = await readPocket(ctx)
+  // A cache left by an older schema is cleared first, so the materializeFull below
+  // re-folds it fresh (a true rebuild) instead of merging the resolved set onto
+  // stale rows — the same auto-heal a cached read gets via ensureMaterialized. A
+  // no-op on a fresh or current-schema cache, so the normal merge path is unchanged.
+  await clearStaleCache(ctx)
   // Materialize the resolved set into the cache NOW (before this sync's own writes),
   // so the cache is materialized and the writeEntry→foldLocal hook folds every entry
   // this sync writes (a republished held bill, a spent source, a recheck result) into
@@ -565,16 +570,30 @@ export async function syncPocket(ctx: Ctx): Promise<PocketSyncReport> {
  */
 export async function refreshPocket(ctx: Ctx): Promise<number> {
   const at = await cursorAt(ctx)
-  const since = at > 0 ? Math.max(0, at - POCKET_SYNC_OVERLAP_SECONDS) : undefined
+  // Pass the RAW cursor: the adapter (sync-pocket.fetch) owns the single
+  // subtraction of the NIP-59 overlap, clamped to >= 0. Subtracting here too
+  // would net a 4-day window (over-fetch, wasted re-decrypt, negative `since`).
+  const since = at > 0 ? at : undefined
   const { rumors } = await fetchPocketRumors(ctx, since)
   const inputs: FoldInput[] = rumors.filter((r) => r.entry.recognised).map((r) => ({ entry: r.entry, rumor: r.rumor }))
   await foldDelta(ctx, inputs)
   return inputs.length
 }
 
-/** Rebuild the materialized cache from scratch (a full read), e.g. after a schema change or a corrupt cache. */
+/**
+ * A TRUE rebuild of the materialized cache from the wraps (recovery / schema
+ * change / corrupt cache): read the authoritative resolved set first (so a
+ * relay-read failure leaves the current cache intact), then CLEAR every cache
+ * row and the cursor, then re-materialize. Clearing first makes every `w`
+ * re-fold from `prev === undefined`, so the authoritative winner is written
+ * fresh — this is what heals a stale/poisoned higher-rev row that the normal
+ * rev-monotonic merge (materializeFull/foldOne) can never overwrite. readPocket
+ * reads the full event store (incl. this device's published writes), so no
+ * legitimate local write is lost.
+ */
 export async function rebuildPocketCache(ctx: Ctx): Promise<void> {
   const { entries, winners, conflicts } = await readPocket(ctx)
+  await clearPocketCache(ctx)
   await materializeFull(ctx, entries, winners, conflicts)
 }
 
