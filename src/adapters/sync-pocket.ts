@@ -120,7 +120,10 @@ export function syncPocket(o: SyncPocketOptions): Pocket {
     },
     async fetch(pubkey, since) {
       const relays = await relaysFor(pubkey)
-      return readEvents(pool, relays, { kinds: [1059], '#p': [pubkey], ...(since !== undefined && { since: since - 172800 }) }, wait).catch(() => [] as NostrEvent[])
+      // The adapter owns the single NIP-59 2-day back-dating subtraction (callers
+      // pass the raw cursor), clamped to >= 0 so a small cursor (regtest/tests)
+      // never yields a negative `since`.
+      return readEvents(pool, relays, { kinds: [1059], '#p': [pubkey], ...(since !== undefined && { since: Math.max(0, since - 172800) }) }, wait).catch(() => [] as NostrEvent[])
     },
     async remove(deletion) {
       await Promise.all(last.map((url) => pool.publish(url, deletion).catch(() => undefined)))

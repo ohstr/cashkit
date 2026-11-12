@@ -560,6 +560,8 @@ export interface Rows {
   derivedIds: DerivedIdRow
   hubs: HubRow
   pocket: PocketRow
+  pocketCache: PocketCacheRow
+  pocketCursor: PocketCursorRow
   discoverBook: DiscoverBookRow
   discoverEvents: DiscoverEventRow
   discoverOutbox: DiscoverOutboxRow
@@ -596,12 +598,55 @@ export interface PocketRow {
   readonly version: number
 }
 
+/**
+ * The decoded Cash Pocket cache (materialized NIP-CP resolution): one row per
+ * `w`, the resolved winner with its decoded fields plus the comparator the fold
+ * orders on (so a later delta can be folded in pairwise, matching
+ * `resolveEntries`). LOCAL_ONLY and rebuildable from the wraps — it is a
+ * read/latency projection, never authoritative, never synced or served. Reads
+ * (`pocket.balance`/`entries`) hit this instead of re-fetching+re-decrypting the
+ * wraps every call.
+ */
+export interface PocketCacheRow {
+  /** The entry's `w`. */
+  readonly id: string
+  readonly rev: number
+  readonly state: string
+  readonly isFinal: boolean
+  /** The winning rumor's created_at and id — the fold's tiebreak comparator. */
+  readonly createdAt: number
+  readonly rumorId: string
+  readonly amountMillis: bigint
+  readonly chain: string
+  readonly identityType?: string
+  readonly identityValue?: string
+  readonly identityIa?: string
+  readonly expiresAt?: number
+  /** True when ≥2 distinct rumors shared the winning rev (re-check with cash_status). */
+  readonly conflict: boolean
+  readonly version: number
+}
+
+/** The pocket cache's incremental-sync high-water mark (LOCAL_ONLY singleton `self`). */
+export interface PocketCursorRow {
+  readonly id: string
+  /** The newest wrap `created_at` folded into the cache. A delta sync pulls `since = at − 2 days` (NIP-59's back-dating window). */
+  readonly at: number
+  /**
+   * The cache-schema version the cache was built under (CACHE_SCHEMA_VERSION).
+   * A mismatch (or absence, for a row written before this field) marks the
+   * cache stale, forcing a one-time true rebuild. Absent until first stamped.
+   */
+  readonly schema?: number
+  readonly version: number
+}
+
 export type Collection = keyof Rows
 /** Collections rows are only ever added to. */
 export type AppendOnly = 'activity'
 export type Row<C extends Collection> = Rows[C]
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 export type NewRow<C extends AppendOnly> = DistributiveOmit<Rows[C], 'id'>
-export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox', 'pendingRecoveries']
+export const COLLECTIONS: readonly Collection[] = ['holdings', 'activity', 'handoffs', 'connections', 'identity', 'pendingJoins', 'settings', 'meta', 'pendingCalls', 'device', 'derivedIds', 'hubs', 'pocket', 'pocketCache', 'pocketCursor', 'discoverBook', 'discoverEvents', 'discoverOutbox', 'pendingRecoveries']
 /** Collections of this store only: never exported, never imported. */
-export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs', 'pocket', 'discoverBook', 'discoverEvents', 'discoverOutbox']
+export const LOCAL_ONLY: readonly Collection[] = ['device', 'derivedIds', 'hubs', 'pocket', 'pocketCache', 'pocketCursor', 'discoverBook', 'discoverEvents', 'discoverOutbox']

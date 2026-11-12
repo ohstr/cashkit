@@ -22,13 +22,14 @@ import {
   type EventTemplate,
   type NostrEvent,
 } from '../src/core/index.js'
-import { billFor, CashClient, deadlineFor, transferMany } from '../src/client/index.js'
+import { billFor, CashClient, deadlineFor, transferMany, type RelayPool } from '../src/client/index.js'
 import type { PendingCall, Wallet } from '../src/wallet/index.js'
 import { registerCallKind, pocketHooks, type CallKind } from '../src/wallet/runner.js'
 import { markSent, prepareCall } from '../src/wallet/calls.js'
 import type { Ctx } from '../src/wallet/context.js'
 import { updateHolding } from '../src/wallet/ledger.js'
 import { POCKET_FINAL_KEEP_SECONDS, writeEntry } from '../src/wallet/pocket.js'
+import { CACHE_SCHEMA_VERSION } from '../src/wallet/pocketCache.js'
 import { pocketRelaysFrom, syncPocket } from '../src/adapters/sync-pocket.js'
 import { RelayWs, type WebSocketLike } from '../src/adapters/relay-ws.js'
 import { NostrToolsPool, type SimplePoolLike } from '../src/adapters/relay-nostr-tools.js'
@@ -523,5 +524,69 @@ describe('NIP-42 AUTH in the relay adapters', () => {
     expect(typeof seen.pub).toBe('function')
     const auth = await (seen.sub as (t: EventTemplate) => Promise<NostrEvent>)({ kind: 22242, created_at: 1, tags: [['challenge', 'c']], content: '' })
     expect(auth.kind).toBe(22242)
+  })
+})
+
+describe('rebuildPocketCache is a true rebuild (FIX 6)', () => {
+  test('a stranded higher-rev live row the rev-monotonic merge cannot overwrite is cleared; the authoritative spent wins', async () => {
+    const ctx = ctxOf(h.wallet)
+    const W = '7a'.repeat(32)
+    const now = ctx.nowSeconds()
+    const identity = { type: 'pubkey' as const, value: h.me }
+    // The authoritative pocket resolves W to spent@rev3 (published to the relays).
+    await writeEntry(ctx, { w: W, state: 'spent', cash: 'x', identity, amountMillis: 5000n, chain: 'flokicoin', checkedAt: now }, { seenRev: 2 })
+    // Poison the (materialized) cache with a stale higher-rev live row for W.
+    await ctx.commit(async (t) => {
+      await t.put('pocketCache', { id: W, rev: 9, state: 'live', isFinal: false, createdAt: now, rumorId: 'poison', amountMillis: 5000n, chain: 'flokicoin', conflict: false, version: 1 })
+      await t.put('pocketCursor', { id: 'self', at: now, schema: CACHE_SCHEMA_VERSION, version: 1 })
+    })
+    // Bug shape: the spent bill reads as spendable, and a normal sync cannot heal it —
+    // materializeFull MERGES, and the stale rev 9 beats the authoritative rev 3 (foldOne
+    // keeps the higher-rev row), so the wrong balance never self-heals.
+    expect(await h.wallet.pocket.balance()).toEqual(new Map([['flokicoin', 5000n]]))
+    await h.wallet.pocket.sync()
+    expect(await h.wallet.pocket.balance()).toEqual(new Map([['flokicoin', 5000n]])) // still stranded after a full sync
+    // The true rebuild clears the cache and re-folds from the authoritative winner.
+    await h.wallet.pocket.rebuildCache()
+    const { entries } = await h.wallet.pocket.cachedEntries()
+    expect(entries.find((e) => e.w === W)?.state).toBe('spent')
+    expect(await h.wallet.pocket.balance()).toEqual(new Map())
+  })
+
+  test('does NOT wipe a populated cache when the authoritative read is empty (offline/failed read)', async () => {
+    const ctx = ctxOf(h.wallet)
+    const W = '8b'.repeat(32)
+    const now = ctx.nowSeconds()
+    // Populate the materialized cache, but leave the authoritative pocket EMPTY (no
+    // holdings, no relay wraps) — exactly what a FAILED/offline relay read produces
+    // (the adapter swallows the error and returns []). rebuildCache must preserve the
+    // offline cache it is meant to heal, not nuke it via clear + materializeFull's prune.
+    await ctx.commit(async (t) => {
+      await t.put('pocketCache', { id: W, rev: 1, state: 'live', isFinal: false, createdAt: now, rumorId: 'r', amountMillis: 3000n, chain: 'flokicoin', conflict: false, version: 1 })
+      await t.put('pocketCursor', { id: 'self', at: now, schema: CACHE_SCHEMA_VERSION, version: 1 })
+    })
+    expect(await h.wallet.pocket.balance()).toEqual(new Map([['flokicoin', 3000n]]))
+    await h.wallet.pocket.rebuildCache() // authoritative read is empty → cache must survive
+    expect(await h.wallet.pocket.balance()).toEqual(new Map([['flokicoin', 3000n]]))
+  })
+})
+
+describe('the NIP-59 overlap is subtracted once, in the adapter (FIX 7)', () => {
+  test('fetch subtracts the 2-day window from the raw cursor exactly once and clamps to >= 0', async () => {
+    const seenSince: (number | undefined)[] = []
+    const pool: RelayPool = {
+      subscribe(relays, filter, handlers) {
+        seenSince.push(filter.since)
+        for (const url of relays) queueMicrotask(() => handlers.onEose(url))
+        return () => {}
+      },
+      publish: async () => ({ ok: true }),
+    }
+    const pk = 'ab'.repeat(32)
+    const pocket = syncPocket({ pool, relays: R, readTimeoutMs: 50 })
+    await pocket.fetch(pk, 200_000) // 200000 − 172800 = 27200 (single subtraction)
+    await pocket.fetch(pk, 100) // 100 − 172800 < 0 → clamped to 0, never negative (regtest/tests)
+    await pocket.fetch(pk, undefined) // a first refresh with no cursor: no `since` at all
+    expect(seenSince).toEqual([27200, 0, undefined])
   })
 })

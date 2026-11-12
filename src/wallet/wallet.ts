@@ -30,7 +30,7 @@ import {
   type ReportPreview,
   type TapView,
 } from './discover.js'
-import { pocketBalanceOf, pocketEntries, syncPocket, type PocketSyncReport } from './pocket.js'
+import { cachedBalanceOf, cachedEntriesOf, pocketBalanceOf, pocketEntries, rebuildPocketCache, refreshPocket, syncPocket, type PocketSyncReport } from './pocket.js'
 import { approveMinter, claimZap, listZaps, republishZaps, sendZap, type ZapInput, type ZapSent, type ZapView } from './zap.js'
 import { cancelWithdrawal, listWithdrawals, settleWithdrawals, withdrawReadDue, SETTLE_WITHDRAW_GAP, quoteWithdrawal, recoverWithdrawal, requoteWithdrawal, refreshWithdrawal, sendWithdrawal, signedTx, watchWithdrawal, withdrawalReceipt, withdrawalView, withdrawTerms, type WithdrawalView, type WithdrawQuoteView, type WithdrawTermsView } from './withdraw.js'
 import { listOrders, orderView, placeOrder, quoteOrder, refreshOrder, watchOrder, type OrderQuote, type OrderView, type PlaceOrderInput } from './orders.js'
@@ -656,8 +656,22 @@ export class Wallet {
    */
   readonly pocket = {
     sync: (): Promise<PocketSyncReport> => this.ctx.spend(() => syncPocket(this.ctx)),
-    balance: (): Promise<Map<string, bigint>> => pocketBalanceOf(this.ctx),
-    entries: () => pocketEntries(this.ctx),
+    /** A background delta refresh: fold wraps newer than the cursor into the local cache (so cached reads stay fresh without a full sync). Returns how many were folded. */
+    refresh: (): Promise<number> => refreshPocket(this.ctx),
+    /** Force a TRUE rebuild of the local cache from the wraps: clears it and re-folds the authoritative resolved set. Heals a stale/corrupt cache (e.g. a stranded higher-rev row) the rev-monotonic merge can't overwrite. */
+    rebuildCache: (): Promise<void> => rebuildPocketCache(this.ctx),
+    /** Balance per chain from the local materialized cache: zero-latency, no relay query once materialized (offline-capable), kept fresh by every write + sync/refresh. Use `liveBalance` for an authoritative relay read. */
+    balance: (): Promise<Map<string, bigint>> => cachedBalanceOf(this.ctx),
+    /** Resolved entries from the local materialized cache (zero-latency, no relay once materialized). Use `liveEntries` for an authoritative relay read. */
+    entries: () => cachedEntriesOf(this.ctx).then((r) => r.entries),
+    /** Authoritative balance from a live relay read (re-fetches + re-decrypts every wrap). Prefer `balance` for reads; this is for when the latest relay state is required. */
+    liveBalance: (): Promise<Map<string, bigint>> => pocketBalanceOf(this.ctx),
+    /** Authoritative entries from a live relay read. Prefer `entries`; use this when the latest relay state is required. */
+    liveEntries: () => pocketEntries(this.ctx),
+    /** The materialized cache balance (same as `balance`; explicit name for clarity). */
+    cachedBalance: (): Promise<Map<string, bigint>> => cachedBalanceOf(this.ctx),
+    /** The materialized cache entries + the w's flagged for a cash_status re-check. */
+    cachedEntries: () => cachedEntriesOf(this.ctx),
   }
 
   /**

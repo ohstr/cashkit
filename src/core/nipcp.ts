@@ -240,7 +240,7 @@ export function parsePocketEntry(r: Pick<Rumor, 'kind' | 'tags'>): PocketEntry &
  * `conflicts` names, sorted, every `w` whose winning `rev` holds more than
  * one distinct rumor: the wallet re-checks that bill.
  */
-export function resolveEntries(rumors: readonly { readonly rumor: Pick<Rumor, 'id' | 'created_at'>; readonly entry: PocketEntry & { readonly recognised?: boolean } }[]): { entries: Map<string, PocketEntry>; conflicts: string[] } {
+export function resolveEntries(rumors: readonly { readonly rumor: Pick<Rumor, 'id' | 'created_at'>; readonly entry: PocketEntry & { readonly recognised?: boolean } }[]): { entries: Map<string, PocketEntry>; conflicts: string[]; winners: Map<string, { created_at: number; id: string }> } {
   const best = new Map<string, (typeof rumors)[number]>()
   const rivals = new Map<string, Set<string>>()
   const beats = (x: (typeof rumors)[number], y: (typeof rumors)[number]): boolean => {
@@ -262,10 +262,16 @@ export function resolveEntries(rumors: readonly { readonly rumor: Pick<Rumor, 'i
     }
   }
   const entries = new Map<string, PocketEntry>()
-  for (const [w, x] of best) entries.set(w, x.entry)
+  // winners: the winning rumor's created_at + id, so a later delta sync can fold
+  // into a materialized cache pairwise, matching this set-based resolution.
+  const winners = new Map<string, { created_at: number; id: string }>()
+  for (const [w, x] of best) {
+    entries.set(w, x.entry)
+    winners.set(w, { created_at: x.rumor.created_at, id: x.rumor.id })
+  }
   const conflicts = [...rivals].filter(([, ids]) => ids.size > 1).map(([w]) => w)
   conflicts.sort()
-  return { entries, conflicts }
+  return { entries, conflicts, winners }
 }
 
 /** The balance per chain: the sum of `amount` over `live` entries. */
