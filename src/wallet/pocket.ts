@@ -593,6 +593,14 @@ export async function refreshPocket(ctx: Ctx): Promise<number> {
  */
 export async function rebuildPocketCache(ctx: Ctx): Promise<void> {
   const { entries, winners, conflicts } = await readPocket(ctx)
+  // A relay-backed read that FAILED returns an EMPTY set (the adapter swallows
+  // errors -> []). Both clearPocketCache and materializeFull's prune would then wipe
+  // a populated OFFLINE cache that rebuildCache is meant to HEAL. So when the
+  // authoritative read is empty, do NOT rebuild over a cache that already has rows —
+  // leave it; it self-heals on the next successful non-empty sync. (A genuinely
+  // empty/fresh pocket has no rows to lose, so it still materializes an empty,
+  // current-schema cache below.)
+  if (entries.size === 0 && (await ctx.read((t) => t.list('pocketCache'))).length > 0) return
   await clearPocketCache(ctx)
   await materializeFull(ctx, entries, winners, conflicts)
 }

@@ -552,6 +552,23 @@ describe('rebuildPocketCache is a true rebuild (FIX 6)', () => {
     expect(entries.find((e) => e.w === W)?.state).toBe('spent')
     expect(await h.wallet.pocket.balance()).toEqual(new Map())
   })
+
+  test('does NOT wipe a populated cache when the authoritative read is empty (offline/failed read)', async () => {
+    const ctx = ctxOf(h.wallet)
+    const W = '8b'.repeat(32)
+    const now = ctx.nowSeconds()
+    // Populate the materialized cache, but leave the authoritative pocket EMPTY (no
+    // holdings, no relay wraps) — exactly what a FAILED/offline relay read produces
+    // (the adapter swallows the error and returns []). rebuildCache must preserve the
+    // offline cache it is meant to heal, not nuke it via clear + materializeFull's prune.
+    await ctx.commit(async (t) => {
+      await t.put('pocketCache', { id: W, rev: 1, state: 'live', isFinal: false, createdAt: now, rumorId: 'r', amountMillis: 3000n, chain: 'flokicoin', conflict: false, version: 1 })
+      await t.put('pocketCursor', { id: 'self', at: now, schema: CACHE_SCHEMA_VERSION, version: 1 })
+    })
+    expect(await h.wallet.pocket.balance()).toEqual(new Map([['flokicoin', 3000n]]))
+    await h.wallet.pocket.rebuildCache() // authoritative read is empty → cache must survive
+    expect(await h.wallet.pocket.balance()).toEqual(new Map([['flokicoin', 3000n]]))
+  })
 })
 
 describe('the NIP-59 overlap is subtracted once, in the adapter (FIX 7)', () => {
