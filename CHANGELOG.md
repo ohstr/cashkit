@@ -7,7 +7,7 @@
 - Serves wallet reads from a materialized Cash Pocket cache updated by cursor
   delta, so reads are cache-fast instead of re-deriving the pocket each time;
   the cache is the default read path and rebuilds and schema-heals itself on
-  demand.
+  demand. (#58)
 
 ## [0.2.0-rc.6]
 
