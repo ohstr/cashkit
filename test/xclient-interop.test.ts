@@ -3,7 +3,7 @@
 // same identity key — proving the two clients share one NIP-CP pocket wire format.
 // The Go side emits /tmp/ccpk-xclient/{wrap.json,expected.json}
 // (internal/pocket/xclient_interop_test.go, run with XCLIENT_OUT=/tmp/ccpk-xclient).
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, test, expect } from 'vitest'
 import {
   getPublicKey,
@@ -29,9 +29,14 @@ const signer = {
     nip44.encrypt(pt, nip44.getConversationKey(K, rcpt)),
 }
 
-describe('cross-client: cashkit reads a cashctl-sealed pocket wrap', () => {
+// The fixtures are a cross-repo fork artifact (see header), absent in a normal
+// `vitest` sweep — skip cleanly then, mirroring xclient-live.test.ts.
+const dir = process.env.XCLIENT_OUT ?? '/tmp/ccpk-xclient'
+const describeInterop =
+  existsSync(`${dir}/wrap.json`) && existsSync(`${dir}/expected.json`) ? describe : describe.skip
+
+describeInterop('cross-client: cashkit reads a cashctl-sealed pocket wrap', () => {
   test('unwrap + parse + resolve the exact 1059 cashctl produced (same key)', async () => {
-    const dir = process.env.XCLIENT_OUT ?? '/tmp/ccpk-xclient'
     const wrap = JSON.parse(readFileSync(`${dir}/wrap.json`, 'utf8')) as NostrEvent
     const expected = JSON.parse(readFileSync(`${dir}/expected.json`, 'utf8')) as {
       w: string

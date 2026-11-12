@@ -61,6 +61,11 @@ function connect(url: string): WebSocketLike {
   return new WebSocket(url) as unknown as WebSocketLike
 }
 
+// The AUTH answer is signed as the owner (same key cashctl seals to), so the
+// isolated signed-in pool can talk to the serve. Module-scoped: it captures no
+// per-test state (lint: consistent-function-scoping).
+const auth = async (t: EventTemplate): Promise<NostrEvent> => finalizeEvent(t, K)
+
 const urlFile = process.env.XSERVE_URLFILE
 const stopFile = process.env.XSERVE_STOPFILE
 
@@ -70,9 +75,7 @@ describeLive('cross-client LIVE socket: cashkit syncs off cashctl serve', () => 
     const url = await waitForUrl(urlFile!, 20_000)
 
     const pool = new RelayWs({ connect, connectTimeoutMs: 8_000, publishTimeoutMs: 8_000 })
-    // The AUTH answer is signed as the owner (same key cashctl seals to); the
-    // isolated signed-in pool is what actually talks to the serve.
-    const auth = async (t: EventTemplate): Promise<NostrEvent> => finalizeEvent(t, K)
+    // The isolated signed-in pool (auth, module scope) is what talks to the serve.
     const pocket = syncPocket({ pool, relays: [url], auth, minRelays: 1, readTimeoutMs: 6_000 })
 
     // Live read over the socket: the serve refuses kind-1059 auth-required, the
